@@ -1,0 +1,29 @@
+name: GlassStudy Filament Android
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+      - name: Generate shared GLB models
+        run: python3 glassstudy/tools/make_models.py
+      - name: Build native Android APK
+        working-directory: glassstudy
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GlassStudy-Filament-0.2.01-APK
+          path: glassstudy/app/build/outputs/apk/debug/*.apk
