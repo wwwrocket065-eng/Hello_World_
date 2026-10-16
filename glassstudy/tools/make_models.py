@@ -5,7 +5,7 @@ import math, json, struct, pathlib
 root=pathlib.Path(__file__).resolve().parents[1]/'app/src/main/assets/models'
 root.mkdir(parents=True, exist_ok=True)
 names=['faceted','tumbler','wine','mug','pitcher','bowl','vase','sphere','cube','cylinder','cone']
-def make(name,lod):
+def make(name,lod,debug=False):
     seg={'low':16,'medium':40,'high':80}[lod]
     h=2.0; rad=.72
     if name in ('mug','pitcher'):h=2.2;rad=.86
@@ -63,12 +63,21 @@ def make(name,lod):
       'scene':0,'scenes':[{'nodes':[0]}],'nodes':[{'mesh':0}],'meshes':[{'primitives':[{'attributes':{'POSITION':p,'NORMAL':n},'indices':i,'material':0}]}],
       'materials':[{'name':'Glass','doubleSided':True,'pbrMetallicRoughness':{'baseColorFactor':[.98,.99,1,1],'metallicFactor':0,'roughnessFactor':.02},'extensions':{'KHR_materials_transmission':{'transmissionFactor':1},'KHR_materials_ior':{'ior':1.52},'KHR_materials_volume':{'thicknessFactor':.035,'attenuationDistance':10,'attenuationColor':[.98,.99,1]}}}],
       'bufferViews':views,'accessors':acc,'buffers':[{'byteLength':len(buf)}]}
+    if debug:
+        js["extensionsUsed"]=[]
+        js["materials"]=[{"name":"Opaque geometry test","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.15,.64,.92,1.0],"metallicFactor":0,"roughnessFactor":.35}}]
+    else:
+        js["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"]=.90
+        js["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"]=.06
+        js["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"]=.045
     jsb=json.dumps(js,separators=(',',':')).encode()
     while len(jsb)%4:jsb+=b' '
     while len(buf)%4:buf.append(0)
     chunk=struct.pack('<I4s',len(jsb),b'JSON')+jsb+struct.pack('<I4s',len(buf),b'BIN\\0'.replace(b'\\0',b'\x00'))+buf
     glb=struct.pack('<4sII',b'glTF',2,12+len(chunk))+chunk
-    (root/f'{name}_{lod}.glb').write_bytes(glb)
+    (root/f'{name}_{lod}{"_debug" if debug else ""}.glb').write_bytes(glb)
 for name in names:
-  for q in ('low','medium','high'):make(name,q)
+  for q in ('low','medium','high'):
+    make(name,q)
+    make(name,q,True)
 print('Created',len(list(root.glob('*.glb'))),'meshes')

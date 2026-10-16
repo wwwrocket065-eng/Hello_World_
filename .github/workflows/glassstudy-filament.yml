@@ -21,6 +21,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.10.2
+      - name: Download studio IBL environment
+        run: |
+          mkdir -p glassstudy/app/src/main/assets
+          curl -fL --retry 2 --max-time 45 "https://raw.githubusercontent.com/margelo/react-native-filament/main/package/assets/RNF_default_env_ibl.ktx" -o glassstudy/app/src/main/assets/studio_ibl.ktx
+          python3 -c 'from pathlib import Path; p=Path("glassstudy/app/src/main/assets/studio_ibl.ktx"); assert p.stat().st_size>10000 and p.read_bytes().startswith(bytes.fromhex("ab4b5458203131bb0d0a1a0a")), "Invalid KTX1 IBL";print("Verified studio IBL bytes",p.stat().st_size)'
       - name: Generate shared GLB models
         run: python3 glassstudy/tools/make_models.py
       - name: Build native Android APK
