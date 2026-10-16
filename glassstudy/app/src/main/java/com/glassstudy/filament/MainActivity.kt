@@ -41,6 +41,12 @@ class MainActivity : Activity() {
   lateinit var status:TextView
   var yaw=.35;var pitch=.12;var distance=5.3; var touchX=0f;var touchY=0f;var fingers=0f
   var active=false;var prev=0L;var fps=0.0
+  var zoomDistance=4.0f
+  var pinchStartDistance=4.0f
+  var pinchStartSpan=0f
+  var pinchLastDistance=4.0f
+  var zoomValue=4.0f
+  var fingersActive=false
   lateinit var manip:Manipulator
   var iblReady=false;var iblMessage="";var geometryTest=false;var loadedFile="";
   var modelLoads=0
@@ -71,7 +77,7 @@ class MainActivity : Activity() {
       }
       root.requestApplyInsets()
     } else root.fitsSystemWindows=true
-    manip=Manipulator.Builder().targetPosition(0f,1.1f,0f).orbitHomePosition(0f,1.65f,4.0f).viewport(max(1,resources.displayMetrics.widthPixels),max(1,resources.displayMetrics.heightPixels)).build(Manipulator.Mode.ORBIT)
+    manip=Manipulator.Builder().targetPosition(0f,1.1f,0f).orbitHomePosition(0f,1.65f,4.0f).orbitSpeed(.0030f,-.0030f).zoomSpeed(1.0f).viewport(max(1,resources.displayMetrics.widthPixels),max(1,resources.displayMetrics.heightPixels)).build(Manipulator.Mode.ORBIT)
     viewer=ModelViewer(surface,manipulator=manip)
     viewer.scene.skybox=Skybox.Builder().color(.17f,.20f,.24f,1f).build(viewer.engine)
     try {
@@ -104,9 +110,9 @@ class MainActivity : Activity() {
     val diagnostic=button("Диагностика") {
       val entityCount=viewer.asset?.entities?.size ?: 0
       val renderables=viewer.scene.renderableCount
-      val report="GlassStudy Filament 0.2.02\nFilament PBR native\nModel: "+loadedFile+
+      val report="GlassStudy Filament 0.2.03\nFilament PBR native\nModel: "+loadedFile+
         "\nLoaded assets: "+modelLoads+"\nAsset entities: "+entityCount+"\nScene renderables: "+renderables+
-        "\nIBL: "+iblReady+" ("+iblMessage+")\nOpaque geometry check: "+geometryTest+
+        "\nIBL: "+iblReady+" ("+iblMessage+")\nTriangle mesh overlay: "+geometryTest+
         "\nFPS: "+String.format("%.1f",fps)+"\nGPU: "+android.os.Build.HARDWARE
       AlertDialog.Builder(this).setTitle("Диагностика").setMessage(report)
         .setNeutralButton("Копировать"){ _,_ ->
@@ -115,7 +121,7 @@ class MainActivity : Activity() {
         }.setPositiveButton("Закрыть",null).show()
     }
     footer.addView(diagnostic,LinearLayout.LayoutParams(0,dp(52),1f))
-    val checkButton=button("Тест сетки") { geometryTest=!geometryTest;loadModel() }
+    val checkButton=button("Сетка") { geometryTest=!geometryTest;loadModel() }
     footer.addView(checkButton,LinearLayout.LayoutParams(0,dp(52),1f))
     root.addView(footer,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
     val selectListener=object: AdapterView.OnItemSelectedListener {
@@ -135,7 +141,7 @@ class MainActivity : Activity() {
       if(viewer.asset==null)error("gltfio rejected $fn")
       loadedFile=fn
       modelLoads++
-      status.text="GlassStudy · Filament 0.2.02\n${names[obj.selectedItemPosition]} / ${lods[lod.selectedItemPosition]}"+(if(geometryTest)" · ТЕСТ СЕТКИ" else " · Стекло")
+      status.text="GlassStudy · Filament 0.2.03\n${names[obj.selectedItemPosition]} / ${lods[lod.selectedItemPosition]}"+(if(geometryTest)" · СЕТКА" else " · Стекло")
     } catch(e:Exception) {
       status.text="Ошибка загрузки модели: "+e.message
       AlertDialog.Builder(this).setTitle("Ошибка модели").setMessage(e.stackTraceToString().take(1500)).setPositiveButton("OK",null).show()
@@ -145,21 +151,62 @@ class MainActivity : Activity() {
     val dx=e.getX(0)-e.getX(1);val dy=e.getY(0)-e.getY(1);return sqrt(dx*dx+dy*dy)
   }
   fun onTouch(e:MotionEvent):Boolean {
+    // Native Filament camera manipulators expect one drag coordinate system.
+    // Camera orbit speed has its vertical sign corrected in the Builder.
     val x=e.getX(0).toInt()
     val y=e.getY(0).toInt()
-    when(e.actionMasked){
-      MotionEvent.ACTION_DOWN -> {touchX=e.getX(0);touchY=e.getY(0);manip.grabBegin(x,y,false)}
-      MotionEvent.ACTION_POINTER_DOWN -> {manip.grabEnd();if(e.pointerCount>=2)fingers=pinch(e)}
+    when(e.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        fingersActive=false
+        touchX=e.x;touchY=e.y
+        manip.grabBegin(x,y,false)
+      }
+      MotionEvent.ACTION_POINTER_DOWN -> {
+        manip.grabEnd()
+        if(e.pointerCount>=2) {
+          fingersActive=true
+          pinchStartSpan=pinch(e).coerceAtLeast(1f)
+          pinchStartDistance=zoomDistance
+        }
+      }
       MotionEvent.ACTION_MOVE -> {
         if(e.pointerCount>=2) {
-          val p=pinch(e)
-          if(fingers>1 && p>1)manip.scroll(x,y,((fingers-p)/max(1f,fingers)*6f))
-          fingers=p
-        } else {manip.grabUpdate(x,y)}
-        touchX=e.getX(0);touchY=e.getY(0)
+          val span=pinch(e).coerceAtLeast(1f)
+          if(!fingersActive) {
+            manip.grabEnd()
+            fingersActive=true
+            pinchStartSpan=span
+            pinchStartDistance=zoomDistance
+          }
+          // A fixed gesture start eliminates pinch asymmetry and accumulated drift.
+          val target=(pinchStartDistance*pinchStartSpan/span).coerceIn(1.6f,22f)
+          val delta=target-zoomDistance
+          // Filament scroll uses -delta * zoomSpeed along gaze; negative dolly is zoom in.
+          // For our chosen zoomSpeed=1, physical distance change is -scrollDelta.
+          if(kotlin.math.abs(delta)>0.0001f) {
+            manip.scroll(x,y,-delta)
+            zoomDistance=target
+          }
+        } else if(!fingersActive) {
+          manip.grabUpdate(x,y)
+        }
+        touchX=e.x;touchY=e.y
       }
-      MotionEvent.ACTION_POINTER_UP -> {manip.grabBegin(x,y,false);fingers=0f}
-      MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> manip.grabEnd()
+      MotionEvent.ACTION_POINTER_UP -> {
+        // Re-anchor orbit only after the last pointer becomes active.
+        if(e.pointerCount<=2){
+          fingersActive=false
+          val remain=if(e.actionIndex==0)1 else 0
+          manip.grabBegin(e.getX(remain).toInt(),e.getY(remain).toInt(),false)
+        } else {
+          pinchStartSpan=pinch(e)
+          pinchStartDistance=zoomDistance
+        }
+      }
+      MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> {
+        fingersActive=false
+        manip.grabEnd()
+      }
     }
     return true
   }

@@ -64,8 +64,44 @@ def make(name,lod,debug=False):
       'materials':[{'name':'Glass','doubleSided':True,'pbrMetallicRoughness':{'baseColorFactor':[.98,.99,1,1],'metallicFactor':0,'roughnessFactor':.02},'extensions':{'KHR_materials_transmission':{'transmissionFactor':1},'KHR_materials_ior':{'ior':1.52},'KHR_materials_volume':{'thicknessFactor':.035,'attenuationDistance':10,'attenuationColor':[.98,.99,1]}}}],
       'bufferViews':views,'accessors':acc,'buffers':[{'byteLength':len(buf)}]}
     if debug:
+        # Render a real triangle wire overlay using narrow strips in 3D.
+        # The underlying opaque primitive and the overlay share the same vertex mesh.
+        edges=set()
+        for fi in range(0,len(faces),3):
+            a,b,c=faces[fi:fi+3]
+            for a1,b1 in ((a,b),(b,c),(c,a)):
+                if a1!=b1:edges.add((min(a1,b1),max(a1,b1)))
+        line_verts=[];line_normals=[];line_faces=[]
+        thickness=.005
+        for a,b in sorted(edges):
+            pa=verts[a];pb=verts[b]
+            d=[pb[q]-pa[q] for q in range(3)]
+            length=math.sqrt(sum(t*t for t in d))
+            if length<1e-5: continue
+            t=[v/length for v in d]
+            na=normals[a];nb=normals[b]
+            n=[na[q]+nb[q] for q in range(3)]
+            ln=math.sqrt(sum(v*v for v in n))
+            if ln<.0001: continue
+            n=[v/ln for v in n]
+            side=[t[1]*n[2]-t[2]*n[1],t[2]*n[0]-t[0]*n[2],t[0]*n[1]-t[1]*n[0]]
+            ls=math.sqrt(sum(v*v for v in side))
+            if ls<.0001:continue
+            side=[v/ls for v in side]
+            base=len(line_verts)
+            for p,nn in ((pa,na),(pb,nb)):
+                for sign in (-1,1):
+                    line_verts.append(tuple(p[q]+nn[q]*.012 + side[q]*thickness*sign for q in range(3)))
+                    line_normals.append(tuple(n))
+            line_faces.extend([base,base+1,base+2,base+1,base+3,base+2])
+        if line_verts:
+            lp=write(line_verts,3,5126,34962)
+            ln=write(line_normals,3,5126,34962)
+            li=write(line_faces,1,5125,34963)
+            js["meshes"][0]["primitives"].append({"attributes":{"POSITION":lp,"NORMAL":ln},"indices":li,"material":1})
+            js["materials"].append({"name":"Dark triangle edge overlay","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.012,.028,.040,1],"metallicFactor":0,"roughnessFactor":1.0}})
         js["extensionsUsed"]=[]
-        js["materials"]=[{"name":"Opaque geometry test","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.15,.64,.92,1.0],"metallicFactor":0,"roughnessFactor":.35}}]
+        js["materials"]=[{"name":"Solid mesh beneath edges","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.25,.66,.78,1.0],"metallicFactor":0,"roughnessFactor":.7}}]
     else:
         js["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"]=.90
         js["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"]=.06
