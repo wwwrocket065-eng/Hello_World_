@@ -14,6 +14,7 @@ import android.widget.FrameLayout
 import com.google.android.filament.Camera
 import com.google.android.filament.Skybox
 import com.google.android.filament.utils.KTX1Loader
+import com.google.android.filament.utils.Manipulator
 import android.view.WindowInsets
 import android.view.View
 import android.widget.AdapterView
@@ -40,6 +41,7 @@ class MainActivity : Activity() {
   lateinit var status:TextView
   var yaw=.35;var pitch=.12;var distance=5.3; var touchX=0f;var touchY=0f;var fingers=0f
   var active=false;var prev=0L;var fps=0.0
+  lateinit var manip:Manipulator
   var iblReady=false;var iblMessage="";var geometryTest=false;var loadedFile="";
   var modelLoads=0
   val frame=object:Choreographer.FrameCallback {
@@ -48,9 +50,6 @@ class MainActivity : Activity() {
       Choreographer.getInstance().postFrameCallback(this)
       if(prev>0 && t>prev){val x=1e9/(t-prev).toDouble();fps=if(fps==0.0)x else fps*.9+x*.1}
       prev=t
-      val x=distance*cos(pitch)*sin(yaw);val z=distance*cos(pitch)*cos(yaw);val y=1.15+distance*sin(pitch)
-      viewer.camera.lookAt(x,y,z,0.0,1.15,0.0,0.0,1.0,0.0)
-      viewer.camera.setProjection(45.0,surface.width.toDouble()/max(1,surface.height),.05,200.0,Camera.Fov.VERTICAL)
       viewer.render(t)
     }
   }
@@ -72,14 +71,15 @@ class MainActivity : Activity() {
       }
       root.requestApplyInsets()
     } else root.fitsSystemWindows=true
-    viewer=ModelViewer(surface,manipulator=null)
+    manip=Manipulator.Builder().targetPosition(0f,1.1f,0f).orbitHomePosition(0f,1.65f,4.0f).viewport(max(1,resources.displayMetrics.widthPixels),max(1,resources.displayMetrics.heightPixels)).build(Manipulator.Mode.ORBIT)
+    viewer=ModelViewer(surface,manipulator=manip)
     viewer.scene.skybox=Skybox.Builder().color(.17f,.20f,.24f,1f).build(viewer.engine)
     try {
       val bytes=assets.open("studio_ibl.ktx").use{it.readBytes()}
-      val bundle=KTX1Loader.createIndirectLight(viewer.engine,ByteBuffer.wrap(bytes))
-      viewer.scene.indirectLight=bundle.indirectLight
-      viewer.indirectLightCubemap=bundle.cubemap
-      viewer.scene.indirectLight!!.intensity=30_000.0f
+      val buffer=ByteBuffer.allocateDirect(bytes.size).apply{put(bytes);flip()}
+      val light=KTX1Loader.createIndirectLight(viewer.engine,buffer)
+      viewer.scene.indirectLight=light
+      light.intensity=30_000.0f
       iblReady=true;iblMessage="IBL loaded ("+bytes.size+" bytes)"
     } catch(e:Exception){iblMessage=e.javaClass.simpleName+": "+e.message}
     viewer.camera.setExposure(16f,1f/125f,100f)
@@ -145,20 +145,21 @@ class MainActivity : Activity() {
     val dx=e.getX(0)-e.getX(1);val dy=e.getY(0)-e.getY(1);return sqrt(dx*dx+dy*dy)
   }
   fun onTouch(e:MotionEvent):Boolean {
+    val x=e.getX(0).toInt()
+    val y=e.getY(0).toInt()
     when(e.actionMasked){
-      MotionEvent.ACTION_DOWN,MotionEvent.ACTION_POINTER_DOWN -> {
-        touchX=e.getX(0);touchY=e.getY(0);fingers=if(e.pointerCount>=2)pinch(e) else 0f
-      }
+      MotionEvent.ACTION_DOWN -> {touchX=e.getX(0);touchY=e.getY(0);manip.grabBegin(x,y,false)}
+      MotionEvent.ACTION_POINTER_DOWN -> {manip.grabEnd();if(e.pointerCount>=2)fingers=pinch(e)}
       MotionEvent.ACTION_MOVE -> {
         if(e.pointerCount>=2) {
-          val p=pinch(e);if(p>1 && fingers>1)distance=(distance*fingers/p).coerceIn(2.0,35.0)
+          val p=pinch(e)
+          if(fingers>1 && p>1)manip.scroll(x,y,((fingers-p)/max(1f,fingers)*6f))
           fingers=p
-        } else {
-          yaw-=(e.x-touchX)/max(1,surface.width)*6
-          pitch=(pitch-(e.y-touchY)/max(1,surface.height)*4).coerceIn(-1.25,1.25)
-        }
+        } else {manip.grabUpdate(x,y)}
         touchX=e.getX(0);touchY=e.getY(0)
       }
+      MotionEvent.ACTION_POINTER_UP -> {manip.grabBegin(x,y,false);fingers=0f}
+      MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> manip.grabEnd()
     }
     return true
   }
