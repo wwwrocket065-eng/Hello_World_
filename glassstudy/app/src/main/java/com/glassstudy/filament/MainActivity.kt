@@ -115,5 +115,5 @@ class MainActivity : Activity() {
   }
   override fun onResume(){super.onResume();if(::viewer.isInitialized){active=true;Choreographer.getInstance().postFrameCallback(frame)}}
   override fun onPause(){active=false;Choreographer.getInstance().removeFrameCallback(frame);super.onPause()}
-  override fun onDestroy(){active=false;Choreographer.getInstance().removeFrameCallback(frame);if(::viewer.isInitialized)viewer.destroy();super.onDestroy()}
+  override fun onDestroy(){active=false;Choreographer.getInstance().removeFrameCallback(frame);super.onDestroy()}
 }
