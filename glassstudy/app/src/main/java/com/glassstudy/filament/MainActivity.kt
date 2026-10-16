@@ -1,6 +1,10 @@
 package com.glassstudy.filament
 
 import android.app.Activity
+import android.content.Intent
+import android.provider.Settings
+import android.net.Uri
+import android.os.Environment
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.Choreographer
@@ -50,6 +54,8 @@ class MainActivity : Activity() {
   lateinit var manip:Manipulator
   var iblReady=false;var iblMessage="";var geometryTest=false;var loadedFile="";
   var modelLoads=0
+  lateinit var patches:PatchManager
+  private val PICK_PATCH=1209
   val frame=object:Choreographer.FrameCallback {
     override fun doFrame(t:Long) {
       if(!active)return
@@ -78,10 +84,11 @@ class MainActivity : Activity() {
       root.requestApplyInsets()
     } else root.fitsSystemWindows=true
     manip=Manipulator.Builder().targetPosition(0f,1.1f,0f).orbitHomePosition(0f,1.65f,4.0f).orbitSpeed(.0030f,-.0030f).zoomSpeed(1.0f).viewport(max(1,resources.displayMetrics.widthPixels),max(1,resources.displayMetrics.heightPixels)).build(Manipulator.Mode.ORBIT)
+    patches=PatchManager(this)
     viewer=ModelViewer(surface,manipulator=manip)
     viewer.scene.skybox=Skybox.Builder().color(.17f,.20f,.24f,1f).build(viewer.engine)
     try {
-      val bytes=assets.open("studio_ibl.ktx").use{it.readBytes()}
+      val bytes=patches.asset("studio_ibl.ktx") ?: assets.open("studio_ibl.ktx").use{it.readBytes()}
       val buffer=ByteBuffer.allocateDirect(bytes.size).apply{put(bytes);flip()}
       val light=KTX1Loader.createIndirectLight(viewer.engine,buffer)
       viewer.scene.indirectLight=light
@@ -105,12 +112,13 @@ class MainActivity : Activity() {
     controls.addView(lod,LinearLayout.LayoutParams(0,dp(50),1f))
     panel.addView(controls)
     panel.addView(button("Показать объект"){loadModel()})
+    panel.addView(button("Обновления .pupdate") { showPatchDialog() })
     root.addView(panel,FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
     val footer=LinearLayout(this).apply { setBackgroundColor(Color.rgb(28,48,60)) }
     val diagnostic=button("Диагностика") {
       val entityCount=viewer.asset?.entities?.size ?: 0
       val renderables=viewer.scene.renderableCount
-      val report="GlassStudy Filament 0.2.03\nFilament PBR native\nModel: "+loadedFile+
+      val report="GlassStudy Filament 0.2.04\nПатчи: "+patches.report+"\nАктивная версия: "+patches.version+"\nGlassStudy Filament 0.2.03\nFilament PBR native\nModel: "+loadedFile+
         "\nLoaded assets: "+modelLoads+"\nAsset entities: "+entityCount+"\nScene renderables: "+renderables+
         "\nIBL: "+iblReady+" ("+iblMessage+")\nTriangle mesh overlay: "+geometryTest+
         "\nFPS: "+String.format("%.1f",fps)+"\nGPU: "+android.os.Build.HARDWARE
@@ -131,18 +139,65 @@ class MainActivity : Activity() {
     obj.onItemSelectedListener=selectListener
     lod.onItemSelectedListener=selectListener
     loadModel()
+    if(patches.hasDownloadsPermission()) {
+      val previous=patches.version
+      patches.scanDownloads()
+      if(patches.version!=previous)loadModel()
+    }
+  }
+  fun showPatchDialog() {
+    val opts=arrayOf("Проверить Загрузки","Выбрать .pupdate","Разрешить доступ к Загрузкам","Отменить последний патч")
+    AlertDialog.Builder(this).setTitle("Обновления GlassStudy").setItems(opts){ _,which ->
+      try {
+        when(which){
+          0 -> {
+            val old=patches.version
+            val msg=patches.scanDownloads()
+            if(patches.version!=old)loadModel()
+            AlertDialog.Builder(this).setMessage(msg).setPositiveButton("OK",null).show()
+          }
+          1 -> {
+            val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+              addCategory(Intent.CATEGORY_OPENABLE);type="*/*"
+            }
+            startActivityForResult(intent,PICK_PATCH)
+          }
+          2 -> if(Build.VERSION.SDK_INT>=30) {
+            startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+              Uri.parse("package:"+packageName)))
+          }
+          3 -> { patches.revert("отменено пользователем");loadModel() }
+        }
+      }catch(e:Exception){
+        AlertDialog.Builder(this).setTitle("Ошибка патча").setMessage(e.message).setPositiveButton("OK",null).show()
+      }
+    }.show()
+  }
+  override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
+    super.onActivityResult(requestCode,resultCode,data)
+    if(requestCode==PICK_PATCH && resultCode==Activity.RESULT_OK && data?.data!=null) {
+      try {
+        val msg=patches.installFromUri(data.data!!)
+        loadModel()
+        AlertDialog.Builder(this).setMessage(msg).setPositiveButton("OK",null).show()
+      }catch(e:Exception){
+        AlertDialog.Builder(this).setTitle("Патч отклонён").setMessage(e.message).setPositiveButton("OK",null).show()
+      }
+    }
   }
   fun loadModel(){
     try {
       val fn="models/${ids[obj.selectedItemPosition]}_${lods[lod.selectedItemPosition]}"+(if(geometryTest)"_debug" else "")+".glb"
-      val a=assets.open(fn).use{it.readBytes()}
+      val a=patches.asset(fn) ?: assets.open(fn).use{it.readBytes()}
       val b=ByteBuffer.allocateDirect(a.size).apply{put(a);flip()}
       viewer.loadModelGlb(b)
       if(viewer.asset==null)error("gltfio rejected $fn")
       loadedFile=fn
       modelLoads++
+      patches.confirmModelLoaded()
       status.text="GlassStudy · Filament 0.2.03\n${names[obj.selectedItemPosition]} / ${lods[lod.selectedItemPosition]}"+(if(geometryTest)" · СЕТКА" else " · Стекло")
     } catch(e:Exception) {
+      if (patches.version > 0L) { patches.revert(e.message ?: "GLB ошибка"); loadModel(); return }
       status.text="Ошибка загрузки модели: "+e.message
       AlertDialog.Builder(this).setTitle("Ошибка модели").setMessage(e.stackTraceToString().take(1500)).setPositiveButton("OK",null).show()
     }
