@@ -43,7 +43,7 @@ def make(name,lod):
         n=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
         for ix in faces[i:i+3]:
             for q in range(3):normals[ix][q]+=n[q]
-    normals=[tuple(v/max(1.e-12,math.sqrt(sum(x*x for x in v))) for v in n) for n in normals]
+    normals=[tuple(v/max(1.e-12,math.sqrt(sum(x*x for x in n))) for v in n) for n in normals]
     buf=bytearray();views=[];acc=[]
     def write(vals,comps,kind,target):
         while len(buf)%4:buf.append(0)
