@@ -26,7 +26,7 @@ jobs:
                   return b
           feed=json.loads(get('latest.json'))
           print('FEED',feed,flush=True)
-          assert feed['patchVersion']==20017, 'CDN is still serving an old update feed'
+          assert feed['patchVersion']>=20017 and feed['patchName']==f"GlassStudy_Filament_{feed['patchVersion']}.pupdate", 'Invalid update feed'
           patch=get(feed['patchName'])
           actual=hashlib.sha256(patch).hexdigest()
           print('FILE_SHA256',actual,'MATCHES_FEED',actual==feed['patchSha256'],flush=True)
