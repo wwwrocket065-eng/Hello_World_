@@ -44,5 +44,5 @@ jobs:
         run: gradle --no-daemon :app:assembleCiUnsigned --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: GlassStudy-v0.2.13-CI-unsigned-SIGN-BEFORE-INSTALL
+          name: GlassStudy-v0.2.14-CI-unsigned-SIGN-BEFORE-INSTALL
           path: glassstudy/app/build/outputs/apk/ciUnsigned/*.apk

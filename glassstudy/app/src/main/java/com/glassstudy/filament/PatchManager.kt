@@ -1,6 +1,7 @@
 package com.glassstudy.filament
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
@@ -43,6 +44,38 @@ class PatchManager(private val context: Context) {
     private val patchRoot = File(context.filesDir, "signed_patches")
     private val executor = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
+    @Volatile var updateStatus: String = "Проверка ещё не выполнялась"
+        private set
+
+    /** Read local content:// uploads with an upper bound before decoding JSON. */
+    fun installFromUri(
+        uri: Uri,
+        onCandidate: (Candidate) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        executor.execute {
+            try {
+                val data=context.contentResolver.openInputStream(uri)?.use { input ->
+                    val output=java.io.ByteArrayOutputStream()
+                    val buffer=ByteArray(16384)
+                    while (true) {
+                        val read=input.read(buffer)
+                        if (read < 0) break
+                        require(output.size()+read <= MAX_PATCH_BYTES) { "Размер .pupdate превышает лимит" }
+                        output.write(buffer,0,read)
+                    }
+                    output.toByteArray()
+                } ?: error("Файл недоступен для чтения")
+                val candidate=stage(data)
+                updateStatus="Локальный патч ${candidate.version}: подпись проверена"
+                main.post { onCandidate(candidate) }
+            } catch (e: Exception) {
+                updateStatus="Ошибка установки файла: ${e.message}"
+                Log.w(TAG,"Signed local patch rejected",e)
+                main.post { onError(e.message ?: "Файл или подпись не прошли проверку") }
+            }
+        }
+    }
 
     fun installedPatchVersion(): Int {
         val v = prefs.getInt("active", BASE_VERSION)
@@ -105,6 +138,7 @@ class PatchManager(private val context: Context) {
                 val feed = Feed(j.optInt("patchVersion", 0),
                     j.optString("patchName").takeIf { it.isNotBlank() },
                     j.optString("patchSha256").takeIf { it.isNotBlank() })
+                updateStatus="Сервер: патч ${feed.patchVersion}, установлен ${installedPatchVersion()}"
                 // Never accept an arbitrary URL from the feed: only validated file names on this host.
                 if (feed.patchVersion > installedPatchVersion() && feed.patchName == "GlassStudy_Filament_${feed.patchVersion}.pupdate") {
                     try {
@@ -113,11 +147,16 @@ class PatchManager(private val context: Context) {
                         require(sha(patch) == feed.patchSha256) { "Patch download SHA mismatch" }
                         val candidate = stage(patch)
                         require(candidate.version == feed.patchVersion)
+                        updateStatus="Проверен патч ${candidate.version}, ожидает применения"
                         main.post { onCandidate(candidate) }
-                    } catch (e:Exception) { Log.w(TAG,"Rejected model patch, keeping existing assets",e) }
+                    } catch (e:Exception) {
+                        updateStatus="Ошибка патча ${feed.patchVersion}: ${e.message}"
+                        Log.w(TAG,"Rejected model patch, keeping existing assets",e)
+                    }
                 }
             } catch (e: Exception) {
                 // Fail closed: do not replace a working model or interrupt app startup.
+                updateStatus="Ошибка проверки обновлений: ${e.message}"
                 Log.w(TAG,"Background update check failed; keeping installed assets",e)
             }
         }

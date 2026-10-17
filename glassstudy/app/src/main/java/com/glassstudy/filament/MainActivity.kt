@@ -3,6 +3,7 @@ package com.glassstudy.filament
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.graphics.Color
 import android.os.Bundle
@@ -84,6 +85,7 @@ class MainActivity : Activity() {
     private var avgFps = 0.0
     private var running = false
     private var stableFrames = 0
+    private var localPatchBusy = false
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
@@ -192,25 +194,83 @@ class MainActivity : Activity() {
         chooseLod.setSelection(1)
         applyUiLayout()
         loadSelected()
-        // Automatic, non-blocking update check. No update button or manual install.
-        updater.checkOnStart(onCandidate = { candidate ->
-            if (isFinishing || isDestroyed) updater.reject(candidate)
-            else if (loadSelected(candidate) && applyUiLayout(candidate)) {
-                if (updater.activate(candidate)) {
-                    stableFrames = 0
-                    status()
-                    Toast.makeText(this, "Модели обновлены", Toast.LENGTH_SHORT).show()
-                } else {
-                    updater.reject(candidate)
-                    applyUiLayout()
-                    loadSelected()
-                }
-            } else {
-                updater.reject(candidate)
-                applyUiLayout()
-                loadSelected()
+        // A user-selected file in Downloads takes priority over the background check.
+        if (!handleIncomingPatchIntent(intent)) {
+            updater.checkOnStart(onCandidate = { candidate ->
+                applyVerifiedPatch(candidate, false)
+            })
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingPatchIntent(intent)
+    }
+
+    /** Accept files opened from Downloads or shared explicitly to GlassStudy.
+     * Input is untrusted until PatchManager verifies RSA signature and SHA-256.
+     */
+    private fun handleIncomingPatchIntent(incoming: Intent?): Boolean {
+        val uri: Uri? = when (incoming?.action) {
+            Intent.ACTION_VIEW -> incoming.data
+            Intent.ACTION_SEND -> {
+                @Suppress("DEPRECATION")
+                incoming.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
             }
-        })
+            else -> null
+        }
+        if (uri == null) return false
+        if (localPatchBusy) return true
+        if (uri.scheme != "content" && uri.scheme != "file") {
+            android.util.Log.w("GlassStudy", "Unsupported import URI")
+            return true
+        }
+        localPatchBusy = true
+        updater.installFromUri(uri,
+            onCandidate = { candidate ->
+                localPatchBusy = false
+                applyVerifiedPatch(candidate, true)
+            },
+            onError = { reason ->
+                localPatchBusy = false
+                if (!isFinishing && !isDestroyed) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Патч не установлен")
+                        .setMessage(reason)
+                        .setPositiveButton("Закрыть", null).show()
+                }
+            }
+        )
+        return true
+    }
+
+    /** The same validated staging path is used for local and online updates. */
+    private fun applyVerifiedPatch(candidate: PatchManager.Candidate, fromDownloads: Boolean) {
+        if (isFinishing || isDestroyed) {
+            updater.reject(candidate)
+            return
+        }
+        if (loadSelected(candidate) && applyUiLayout(candidate) && updater.activate(candidate)) {
+            stableFrames = 0
+            status()
+            val message="Патч ${candidate.version} установлен"
+            if (fromDownloads) {
+                AlertDialog.Builder(this).setTitle("GlassStudy")
+                    .setMessage(message).setPositiveButton("OK",null).show()
+            } else {
+                Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            updater.reject(candidate)
+            applyUiLayout()
+            loadSelected()
+            if (fromDownloads) {
+                AlertDialog.Builder(this).setTitle("Патч отклонён")
+                    .setMessage("Модель или настройки не прошли проверку. Рабочая версия сохранена.")
+                    .setPositiveButton("OK",null).show()
+            }
+        }
     }
 
     /** Called only with trusted bundled UI or a fully authenticated .pupdate candidate. */
@@ -338,7 +398,7 @@ class MainActivity : Activity() {
         }
     }
     private fun showDiagnostic() {
-        val support = "GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nInstalled asset patch: ${updater.installedPatchVersion()}\n" +
+        val support = "GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nInstalled asset patch: ${updater.installedPatchVersion()}\nUpdate check: ${updater.updateStatus}\n" +
             "Renderer: official Google Filament / gltfio\n" +
             "Geometry: same GLB used by preview and export\n" +
             "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n" +

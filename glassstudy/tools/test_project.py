@@ -10,11 +10,18 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.13' in props and 'GLASSSTUDY_VERSION_CODE=20013' in props
+assert 'GLASSSTUDY_VERSION=0.2.14' in props and 'GLASSSTUDY_VERSION_CODE=20014' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
+assert 'handleIncomingPatchIntent(intent)' in activity
+assert 'override fun onNewIntent' in activity
+assert 'updater.installFromUri' in activity
+assert 'onCandidate(candidate)' in updater and 'fun installFromUri(' in updater
+assert 'android.intent.action.VIEW' in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'android.intent.action.SEND' in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'REQUEST_INSTALL_PACKAGES' not in (root/'app/src/main/AndroidManifest.xml').read_text()
 assert 'root.setOnApplyWindowInsetsListener' in activity
 assert 'applyUiLayout(candidate)' in activity
 assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
