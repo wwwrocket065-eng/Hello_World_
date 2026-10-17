@@ -63,8 +63,8 @@ def make(name,lod,debug=False):
       'scene':0,'scenes':[{'nodes':[0]}],'nodes':[{'mesh':0}],'meshes':[{'primitives':[{'attributes':{'POSITION':p,'NORMAL':n},'indices':i,'material':0}]}],
       'materials':[{'name':'Glass','doubleSided':True,'pbrMetallicRoughness':{'baseColorFactor':[.98,.99,1,1],'metallicFactor':0,'roughnessFactor':.02},'extensions':{'KHR_materials_transmission':{'transmissionFactor':1},'KHR_materials_ior':{'ior':1.52},'KHR_materials_volume':{'thicknessFactor':.035,'attenuationDistance':10,'attenuationColor':[.98,.99,1]}}}],
       'bufferViews':views,'accessors':acc,'buffers':[{'byteLength':len(buf)}]}
-    if debug:
-        # Render a real triangle wire overlay using narrow strips in 3D.
+    if True:
+        # Debug: full triangle mesh; regular glass: only slim rim/foot outlines.
         # The underlying opaque primitive and the overlay share the same vertex mesh.
         edges=set()
         for fi in range(0,len(faces),3):
@@ -75,6 +75,8 @@ def make(name,lod,debug=False):
         thickness=.005
         for a,b in sorted(edges):
             pa=verts[a];pb=verts[b]
+            if not debug and (abs(pa[1]-pb[1])>.0005 or not (pa[1]<.26 or pa[1]>h-.1)):
+                continue
             d=[pb[q]-pa[q] for q in range(3)]
             length=math.sqrt(sum(t*t for t in d))
             if length<1e-5: continue
@@ -99,13 +101,16 @@ def make(name,lod,debug=False):
             ln=write(line_normals,3,5126,34962)
             li=write(line_faces,1,5125,34963)
             js["meshes"][0]["primitives"].append({"attributes":{"POSITION":lp,"NORMAL":ln},"indices":li,"material":1})
-            js["materials"].append({"name":"Dark triangle edge overlay","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.012,.028,.040,1],"metallicFactor":0,"roughnessFactor":1.0}})
-        js["extensionsUsed"]=[]
-        js["materials"]=[{"name":"Solid mesh beneath edges","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.25,.66,.78,1.0],"metallicFactor":0,"roughnessFactor":.7}}]
-    else:
-        js["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"]=.90
+            edge_color=[.012,.028,.040,1] if debug else [.12,.24,.33,.9]
+            js["materials"].append({"name":"Wireframe mesh edges" if debug else "Visible glass rims","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":edge_color,"metallicFactor":.16,"roughnessFactor":.4}})
+        if debug:
+            js["extensionsUsed"]=[]
+            js["materials"][0]={"name":"Solid mesh beneath edges","doubleSided":True,"pbrMetallicRoughness":{"baseColorFactor":[.25,.66,.78,1.0],"metallicFactor":0,"roughnessFactor":.7}}
+    if not debug:
+        js["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"]=.68
         js["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"]=.06
-        js["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"]=.045
+        js["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"]=.075
+    js['buffers'][0]['byteLength']=len(buf)
     jsb=json.dumps(js,separators=(',',':')).encode()
     while len(jsb)%4:jsb+=b' '
     while len(buf)%4:buf.append(0)

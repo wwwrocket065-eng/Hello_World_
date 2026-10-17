@@ -10,11 +10,13 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.11' in props and 'GLASSSTUDY_VERSION_CODE=20011' in props
+assert 'GLASSSTUDY_VERSION=0.2.12' in props and 'GLASSSTUDY_VERSION_CODE=20012' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
+assert 'root.setOnApplyWindowInsetsListener' in activity
+assert 'private var distance = 7.4' in activity
 assert 'else distance = (distance * (delta / oldPinch))' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
@@ -33,6 +35,12 @@ for f in models:
     b=f.read_bytes()
     assert b[:4]==b'glTF', f
     assert struct.unpack_from('<I',b,8)[0]==len(b),f
+    json_len=struct.unpack_from('<I',b,12)[0]
+    mesh=json.loads(b[20:20+json_len])
+    bin_len=struct.unpack_from('<I',b,20+json_len)[0]
+    assert mesh['buffers'][0]['byteLength']==bin_len,f
+    assert all(0<=prim.get('material',0)<len(mesh['materials'])
+               for group in mesh['meshes'] for prim in group['primitives']),f
 assert (root/'app/src/main/assets/envs/studio_ibl.ktx').stat().st_size>2_000_000
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))

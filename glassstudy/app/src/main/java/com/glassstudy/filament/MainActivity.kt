@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.view.Choreographer
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.WindowInsets
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
@@ -62,7 +63,7 @@ class MainActivity : Activity() {
     private var lightMode = false
     private var yaw = .38
     private var pitch = .22
-    private var distance = 4.4
+    private var distance = 7.4
     private var lightAz = 1.3
     private var lightElevation = .9
     private var brightness = 1.0
@@ -108,6 +109,17 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         root.addView(surface, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
+        // Android 15+ edge-to-edge: keep controls out of the status and navigation bars.
+        if (Build.VERSION.SDK_INT >= 30) {
+            root.setOnApplyWindowInsetsListener { view, insets ->
+                val bars = insets.getInsets(WindowInsets.Type.systemBars())
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                insets
+            }
+            root.requestApplyInsets()
+        } else {
+            root.fitsSystemWindows = true
+        }
 
         viewer = ModelViewer(surface, manipulator = null)
         viewer.scene.skybox = Skybox.Builder().color(.43f, .43f, .43f, 1f).build(viewer.engine)
@@ -234,7 +246,7 @@ class MainActivity : Activity() {
                 val delta = pinch(e)
                 if (oldPinch > 0f && delta > 1f) {
                     if (lightMode) brightness = (brightness * (delta / oldPinch).toDouble().pow(.7)).coerceIn(.05, 3.0)
-                    else distance = (distance * (delta / oldPinch)).coerceIn(2.3, 60.0)
+                    else distance = (distance * (delta / oldPinch).toDouble().pow(.50)).coerceIn(2.8, 60.0)
                 }
                 oldPinch = delta
             } else {
@@ -322,7 +334,7 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
-        if (::viewer.isInitialized) {
+        if (::viewer.isInitialized && !running) {
             running = true
             Choreographer.getInstance().postFrameCallback(frameCallback)
         }
