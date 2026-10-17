@@ -34,7 +34,8 @@ def make(name,lod,debug=False):
     for j in range(len(profile)-1):
         for k in range(seg):
             a=j*seg+k;b=j*seg+(k+1)%seg;c=(j+1)*seg+k;d=(j+1)*seg+(k+1)%seg
-            faces.extend([a,b,c,b,d,c])
+            # Viewed from outside: ccw faces and exterior-facing normals.
+            faces.extend([a,c,b,b,c,d])
     # Calculate smooth normals from all triangle faces.
     normals=[[0.,0.,0.] for _ in verts]
     for i in range(0,len(faces),3):
