@@ -1,0 +1,29 @@
+{
+  "format": "glassstudy-ui-v1",
+  "schema": 1,
+  "topColor": "#20313D",
+  "bottomColor": "#20313D",
+  "buttonColor": "#203E4F",
+  "buttonTextColor": "#FFFFFF",
+  "textColor": "#FFFFFF",
+  "textSizeSp": 13,
+  "paddingDp": 8,
+  "actionHeightDp": 48,
+  "gridHeightDp": 42,
+  "topOrder": [
+    "status",
+    "selectors",
+    "actions",
+    "grid"
+  ],
+  "bottomOrder": [
+    "export",
+    "diagnostics"
+  ],
+  "applyText": "Применить",
+  "cameraText": "Свет / Камера",
+  "gridText": "Сетка: включить / выключить",
+  "exportText": "Экспорт сцены",
+  "diagnosticText": "Диагностика",
+  "zoomPower": 0.5
+}

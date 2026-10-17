@@ -30,6 +30,7 @@ class PatchManager(private val context: Context) {
         private const val MAX_PATCH_BYTES = 50 * 1024 * 1024
         private const val MAX_ENTRY_BYTES = 16 * 1024 * 1024
         private const val MAX_ENTRIES = 120
+        private const val UI_PATH = "ui/layout.json"
         private val MODEL_PATH = Regex("models/(faceted|tumbler|wine|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high)(_debug)?\\.glb")
         // Public key of the existing GlassStudy .pupdate signing identity. NOT a secret.
         private const val PUBLIC_KEY_BASE64 = "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAyhk7Bexza7Ql/DBqcSPdWpl2JPWY3VvbaL5occPApXWIVeOLISsLPCckXgHGQ2mdwX6d6jwAuistLXRuwL9utYlBEENIwtH2FJoGohbQ7TqvPiM/KrFCR5TYw3s6z0xb/cjhXiBDxoLEb1c8bo6n36AM77bVOMd2sITODui/Dhx3lhjbCyJ/rc1FYHhkRNSw3aqYjxHVUtecAjNC2SLS95fRlRpb4tw709q1jmManXJunKJio2Rnay2O8LCOzJmQVHnWBaf+TSEh8dTijU5KpkRot5FUV4KXmCvJbeReS6nIblMFjpW4SlfBhoWW28Oh/k8UMCd+qE+Sg2T49CPm3vfyWl2idwe2NZ0/MAaEXiZxj3QIu/Xk9YQTheQtbJQq1aiGuOs/NPDAujkdqxRAMZtYH686JXw1bfIzrxYaa0wQ6ySIqGBj7E3zq4YzoVZW+1nDfzJEve40wq0CAx9nc2pBNXzkTkobBCuFIUlZ1X9T6nZ0Yti34IR58ovRe+rzAgMBAAE="
@@ -52,6 +53,13 @@ class PatchManager(private val context: Context) {
         require(MODEL_PATH.matches(path)) { "Invalid model name" }
         val installed = File(patchRoot, "v${installedPatchVersion()}/$path")
         return if (installed.isFile) installed.readBytes() else context.assets.open(path).use { it.readBytes() }
+    }
+
+    fun readUiConfig(candidate: Candidate? = null): ByteArray {
+        val file=if(candidate != null) File(candidate.staging,UI_PATH) else File(patchRoot,"v${installedPatchVersion()}/$UI_PATH")
+        return if(file.isFile) file.readBytes()
+            else if(candidate != null) readUiConfig()
+            else context.assets.open(UI_PATH).use { it.readBytes() }
     }
 
     fun readModel(path: String, candidate: Candidate): ByteArray {
@@ -127,7 +135,7 @@ class PatchManager(private val context: Context) {
             val v = entries.getJSONObject(i)
             val path=v.getString("path")
             val hash=v.getString("sha256")
-            require(MODEL_PATH.matches(path)) { "Not a model path: $path" }
+            require(MODEL_PATH.matches(path) || path==UI_PATH) { "Not a supported patch path: $path" }
             require(hash.matches(Regex("[a-f0-9]{64}")))
             records.add(Triple(path,hash,v.getString("data")))
         }
@@ -153,6 +161,7 @@ class PatchManager(private val context: Context) {
                 total += raw.size
                 require(total <= MAX_PATCH_BYTES)
                 require(sha(raw)==hash) { "Invalid SHA256: $path" }
+                if(path==UI_PATH) UiLayout.parse(raw) // Reject malformed or non-declarative UI before activation.
                 val f=File(staging,path)
                 require(f.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
                 FileOutputStream(f).use { it.write(raw);it.fd.sync() }

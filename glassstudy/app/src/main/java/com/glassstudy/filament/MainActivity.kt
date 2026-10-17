@@ -56,6 +56,16 @@ class MainActivity : Activity() {
     private lateinit var updater: PatchManager
     private var wireframe = false
     private lateinit var label: TextView
+    private lateinit var topPanel: LinearLayout
+    private lateinit var bottomPanel: LinearLayout
+    private lateinit var selectorRow: LinearLayout
+    private lateinit var actionsRow: LinearLayout
+    private lateinit var applyButton: Button
+    private lateinit var cameraButton: Button
+    private lateinit var gridButton: Button
+    private lateinit var exportButton: Button
+    private lateinit var diagnosticButton: Button
+    private var zoomPower = .50
     private lateinit var chooseObject: Spinner
     private lateinit var chooseLod: Spinner
     private var currentId = "tumbler"
@@ -140,59 +150,110 @@ class MainActivity : Activity() {
         // Scene and view resize are owned by ModelViewer, gestures by this Activity.
         surface.setOnTouchListener { _, ev -> touch(ev) }
 
-        val top = LinearLayout(this).apply {
+        topPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.argb(185, 32, 49, 61))
             setPadding(d(8f), d(7f), d(8f), d(7f))
         }
         label = TextView(this).apply { textSize = 13f; setTextColor(Color.WHITE) }
-        top.addView(label)
-        val control = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        topPanel.addView(label)
+        selectorRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         chooseObject = Spinner(this)
         chooseObject.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, names)
-        control.addView(chooseObject, LinearLayout.LayoutParams(0, d(49f), 2.4f))
+        selectorRow.addView(chooseObject, LinearLayout.LayoutParams(0, d(49f), 2.4f))
         chooseLod = Spinner(this)
         chooseLod.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("Low", "Medium", "High"))
-        control.addView(chooseLod, LinearLayout.LayoutParams(0, d(49f), 1.15f))
-        top.addView(control)
-        val topButtons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        topButtons.addView(button("Применить") { loadSelected() }, LinearLayout.LayoutParams(0, d(48f), 1f))
-        topButtons.addView(button("Свет / Камера") {
+        selectorRow.addView(chooseLod, LinearLayout.LayoutParams(0, d(49f), 1.15f))
+        topPanel.addView(selectorRow)
+        actionsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        applyButton=button("Применить") { loadSelected() }
+        actionsRow.addView(applyButton, LinearLayout.LayoutParams(0, d(48f), 1f))
+        cameraButton=button("Свет / Камера") {
             lightMode = !lightMode
             status()
-        }, LinearLayout.LayoutParams(0, d(48f), 1f))
-        top.addView(topButtons)
-        top.addView(button("Сетка: включить / выключить") {
+        }
+        actionsRow.addView(cameraButton, LinearLayout.LayoutParams(0, d(48f), 1f))
+        topPanel.addView(actionsRow)
+        gridButton=button("Сетка: включить / выключить") {
             wireframe = !wireframe
             getPreferences(MODE_PRIVATE).edit().putBoolean("wireframe",wireframe).apply()
             loadSelected()
-        }, LinearLayout.LayoutParams(-1,d(42f)))
-        root.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
-        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(d(8f),d(4f),d(8f),d(8f)) }
-        bottom.addView(button("Экспорт сцены") { exportScene() }, LinearLayout.LayoutParams(0, d(52f), 1f))
-        bottom.addView(button("Диагностика") { showDiagnostic() }, LinearLayout.LayoutParams(0, d(52f), 1f))
-        root.addView(bottom, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }
+        topPanel.addView(gridButton, LinearLayout.LayoutParams(-1,d(42f)))
+        root.addView(topPanel, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+        bottomPanel = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(d(8f),d(4f),d(8f),d(8f)) }
+        exportButton=button("Экспорт сцены") { exportScene() }
+        bottomPanel.addView(exportButton, LinearLayout.LayoutParams(0, d(52f), 1f))
+        diagnosticButton=button("Диагностика") { showDiagnostic() }
+        bottomPanel.addView(diagnosticButton, LinearLayout.LayoutParams(0, d(52f), 1f))
+        root.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
         chooseObject.setSelection(1)
         chooseLod.setSelection(1)
+        applyUiLayout()
         loadSelected()
         // Automatic, non-blocking update check. No update button or manual install.
         updater.checkOnStart(onCandidate = { candidate ->
             if (isFinishing || isDestroyed) updater.reject(candidate)
-            else if (loadSelected(candidate)) {
+            else if (loadSelected(candidate) && applyUiLayout(candidate)) {
                 if (updater.activate(candidate)) {
                     stableFrames = 0
                     status()
                     Toast.makeText(this, "Модели обновлены", Toast.LENGTH_SHORT).show()
                 } else {
                     updater.reject(candidate)
+                    applyUiLayout()
                     loadSelected()
                 }
             } else {
                 updater.reject(candidate)
+                applyUiLayout()
                 loadSelected()
             }
         })
+    }
+
+    /** Called only with trusted bundled UI or a fully authenticated .pupdate candidate. */
+    private fun applyUiLayout(candidate: PatchManager.Candidate? = null): Boolean {
+        try {
+            val bytes=updater.readUiConfig(candidate)
+            val ui=UiLayout.parse(bytes)
+            // Validate everything BEFORE mutating the existing controls.
+            val sections=mapOf<String, View>("status" to label,"selectors" to selectorRow,
+                "actions" to actionsRow,"grid" to gridButton)
+            val bottomSections=mapOf<String, View>("export" to exportButton,
+                "diagnostics" to diagnosticButton)
+            zoomPower=ui.zoomPower
+            label.textSize=ui.textSizeSp
+            label.setTextColor(ui.textColor)
+            topPanel.setBackgroundColor(ui.topColor)
+            topPanel.setPadding(d(ui.paddingDp.toFloat()),d(7f),d(ui.paddingDp.toFloat()),d(7f))
+            bottomPanel.setBackgroundColor(ui.bottomColor)
+            for (b in listOf(applyButton,cameraButton,gridButton,exportButton,diagnosticButton)) {
+                b.setTextColor(ui.buttonTextColor)
+                b.setBackgroundColor(ui.buttonColor)
+            }
+            applyButton.text=ui.applyText
+            cameraButton.text=ui.cameraText
+            gridButton.text=ui.gridText
+            exportButton.text=ui.exportText
+            diagnosticButton.text=ui.diagnosticText
+            topPanel.removeAllViews()
+            ui.topOrder.forEach { key ->
+                val child=sections.getValue(key)
+                val h=when(key) {"status" -> -2; "grid" -> d(ui.gridHeightDp.toFloat())
+                    "actions" -> d(ui.actionHeightDp.toFloat());else -> d(49f)}
+                topPanel.addView(child, LinearLayout.LayoutParams(-1,h))
+            }
+            bottomPanel.removeAllViews()
+            ui.bottomOrder.forEach { key ->
+                bottomPanel.addView(bottomSections.getValue(key), LinearLayout.LayoutParams(0,d(52f),1f))
+            }
+            return true
+        } catch (e:Exception) {
+            android.util.Log.w("GlassStudy", "Rejected UI layout patch", e)
+            return false
+        }
     }
 
     private fun loadSelected(candidate: PatchManager.Candidate? = null): Boolean {
@@ -246,7 +307,7 @@ class MainActivity : Activity() {
                 val delta = pinch(e)
                 if (oldPinch > 0f && delta > 1f) {
                     if (lightMode) brightness = (brightness * (delta / oldPinch).toDouble().pow(.7)).coerceIn(.05, 3.0)
-                    else distance = (distance * (delta / oldPinch).toDouble().pow(.50)).coerceIn(2.8, 60.0)
+                    else distance = (distance * (delta / oldPinch).toDouble().pow(zoomPower)).coerceIn(2.8, 60.0)
                 }
                 oldPinch = delta
             } else {

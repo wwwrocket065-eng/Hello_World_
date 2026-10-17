@@ -10,14 +10,20 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.12' in props and 'GLASSSTUDY_VERSION_CODE=20012' in props
+assert 'GLASSSTUDY_VERSION=0.2.13' in props and 'GLASSSTUDY_VERSION_CODE=20013' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
 assert 'root.setOnApplyWindowInsetsListener' in activity
+assert 'applyUiLayout(candidate)' in activity
+assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
+layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
+assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
+assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
+assert set(layout['bottomOrder'])=={'export','diagnostics'}
 assert 'private var distance = 7.4' in activity
-assert 'else distance = (distance * (delta / oldPinch).toDouble().pow(.50))' in activity
+assert 'else distance = (distance * (delta / oldPinch).toDouble().pow(zoomPower))' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
