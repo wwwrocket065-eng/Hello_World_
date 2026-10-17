@@ -2,7 +2,7 @@ name: GlassStudy Patch Audit
 on:
   push:
     branches: [glassstudy-filament-ci]
-    paths: ['.github/workflows/glassstudy-patch-audit.yml']
+    paths: ['.github/workflows/glassstudy-patch-audit.yml', 'glassstudy/updates/v2/latest.json']
   workflow_dispatch:
 permissions:
   contents: read
