@@ -21,7 +21,12 @@ assert 'chooseObject.onItemSelectedListener=onSelection' in activity
 assert 'chooseLod.onItemSelectedListener=onSelection' in activity
 assert 'loadSelected()' in activity
 assert 'headerRow.addView(b,lp)' in activity
-assert 'footerActions.addView(diagnosticButton' in activity
+assert 'bottomPanel.addView(diagnosticButton,LinearLayout.LayoutParams(-1,d(47f)))' in activity
+assert 'exportButton' not in activity
+assert 'exportScene()' not in activity
+assert 'Экспорт сцены' not in activity
+assert 'ACTION_CREATE_DOCUMENT' not in activity
+assert 'Экспорт сцены' not in activity[activity.index('private fun openMenu'):activity.index('override fun onCreate')]
 assert 'GlassStudy 3D LAB' in (root/'app/src/main/AndroidManifest.xml').read_text()
 assert '@drawable/glassstudy_launcher' in (root/'app/src/main/AndroidManifest.xml').read_text()
 assert (root/'app/src/main/res/drawable/glassstudy_launcher.webp').stat().st_size>1200

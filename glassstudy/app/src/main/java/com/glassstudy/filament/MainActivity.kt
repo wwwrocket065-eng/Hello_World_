@@ -34,11 +34,8 @@ import com.google.android.filament.Skybox
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.GlassStudyModelViewer
 import com.google.android.filament.utils.Utils
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -54,7 +51,6 @@ import kotlin.math.sqrt
 class MainActivity : Activity() {
     companion object {
         init { Utils.init() }
-        private const val EXPORT_SCENE = 1201
         private val ids = arrayOf("faceted", "tumbler", "wine", "mug", "pitcher", "bowl", "vase", "sphere", "cube", "cylinder", "cone")
         private val names = arrayOf("Гранёный стакан", "Стакан", "Бокал", "Чашка", "Кувшин", "Пиала", "Ваза", "Сфера", "Куб", "Цилиндр", "Конус")
         private val qualities = arrayOf("low", "medium", "high")
@@ -70,7 +66,6 @@ class MainActivity : Activity() {
     private lateinit var actionsRow: LinearLayout
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
-    private lateinit var footerActions: LinearLayout
     private lateinit var fpsPill: TextView
     private lateinit var quickObjects: Button
     private lateinit var quickLight: Button
@@ -78,7 +73,6 @@ class MainActivity : Activity() {
     private lateinit var quickMenu: Button
     private lateinit var cameraButton: Button
     private lateinit var gridButton: Button
-    private lateinit var exportButton: Button
     private lateinit var diagnosticButton: Button
     private var zoomPower = .50
     private var diagnosticLabels: Map<String,String> = emptyMap()
@@ -186,12 +180,11 @@ class MainActivity : Activity() {
     }
     private fun openMenu() {
         AlertDialog.Builder(this).setTitle("GlassStudy · 3D LAB")
-            .setItems(arrayOf("Выбрать объект", "Сбросить камеру", "Экспорт сцены", "Диагностика")) { _,which ->
+            .setItems(arrayOf("Выбрать объект", "Сбросить камеру", "Диагностика")) { _,which ->
                 when(which) {
                     0 -> chooseObject.performClick()
                     1 -> resetCameraToHome()
-                    2 -> exportScene()
-                    3 -> showDiagnostic()
+                    2 -> showDiagnostic()
                 }
             }.show()
     }
@@ -359,20 +352,14 @@ class MainActivity : Activity() {
             status()
         }
         actionsRow.addView(gridButton,LinearLayout.LayoutParams(0,-1,.78f))
-        footerActions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         val div=View(this).apply { setBackgroundColor(Color.argb(75,181,220,223)) }
         val divLp=LinearLayout.LayoutParams(-1,d(1f))
         divLp.topMargin=d(10f)
         divLp.bottomMargin=d(9f)
         bottomPanel.addView(div,divLp)
-        bottomPanel.addView(footerActions,LinearLayout.LayoutParams(-1,d(48f)))
-        exportButton=button("⇧  Экспорт сцены") { exportScene() }
-        val eLp=LinearLayout.LayoutParams(0,-1,1f)
-        eLp.rightMargin=d(7f)
-        footerActions.addView(exportButton,eLp)
-        diagnosticButton=button("▤  Диагностика") { showDiagnostic() }
-        diagnosticButton.textSize=12f
-        footerActions.addView(diagnosticButton,LinearLayout.LayoutParams(0,-1,1.13f))
+        diagnosticButton=button("▤  Диагностика CPU/RAM") { showDiagnostic() }
+        diagnosticButton.textSize=14f
+        bottomPanel.addView(diagnosticButton,LinearLayout.LayoutParams(-1,d(47f)))
         dock.addView(bottomPanel)
         root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
 
@@ -483,14 +470,15 @@ class MainActivity : Activity() {
             label.setTextColor(ui.textColor)
             // Old patches use #203E4F; apply that to the new rounded, outlined
             // buttons without reverting to Android's old rectangular layout.
-            val allButtons=listOf(cameraButton,gridButton,exportButton,diagnosticButton,
+            val allButtons=listOf(cameraButton,gridButton,diagnosticButton,
                 quickObjects,quickLight,quickReset,quickMenu)
             for (b in allButtons) {
                 skin(b,b===quickLight && lightMode,ui.buttonColor)
                 b.setTextColor(ui.buttonTextColor)
             }
             status()
-            exportButton.text="⇧  ${ui.exportText}"
+            // Legacy signed UI patches may still contain exportText; intentionally
+            // ignore it. Export has been removed from the UI and menu entirely.
             diagnosticButton.text="▤  ${ui.diagnosticText}"
             return true
         } catch(e:Exception) {
@@ -703,43 +691,6 @@ class MainActivity : Activity() {
                 val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",report))
             }.show()
-    }
-    private fun exportScene() {
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/zip"
-            putExtra(Intent.EXTRA_TITLE, "GlassStudy_${currentId}_${currentLod}.glassscene")
-        }
-        startActivityForResult(intent, EXPORT_SCENE)
-    }
-    @Deprecated("Legacy result callback for portable Android 8+ build")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode!=EXPORT_SCENE || resultCode!=RESULT_OK || data?.data==null) return
-        try {
-            val scene=org.json.JSONObject()
-                .put("version",1)
-                .put("renderer","filament_native")
-                .put("model","scene.glb")
-                .put("object",currentId).put("quality",currentLod)
-                .put("camera",org.json.JSONObject().put("yaw",yaw).put("pitch",pitch).put("distance",distance).put("target",org.json.JSONArray(listOf(0,.95,0))))
-                .put("lighting",org.json.JSONObject().put("azimuth",lightAz).put("elevation",lightElevation).put("intensity",brightness))
-                .put("ior",1.52)
-            contentResolver.openOutputStream(data.data!!)?.use { stream ->
-                ZipOutputStream(stream).use { zip ->
-                    zip.putNextEntry(ZipEntry("scene.glb"))
-                    zip.write(updater.readModel("models/${currentId}_${currentLod}${if(wireframe) "_debug" else ""}.glb"))
-                    zip.closeEntry()
-                    zip.putNextEntry(ZipEntry("scene.json"))
-                    zip.write(scene.toString(2).toByteArray(Charsets.UTF_8))
-                    zip.closeEntry()
-                }
-            } ?: error("Cannot write to destination")
-            Toast.makeText(this,"Сцена сохранена",Toast.LENGTH_LONG).show()
-        } catch (e:Exception) {
-            AlertDialog.Builder(this).setTitle("Не удалось сохранить")
-                .setMessage(e.stackTraceToString().take(2200)).setPositiveButton("OK",null).show()
-        }
     }
     override fun onResume() {
         super.onResume()

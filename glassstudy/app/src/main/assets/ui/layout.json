@@ -22,7 +22,6 @@
   ],
   "cameraText": "Свет / Камера",
   "gridText": "Сетка",
-  "exportText": "Экспорт сцены",
   "diagnosticText": "Диагностика",
   "zoomPower": 0.5,
   "diagnostics": {
