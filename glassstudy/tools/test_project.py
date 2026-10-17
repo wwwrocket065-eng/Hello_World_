@@ -40,7 +40,7 @@ assert 'else distance = (distance * (delta / oldPinch).toDouble().pow(zoomPower)
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
-assert 'if (!prefs.edit().putInt("previous",previous).putInt("active",candidate.version)' in updater
+assert 'if (!prefs.edit().putInt("previous",current).putInt("active",candidate.version)' in updater
 assert 'glasses' not in updater.lower() # no unintended paths
 assert 'REQUEST_INSTALL_PACKAGES' not in (root/'app/src/main/AndroidManifest.xml').read_text()
 assert 'requestApkInstall' not in activity and 'downloadApk(' not in updater
