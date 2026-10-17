@@ -20,12 +20,13 @@ jobs:
           from cryptography.hazmat.primitives.asymmetric import padding
           repo='https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/v2/'
           def get(name):
-              with urllib.request.urlopen(urllib.request.Request(repo+name,headers={'User-Agent':'GlassStudyPatchAudit'}),timeout=60) as r:
+              with urllib.request.urlopen(urllib.request.Request(repo+name+'?audit=20017',headers={'User-Agent':'GlassStudyPatchAudit'}),timeout=60) as r:
                   b=r.read()
                   print('FETCH',name,'HTTP',r.status,'BYTES',len(b),'CONTENT_TYPE',r.headers.get('Content-Type'),flush=True)
                   return b
           feed=json.loads(get('latest.json'))
           print('FEED',feed,flush=True)
+          assert feed['patchVersion']==20017, 'CDN is still serving an old update feed'
           patch=get(feed['patchName'])
           actual=hashlib.sha256(patch).hexdigest()
           print('FILE_SHA256',actual,'MATCHES_FEED',actual==feed['patchSha256'],flush=True)
