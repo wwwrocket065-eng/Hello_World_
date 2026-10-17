@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.10' in props and 'GLASSSTUDY_VERSION_CODE=20010' in props
+assert 'GLASSSTUDY_VERSION=0.2.11' in props and 'GLASSSTUDY_VERSION_CODE=20011' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -21,7 +21,9 @@ assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
 assert 'if (!prefs.edit().putInt("previous",previous).putInt("active",candidate.version)' in updater
 assert 'glasses' not in updater.lower() # no unintended paths
-assert 'REQUEST_INSTALL_PACKAGES' in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'REQUEST_INSTALL_PACKAGES' not in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'requestApkInstall' not in activity and 'downloadApk(' not in updater
+assert 'FileProvider' not in (root/'app/src/main/AndroidManifest.xml').read_text()
 assert 'GLASSSTUDY_KEYSTORE' in build and 'GLASSSTUDY_STORE_PASSWORD' in build
 assert not any(p.suffix.lower() in ('.p12','.jks','.pem','.der') for p in root.rglob('*') if p.is_file())
 model_dir=root/'app/src/main/assets/models'
