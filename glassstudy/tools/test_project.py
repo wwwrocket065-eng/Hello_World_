@@ -44,6 +44,8 @@ assert 'Debug.getMemoryInfo(memory)' in instrumentation
 assert 'GlbMetrics.inspect' in activity
 assert 'ByteBuffer.wrap(raw)' in instrumentation
 assert 'profiler.frame(frameTimeNanos,submissionMs)' in activity
+assert 'val samePatch=server==active.toString() && confirmed==active' in activity
+assert 'appendLine("${tr("compactPatches")}: $patchSummary")' in activity
 assert 'FPS — ритм кадров' in layout['diagnostics']['measurementNote']
 assert 'FPS: ${num(perf.fps)}' in activity
 assert 'appendLine("GlassStudy ${BuildConfig.VERSION_NAME}' in activity

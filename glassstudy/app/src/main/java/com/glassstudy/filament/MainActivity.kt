@@ -415,6 +415,16 @@ class MainActivity : Activity() {
         val server=updater.serverPatchVersion.takeIf { it>0 }?.toString() ?: "—"
         val active=updater.installedPatchVersion()
         val confirmed=updater.lastConfirmedVersion()
+        val samePatch=server==active.toString() && confirmed==active
+        val patchSummary=if(samePatch) "$active ✓ (установлен · кадр · сервер)"
+            else "$active / $confirmed / $server ${tr("patchOrder")}"
+        val updateMessage=when {
+            samePatch && updater.updateStatus.startsWith("Патч $active установлен") ->
+                "Актуально, кадр подтверждён"
+            samePatch && updater.updateStatus.startsWith("Обновлений нет") ->
+                "Актуально"
+            else -> updater.updateStatus
+        }
         val hasIbl=try {
             assets.open("envs/studio_ibl.ktx").close();true
         } catch (_:Exception) { false }
@@ -427,8 +437,8 @@ class MainActivity : Activity() {
                     "updates" -> {
                         appendLine()
                         appendLine("▸ ${tr("sectionUpdates")}")
-                        appendLine("${tr("compactPatches")}: $active / $confirmed / $server ${tr("patchOrder")}")
-                        appendLine("${tr("updateCheck")}: ${updater.updateStatus}")
+                        appendLine("${tr("compactPatches")}: $patchSummary")
+                        appendLine("${tr("updateCheck")}: $updateMessage")
                     }
                     "performance" -> {
                         appendLine()
