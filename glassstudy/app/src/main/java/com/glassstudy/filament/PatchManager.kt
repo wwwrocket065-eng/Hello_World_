@@ -153,6 +153,18 @@ class PatchManager(private val context: Context) {
         val staging=File(patchRoot,"staging_${version}_${System.nanoTime()}")
         try {
             require(staging.mkdirs())
+            // A .pupdate is incremental: carry forward previously verified assets,
+            // otherwise a UI-only update would silently remove earlier model changes.
+            val prior=File(patchRoot,"v${installedPatchVersion()}")
+            if (prior.isDirectory) {
+                prior.walkTopDown().filter { it.isFile }.forEach { source ->
+                    val path=source.relativeTo(prior).invariantSeparatorsPath
+                    require(MODEL_PATH.matches(path) || path==UI_PATH) { "Unknown carried patch path" }
+                    val target=File(staging,path)
+                    require(target.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
+                    source.copyTo(target,overwrite=false)
+                }
+            }
             var total=0L
             for ((path,hash,encoded) in records) {
                 require(encoded.length <= MAX_ENTRY_BYTES * 4L / 3 + 8)
@@ -166,6 +178,7 @@ class PatchManager(private val context: Context) {
                 require(f.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
                 FileOutputStream(f).use { it.write(raw);it.fd.sync() }
             }
+            require(staging.walkTopDown().filter { it.isFile }.sumOf { it.length() } <= MAX_PATCH_BYTES) { "Installed assets exceed limit" }
             return Candidate(version,staging,records.map { it.first }.toSet())
         } catch (e:Exception) { staging.deleteRecursively(); throw e }
     }

@@ -18,6 +18,7 @@ assert 'updater.checkOnStart(' in activity
 assert 'root.setOnApplyWindowInsetsListener' in activity
 assert 'applyUiLayout(candidate)' in activity
 assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
+assert 'source.copyTo(target,overwrite=false)' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
 assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
