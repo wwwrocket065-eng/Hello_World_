@@ -25,7 +25,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.google.android.filament.Camera
 import com.google.android.filament.Skybox
-import com.google.android.filament.utils.KtxLoader
+import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
 import java.io.ByteArrayOutputStream
@@ -120,7 +120,7 @@ class MainActivity : Activity() {
             val bytes = assets.open("envs/studio_ibl.ktx").use { it.readBytes() }
             val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
             buf.put(bytes).flip()
-            viewer.scene.indirectLight = KtxLoader.createIndirectLight(viewer.engine, buf).also { it.intensity = 30_000f }
+            viewer.scene.indirectLight = KTX1Loader.createIndirectLight(viewer.engine, buf).also { it.intensity = 30_000f }
         } catch (_: java.io.FileNotFoundException) {
             // Development fallback: built-in directional light from ModelViewer, no fabricated HDR lighting.
         } catch (e: Exception) {
@@ -379,5 +379,5 @@ class MainActivity : Activity() {
         }
     }
     override fun onPause() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
-    override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); if (::viewer.isInitialized) viewer.destroy();super.onDestroy() }
+    override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onDestroy() }
 }
