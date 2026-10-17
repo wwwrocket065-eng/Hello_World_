@@ -28,7 +28,7 @@ import android.widget.Toast
 import com.google.android.filament.Camera
 import com.google.android.filament.Skybox
 import com.google.android.filament.utils.KTX1Loader
-import com.google.android.filament.utils.ModelViewer
+import com.google.android.filament.utils.GlassStudyModelViewer
 import com.google.android.filament.utils.Utils
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -56,7 +56,7 @@ class MainActivity : Activity() {
         private val qualities = arrayOf("low", "medium", "high")
     }
     private lateinit var surface: SurfaceView
-    private lateinit var viewer: ModelViewer
+    private lateinit var viewer: GlassStudyModelViewer
     private lateinit var updater: PatchManager
     private var wireframe = false
     private lateinit var label: TextView
@@ -137,7 +137,7 @@ class MainActivity : Activity() {
             root.fitsSystemWindows = true
         }
 
-        viewer = ModelViewer(surface, manipulator = null)
+        viewer = GlassStudyModelViewer(surface, manipulator = null)
         viewer.scene.skybox = Skybox.Builder().color(.43f, .43f, .43f, 1f).build(viewer.engine)
         // Filament uses glTF PBR. Proper specular IBL appears when cmgen-produced studio_ibl.ktx is packaged.
         try {
@@ -495,6 +495,7 @@ class MainActivity : Activity() {
                         appendLine()
                         appendLine("▸ ${tr("sectionRenderer")}")
                         appendLine("Google Filament / gltfio · OpenGL ES")
+                        appendLine("Реально нарисованных кадров Filament: ${viewer.renderedFrames}")
                         appendLine("${tr("glass")}: ${tr("glassValue")}")
                         appendLine("IBL: ${tr(if(hasIbl) "iblAvailable" else "iblUnavailable")}")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")

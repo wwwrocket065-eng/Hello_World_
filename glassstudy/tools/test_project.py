@@ -10,11 +10,17 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.18' in props and 'GLASSSTUDY_VERSION_CODE=20018' in props
+assert 'GLASSSTUDY_VERSION=0.2.19' in props and 'GLASSSTUDY_VERSION_CODE=20019' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
+custom=(root/'app/src/main/java/com/google/android/filament/utils/GlassStudyModelViewer.kt').read_text()
+assert 'class GlassStudyModelViewer' in custom
+assert 'renderedFrames++' in custom
+assert 'cameraManipulator.getLookAt(eyePos, target, upward)' not in custom
+assert 'viewer = GlassStudyModelViewer(surface, manipulator = null)' in activity
+assert 'Реально нарисованных кадров Filament:' in activity
 assert 'diagnosticLabels' in activity and 'ui.diagnostics' in activity
 assert 'updater.lastConfirmedVersion()' in activity and 'updater.serverPatchVersion' in activity
 assert 'tr("pathTracing")' in activity and 'tr(if(hasIbl)' in activity
