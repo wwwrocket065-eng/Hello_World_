@@ -16,7 +16,8 @@ data class UiLayout(
     val applyText: String, val cameraText: String, val gridText: String,
     val exportText: String, val diagnosticText: String,
     val zoomPower: Double,
-    val diagnostics: Map<String, String>
+    val diagnostics: Map<String, String>,
+    val diagnosticSections: List<String>
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -42,8 +43,45 @@ data class UiLayout(
             "iblUnavailable" to "Нет карты окружения; резервный свет",
             "pathTracing" to "Финальная трассировка лучей",
             "pathTracingValue" to "В этой бета-версии не реализована",
-            "unknown" to "Не проверено"
+            "unknown" to "Не проверено",
+            "sectionUpdates" to "ОБНОВЛЕНИЯ",
+            "sectionPerformance" to "ПРОИЗВОДИТЕЛЬНОСТЬ",
+            "sectionMemory" to "ПАМЯТЬ",
+            "sectionScene" to "ГЕОМЕТРИЯ",
+            "sectionRenderer" to "РЕНДЕР",
+            "sectionCamera" to "КАМЕРА",
+            "sectionDevice" to "УСТРОЙСТВО",
+            "compactPatches" to "Патчи",
+            "patchOrder" to "(установлен / кадр / сервер)",
+            "frameTime" to "кадр ср./P95",
+            "milliseconds" to "мс",
+            "cpuProcess" to "CPU приложения",
+            "oneCore" to "от одного ядра",
+            "frameSubmission" to "Подготовка/подача кадра",
+            "cpuThread" to "время UI-потока",
+            "gpuTime" to "GPU (время/нагрузка)",
+            "notMeasured" to "не измеряется",
+            "appRam" to "Память приложения",
+            "deviceRam" to "ОЗУ устройства",
+            "freeTotal" to "свободно / всего",
+            "megabytes" to "МБ",
+            "gridMode" to "сетка",
+            "yes" to "ВКЛ",
+            "no" to "ВЫКЛ",
+            "vertices" to "вершин",
+            "triangles" to "треугольников",
+            "segments" to "отрезков",
+            "primitives" to "меш-прим.",
+            "kilobytes" to "КБ",
+            "distance" to "Дистанция",
+            "yaw" to "поворот",
+            "pitch" to "наклон",
+            "lightAngles" to "Свет: азимут / высота",
+            "gpuInfo" to "Модель GPU",
+            "measurementNote" to "FPS — ритм кадров; CPU — процесс (все потоки). GPU-таймер недоступен."
         )
+        private val DIAGNOSTIC_SECTIONS =
+            listOf("updates","performance","memory","scene","renderer","camera","device")
         private val TOP_ITEMS = listOf("status", "selectors", "actions", "grid")
         private val BOTTOM_ITEMS = listOf("export", "diagnostics")
         fun parse(bytes: ByteArray): UiLayout {
@@ -88,6 +126,17 @@ data class UiLayout(
                     labels[key]=value
                 }
             }
+            val sections=if (!j.has("diagnosticSections")) DIAGNOSTIC_SECTIONS
+            else {
+                val array=j.optJSONArray("diagnosticSections")
+                require(array!=null && array.length() in 1..DIAGNOSTIC_SECTIONS.size) {
+                    "Invalid diagnostic section list"
+                }
+                val requested=(0 until array.length()).map { array.getString(it) }
+                require(requested.toSet().size==requested.size &&
+                    requested.all { it in DIAGNOSTIC_SECTIONS }) { "Unknown or duplicate diagnostic section" }
+                requested
+            }
             return UiLayout(
                 color("topColor","#20313D"),color("bottomColor","#20313D"),
                 color("buttonColor","#203E4F"),color("buttonTextColor","#FFFFFF"),
@@ -101,7 +150,7 @@ data class UiLayout(
                 text("gridText","Сетка: включить / выключить"),text("exportText","Экспорт сцены"),
                 text("diagnosticText","Диагностика"),
                 number("zoomPower",0.5,0.15,1.25),
-                labels.toMap()
+                labels.toMap(),sections
             )
         }
     }

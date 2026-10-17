@@ -10,14 +10,14 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.16' in props and 'GLASSSTUDY_VERSION_CODE=20016' in props
+assert 'GLASSSTUDY_VERSION=0.2.17' in props and 'GLASSSTUDY_VERSION_CODE=20017' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
 assert 'diagnosticLabels' in activity and 'ui.diagnostics' in activity
-assert 'tr("confirmedPatch")' in activity and 'tr("serverPatch")' in activity
-assert 'tr("pathTracing")' in activity and 'tr("ibl")' in activity
+assert 'updater.lastConfirmedVersion()' in activity and 'updater.serverPatchVersion' in activity
+assert 'tr("pathTracing")' in activity and 'tr(if(hasIbl)' in activity
 assert 'private val DIAGNOSTIC_DEFAULTS' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert 'putInt("lastConfirmed",pending)' in updater
 assert 'Патч $pending установлен и подтверждён отрисовкой' in updater
@@ -36,7 +36,18 @@ assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
 assert 'source.copyTo(target,overwrite=false)' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
-assert len(layout['diagnostics'])>=20
+assert len(layout['diagnostics'])>=50
+assert layout['diagnosticSections']==['updates','performance','memory','scene','renderer','camera','device']
+instrumentation=(root/'app/src/main/java/com/glassstudy/filament/FrameProfiler.kt').read_text()
+assert 'Process.getElapsedCpuTime()' in instrumentation
+assert 'Debug.getMemoryInfo(memory)' in instrumentation
+assert 'GlbMetrics.inspect' in activity
+assert 'ByteBuffer.wrap(raw)' in instrumentation
+assert 'profiler.frame(frameTimeNanos,submissionMs)' in activity
+assert 'FPS — ритм кадров' in layout['diagnostics']['measurementNote']
+assert 'FPS: ${num(perf.fps)}' in activity
+assert 'appendLine("GlassStudy ${BuildConfig.VERSION_NAME}' in activity
+assert 'appendLine("${tr("appVersion")}' not in activity
 assert layout['diagnostics']['installedPatch']=='Установленный патч ресурсов'
 assert layout['diagnostics']['pathTracingValue']=='В этой бета-версии не реализована'
 assert set(layout['topOrder'])=={'status','selectors','actions','grid'}

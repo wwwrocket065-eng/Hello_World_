@@ -8,6 +8,9 @@ import android.os.Build
 import android.graphics.Color
 import android.os.Bundle
 import android.os.SystemClock
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.view.Choreographer
 import android.view.Gravity
 import android.view.MotionEvent
@@ -68,6 +71,9 @@ class MainActivity : Activity() {
     private lateinit var diagnosticButton: Button
     private var zoomPower = .50
     private var diagnosticLabels: Map<String,String> = emptyMap()
+    private var diagnosticSections: List<String> =
+        listOf("updates","performance","memory","scene","renderer","camera","device")
+    private val profiler = FrameProfiler()
     private lateinit var chooseObject: Spinner
     private lateinit var chooseLod: Spinner
     private var currentId = "tumbler"
@@ -82,8 +88,6 @@ class MainActivity : Activity() {
     private var oldX = 0f
     private var oldY = 0f
     private var oldPinch = 0f
-    private var prevFrameNs = 0L
-    private var avgFps = 0.0
     private var running = false
     private var stableFrames = 0
     private var localPatchBusy = false
@@ -91,13 +95,11 @@ class MainActivity : Activity() {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
             Choreographer.getInstance().postFrameCallback(this)
-            if (prevFrameNs > 0 && frameTimeNanos > prevFrameNs) {
-                val fps = 1e9 / (frameTimeNanos - prevFrameNs).toDouble()
-                avgFps = if (avgFps == 0.0) fps else avgFps * .92 + fps * .08
-            }
-            prevFrameNs = frameTimeNanos
+            val submitStartNs=SystemClock.elapsedRealtimeNanos()
             updateCamera()
             viewer.render(frameTimeNanos)
+            val submissionMs=(SystemClock.elapsedRealtimeNanos()-submitStartNs)/1_000_000.0
+            profiler.frame(frameTimeNanos,submissionMs)
             if (++stableFrames == 4) updater.confirmFrameRendered()
         }
     }
@@ -286,6 +288,7 @@ class MainActivity : Activity() {
                 "diagnostics" to diagnosticButton)
             zoomPower=ui.zoomPower
             diagnosticLabels=ui.diagnostics
+            diagnosticSections=ui.diagnosticSections
             label.textSize=ui.textSizeSp
             label.setTextColor(ui.textColor)
             topPanel.setBackgroundColor(ui.topColor)
@@ -400,38 +403,90 @@ class MainActivity : Activity() {
         }
     }
     private fun showDiagnostic() {
-        // All human-readable diagnostic labels come from signed ui/layout.json
-        // or the bundled Russian fallback. A .pupdate can change these labels.
-        fun tr(key: String): String = diagnosticLabels[key] ?: key
-        val patchFromServer=updater.serverPatchVersion
-        val knownServerVersion=if(patchFromServer > 0) patchFromServer.toString() else tr("unknown")
+        // The signed UI patch controls section visibility/order and all report labels.
+        // Measurements are always taken from actual Android/Filament state.
+        fun tr(key:String)=diagnosticLabels[key] ?: key
+        fun num(x:Double?)=if (x==null || !x.isFinite()) "—"
+            else String.format(Locale("ru","RU"),"%.1f",x)
+        val perf=profiler.metrics()
+        val ram=try { MemoryMetrics.capture(this) } catch (_:Exception) { null }
+        val path="models/${currentId}_${currentLod}${if(wireframe) "_debug" else ""}.glb"
+        val mesh=try { GlbMetrics.inspect(updater.readModel(path)) } catch (_:Exception) { null }
+        val server=updater.serverPatchVersion.takeIf { it>0 }?.toString() ?: "—"
+        val active=updater.installedPatchVersion()
+        val confirmed=updater.lastConfirmedVersion()
         val hasIbl=try {
-            assets.open("envs/studio_ibl.ktx").close()
-            true
-        } catch (_: Exception) { false }
-        val information=buildString {
-            appendLine("GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            appendLine("${tr("appVersion")}: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            appendLine("${tr("installedPatch")}: ${updater.installedPatchVersion()}")
-            appendLine("${tr("confirmedPatch")}: ${updater.lastConfirmedVersion()}")
-            appendLine("${tr("serverPatch")}: $knownServerVersion")
-            appendLine("${tr("updateCheck")}: ${updater.updateStatus}")
-            appendLine("${tr("renderer")}: ${tr("rendererValue")}")
-            appendLine("${tr("geometry")}: ${tr("geometryValue")}")
-            appendLine("${tr("device")}: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-            appendLine("${tr("android")}: ${android.os.Build.VERSION.RELEASE}")
-            appendLine("${tr("model")}: $currentId / $currentLod")
-            appendLine("${tr("screen")}: ${surface.width} × ${surface.height}")
-            appendLine("${tr("fps")}: ${"%.1f".format(java.util.Locale("ru", "RU"),avgFps)}")
-            appendLine("${tr("glass")}: ${tr("glassValue")}")
-            appendLine("${tr("ibl")}: ${tr(if(hasIbl) "iblAvailable" else "iblUnavailable")}")
-            appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
+            assets.open("envs/studio_ibl.ktx").close();true
+        } catch (_:Exception) { false }
+        val stamp=SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale("ru","RU")).format(Date())
+        val report=buildString {
+            // Version appears ONCE. Patch numbers occupy ONE line.
+            appendLine("GlassStudy ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · $stamp")
+            for (section in diagnosticSections) {
+                when(section) {
+                    "updates" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionUpdates")}")
+                        appendLine("${tr("compactPatches")}: $active / $confirmed / $server ${tr("patchOrder")}")
+                        appendLine("${tr("updateCheck")}: ${updater.updateStatus}")
+                    }
+                    "performance" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionPerformance")}")
+                        appendLine("FPS: ${num(perf.fps)} · ${tr("frameTime")}: ${num(perf.avgFrameMs)} / ${num(perf.p95FrameMs)} ${tr("milliseconds")} (P95)")
+                        appendLine("${tr("cpuProcess")}: ${num(perf.cpuPercent)} % ${tr("oneCore")}")
+                        appendLine("${tr("frameSubmission")}: ${num(perf.submissionMs)} ${tr("milliseconds")} (${tr("cpuThread")})")
+                        appendLine("${tr("gpuTime")}: ${tr("notMeasured")}")
+                    }
+                    "memory" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionMemory")}")
+                        if(ram != null) {
+                            appendLine("${tr("appRam")}: ${num(ram.pssMb)} ${tr("megabytes")} (PSS)")
+                            appendLine("Java / native: ${num(ram.javaHeapMb)} / ${num(ram.nativeHeapMb)} ${tr("megabytes")}")
+                            appendLine("${tr("deviceRam")}: ${num(ram.freeDeviceMb)} / ${num(ram.totalDeviceMb)} ${tr("megabytes")} (${tr("freeTotal")})")
+                        } else appendLine(tr("notMeasured"))
+                    }
+                    "scene" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionScene")}")
+                        appendLine("${tr("model")}: ${names[ids.indexOf(currentId).coerceAtLeast(0)]} · $currentLod · ${tr("gridMode")}: ${if(wireframe) tr("yes") else tr("no")}")
+                        if(mesh != null) {
+                            appendLine("GLB: ${mesh.vertices} ${tr("vertices")} · ${mesh.triangles} ${tr("triangles")}${if(mesh.segments>0) " · ${mesh.segments} ${tr("segments")}" else ""}")
+                            appendLine("${mesh.primitives} ${tr("primitives")} · ${num(mesh.bytes/1024.0)} ${tr("kilobytes")} · SHA256: ${mesh.sha12}…")
+                        } else appendLine("${tr("geometry")}: ${tr("notMeasured")}")
+                    }
+                    "renderer" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionRenderer")}")
+                        appendLine("Google Filament / gltfio · OpenGL ES")
+                        appendLine("${tr("glass")}: ${tr("glassValue")}")
+                        appendLine("IBL: ${tr(if(hasIbl) "iblAvailable" else "iblUnavailable")}")
+                        appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
+                    }
+                    "camera" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionCamera")}")
+                        appendLine("${tr("distance")}: ${num(distance)} · ${tr("yaw")}: ${num(Math.toDegrees(yaw))}° · ${tr("pitch")}: ${num(Math.toDegrees(pitch))}°")
+                        appendLine("${tr("lightAngles")}: ${num(Math.toDegrees(lightAz))}° / ${num(Math.toDegrees(lightElevation))}° · ×${num(brightness)}")
+                    }
+                    "device" -> {
+                        appendLine()
+                        appendLine("▸ ${tr("sectionDevice")}")
+                        appendLine("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}")
+                        appendLine("${tr("screen")}: ${surface.width} × ${surface.height} · DPR ${num(resources.displayMetrics.density.toDouble())}")
+                        appendLine("${tr("gpuInfo")}: ${tr("notMeasured")}")
+                    }
+                }
+            }
+            appendLine()
+            append(tr("measurementNote"))
         }
         AlertDialog.Builder(this).setTitle(tr("title"))
-            .setMessage(information).setPositiveButton("ОК",null)
+            .setMessage(report).setPositiveButton("ОК",null)
             .setNeutralButton("Копировать") { _, _ ->
                 val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",information))
+                cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",report))
             }.show()
     }
     private fun exportScene() {
@@ -479,6 +534,6 @@ class MainActivity : Activity() {
         }
 
     }
-    override fun onPause() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
+    override fun onPause() { running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
     override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onDestroy() }
 }
