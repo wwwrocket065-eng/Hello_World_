@@ -60,7 +60,11 @@ assert 'cameraButton.setOnLongClickListener' in activity
 assert 'resetCameraToHome()' in activity
 assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
 assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower))' in activity
-assert 'pitch = (pitch+dy * 4.0).coerceIn(-.05,1.23)' in activity
+assert 'pitch = (pitch + dy * .005).coerceIn(-.05,1.23)' in activity
+assert 'yaw += dx * .008' in activity
+assert 'lightAz += dx * .009' in activity
+assert 'lightElevation = (lightElevation + dy * .006).coerceIn(.06,1.5)' in activity
+assert 'e.x - oldX' in activity and 'resources.displayMetrics.density' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater

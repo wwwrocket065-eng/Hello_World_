@@ -395,15 +395,20 @@ class MainActivity : Activity() {
                 }
                 oldPinch = delta
             } else {
-                val dx = (e.x-oldX)/max(1, surface.width)
-                val dy = (e.y-oldY)/max(1, surface.height)
+                // Android touch coordinates are physical pixels; the v0.1.22
+                // browser uses CSS px. Convert with density BEFORE applying
+                // the original per-CSS-pixel sensitivity coefficients.
+                val pxToCss = resources.displayMetrics.density.coerceAtLeast(.1f)
+                val dx = (e.x - oldX).toDouble() / pxToCss
+                val dy = (e.y - oldY).toDouble() / pxToCss
                 if (lightMode) {
-                    lightAz += dx * 7.0
-                    lightElevation = (lightElevation - dy * 3.0).coerceIn(.08,1.55)
+                    // Identical to v0.1.22: 0.009/0.006 radians per CSS pixel.
+                    lightAz += dx * .009
+                    lightElevation = (lightElevation + dy * .006).coerceIn(.06,1.5)
                 } else {
-                    yaw -= dx * 6.0
-                    // Keep the camera above the floor: v0.1.22 limits elevation to [-.05, 1.23].
-                    pitch = (pitch+dy * 4.0).coerceIn(-.05,1.23)
+                    // Identical to v0.1.22: 0.008/0.005 radians per CSS pixel.
+                    yaw += dx * .008
+                    pitch = (pitch + dy * .005).coerceIn(-.05,1.23)
                 }
             }
             oldX = e.getX(0); oldY = e.getY(0)

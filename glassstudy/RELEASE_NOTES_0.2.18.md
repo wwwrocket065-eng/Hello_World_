@@ -11,3 +11,11 @@ Corrections applied to Filament MainActivity:
 
 No changes to RSA patch manager, model loading, permissions, package identity, app key, device memory diagnostics or GLB generator. Installed signed patch v20021 is left intact. Opaque material diagnostic test remains valid.
 CAUTION: this is a camera regression correction verified by compile, not a guarantee that Filament render output is physically correct. User should share a screenshot and diagnostic camera line after testing.
+
+Camera input parity check against v0.1.22 actual code:
+* angle += dx * .008 radians PER CSS pixel;
+* elevation += dy * .005 radians PER CSS pixel;
+* in lighting mode lightAz += dx*.009 and lightEl += dy*.006;
+* pinch distance *= previous_span/current_span (power=1.0 for exact v0.1.22).
+Android MotionEvent touch coordinates are physical px, so dx/density, dy/density are required.
+A signed follow-up UI .pupdate sets zoomPower=1.0 while preserving v20021 diagnostic opaque model.
