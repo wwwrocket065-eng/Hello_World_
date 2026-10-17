@@ -6,6 +6,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.graphics.Color
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.os.SystemClock
 import java.text.SimpleDateFormat
@@ -19,6 +22,7 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.AdapterView
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -64,7 +68,14 @@ class MainActivity : Activity() {
     private lateinit var bottomPanel: LinearLayout
     private lateinit var selectorRow: LinearLayout
     private lateinit var actionsRow: LinearLayout
-    private lateinit var applyButton: Button
+    private lateinit var headerSubtitle: TextView
+    private lateinit var headerRow: LinearLayout
+    private lateinit var footerActions: LinearLayout
+    private lateinit var fpsPill: TextView
+    private lateinit var quickObjects: Button
+    private lateinit var quickLight: Button
+    private lateinit var quickReset: Button
+    private lateinit var quickMenu: Button
     private lateinit var cameraButton: Button
     private lateinit var gridButton: Button
     private lateinit var exportButton: Button
@@ -101,17 +112,88 @@ class MainActivity : Activity() {
             viewer.render(frameTimeNanos)
             val submissionMs=(SystemClock.elapsedRealtimeNanos()-submitStartNs)/1_000_000.0
             profiler.frame(frameTimeNanos,submissionMs)
+            if (::fpsPill.isInitialized && viewer.renderedFrames % 40L == 0L) {
+                val f=profiler.metrics().fps
+                fpsPill.text="${if(f!=null) String.format(Locale.US,"%.0f",f) else "—"} FPS · Filament"
+            }
             if (++stableFrames == 4) updater.confirmFrameRendered()
         }
     }
 
     private fun d(v: Float): Int = (v * resources.displayMetrics.density).toInt()
+    private val cyan = Color.rgb(109, 224, 222)
+    private val paleText = Color.rgb(232, 247, 251)
+
+    // v0.1.22 glass lab palette: graphite #07111d, deep blue #10273b,
+    // cyan #6ad8db, translucent surfaces, outlined rounded buttons.
+    private fun roundedFill(color:Int, radius:Float=15f, outline:Int=cyan, stroke:Float=1f):GradientDrawable {
+        return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(color, Color.rgb(16,39,58))).apply {
+            cornerRadius=d(radius).toFloat()
+            setStroke(d(stroke).coerceAtLeast(1), outline)
+        }
+    }
+    private fun skin(button: Button, selected:Boolean=false, color:Int=Color.rgb(27,56,75)) {
+        val accent=if(selected) Color.rgb(48,116,124) else color
+        val outline=if(selected) Color.rgb(166,246,233) else Color.argb(180,109,185,203)
+        val gradient=roundedFill(accent,14f,outline)
+        button.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),gradient,null)
+        button.setTextColor(paleText)
+        button.elevation=d(2f).toFloat()
+    }
     private fun button(text: String, action: () -> Unit) = Button(this).apply {
         this.text = text
-        setTextColor(Color.WHITE)
-        setBackgroundColor(Color.rgb(32, 62, 79))
+        textSize=14f
         setAllCaps(false)
+        minimumWidth=0
+        minimumHeight=0
+        minWidth=0
+        minHeight=0
+        setPadding(d(7f),0,d(7f),0)
+        skin(this)
         setOnClickListener { action() }
+    }
+    private fun shortcut(text: String, tip:String, action: () -> Unit): Button =
+        button(text,action).apply {
+            textSize=23f
+            contentDescription=tip
+            setPadding(0,0,0,0)
+            layoutParams=LinearLayout.LayoutParams(d(39f),d(43f))
+        }
+    private fun selectionAdapter(values:Array<String>):ArrayAdapter<String> {
+        val adapter=object: ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values) {
+            override fun getView(position:Int, convertView:View?, parent:ViewGroup):View {
+                val label=super.getView(position,convertView,parent) as TextView
+                label.text="${values[position]}  ▾"
+                label.textSize=14f
+                label.setSingleLine(true)
+                label.setTextColor(paleText)
+                label.setPadding(d(12f),0,d(7f),0)
+                return label
+            }
+            override fun getDropDownView(position:Int, convertView:View?,parent:ViewGroup):View {
+                val label=super.getDropDownView(position,convertView,parent) as TextView
+                label.text=values[position]
+                label.textSize=16f
+                label.setTextColor(paleText)
+                label.setPadding(d(15f),d(10f),d(9f),d(10f))
+                label.setBackgroundColor(Color.rgb(24,48,62))
+                return label
+            }
+        }
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        return adapter
+    }
+    private fun openMenu() {
+        AlertDialog.Builder(this).setTitle("GlassStudy · 3D LAB")
+            .setItems(arrayOf("Выбрать объект", "Сбросить камеру", "Экспорт сцены", "Диагностика")) { _,which ->
+                when(which) {
+                    0 -> chooseObject.performClick()
+                    1 -> resetCameraToHome()
+                    2 -> exportScene()
+                    3 -> showDiagnostic()
+                }
+            }.show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -156,55 +238,161 @@ class MainActivity : Activity() {
         // Scene and view resize are owned by ModelViewer, gestures by this Activity.
         surface.setOnTouchListener { _, ev -> touch(ev) }
 
+        // Floating header, modeled on GlassStudy 3D LAB v0.1.22.
         topPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.argb(185, 32, 49, 61))
-            setPadding(d(8f), d(7f), d(8f), d(7f))
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(10f),d(9f),d(10f),d(7f))
+            background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.argb(195,24,34,44),Color.argb(12,24,34,44)))
         }
-        label = TextView(this).apply { textSize = 13f; setTextColor(Color.WHITE) }
-        topPanel.addView(label)
-        selectorRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        chooseObject = Spinner(this)
-        chooseObject.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, names)
-        selectorRow.addView(chooseObject, LinearLayout.LayoutParams(0, d(49f), 2.4f))
-        chooseLod = Spinner(this)
-        chooseLod.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("Low", "Medium", "High"))
-        selectorRow.addView(chooseLod, LinearLayout.LayoutParams(0, d(49f), 1.15f))
-        topPanel.addView(selectorRow)
-        actionsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        applyButton=button("Применить") { loadSelected() }
-        actionsRow.addView(applyButton, LinearLayout.LayoutParams(0, d(48f), 1f))
-        cameraButton=button("Свет / Камера") {
-            lightMode = !lightMode
+        headerRow=LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL
+            gravity=Gravity.CENTER_VERTICAL
+        }
+        val logo=TextView(this).apply {
+            text="◇"
+            textSize=34f
+            gravity=Gravity.CENTER
+            setTextColor(cyan)
+        }
+        headerRow.addView(logo, LinearLayout.LayoutParams(d(34f),d(48f)))
+        val branding=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            gravity=Gravity.CENTER_VERTICAL
+        }
+        val brandTitle=TextView(this).apply {
+            text="GlassStudy"
+            textSize=19f
+            setTextColor(Color.WHITE)
+            setSingleLine(true)
+        }
+        headerSubtitle=TextView(this).apply {
+            text="3D LAB · v${BuildConfig.VERSION_NAME}"
+            textSize=9f
+            setTextColor(Color.rgb(133,197,210))
+            letterSpacing=.18f
+            setSingleLine(true)
+        }
+        branding.addView(brandTitle)
+        branding.addView(headerSubtitle)
+        headerRow.addView(branding, LinearLayout.LayoutParams(0,d(48f),1f))
+        quickObjects=shortcut("▣","Выбрать объект") { chooseObject.performClick() }
+        quickLight=shortcut("☼","Освещение / камера") {
+            lightMode=!lightMode
             status()
         }
-        // In v0.1.22 there was a "reset camera" control. Long-press reintroduces
-        // this action without changing the patchable button layout.
+        quickReset=shortcut("↶","Сброс камеры") { resetCameraToHome() }
+        quickMenu=shortcut("☷","Меню") { openMenu() }
+        for(b in listOf(quickObjects,quickLight,quickReset,quickMenu)) {
+            val lp=LinearLayout.LayoutParams(d(39f),d(43f))
+            lp.leftMargin=d(4f)
+            headerRow.addView(b,lp)
+        }
+        topPanel.addView(headerRow)
+        label=TextView(this).apply {
+            textSize=11f
+            gravity=Gravity.CENTER
+            setTextColor(Color.rgb(220,238,242))
+            setPadding(0,d(7f),0,d(2f))
+            setSingleLine(true)
+        }
+        topPanel.addView(label)
+        root.addView(topPanel, FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
+
+        // Bottom controls float above the viewport; no "Применить" button.
+        val dock=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(9f),0,d(9f),d(9f))
+        }
+        fpsPill=TextView(this).apply {
+            text="— FPS · Filament"
+            textSize=11f
+            setTextColor(Color.rgb(147,219,219))
+            setPadding(d(13f),d(6f),d(13f),d(6f))
+            background=roundedFill(Color.rgb(19,41,54),30f,Color.argb(130,109,185,203))
+        }
+        val pillParams=LinearLayout.LayoutParams(-2,-2)
+        pillParams.bottomMargin=d(6f)
+        dock.addView(fpsPill,pillParams)
+
+        bottomPanel=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(11f),d(11f),d(11f),d(12f))
+            background=roundedFill(Color.rgb(35,47,58),19f,Color.argb(120,177,218,225))
+            elevation=d(6f).toFloat()
+        }
+        selectorRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        chooseObject=Spinner(this).apply {
+            adapter=selectionAdapter(names)
+            background=roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
+        }
+        val first=LinearLayout.LayoutParams(0,d(45f),1.35f)
+        first.rightMargin=d(7f)
+        selectorRow.addView(chooseObject,first)
+        chooseLod=Spinner(this).apply {
+            adapter=selectionAdapter(arrayOf("Low","Medium","High"))
+            background=roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
+        }
+        selectorRow.addView(chooseLod,LinearLayout.LayoutParams(0,d(45f),1f))
+        bottomPanel.addView(selectorRow)
+
+        actionsRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        val aLp=LinearLayout.LayoutParams(-1,d(45f))
+        aLp.topMargin=d(8f)
+        bottomPanel.addView(actionsRow,aLp)
+        cameraButton=button("☼  Свет / Камера") {
+            lightMode=!lightMode
+            status()
+        }
         cameraButton.setOnLongClickListener {
             resetCameraToHome()
-            Toast.makeText(this, "Камера сброшена", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this,"Камера сброшена",Toast.LENGTH_SHORT).show()
             true
         }
-        actionsRow.addView(cameraButton, LinearLayout.LayoutParams(0, d(48f), 1f))
-        topPanel.addView(actionsRow)
-        gridButton=button("Сетка: включить / выключить") {
-            wireframe = !wireframe
+        val camLp=LinearLayout.LayoutParams(0,-1,1.25f)
+        camLp.rightMargin=d(7f)
+        actionsRow.addView(cameraButton,camLp)
+        gridButton=button("▦  Сетка") {
+            wireframe=!wireframe
             getPreferences(MODE_PRIVATE).edit().putBoolean("wireframe",wireframe).apply()
             loadSelected()
+            status()
         }
-        topPanel.addView(gridButton, LinearLayout.LayoutParams(-1,d(42f)))
-        root.addView(topPanel, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
-        bottomPanel = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(d(8f),d(4f),d(8f),d(8f)) }
-        exportButton=button("Экспорт сцены") { exportScene() }
-        bottomPanel.addView(exportButton, LinearLayout.LayoutParams(0, d(52f), 1f))
-        diagnosticButton=button("Диагностика") { showDiagnostic() }
-        bottomPanel.addView(diagnosticButton, LinearLayout.LayoutParams(0, d(52f), 1f))
-        root.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        actionsRow.addView(gridButton,LinearLayout.LayoutParams(0,-1,.78f))
+        footerActions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        val div=View(this).apply { setBackgroundColor(Color.argb(75,181,220,223)) }
+        val divLp=LinearLayout.LayoutParams(-1,d(1f))
+        divLp.topMargin=d(10f)
+        divLp.bottomMargin=d(9f)
+        bottomPanel.addView(div,divLp)
+        bottomPanel.addView(footerActions,LinearLayout.LayoutParams(-1,d(48f)))
+        exportButton=button("⇧  Экспорт сцены") { exportScene() }
+        val eLp=LinearLayout.LayoutParams(0,-1,1f)
+        eLp.rightMargin=d(7f)
+        footerActions.addView(exportButton,eLp)
+        diagnosticButton=button("▤  Диагностика") { showDiagnostic() }
+        diagnosticButton.textSize=12f
+        footerActions.addView(diagnosticButton,LinearLayout.LayoutParams(0,-1,1.13f))
+        dock.addView(bottomPanel)
+        root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
 
         chooseObject.setSelection(1)
         chooseLod.setSelection(1)
         applyUiLayout()
         loadSelected()
+        // Immediately reload when a model or LOD is chosen, replacing "Применить".
+        val onSelection=object: AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent:AdapterView<*>?, view:View?, position:Int, id:Long) {
+                if (::viewer.isInitialized && ::updater.isInitialized &&
+                    (ids[chooseObject.selectedItemPosition.coerceIn(0,ids.lastIndex)] != currentId ||
+                    qualities[chooseLod.selectedItemPosition.coerceIn(0,2)] != currentLod)) {
+                    loadSelected()
+                }
+            }
+            override fun onNothingSelected(parent:AdapterView<*>?) {}
+        }
+        chooseObject.onItemSelectedListener=onSelection
+        chooseLod.onItemSelectedListener=onSelection
         // A user-selected file in Downloads takes priority over the background check.
         if (!handleIncomingPatchIntent(intent)) {
             updater.checkOnStart(onCandidate = { candidate ->
@@ -284,47 +472,29 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Called only with trusted bundled UI or a fully authenticated .pupdate candidate. */
-    private fun applyUiLayout(candidate: PatchManager.Candidate? = null): Boolean {
+    /** Safe declarative style, still accepted from signed .pupdate version 20023+. */
+    private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
-            val bytes=updater.readUiConfig(candidate)
-            val ui=UiLayout.parse(bytes)
-            // Validate everything BEFORE mutating the existing controls.
-            val sections=mapOf<String, View>("status" to label,"selectors" to selectorRow,
-                "actions" to actionsRow,"grid" to gridButton)
-            val bottomSections=mapOf<String, View>("export" to exportButton,
-                "diagnostics" to diagnosticButton)
+            val ui=UiLayout.parse(updater.readUiConfig(candidate))
             zoomPower=ui.zoomPower
             diagnosticLabels=ui.diagnostics
             diagnosticSections=ui.diagnosticSections
-            label.textSize=ui.textSizeSp
+            label.textSize=ui.textSizeSp.coerceIn(11f,14f)
             label.setTextColor(ui.textColor)
-            topPanel.setBackgroundColor(ui.topColor)
-            topPanel.setPadding(d(ui.paddingDp.toFloat()),d(7f),d(ui.paddingDp.toFloat()),d(7f))
-            bottomPanel.setBackgroundColor(ui.bottomColor)
-            for (b in listOf(applyButton,cameraButton,gridButton,exportButton,diagnosticButton)) {
+            // Old patches use #203E4F; apply that to the new rounded, outlined
+            // buttons without reverting to Android's old rectangular layout.
+            val allButtons=listOf(cameraButton,gridButton,exportButton,diagnosticButton,
+                quickObjects,quickLight,quickReset,quickMenu)
+            for (b in allButtons) {
+                skin(b,b===quickLight && lightMode,ui.buttonColor)
                 b.setTextColor(ui.buttonTextColor)
-                b.setBackgroundColor(ui.buttonColor)
             }
-            applyButton.text=ui.applyText
-            cameraButton.text=ui.cameraText
-            gridButton.text=ui.gridText
-            exportButton.text=ui.exportText
-            diagnosticButton.text=ui.diagnosticText
-            topPanel.removeAllViews()
-            ui.topOrder.forEach { key ->
-                val child=sections.getValue(key)
-                val h=when(key) {"status" -> -2; "grid" -> d(ui.gridHeightDp.toFloat())
-                    "actions" -> d(ui.actionHeightDp.toFloat());else -> d(49f)}
-                topPanel.addView(child, LinearLayout.LayoutParams(-1,h))
-            }
-            bottomPanel.removeAllViews()
-            ui.bottomOrder.forEach { key ->
-                bottomPanel.addView(bottomSections.getValue(key), LinearLayout.LayoutParams(0,d(52f),1f))
-            }
+            status()
+            exportButton.text="⇧  ${ui.exportText}"
+            diagnosticButton.text="▤  ${ui.diagnosticText}"
             return true
-        } catch (e:Exception) {
-            android.util.Log.w("GlassStudy", "Rejected UI layout patch", e)
+        } catch(e:Exception) {
+            android.util.Log.w("GlassStudy","Rejected UI patch",e)
             return false
         }
     }
@@ -424,7 +594,16 @@ class MainActivity : Activity() {
     private fun status() {
         if (::label.isInitialized) {
             val source = if (lightMode) "СВЕТ: палец — направление, два — яркость" else "КАМЕРА: палец — вращение, два — масштаб"
-            label.text = "GlassStudy Filament v${BuildConfig.VERSION_NAME} · $currentId/$currentLod\n$source"
+            label.text=source
+            if(::quickLight.isInitialized) skin(quickLight,lightMode)
+            if(::gridButton.isInitialized) {
+                gridButton.text=if(wireframe) "▦  Сетка: ВКЛ" else "▦  Сетка"
+                skin(gridButton,wireframe)
+            }
+            if(::cameraButton.isInitialized) {
+                cameraButton.text=if(lightMode) "☼  Свет: ВКЛ" else "☼  Свет / Камера"
+                skin(cameraButton,lightMode)
+            }
         }
     }
     private fun showDiagnostic() {

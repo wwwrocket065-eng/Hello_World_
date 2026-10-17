@@ -10,11 +10,21 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.19' in props and 'GLASSSTUDY_VERSION_CODE=20019' in props
+assert 'GLASSSTUDY_VERSION=0.2.20' in props and 'GLASSSTUDY_VERSION_CODE=20020' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
+assert 'applyButton' not in activity
+assert 'Применить' not in activity or 'no "Применить"' in activity
+assert 'chooseObject.onItemSelectedListener=onSelection' in activity
+assert 'chooseLod.onItemSelectedListener=onSelection' in activity
+assert 'loadSelected()' in activity
+assert 'headerRow.addView(b,lp)' in activity
+assert 'footerActions.addView(diagnosticButton' in activity
+assert 'GlassStudy 3D LAB' in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert '@drawable/glassstudy_launcher' in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert (root/'app/src/main/res/drawable/glassstudy_launcher.webp').stat().st_size>1200
 custom=(root/'app/src/main/java/com/google/android/filament/utils/GlassStudyModelViewer.kt').read_text()
 assert 'class GlassStudyModelViewer' in custom
 assert 'renderedFrames++' in custom
