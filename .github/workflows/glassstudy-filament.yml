@@ -33,5 +33,5 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: GlassStudy-Filament-0.2.01-APK
+          name: GlassStudy-Filament-0.2.06-UnsignedForResign
           path: glassstudy/app/build/outputs/apk/debug/*.apk

@@ -3,8 +3,8 @@ package com.glassstudy.filament
 import android.app.Activity
 import android.content.Context
 import android.net.Uri
-import android.os.Build
-import android.os.Environment
+import java.net.HttpURLConnection
+import java.net.URL
 import android.util.Base64
 import org.json.JSONObject
 import java.io.File
@@ -43,8 +43,6 @@ class PatchManager(private val activity: Activity) {
     val version: Long
         get() = prefs.getLong("active", 0)
 
-    fun hasDownloadsPermission(): Boolean = Build.VERSION.SDK_INT < 30 ||
-        Environment.isExternalStorageManager()
 
     fun asset(path: String): ByteArray? {
         if (!safePath(path)) return null
@@ -151,11 +149,22 @@ class PatchManager(private val activity: Activity) {
         if (temp.exists()) temp.deleteRecursively()
         require(temp.mkdirs()) { "Не удалось создать временную папку" }
         try {
+            val prior = File(root, version.toString())
+            if (version > 0 && prior.isDirectory) {
+                prior.walkTopDown().filter { it.isFile }.forEach { old ->
+                    val rel=old.relativeTo(prior).invariantSeparatorsPath
+                    require(safePath(rel)) { "Повреждённый файл предыдущего патча" }
+                    val dest=File(temp,rel)
+                    dest.parentFile?.mkdirs()
+                    old.copyTo(dest,overwrite=true)
+                }
+            }
             staged.forEach { (path, data) ->
                 val target = File(temp, path)
                 require(target.parentFile!!.mkdirs() || target.parentFile!!.exists())
                 target.outputStream().use { it.write(data);it.fd.sync() }
             }
+            require(temp.walkTopDown().filter { it.isFile }.sumOf { it.length() } <= MAX_TOTAL_BYTES) { "Слишком большая суммарная база патчей" }
             val target = File(root, v.toString())
             if (target.exists()) target.deleteRecursively()
             require(temp.renameTo(target)) { "Не удалось применить патч" }
@@ -173,40 +182,44 @@ class PatchManager(private val activity: Activity) {
     }
 
     /**
-     * Android 11+ cannot automatically read files created by other apps in Downloads
-     * without explicit user consent. We request all-files access ONLY for this
-     * locally installed development build; fallback ACTION_OPEN_DOCUMENT is available.
+     * Scoped-storage safe automatic updates. Fetches only files from our fixed
+     * repository. The downloaded payload is authenticated by the embedded RSA
+     * signature before it can affect an asset on disk.
+     * Run on a worker thread (never the Android UI thread).
      */
-    fun scanDownloads(): String {
-        if (!hasDownloadsPermission()) {
-            report = "Нет разрешения для автоматического поиска в Загрузках"
+    fun onlinePatchVersion(): Long {
+        val endpoint="https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/latest.json"
+        val json=JSONObject(String(fetchHttps(endpoint, 32768L), Charsets.UTF_8))
+        require(json.getString("format") == "glassstudy-filament-latest-v1") {
+            "Неподходящий манифест обновлений"
+        }
+        return json.getLong("version")
+    }
+
+    fun checkAndInstallOnline(): String {
+        val versionOnServer=onlinePatchVersion()
+        if (versionOnServer <= version) {
+            report="Обновлений нет; активный патч: " + version
             return report
         }
-        @Suppress("DEPRECATION")
-        val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val candidates = downloads.listFiles()?.filter {
-            it.isFile && it.name.startsWith(PREFIX) && it.name.endsWith(".pupdate") &&
-                it.length() in 1..MAX_PATCH_BYTES
-        }?.sortedByDescending { it.lastModified() } ?: emptyList()
-        if (candidates.isEmpty()) {
-            report = "Загрузки проверены. Активный патч: " + version + "; новых файлов нет"
-            return report
+        require(versionOnServer >= MIN_PATCH_VERSION) { "Неверная версия на сервере" }
+        val patchName=PREFIX + versionOnServer + ".pupdate"
+        val url="https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/" + patchName
+        return install(fetchHttps(url, MAX_PATCH_BYTES), patchName)
+    }
+
+    private fun fetchHttps(src: String, maxBytes: Long): ByteArray {
+        require(src.startsWith("https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/"))
+        val conn=(URL(src).openConnection() as HttpURLConnection)
+        conn.connectTimeout=12000
+        conn.readTimeout=12000
+        conn.instanceFollowRedirects=false
+        try {
+            require(conn.responseCode==200) { "HTTP " + conn.responseCode }
+            return conn.inputStream.use { readLimited(it,maxBytes) }
+        } finally {
+            conn.disconnect()
         }
-        var rejected = ""
-        for (f in candidates) {
-            try {
-                // A signed old/same version must not block subsequent candidate search.
-                return install(f.inputStream().use { readLimited(it, MAX_PATCH_BYTES) }, f.name)
-            } catch (t: Exception) {
-                if (!t.message.orEmpty().startsWith("Уже установлена версия") &&
-                    !t.message.orEmpty().startsWith("Ранее откатили")) {
-                    rejected = t.message ?: t.javaClass.simpleName
-                }
-            }
-        }
-        report = "Активный патч: " + version +
-            (if (rejected.isNotEmpty()) "; отклонён файл: " + rejected else "; обновлений нет")
-        return report
     }
 
     fun installFromUri(uri: Uri): String {

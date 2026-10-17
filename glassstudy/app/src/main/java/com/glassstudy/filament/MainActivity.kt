@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.provider.Settings
 import android.net.Uri
-import android.os.Environment
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.Choreographer
@@ -118,7 +117,7 @@ class MainActivity : Activity() {
     val diagnostic=button("Диагностика") {
       val entityCount=viewer.asset?.entities?.size ?: 0
       val renderables=viewer.scene.renderableCount
-      val report="GlassStudy Filament 0.2.04\nПатчи: "+patches.report+"\nАктивная версия: "+patches.version+"\nGlassStudy Filament 0.2.03\nFilament PBR native\nModel: "+loadedFile+
+      val report="GlassStudy Filament 0.2.06\nПатчи: "+patches.report+"\nАктивная версия: "+patches.version+"\nGlassStudy Filament 0.2.06\nFilament PBR native\nModel: "+loadedFile+
         "\nLoaded assets: "+modelLoads+"\nAsset entities: "+entityCount+"\nScene renderables: "+renderables+
         "\nIBL: "+iblReady+" ("+iblMessage+")\nTriangle mesh overlay: "+geometryTest+
         "\nFPS: "+String.format("%.1f",fps)+"\nGPU: "+android.os.Build.HARDWARE
@@ -139,34 +138,65 @@ class MainActivity : Activity() {
     obj.onItemSelectedListener=selectListener
     lod.onItemSelectedListener=selectListener
     loadModel()
-    if(patches.hasDownloadsPermission()) {
-      val previous=patches.version
-      patches.scanDownloads()
-      if(patches.version!=previous)loadModel()
-    }
+    checkOnline(false)
+  }
+  private fun checkOnline(manual:Boolean) {
+    Thread {
+      try {
+        val latest=patches.onlinePatchVersion()
+        runOnUiThread {
+          if (isFinishing || isDestroyed) return@runOnUiThread
+          if(latest>patches.version) {
+            AlertDialog.Builder(this)
+              .setTitle("Обновление GlassStudy")
+              .setMessage("Доступен патч "+latest+". Загрузить и установить?")
+              .setNegativeButton("Позже",null)
+              .setPositiveButton("Установить") { _, _ ->
+                Thread {
+                  try {
+                    val result=patches.checkAndInstallOnline()
+                    runOnUiThread {
+                      if(isFinishing||isDestroyed)return@runOnUiThread
+                      loadModel()
+                      AlertDialog.Builder(this).setTitle("Патч установлен")
+                        .setMessage(result).setPositiveButton("OK",null).show()
+                    }
+                  } catch(e:Exception) {
+                    runOnUiThread {
+                      if(!isFinishing&&!isDestroyed)
+                        AlertDialog.Builder(this).setTitle("Ошибка патча")
+                          .setMessage(e.message).setPositiveButton("OK",null).show()
+                    }
+                  }
+                }.start()
+              }.show()
+          } else if(manual) {
+            AlertDialog.Builder(this).setMessage("Новых патчей нет. Активный: "+patches.version)
+              .setPositiveButton("OK",null).show()
+          }
+        }
+      } catch(e:Exception) {
+        if(manual)runOnUiThread {
+          if(!isFinishing&&!isDestroyed)
+            AlertDialog.Builder(this).setTitle("Проверка обновлений")
+              .setMessage(e.message).setPositiveButton("OK",null).show()
+        }
+      }
+    }.start()
   }
   fun showPatchDialog() {
-    val opts=arrayOf("Проверить Загрузки","Выбрать .pupdate","Разрешить доступ к Загрузкам","Отменить последний патч")
+    val opts=arrayOf("Проверить обновления в интернете","Выбрать .pupdate в Загрузках","Отменить последний патч")
     AlertDialog.Builder(this).setTitle("Обновления GlassStudy").setItems(opts){ _,which ->
       try {
         when(which){
-          0 -> {
-            val old=patches.version
-            val msg=patches.scanDownloads()
-            if(patches.version!=old)loadModel()
-            AlertDialog.Builder(this).setMessage(msg).setPositiveButton("OK",null).show()
-          }
+          0 -> checkOnline(true)
           1 -> {
             val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
               addCategory(Intent.CATEGORY_OPENABLE);type="*/*"
             }
             startActivityForResult(intent,PICK_PATCH)
           }
-          2 -> if(Build.VERSION.SDK_INT>=30) {
-            startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-              Uri.parse("package:"+packageName)))
-          }
-          3 -> { patches.revert("отменено пользователем");loadModel() }
+          2 -> { patches.revert("отменено пользователем");loadModel() }
         }
       }catch(e:Exception){
         AlertDialog.Builder(this).setTitle("Ошибка патча").setMessage(e.message).setPositiveButton("OK",null).show()
