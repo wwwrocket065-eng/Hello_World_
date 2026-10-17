@@ -3,10 +3,7 @@ package com.glassstudy.filament
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
-import androidx.core.content.FileProvider
 import android.graphics.Color
 import android.os.Bundle
 import android.os.SystemClock
@@ -57,7 +54,6 @@ class MainActivity : Activity() {
     private lateinit var viewer: ModelViewer
     private lateinit var updater: PatchManager
     private var wireframe = false
-    private var waitingApkFile: java.io.File? = null
     private lateinit var label: TextView
     private lateinit var chooseObject: Spinner
     private lateinit var chooseLod: Spinner
@@ -184,10 +180,6 @@ class MainActivity : Activity() {
                 updater.reject(candidate)
                 loadSelected()
             }
-        }, onApk = { feed ->
-            // APK code cannot be installed silently by a normal Android app.
-            // Download automatically, then the Android system asks for install consent.
-            if (!isFinishing && !isDestroyed) receiveApkUpdate(feed)
         })
     }
 
@@ -291,44 +283,6 @@ class MainActivity : Activity() {
                 cb.setPrimaryClip(android.content.ClipData.newPlainText("GlassStudy diagnostics",support))
             }.show()
     }
-    private fun receiveApkUpdate(feed: PatchManager.Feed) {
-        val pref = getPreferences(MODE_PRIVATE)
-        val last = pref.getLong("apkOfferMs_${feed.apkVersionCode}",0L)
-        if (System.currentTimeMillis() - last < 24L * 60 * 60 * 1000) return
-        pref.edit().putLong("apkOfferMs_${feed.apkVersionCode}",System.currentTimeMillis()).apply()
-        updater.downloadApk(feed, onDownloaded = { file ->
-            if (!isFinishing && !isDestroyed) requestApkInstall(file)
-        }, onError = { error -> android.util.Log.w("GlassStudy", "APK updater: $error") })
-    }
-
-    private fun requestApkInstall(file: java.io.File) {
-        if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
-            waitingApkFile = file
-            AlertDialog.Builder(this)
-                .setTitle("Обновление GlassStudy")
-                .setMessage("Android требует разрешение на установку APK. Приложение уже загрузило файл; после разрешения установка продолжится автоматически.")
-                .setPositiveButton("Разрешить") { _, _ ->
-                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:$packageName")))
-                }.setNegativeButton("Позже",null).show()
-            return
-        }
-        // Refuse updates whose package ID differs from the installed app.
-        val pkgInfo = packageManager.getPackageArchiveInfo(file.absolutePath,0)
-        if (pkgInfo?.packageName != packageName) {
-            android.util.Log.e("GlassStudy","Rejected downloaded APK: wrong package identity")
-            return
-        }
-        waitingApkFile = null
-        val uri = FileProvider.getUriForFile(this,"${BuildConfig.APPLICATION_ID}.fileprovider",file)
-        val intent=Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri,"application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        try { startActivity(intent) } // User approval is mandatory in Android.
-        catch (e:Exception) { android.util.Log.w("GlassStudy","Installer unavailable",e) }
-    }
-
     private fun exportScene() {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -372,11 +326,7 @@ class MainActivity : Activity() {
             running = true
             Choreographer.getInstance().postFrameCallback(frameCallback)
         }
-        val file = waitingApkFile
-        if (file != null && file.isFile &&
-            (Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls())) {
-            requestApkInstall(file)
-        }
+
     }
     override fun onPause() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
     override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onDestroy() }

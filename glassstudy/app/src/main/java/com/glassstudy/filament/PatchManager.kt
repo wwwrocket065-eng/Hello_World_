@@ -36,8 +36,7 @@ class PatchManager(private val context: Context) {
     }
 
     data class Candidate(val version: Int, val staging: File, val paths: Set<String>)
-    data class Feed(val patchVersion: Int, val patchName: String?, val patchSha256: String?,
-                    val apkVersionCode: Int, val apkName: String?, val apkSha256: String?)
+    data class Feed(val patchVersion: Int, val patchName: String?, val patchSha256: String?)
 
     private val prefs = context.getSharedPreferences("glassstudy.update.v2", Context.MODE_PRIVATE)
     private val patchRoot = File(context.filesDir, "signed_patches")
@@ -88,16 +87,16 @@ class PatchManager(private val context: Context) {
     }
 
     /** HTTP is done off the main thread; UI callback only for verified, staged updates. */
-    fun checkOnStart(onCandidate: (Candidate) -> Unit, onApk: (Feed) -> Unit) {
+    fun checkOnStart(onCandidate: (Candidate) -> Unit) {
         executor.execute {
             try {
                 val base = BuildConfig.UPDATE_BASE_URL.trimEnd('/')
                 val bytes = fetch("$base/latest.json", 1024 * 128)
                 val j = JSONObject(String(bytes, StandardCharsets.UTF_8))
                 require(j.getString("format") == FEED_FORMAT) { "Unrecognized update feed" }
-                val feed = Feed(j.optInt("patchVersion", 0),j.optString("patchName").takeIf { it.isNotBlank() },
-                    j.optString("patchSha256").takeIf { it.isNotBlank() },j.optInt("apkVersionCode", 0),
-                    j.optString("apkName").takeIf { it.isNotBlank() },j.optString("apkSha256").takeIf { it.isNotBlank() })
+                val feed = Feed(j.optInt("patchVersion", 0),
+                    j.optString("patchName").takeIf { it.isNotBlank() },
+                    j.optString("patchSha256").takeIf { it.isNotBlank() })
                 // Never accept an arbitrary URL from the feed: only validated file names on this host.
                 if (feed.patchVersion > installedPatchVersion() && feed.patchName == "GlassStudy_Filament_${feed.patchVersion}.pupdate") {
                     try {
@@ -109,27 +108,10 @@ class PatchManager(private val context: Context) {
                         main.post { onCandidate(candidate) }
                     } catch (e:Exception) { Log.w(TAG,"Rejected model patch, keeping existing assets",e) }
                 }
-                if (feed.apkVersionCode > BuildConfig.VERSION_CODE &&
-                    feed.apkName?.matches(Regex("GlassStudy_Filament_v[0-9.]+\\.apk")) == true &&
-                    feed.apkSha256?.matches(Regex("[a-f0-9]{64}")) == true) {
-                    main.post { onApk(feed) }
-                }
             } catch (e: Exception) {
                 // Fail closed: do not replace a working model or interrupt app startup.
                 Log.w(TAG,"Background update check failed; keeping installed assets",e)
             }
-        }
-    }
-
-    fun downloadApk(feed: Feed, onDownloaded: (File) -> Unit, onError: (String) -> Unit) {
-        executor.execute {
-            try {
-                val bytes = fetch("${BuildConfig.UPDATE_BASE_URL.trimEnd('/')}/${feed.apkName}", MAX_PATCH_BYTES)
-                require(sha(bytes) == feed.apkSha256)
-                val output = File(context.cacheDir, "GlassStudy_verified_update.apk")
-                FileOutputStream(output).use { it.write(bytes);it.fd.sync() }
-                main.post { onDownloaded(output) }
-            } catch (e:Exception) { Log.w(TAG,"APK download failed",e);main.post { onError(e.message ?: "Network error") } }
         }
     }
 
