@@ -17,7 +17,7 @@ assert 'button("Обновления' not in activity and 'button("Обнови�
 assert 'updater.checkOnStart(' in activity
 assert 'root.setOnApplyWindowInsetsListener' in activity
 assert 'private var distance = 7.4' in activity
-assert 'else distance = (distance * (delta / oldPinch))' in activity
+assert 'else distance = (distance * (delta / oldPinch).toDouble().pow(.50))' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
