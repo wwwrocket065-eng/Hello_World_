@@ -25,5 +25,30 @@
   "gridText": "Сетка: включить / выключить",
   "exportText": "Экспорт сцены",
   "diagnosticText": "Диагностика",
-  "zoomPower": 0.5
+  "zoomPower": 0.5,
+  "diagnostics": {
+    "title": "Диагностика GlassStudy",
+    "appVersion": "Версия приложения",
+    "installedPatch": "Установленный патч ресурсов",
+    "confirmedPatch": "Патч, подтверждённый отрисовкой",
+    "serverPatch": "Патч на сервере",
+    "updateCheck": "Состояние обновления",
+    "renderer": "Движок отрисовки",
+    "rendererValue": "Официальный Google Filament / gltfio",
+    "geometry": "Геометрия",
+    "geometryValue": "Одна модель GLB для просмотра и экспорта",
+    "device": "Устройство",
+    "android": "Версия Android",
+    "model": "Модель",
+    "screen": "Разрешение области просмотра",
+    "fps": "Частота кадров (FPS; не нагрузка видеочипа)",
+    "glass": "Физические параметры стекла glTF",
+    "glassValue": "Пропускание=1; IOR=1,52; объём включён",
+    "ibl": "Освещение и отражения IBL",
+    "iblAvailable": "Доступно",
+    "iblUnavailable": "Нет карты окружения; резервный свет",
+    "pathTracing": "Финальная трассировка лучей",
+    "pathTracingValue": "В этой бета-версии не реализована",
+    "unknown": "Не проверено"
+  }
 }

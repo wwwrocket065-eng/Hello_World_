@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private lateinit var exportButton: Button
     private lateinit var diagnosticButton: Button
     private var zoomPower = .50
+    private var diagnosticLabels: Map<String,String> = emptyMap()
     private lateinit var chooseObject: Spinner
     private lateinit var chooseLod: Spinner
     private var currentId = "tumbler"
@@ -284,6 +285,7 @@ class MainActivity : Activity() {
             val bottomSections=mapOf<String, View>("export" to exportButton,
                 "diagnostics" to diagnosticButton)
             zoomPower=ui.zoomPower
+            diagnosticLabels=ui.diagnostics
             label.textSize=ui.textSizeSp
             label.setTextColor(ui.textColor)
             topPanel.setBackgroundColor(ui.topColor)
@@ -398,22 +400,38 @@ class MainActivity : Activity() {
         }
     }
     private fun showDiagnostic() {
-        val support = "GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nInstalled asset patch: ${updater.installedPatchVersion()}\nLast rendered patch: ${updater.lastConfirmedVersion()}\nServer patch: ${updater.serverPatchVersion}\nUpdate check: ${updater.updateStatus}\n" +
-            "Renderer: official Google Filament / gltfio\n" +
-            "Geometry: same GLB used by preview and export\n" +
-            "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n" +
-            "Android: ${android.os.Build.VERSION.RELEASE}\n" +
-            "Model: $currentId / $currentLod\n" +
-            "Screen: ${surface.width} x ${surface.height}\n" +
-            "FPS (display frame pacing, not GPU load): ${"%.1f".format(avgFps)}\n" +
-            "Physical glass glTF: transmission=1, IOR=1.52, volume enabled\n" +
-            "Specular IBL: ${try { assets.open("envs/studio_ibl.ktx").close(); "available" } catch (_: Exception) { "not bundled; using light fallback" }}\n" +
-            "Final path tracing: not implemented in this native beta\n"
-        AlertDialog.Builder(this).setTitle("Диагностика GlassStudy")
-            .setMessage(support).setPositiveButton("OK",null)
+        // All human-readable diagnostic labels come from signed ui/layout.json
+        // or the bundled Russian fallback. A .pupdate can change these labels.
+        fun tr(key: String): String = diagnosticLabels[key] ?: key
+        val patchFromServer=updater.serverPatchVersion
+        val knownServerVersion=if(patchFromServer > 0) patchFromServer.toString() else tr("unknown")
+        val hasIbl=try {
+            assets.open("envs/studio_ibl.ktx").close()
+            true
+        } catch (_: Exception) { false }
+        val information=buildString {
+            appendLine("GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("${tr("appVersion")}: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("${tr("installedPatch")}: ${updater.installedPatchVersion()}")
+            appendLine("${tr("confirmedPatch")}: ${updater.lastConfirmedVersion()}")
+            appendLine("${tr("serverPatch")}: $knownServerVersion")
+            appendLine("${tr("updateCheck")}: ${updater.updateStatus}")
+            appendLine("${tr("renderer")}: ${tr("rendererValue")}")
+            appendLine("${tr("geometry")}: ${tr("geometryValue")}")
+            appendLine("${tr("device")}: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+            appendLine("${tr("android")}: ${android.os.Build.VERSION.RELEASE}")
+            appendLine("${tr("model")}: $currentId / $currentLod")
+            appendLine("${tr("screen")}: ${surface.width} × ${surface.height}")
+            appendLine("${tr("fps")}: ${"%.1f".format(java.util.Locale("ru", "RU"),avgFps)}")
+            appendLine("${tr("glass")}: ${tr("glassValue")}")
+            appendLine("${tr("ibl")}: ${tr(if(hasIbl) "iblAvailable" else "iblUnavailable")}")
+            appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
+        }
+        AlertDialog.Builder(this).setTitle(tr("title"))
+            .setMessage(information).setPositiveButton("ОК",null)
             .setNeutralButton("Копировать") { _, _ ->
                 val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cb.setPrimaryClip(android.content.ClipData.newPlainText("GlassStudy diagnostics",support))
+                cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",information))
             }.show()
     }
     private fun exportScene() {
