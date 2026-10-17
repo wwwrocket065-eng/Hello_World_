@@ -1,230 +1,225 @@
 package com.glassstudy.filament
 
-import android.app.Activity
 import android.content.Context
-import android.net.Uri
-import java.net.HttpURLConnection
-import java.net.URL
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
+import android.util.Log
 import org.json.JSONObject
 import java.io.File
-import java.io.InputStream
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
+import java.util.concurrent.Executors
 
 /**
- * Signed, data-only native Filament patches. No Java / DEX / native executable code.
- * Public key is safe to ship; the RSA private key stays OUTSIDE GitHub and APK.
- *
- * Format glassstudy-filament-assets-v1:
- * {format,version,entries:[{path,sha256,data}],signature}
- * Signature: RSA SHA256 PKCS1v1.5 over UTF-8:
- *   "GlassStudy-Filament-Patch-v1\n" + version + "\n" +
- *   each (path + "\n" + sha256 + "\n") in JSON entry order.
+ * Source-based, testable signed data updater. Never patches DEX or native code.
+ * A complete patch is staged before the currently active version is changed.
  */
-class PatchManager(private val activity: Activity) {
+class PatchManager(private val context: Context) {
     companion object {
-        const val FORMAT = "glassstudy-filament-assets-v1"
-        const val PREFIX = "GlassStudy_Filament_"
-        private const val MAX_PATCH_BYTES = 32L * 1024 * 1024
-        private const val MAX_TOTAL_BYTES = 28L * 1024 * 1024
-        private const val MAX_ENTRY_BYTES = 16L * 1024 * 1024
-        private const val MAX_FILES = 80
-        private const val MIN_PATCH_VERSION = 20005L
-        private const val PUBLIC_DER = "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAyhk7Bexza7Ql/DBqcSPdWpl2JPWY3VvbaL5occPApXWIVeOLISsLPCckXgHGQ2mdwX6d6jwAuistLXRuwL9utYlBEENIwtH2FJoGohbQ7TqvPiM/KrFCR5TYw3s6z0xb/cjhXiBDxoLEb1c8bo6n36AM77bVOMd2sITODui/Dhx3lhjbCyJ/rc1FYHhkRNSw3aqYjxHVUtecAjNC2SLS95fRlRpb4tw709q1jmManXJunKJio2Rnay2O8LCOzJmQVHnWBaf+TSEh8dTijU5KpkRot5FUV4KXmCvJbeReS6nIblMFjpW4SlfBhoWW28Oh/k8UMCd+qE+Sg2T49CPm3vfyWl2idwe2NZ0/MAaEXiZxj3QIu/Xk9YQTheQtbJQq1aiGuOs/NPDAujkdqxRAMZtYH686JXw1bfIzrxYaa0wQ6ySIqGBj7E3zq4YzoVZW+1nDfzJEve40wq0CAx9nc2pBNXzkTkobBCuFIUlZ1X9T6nZ0Yti34IR58ovRe+rzAgMBAAE="
-    }
-    private val prefs = activity.getSharedPreferences("GlassStudySecurePatches", Context.MODE_PRIVATE)
-    private val root = File(activity.filesDir, "patches")
-    @Volatile var report: String = "Патчи: поиск не выполнялся"
-        private set
-
-    val version: Long
-        get() = prefs.getLong("active", 0)
-
-
-    fun asset(path: String): ByteArray? {
-        if (!safePath(path)) return null
-        val v = version
-        if (v == 0L) return null
-        val f = File(File(root, v.toString()), path)
-        if (!f.isFile || f.length() > MAX_ENTRY_BYTES) return null
-        return f.readBytes()
+        private const val TAG = "GlassStudyUpdate"
+        private const val FORMAT = "glassstudy-filament-assets-v2"
+        private const val FEED_FORMAT = "glassstudy-filament-feed-v2"
+        private const val BASE_VERSION = 20009
+        private const val MAX_PATCH_BYTES = 50 * 1024 * 1024
+        private const val MAX_ENTRY_BYTES = 16 * 1024 * 1024
+        private const val MAX_ENTRIES = 120
+        private val MODEL_PATH = Regex("models/(faceted|tumbler|wine|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high)(_debug)?\\.glb")
+        // Public key of the existing GlassStudy .pupdate signing identity. NOT a secret.
+        private const val PUBLIC_KEY_BASE64 = "MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAyhk7Bexza7Ql/DBqcSPdWpl2JPWY3VvbaL5occPApXWIVeOLISsLPCckXgHGQ2mdwX6d6jwAuistLXRuwL9utYlBEENIwtH2FJoGohbQ7TqvPiM/KrFCR5TYw3s6z0xb/cjhXiBDxoLEb1c8bo6n36AM77bVOMd2sITODui/Dhx3lhjbCyJ/rc1FYHhkRNSw3aqYjxHVUtecAjNC2SLS95fRlRpb4tw709q1jmManXJunKJio2Rnay2O8LCOzJmQVHnWBaf+TSEh8dTijU5KpkRot5FUV4KXmCvJbeReS6nIblMFjpW4SlfBhoWW28Oh/k8UMCd+qE+Sg2T49CPm3vfyWl2idwe2NZ0/MAaEXiZxj3QIu/Xk9YQTheQtbJQq1aiGuOs/NPDAujkdqxRAMZtYH686JXw1bfIzrxYaa0wQ6ySIqGBj7E3zq4YzoVZW+1nDfzJEve40wq0CAx9nc2pBNXzkTkobBCuFIUlZ1X9T6nZ0Yti34IR58ovRe+rzAgMBAAE="
     }
 
-    fun revert(reason: String) {
-        val current = version
-        val previous = prefs.getLong("previous", 0)
-        prefs.edit().putLong("active", previous).putLong("blocked", current)
-            .putLong("previous", 0).commit()
-        report = "Патч " + current + " откачен: " + reason + ". Активен " + previous
+    data class Candidate(val version: Int, val staging: File, val paths: Set<String>)
+    data class Feed(val patchVersion: Int, val patchName: String?, val patchSha256: String?,
+                    val apkVersionCode: Int, val apkName: String?, val apkSha256: String?)
+
+    private val prefs = context.getSharedPreferences("glassstudy.update.v2", Context.MODE_PRIVATE)
+    private val patchRoot = File(context.filesDir, "signed_patches")
+    private val executor = Executors.newSingleThreadExecutor()
+    private val main = Handler(Looper.getMainLooper())
+
+    fun installedPatchVersion(): Int {
+        val v = prefs.getInt("active", BASE_VERSION)
+        return if (v == BASE_VERSION || File(patchRoot, "v$v").isDirectory) v else BASE_VERSION
     }
 
-    fun confirmModelLoaded() {
-        // A patch is considered healthy only after gltfio loads its GLB successfully.
-        if (version > 0) {
-            prefs.edit().putLong("healthy", version).apply()
-        }
+    fun readModel(path: String): ByteArray {
+        require(MODEL_PATH.matches(path)) { "Invalid model name" }
+        val installed = File(patchRoot, "v${installedPatchVersion()}/$path")
+        return if (installed.isFile) installed.readBytes() else context.assets.open(path).use { it.readBytes() }
     }
 
-    private fun safePath(p: String): Boolean {
-        if (p == "studio_ibl.ktx") return true
-        return Regex("^models/(faceted|tumbler|wine|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high)(_debug)?\\.glb$").matches(p)
-    }
-
-    private fun sha256(bytes: ByteArray): String {
-        return MessageDigest.getInstance("SHA-256").digest(bytes)
-            .joinToString("") { "%02x".format(it.toInt() and 255) }
-    }
-
-    private fun verifySig(message: String, signature: String): Boolean {
-        val key = KeyFactory.getInstance("RSA").generatePublic(
-            X509EncodedKeySpec(Base64.decode(PUBLIC_DER, Base64.DEFAULT)))
-        val sig = Signature.getInstance("SHA256withRSA")
-        sig.initVerify(key)
-        sig.update(message.toByteArray(Charsets.UTF_8))
-        return sig.verify(Base64.decode(signature, Base64.DEFAULT))
-    }
-
-    private fun readLimited(input: InputStream, max: Long): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val buf = ByteArray(8192)
-        var total = 0L
-        while (true) {
-            val n = input.read(buf)
-            if (n < 0) break
-            total += n
-            require(total <= max) { "Файл превышает лимит размера" }
-            out.write(buf, 0, n)
-        }
-        return out.toByteArray()
+    fun readModel(path: String, candidate: Candidate): ByteArray {
+        require(MODEL_PATH.matches(path))
+        val pending = File(candidate.staging, path)
+        return if (pending.isFile) pending.readBytes() else readModel(path)
     }
 
     /**
-     * All signature and SHA checks complete before changing the active asset version.
-     * Temp dir + atomic rename + active pref commit allow rollback on process interruption.
+     * Called before loading any model on startup. A patch that was activated but
+     * never rendered is rolled back. Old resources remain available until confirmed.
      */
-    @Synchronized
-    fun install(bytes: ByteArray, sourceName: String): String {
-        require(bytes.size <= MAX_PATCH_BYTES) { "Слишком большой патч" }
-        val j = JSONObject(String(bytes, Charsets.UTF_8))
-        require(j.optString("format") == FORMAT) { "Это не патч Filament" }
-        val v = j.getLong("version")
-        require(v >= MIN_PATCH_VERSION) { "Некорректная версия" }
-        require(v > version) { "Уже установлена версия " + version }
-        require(v != prefs.getLong("blocked", -1L)) { "Ранее откатили этот патч" }
+    fun reconcileAfterCrash() {
+        val pending = prefs.getInt("pending",0)
+        if (pending != 0) {
+            val previous = prefs.getInt("previous", BASE_VERSION)
+            prefs.edit().putInt("active",previous).remove("pending").commit()
+            Log.w(TAG,"Unconfirmed asset version $pending rolled back to $previous")
+        }
+    }
+
+    /** Called after the first successful Filament frame of a newly activated patch. */
+    fun confirmFrameRendered() {
+        val pending=prefs.getInt("pending",0)
+        if (pending != 0 && pending == installedPatchVersion()) {
+            prefs.edit().remove("pending").commit()
+            val previous=prefs.getInt("previous",BASE_VERSION)
+            patchRoot.listFiles()?.filter {
+                it.name.startsWith("staging_") ||
+                (it.name.startsWith("v") && it.name != "v$pending" && it.name != "v$previous")
+            }?.forEach { it.deleteRecursively() }
+        }
+    }
+
+    /** HTTP is done off the main thread; UI callback only for verified, staged updates. */
+    fun checkOnStart(onCandidate: (Candidate) -> Unit, onApk: (Feed) -> Unit) {
+        executor.execute {
+            try {
+                val base = BuildConfig.UPDATE_BASE_URL.trimEnd('/')
+                val bytes = fetch("$base/latest.json", 1024 * 128)
+                val j = JSONObject(String(bytes, StandardCharsets.UTF_8))
+                require(j.getString("format") == FEED_FORMAT) { "Unrecognized update feed" }
+                val feed = Feed(j.optInt("patchVersion", 0),j.optString("patchName").takeIf { it.isNotBlank() },
+                    j.optString("patchSha256").takeIf { it.isNotBlank() },j.optInt("apkVersionCode", 0),
+                    j.optString("apkName").takeIf { it.isNotBlank() },j.optString("apkSha256").takeIf { it.isNotBlank() })
+                // Never accept an arbitrary URL from the feed: only validated file names on this host.
+                if (feed.patchVersion > installedPatchVersion() && feed.patchName == "GlassStudy_Filament_${feed.patchVersion}.pupdate") {
+                    try {
+                        require(feed.patchSha256?.matches(Regex("[a-f0-9]{64}")) == true)
+                        val patch = fetch("$base/${feed.patchName}", MAX_PATCH_BYTES)
+                        require(sha(patch) == feed.patchSha256) { "Patch download SHA mismatch" }
+                        val candidate = stage(patch)
+                        require(candidate.version == feed.patchVersion)
+                        main.post { onCandidate(candidate) }
+                    } catch (e:Exception) { Log.w(TAG,"Rejected model patch, keeping existing assets",e) }
+                }
+                if (feed.apkVersionCode > BuildConfig.VERSION_CODE &&
+                    feed.apkName?.matches(Regex("GlassStudy_Filament_v[0-9.]+\\.apk")) == true &&
+                    feed.apkSha256?.matches(Regex("[a-f0-9]{64}")) == true) {
+                    main.post { onApk(feed) }
+                }
+            } catch (e: Exception) {
+                // Fail closed: do not replace a working model or interrupt app startup.
+                Log.w(TAG,"Background update check failed; keeping installed assets",e)
+            }
+        }
+    }
+
+    fun downloadApk(feed: Feed, onDownloaded: (File) -> Unit, onError: (String) -> Unit) {
+        executor.execute {
+            try {
+                val bytes = fetch("${BuildConfig.UPDATE_BASE_URL.trimEnd('/')}/${feed.apkName}", MAX_PATCH_BYTES)
+                require(sha(bytes) == feed.apkSha256)
+                val output = File(context.cacheDir, "GlassStudy_verified_update.apk")
+                FileOutputStream(output).use { it.write(bytes);it.fd.sync() }
+                main.post { onDownloaded(output) }
+            } catch (e:Exception) { Log.w(TAG,"APK download failed",e);main.post { onError(e.message ?: "Network error") } }
+        }
+    }
+
+    private fun stage(bytes: ByteArray): Candidate {
+        val j = JSONObject(String(bytes, StandardCharsets.UTF_8))
+        require(j.getString("format") == FORMAT) { "Patch format mismatch" }
+        val version = j.getInt("version")
+        require(version > installedPatchVersion()) { "Downgrade or repeat update" }
         val entries = j.getJSONArray("entries")
-        require(entries.length() in 1..MAX_FILES) { "Некорректное количество файлов" }
-        val staged = ArrayList<Pair<String, ByteArray>>()
-        val unique = HashSet<String>()
-        val canonical = StringBuilder("GlassStudy-Filament-Patch-v1\n")
-            .append(v).append('\n')
-        var total = 0L
+        require(entries.length() in 1..MAX_ENTRIES) { "Invalid number of entries" }
+        val records = mutableListOf<Triple<String,String,String>>()
         for (i in 0 until entries.length()) {
-            val e = entries.getJSONObject(i)
-            val path = e.getString("path")
-            require(safePath(path) && unique.add(path)) { "Недопустимый путь: " + path }
-            val hash = e.getString("sha256")
-            require(Regex("^[a-f0-9]{64}$").matches(hash)) { "Некорректный SHA256" }
-            canonical.append(path).append('\n').append(hash).append('\n')
-            val decoded = Base64.decode(e.getString("data"), Base64.DEFAULT)
-            total += decoded.size
-            require(decoded.isNotEmpty() && decoded.size <= MAX_ENTRY_BYTES && total <= MAX_TOTAL_BYTES) {
-                "Некорректный размер вложения"
-            }
-            require(sha256(decoded) == hash) { "Неверная контрольная сумма: " + path }
-            if (path.endsWith(".glb")) {
-                require(decoded.size >= 12 && String(decoded, 0, 4, Charsets.US_ASCII) == "glTF") {
-                    "Некорректный GLB"
-                }
-            }
-            staged.add(path to decoded)
+            val v = entries.getJSONObject(i)
+            val path=v.getString("path")
+            val hash=v.getString("sha256")
+            require(MODEL_PATH.matches(path)) { "Not a model path: $path" }
+            require(hash.matches(Regex("[a-f0-9]{64}")))
+            records.add(Triple(path,hash,v.getString("data")))
         }
-        require(verifySig(canonical.toString(), j.getString("signature"))) {
-            "Цифровая подпись не совпадает"
-        }
-        root.mkdirs()
-        val temp = File(root, ".staging-" + v)
-        if (temp.exists()) temp.deleteRecursively()
-        require(temp.mkdirs()) { "Не удалось создать временную папку" }
+        require(records.map { it.first }.distinct().size == records.size) { "Duplicate model path" }
+        // Key always signs only the stable manifest of allowed model paths + checksums.
+        val canonical = canonicalMessage(version,records.map { Pair(it.first,it.second) })
+        val signature = Signature.getInstance("SHA256withRSA")
+        val pub=KeyFactory.getInstance("RSA").generatePublic(
+            X509EncodedKeySpec(Base64.decode(PUBLIC_KEY_BASE64, Base64.DEFAULT)))
+        signature.initVerify(pub)
+        signature.update(canonical.toByteArray(StandardCharsets.UTF_8))
+        require(signature.verify(Base64.decode(j.getString("signature"),Base64.DEFAULT))) { "Bad update signature" }
+
+        patchRoot.mkdirs()
+        val staging=File(patchRoot,"staging_${version}_${System.nanoTime()}")
         try {
-            val prior = File(root, version.toString())
-            if (version > 0 && prior.isDirectory) {
-                prior.walkTopDown().filter { it.isFile }.forEach { old ->
-                    val rel=old.relativeTo(prior).invariantSeparatorsPath
-                    require(safePath(rel)) { "Повреждённый файл предыдущего патча" }
-                    val dest=File(temp,rel)
-                    dest.parentFile?.mkdirs()
-                    old.copyTo(dest,overwrite=true)
-                }
+            require(staging.mkdirs())
+            var total=0L
+            for ((path,hash,encoded) in records) {
+                require(encoded.length <= MAX_ENTRY_BYTES * 4L / 3 + 8)
+                val raw=Base64.decode(encoded, Base64.DEFAULT)
+                require(raw.size in 1..MAX_ENTRY_BYTES)
+                total += raw.size
+                require(total <= MAX_PATCH_BYTES)
+                require(sha(raw)==hash) { "Invalid SHA256: $path" }
+                val f=File(staging,path)
+                require(f.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
+                FileOutputStream(f).use { it.write(raw);it.fd.sync() }
             }
-            staged.forEach { (path, data) ->
-                val target = File(temp, path)
-                require(target.parentFile!!.mkdirs() || target.parentFile!!.exists())
-                target.outputStream().use { it.write(data);it.fd.sync() }
-            }
-            require(temp.walkTopDown().filter { it.isFile }.sumOf { it.length() } <= MAX_TOTAL_BYTES) { "Слишком большая суммарная база патчей" }
-            val target = File(root, v.toString())
-            if (target.exists()) target.deleteRecursively()
-            require(temp.renameTo(target)) { "Не удалось применить патч" }
-            val old = version
-            require(prefs.edit().putLong("previous", old).putLong("active", v)
-                .putLong("healthy", 0).putString("source", sourceName).commit()) {
-                "Не удалось сохранить активную версию"
-            }
-            report = "Установлен патч " + v + " из " + sourceName + "; файлов: " + staged.size
-            return report
-        } catch (t: Throwable) {
-            temp.deleteRecursively()
-            throw t
-        }
+            return Candidate(version,staging,records.map { it.first }.toSet())
+        } catch (e:Exception) { staging.deleteRecursively(); throw e }
     }
 
-    /**
-     * Scoped-storage safe automatic updates. Fetches only files from our fixed
-     * repository. The downloaded payload is authenticated by the embedded RSA
-     * signature before it can affect an asset on disk.
-     * Run on a worker thread (never the Android UI thread).
-     */
-    fun onlinePatchVersion(): Long {
-        val endpoint="https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/latest.json"
-        val json=JSONObject(String(fetchHttps(endpoint, 32768L), Charsets.UTF_8))
-        require(json.getString("format") == "glassstudy-filament-latest-v1") {
-            "Неподходящий манифест обновлений"
-        }
-        return json.getLong("version")
+    /** Call ONLY after Filament successfully loads a model from staging. */
+    fun activate(candidate: Candidate): Boolean {
+        if (candidate.version <= installedPatchVersion()) return false
+        val destination=File(patchRoot,"v${candidate.version}")
+        if (destination.exists()) return false
+        if (!candidate.staging.renameTo(destination)) return false
+        // Synchronous commit ensures rollback state survives process death.
+        val previous=installedPatchVersion()
+        if (!prefs.edit().putInt("previous",previous).putInt("active",candidate.version)
+                .putInt("pending",candidate.version).commit()) return false
+        return true
     }
 
-    fun checkAndInstallOnline(): String {
-        val versionOnServer=onlinePatchVersion()
-        if (versionOnServer <= version) {
-            report="Обновлений нет; активный патч: " + version
-            return report
-        }
-        require(versionOnServer >= MIN_PATCH_VERSION) { "Неверная версия на сервере" }
-        val patchName=PREFIX + versionOnServer + ".pupdate"
-        val url="https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/" + patchName
-        return install(fetchHttps(url, MAX_PATCH_BYTES), patchName)
-    }
+    fun reject(candidate: Candidate) { candidate.staging.deleteRecursively() }
 
-    private fun fetchHttps(src: String, maxBytes: Long): ByteArray {
-        require(src.startsWith("https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/"))
-        val conn=(URL(src).openConnection() as HttpURLConnection)
-        conn.connectTimeout=12000
-        conn.readTimeout=12000
-        conn.instanceFollowRedirects=false
+    private fun fetch(url: String, limit: Int): ByteArray {
+        val c = URL(url).openConnection() as HttpURLConnection
         try {
-            require(conn.responseCode==200) { "HTTP " + conn.responseCode }
-            return conn.inputStream.use { readLimited(it,maxBytes) }
-        } finally {
-            conn.disconnect()
-        }
+            require(c.url.protocol == "https")
+            c.connectTimeout=8_000;c.readTimeout=15_000;c.instanceFollowRedirects=false
+            require(c.responseCode==200) { "HTTP ${c.responseCode}" }
+            val stream=c.inputStream
+            return stream.use {
+                val out=java.io.ByteArrayOutputStream()
+                val buf=ByteArray(16_384)
+                while (true) {
+                    val n=it.read(buf);if(n<0)break
+                    require(out.size()+n <= limit) { "Update too large" }
+                    out.write(buf,0,n)
+                }
+                out.toByteArray()
+            }
+        } finally { c.disconnect() }
     }
+    private fun sha(data: ByteArray) = MessageDigest.getInstance("SHA-256").digest(data)
+        .joinToString("") { "%02x".format(it) }
+}
 
-    fun installFromUri(uri: Uri): String {
-        val stream = activity.contentResolver.openInputStream(uri)
-            ?: error("Не удалось открыть файл")
-        return stream.use { install(readLimited(it, MAX_PATCH_BYTES), uri.lastPathSegment ?: "выбранный файл") }
-    }
+/** The exact same signed message format is used by tools/publish_patch.py. */
+fun canonicalMessage(version: Int, hashes: List<Pair<String,String>>): String = buildString {
+    append("glassstudy-filament-assets-v2\n")
+    append(version).append('\n')
+    hashes.sortedBy { it.first }.forEach { (name,hash) -> append(name).append('\t').append(hash).append('\n') }
 }
