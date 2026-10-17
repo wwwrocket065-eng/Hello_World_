@@ -79,9 +79,10 @@ class MainActivity : Activity() {
     private var currentId = "tumbler"
     private var currentLod = "medium"
     private var lightMode = false
-    private var yaw = .38
-    private var pitch = .22
-    private var distance = 7.4
+    // Stable orbit defaults and elevation bounds adapted from GlassStudy v0.1.22.
+    private var yaw = .56
+    private var pitch = .34
+    private var distance = 5.5
     private var lightAz = 1.3
     private var lightElevation = .9
     private var brightness = 1.0
@@ -176,6 +177,13 @@ class MainActivity : Activity() {
         cameraButton=button("Свет / Камера") {
             lightMode = !lightMode
             status()
+        }
+        // In v0.1.22 there was a "reset camera" control. Long-press reintroduces
+        // this action without changing the patchable button layout.
+        cameraButton.setOnLongClickListener {
+            resetCameraToHome()
+            Toast.makeText(this, "Камера сброшена", Toast.LENGTH_SHORT).show()
+            true
         }
         actionsRow.addView(cameraButton, LinearLayout.LayoutParams(0, d(48f), 1f))
         topPanel.addView(actionsRow)
@@ -345,12 +353,22 @@ class MainActivity : Activity() {
         val bytes = if(candidate != null) updater.readModel(name,candidate) else updater.readModel(name)
         return ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).apply { put(bytes); flip() }
     }
+    private fun resetCameraToHome() {
+        yaw = .56
+        pitch = .34
+        distance = 5.5
+        lightMode = false
+        status()
+        if (::viewer.isInitialized) updateCamera()
+    }
+
     private fun updateCamera() {
         val cy = cos(pitch)
         val x = distance * cy * sin(yaw)
         val z = distance * cy * cos(yaw)
-        val y = .95 + distance * sin(pitch)
-        viewer.camera.lookAt(x, y, z, 0.0, .95, 0.0, 0.0, 1.0, 0.0)
+        // Target the center of the glass at y=1, as in GlassStudy v0.1.22.
+        val y = 1.0 + distance * sin(pitch)
+        viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
         val aspect = max(.2, surface.width.toDouble() / max(1, surface.height))
         viewer.camera.setProjection(45.0, aspect, 0.05, 125.0, Camera.Fov.VERTICAL)
         val dx = cos(lightElevation) * sin(lightAz)
@@ -372,7 +390,8 @@ class MainActivity : Activity() {
                 val delta = pinch(e)
                 if (oldPinch > 0f && delta > 1f) {
                     if (lightMode) brightness = (brightness * (delta / oldPinch).toDouble().pow(.7)).coerceIn(.05, 3.0)
-                    else distance = (distance * (delta / oldPinch).toDouble().pow(zoomPower)).coerceIn(2.8, 60.0)
+                    // Spread two fingers => move closer; pinch => farther. Same as v0.1.22.
+                    else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(2.7, 60.0)
                 }
                 oldPinch = delta
             } else {
@@ -383,7 +402,8 @@ class MainActivity : Activity() {
                     lightElevation = (lightElevation - dy * 3.0).coerceIn(.08,1.55)
                 } else {
                     yaw -= dx * 6.0
-                    pitch = (pitch-dy * 4.0).coerceIn(-1.3,1.3)
+                    // Keep the camera above the floor: v0.1.22 limits elevation to [-.05, 1.23].
+                    pitch = (pitch+dy * 4.0).coerceIn(-.05,1.23)
                 }
             }
             oldX = e.getX(0); oldY = e.getY(0)

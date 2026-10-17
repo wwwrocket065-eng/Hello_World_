@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.17' in props and 'GLASSSTUDY_VERSION_CODE=20017' in props
+assert 'GLASSSTUDY_VERSION=0.2.18' in props and 'GLASSSTUDY_VERSION_CODE=20018' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -54,8 +54,13 @@ assert layout['diagnostics']['installedPatch']=='Установленный па
 assert layout['diagnostics']['pathTracingValue']=='В этой бета-версии не реализована'
 assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
 assert set(layout['bottomOrder'])=={'export','diagnostics'}
-assert 'private var distance = 7.4' in activity
-assert 'else distance = (distance * (delta / oldPinch).toDouble().pow(zoomPower))' in activity
+assert 'private var distance = 5.5' in activity
+assert 'private var pitch = .34' in activity
+assert 'cameraButton.setOnLongClickListener' in activity
+assert 'resetCameraToHome()' in activity
+assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
+assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower))' in activity
+assert 'pitch = (pitch+dy * 4.0).coerceIn(-.05,1.23)' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
