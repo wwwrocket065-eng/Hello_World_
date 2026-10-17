@@ -398,7 +398,7 @@ class MainActivity : Activity() {
         }
     }
     private fun showDiagnostic() {
-        val support = "GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nInstalled asset patch: ${updater.installedPatchVersion()}\nUpdate check: ${updater.updateStatus}\n" +
+        val support = "GlassStudy v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nInstalled asset patch: ${updater.installedPatchVersion()}\nLast rendered patch: ${updater.lastConfirmedVersion()}\nServer patch: ${updater.serverPatchVersion}\nUpdate check: ${updater.updateStatus}\n" +
             "Renderer: official Google Filament / gltfio\n" +
             "Geometry: same GLB used by preview and export\n" +
             "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n" +

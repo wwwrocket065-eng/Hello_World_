@@ -10,11 +10,16 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.14' in props and 'GLASSSTUDY_VERSION_CODE=20014' in props
+assert 'GLASSSTUDY_VERSION=0.2.15' in props and 'GLASSSTUDY_VERSION_CODE=20015' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
+assert 'Last rendered patch:' in activity and 'Server patch:' in activity
+assert 'putInt("lastConfirmed",pending)' in updater
+assert 'Патч $pending установлен и подтверждён отрисовкой' in updater
+assert 'fun reject(candidate: Candidate)' in updater
+assert 'updateStatus="Патч ${candidate.version} установлен, ожидает подтверждения отрисовкой"' in updater
 assert 'handleIncomingPatchIntent(intent)' in activity
 assert 'override fun onNewIntent' in activity
 assert 'updater.installFromUri' in activity

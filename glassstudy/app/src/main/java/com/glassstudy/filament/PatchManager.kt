@@ -46,6 +46,10 @@ class PatchManager(private val context: Context) {
     private val main = Handler(Looper.getMainLooper())
     @Volatile var updateStatus: String = "Проверка ещё не выполнялась"
         private set
+    @Volatile var serverPatchVersion: Int = 0
+        private set
+
+    fun lastConfirmedVersion(): Int = prefs.getInt("lastConfirmed", installedPatchVersion())
 
     /** Read local content:// uploads with an upper bound before decoding JSON. */
     fun installFromUri(
@@ -67,7 +71,7 @@ class PatchManager(private val context: Context) {
                     output.toByteArray()
                 } ?: error("Файл недоступен для чтения")
                 val candidate=stage(data)
-                updateStatus="Локальный патч ${candidate.version}: подпись проверена"
+                updateStatus="Патч ${candidate.version}: локальный файл и подпись проверены"
                 main.post { onCandidate(candidate) }
             } catch (e: Exception) {
                 updateStatus="Ошибка установки файла: ${e.message}"
@@ -110,7 +114,10 @@ class PatchManager(private val context: Context) {
         if (pending != 0) {
             val previous = prefs.getInt("previous", BASE_VERSION)
             prefs.edit().putInt("active",previous).remove("pending").commit()
+            updateStatus="Откат патча $pending: запуск не был подтверждён. Активен $previous"
             Log.w(TAG,"Unconfirmed asset version $pending rolled back to $previous")
+        } else {
+            updateStatus="Активен патч ${installedPatchVersion()}; проверяем обновления"
         }
     }
 
@@ -118,7 +125,12 @@ class PatchManager(private val context: Context) {
     fun confirmFrameRendered() {
         val pending=prefs.getInt("pending",0)
         if (pending != 0 && pending == installedPatchVersion()) {
-            prefs.edit().remove("pending").commit()
+            // Persist an actual successful render confirmation, not just a downloaded version.
+            if (!prefs.edit().remove("pending").putInt("lastConfirmed",pending).commit()) {
+                updateStatus="Патч $pending: ошибка сохранения подтверждения"
+                return
+            }
+            updateStatus="Патч $pending установлен и подтверждён отрисовкой"
             val previous=prefs.getInt("previous",BASE_VERSION)
             patchRoot.listFiles()?.filter {
                 it.name.startsWith("staging_") ||
@@ -138,7 +150,10 @@ class PatchManager(private val context: Context) {
                 val feed = Feed(j.optInt("patchVersion", 0),
                     j.optString("patchName").takeIf { it.isNotBlank() },
                     j.optString("patchSha256").takeIf { it.isNotBlank() })
-                updateStatus="Сервер: патч ${feed.patchVersion}, установлен ${installedPatchVersion()}"
+                serverPatchVersion=feed.patchVersion
+                updateStatus=if(feed.patchVersion>installedPatchVersion())
+                    "Найден патч ${feed.patchVersion}, загружаем"
+                else "Обновлений нет: установлен ${installedPatchVersion()}, сервер ${feed.patchVersion}"
                 // Never accept an arbitrary URL from the feed: only validated file names on this host.
                 if (feed.patchVersion > installedPatchVersion() && feed.patchName == "GlassStudy_Filament_${feed.patchVersion}.pupdate") {
                     try {
@@ -147,7 +162,7 @@ class PatchManager(private val context: Context) {
                         require(sha(patch) == feed.patchSha256) { "Patch download SHA mismatch" }
                         val candidate = stage(patch)
                         require(candidate.version == feed.patchVersion)
-                        updateStatus="Проверен патч ${candidate.version}, ожидает применения"
+                        updateStatus="Патч ${candidate.version}: загрузка и подпись проверены, применяем"
                         main.post { onCandidate(candidate) }
                     } catch (e:Exception) {
                         updateStatus="Ошибка патча ${feed.patchVersion}: ${e.message}"
@@ -224,18 +239,31 @@ class PatchManager(private val context: Context) {
 
     /** Call ONLY after Filament successfully loads a model from staging. */
     fun activate(candidate: Candidate): Boolean {
-        if (candidate.version <= installedPatchVersion()) return false
+        val current=installedPatchVersion()
+        if (candidate.version <= current) {
+            updateStatus="Патч ${candidate.version} не новее установленного $current"
+            return false
+        }
         val destination=File(patchRoot,"v${candidate.version}")
-        if (destination.exists()) return false
-        if (!candidate.staging.renameTo(destination)) return false
+        if (destination.exists() || !candidate.staging.renameTo(destination)) {
+            updateStatus="Патч ${candidate.version}: ошибка сохранения ресурсов"
+            return false
+        }
         // Synchronous commit ensures rollback state survives process death.
-        val previous=installedPatchVersion()
-        if (!prefs.edit().putInt("previous",previous).putInt("active",candidate.version)
-                .putInt("pending",candidate.version).commit()) return false
+        if (!prefs.edit().putInt("previous",current).putInt("active",candidate.version)
+                .putInt("pending",candidate.version).commit()) {
+            updateStatus="Патч ${candidate.version}: ошибка фиксации установки"
+            destination.deleteRecursively()
+            return false
+        }
+        updateStatus="Патч ${candidate.version} установлен, ожидает подтверждения отрисовкой"
         return true
     }
 
-    fun reject(candidate: Candidate) { candidate.staging.deleteRecursively() }
+    fun reject(candidate: Candidate) {
+        candidate.staging.deleteRecursively()
+        updateStatus="Патч ${candidate.version} отклонён, сохранён установленный ${installedPatchVersion()}"
+    }
 
     private fun fetch(url: String, limit: Int): ByteArray {
         val c = URL(url).openConnection() as HttpURLConnection
