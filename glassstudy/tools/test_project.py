@@ -116,7 +116,7 @@ assert layout['topButtonSizeDp']==35
 assert all(b['textColor']=="#A3D0D3" for b in layout['uiButtons'])
 assert layout['invertHorizontal'] is True
 assert 'invertHorizontal=ui.invertHorizontal' in activity
-assert 'yaw += dx * (if(invertHorizontal) -.008 else .008)' in activity
+assert 'yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
 assert 'val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert len(layout['diagnostics'])>=50
 assert layout['diagnosticSections']==['updates','performance','memory','scene','renderer','camera','device']
@@ -143,10 +143,10 @@ assert 'target.setOnLongClickListener' in activity
 assert 'resetCameraToHome()' in activity
 assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
 assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower))' in activity
-assert 'pitch = (pitch + dy * .005).coerceIn(-.05,1.23)' in activity
-assert 'yaw += dx * (if(invertHorizontal) -.008 else .008)' in activity
-assert 'lightAz += dx * .009' in activity
-assert 'lightElevation = (lightElevation + dy * .006).coerceIn(.06,1.5)' in activity
+assert 'pitch = (pitch + dy * cameraModule.pitchSensitivity)' in activity
+assert 'yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
+assert 'lightAz += dx * cameraModule.lightYawSensitivity' in activity
+assert 'lightElevation = (lightElevation + dy * cameraModule.lightPitchSensitivity)' in activity
 assert 'e.x - oldX' in activity and 'resources.displayMetrics.density' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
@@ -176,5 +176,20 @@ assert (root/'app/src/main/assets/envs/studio_ibl.ktx').stat().st_size>2_000_000
 sys.path.insert(0,str(root/'tools'))
 import publish_patch
 assert publish_patch.canonical(20010,[{'path':'models/a.glb','sha256':'0123'}]) == b'glassstudy-filament-assets-v2\n20010\nmodels/a.glb\t0123\n'
+# Modular source integration tests
+src=root/'app/src/main/java/com/glassstudy/filament'
+for name in ('PatchResourceRegistry','CameraModuleConfig','RenderModuleConfig',
+             'DiagnosticsModuleConfig','MaterialModuleConfig','MaterialOverrides'):
+    assert (src/(name+'.kt')).is_file(), name
+registry=(src/'PatchResourceRegistry.kt').read_text()
+assert 'modules/' in registry and 'PatchResourceRegistry.validate(path, raw)' in updater
+assert 'signature.verify(' in updater  # Modules must pass the old signature check.
+for module in ('camera','render','diagnostics','materials'):
+    config=json.loads((root/'app/src/main/assets/modules'/module/'config.json').read_text())
+    assert config['id']==module and config['schema']==1
+    assert 'readModuleConfig("'+module+'", candidate)' in activity
+assert 'MaterialOverrides.parse(' in activity
+assert 'material.hasParameter(name)' in (src/'MaterialOverrides.kt').read_text()
+print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
 print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
 print('NOTE: Android SDK/Gradle compile and device runtime must be tested separately.')
