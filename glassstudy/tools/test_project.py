@@ -100,7 +100,8 @@ assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
 assert set(layout['bottomOrder'])=={'export','diagnostics'}
 assert 'private var distance = 5.5' in activity
 assert 'private var pitch = .34' in activity
-assert 'cameraButton.setOnLongClickListener' in activity
+assert 'if(spec.action=="toggleLight")' in activity
+assert 'target.setOnLongClickListener' in activity
 assert 'resetCameraToHome()' in activity
 assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
 assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower))' in activity

@@ -199,6 +199,13 @@ class MainActivity : Activity() {
         target.isClickable=true
         target.isFocusable=true
         target.setOnClickListener { clickAction(spec.action) }
+        if(spec.action=="toggleLight") {
+            target.setOnLongClickListener {
+                resetCameraToHome()
+                Toast.makeText(this,"Камера сброшена",Toast.LENGTH_SHORT).show()
+                true
+            }
+        }
         skin(target,spec.highlight || isActionActive(spec.action),spec.fill?:ui.buttonColor,spec.outline)
         return target
     }
