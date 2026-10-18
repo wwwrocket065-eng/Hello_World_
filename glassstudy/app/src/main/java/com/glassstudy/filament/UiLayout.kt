@@ -34,7 +34,17 @@ data class UiLayout(
     val buttons: List<UiButtonSpec>,
     val showFps:Boolean,
     val panelOpacity:Int,
-    val invertHorizontal:Boolean
+    val invertHorizontal:Boolean,
+    val topButtonSizeDp:Int,
+    val topIconScale:Float,
+    val showCameraHint:Boolean,
+    val showLogoUnderline:Boolean,
+    val fillChipCenter:Boolean,
+    val immersiveMode:Boolean,
+    val systemBarColor:Int,
+    val logoColor:Int,
+    val selectorTextColor:Int,
+    val fpsTextColor:Int
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -213,9 +223,15 @@ data class UiLayout(
             // Old signed UI patches had no switch; invert remains enabled.
             val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true
             val opacity=number("panelOpacity",0.86,0.20,1.0)
+            val topSize=number("topButtonSizeDp",35.0,30.0,46.0).toInt()
+            val iconScale=number("topIconScale",0.82,0.55,1.0).toFloat()
+            val hint=if(j.has("showCameraHint"))j.getBoolean("showCameraHint") else false
+            val underline=if(j.has("showLogoUnderline"))j.getBoolean("showLogoUnderline") else false
+            val fillChip=if(j.has("fillChipCenter"))j.getBoolean("fillChipCenter") else true
+            val immersive=if(j.has("immersiveMode"))j.getBoolean("immersiveMode") else true
             return UiLayout(
                 color("topColor","#20313D"),color("bottomColor","#20313D"),
-                color("buttonColor","#203E4F"),color("buttonTextColor","#FFFFFF"),
+                color("buttonColor","#203E4F"),color("buttonTextColor","#6DE0DE"),
                 color("textColor","#FFFFFF"),
                 number("textSizeSp",13.0,11.0,20.0).toFloat(),
                 number("paddingDp",8.0,0.0,28.0).toInt(),
@@ -227,7 +243,10 @@ data class UiLayout(
                 text("diagnosticText","Диагностика"),
                 number("zoomPower",0.5,0.15,1.25),
                 labels.toMap(),sections,
-                specs,showFps,(opacity*255).toInt(),invertHorizontal
+                specs,showFps,(opacity*255).toInt(),invertHorizontal,
+                topSize,iconScale,hint,underline,fillChip,immersive,
+                color("systemBarColor","#656767"),color("logoColor","#6DE0DE"),
+                color("selectorTextColor","#6DE0DE"),color("fpsTextColor","#6DE0DE")
             )
         }
     }

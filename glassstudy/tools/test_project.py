@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.22' in props and 'GLASSSTUDY_VERSION_CODE=20022' in props
+assert 'GLASSSTUDY_VERSION=0.2.23' in props and 'GLASSSTUDY_VERSION_CODE=20023' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -34,7 +34,13 @@ assert 'exportScene()' not in activity and 'applyButton' not in activity
 icons=(root/'app/src/main/java/com/glassstudy/filament/LabUiIcons.kt').read_text()
 assert 'class LabIconView' in icons and 'class LabLogoView' in icons
 assert 'canvas.drawRect(-4f,-4f,4f,4f,ink)' in icons
-assert 'Extended underline' in icons
+assert 'if(showUnderline) canvas.drawLine' in icons
+assert 'if(chipCenterFilled)Paint.Style.FILL' in icons
+assert 'glyphScale=ui.topIconScale' in activity
+assert 'setSystemBarMode(ui)' in activity
+assert 'View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY' in activity
+assert 'label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in activity
+assert 'logoMark.showUnderline=ui.showLogoUnderline' in activity
 
 assert 'exportButton' not in activity
 assert 'exportScene()' not in activity
@@ -80,6 +86,13 @@ assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnos
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleLight','toggleGrid']
 assert not any(x['action']=='export' for x in layout['uiButtons'])
 assert layout['panelOpacity'] < 1.0
+assert layout['buttonTextColor']=="#6DE0DE"
+assert layout['showCameraHint'] is False
+assert layout['showLogoUnderline'] is False
+assert layout['fillChipCenter'] is True
+assert layout['immersiveMode'] is True
+assert layout['topButtonSizeDp']==35
+assert all(b['textColor']=="#6DE0DE" for b in layout['uiButtons'])
 assert layout['invertHorizontal'] is True
 assert 'invertHorizontal=ui.invertHorizontal' in activity
 assert 'yaw += dx * (if(invertHorizontal) -.008 else .008)' in activity

@@ -16,7 +16,11 @@ import kotlin.math.sin
  * the supported names in UiLayout.kt.
  */
 class LabIconView(context:Context, val iconName:String):View(context) {
-    var iconColor:Int=Color.rgb(225,246,251)
+    var iconColor:Int=Color.rgb(109,224,222)
+        set(value) { field=value;invalidate() }
+    var glyphScale:Float=.82f
+        set(value) { field=value.coerceIn(.55f,1f);invalidate() }
+    var chipCenterFilled:Boolean=true
         set(value) { field=value;invalidate() }
     private val ink=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style=Paint.Style.STROKE;strokeJoin=Paint.Join.ROUND
@@ -28,7 +32,7 @@ class LabIconView(context:Context, val iconName:String):View(context) {
         if(dimension<=0f)return
         val save=canvas.save()
         canvas.translate(width/2f,height/2f)
-        canvas.scale(dimension/44f,dimension/44f)
+        canvas.scale(dimension/44f*glyphScale,dimension/44f*glyphScale)
         ink.color=iconColor
         ink.style=Paint.Style.STROKE
         ink.strokeWidth=2.15f
@@ -36,7 +40,10 @@ class LabIconView(context:Context, val iconName:String):View(context) {
             "chip" -> {
                 // A square with eight+ contacts and a centered inner square.
                 canvas.drawRoundRect(-9f,-9f,9f,9f,1.5f,1.5f,ink)
+                val previous=ink.style
+                ink.style=if(chipCenterFilled)Paint.Style.FILL else Paint.Style.STROKE
                 canvas.drawRect(-4f,-4f,4f,4f,ink)
+                ink.style=previous
                 for(p in listOf(-6f,0f,6f)) {
                     canvas.drawLine(p,-14f,p,-9f,ink)
                     canvas.drawLine(p,9f,p,14f,ink)
@@ -108,6 +115,10 @@ class LabIconView(context:Context, val iconName:String):View(context) {
 
 /** Restored identity: outlined rhombus, an inner cyan rhombus and long lower stroke. */
 class LabLogoView(context:Context):View(context) {
+    var showUnderline:Boolean=false
+        set(value){field=value;invalidate()}
+    var logoColor:Int=Color.rgb(109,224,222)
+        set(value){field=value;invalidate()}
     private val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color=Color.rgb(109,224,222)
         style=Paint.Style.STROKE
@@ -117,6 +128,7 @@ class LabLogoView(context:Context):View(context) {
     }
     override fun onDraw(canvas:Canvas) {
         super.onDraw(canvas)
+        pen.color=logoColor
         val save=canvas.save()
         canvas.scale(width/40f,height/48f)
         val outside=Path().apply {
@@ -132,7 +144,7 @@ class LabLogoView(context:Context):View(context) {
         canvas.drawPath(inside,pen)
         pen.style=Paint.Style.STROKE
         // Extended underline on the bottom-left of the logo.
-        canvas.drawLine(2f,42f,26f,42f,pen)
+        if(showUnderline) canvas.drawLine(2f,42f,26f,42f,pen)
         canvas.restoreToCount(save)
     }
 }

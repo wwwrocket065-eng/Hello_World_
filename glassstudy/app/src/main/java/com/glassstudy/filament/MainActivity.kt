@@ -60,6 +60,7 @@ class MainActivity : Activity() {
     private lateinit var updater: PatchManager
     private var wireframe = false
     private lateinit var label: TextView
+    private lateinit var logoMark: LabLogoView
     private lateinit var topPanel: LinearLayout
     private lateinit var bottomPanel: LinearLayout
     private lateinit var selectorRow: LinearLayout
@@ -68,6 +69,8 @@ class MainActivity : Activity() {
     private val activeButtons=linkedMapOf<String,View>()
     private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
     private var currentUiColor:Int=Color.rgb(27,56,75)
+    private var currentSelectorColor=Color.rgb(109,224,222)
+    private lateinit var mainRoot:FrameLayout
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
@@ -172,6 +175,8 @@ class MainActivity : Activity() {
         val target=if(spec.slot=="top") {
             LabIconView(this,spec.icon).apply {
                 iconColor=ink
+                glyphScale=ui.topIconScale
+                chipCenterFilled=ui.fillChipCenter
                 contentDescription=when(spec.action) {
                     "diagnostics" -> "Диагностика"
                     "toggleLight" -> "Свет / Камера"
@@ -184,7 +189,11 @@ class MainActivity : Activity() {
             LinearLayout(this).apply {
                 orientation=LinearLayout.HORIZONTAL
                 gravity=Gravity.CENTER
-                val icon=LabIconView(this@MainActivity,spec.icon).apply { iconColor=ink }
+                val icon=LabIconView(this@MainActivity,spec.icon).apply {
+                    iconColor=ink
+                    glyphScale=.80f
+                    chipCenterFilled=ui.fillChipCenter
+                }
                 addView(icon,LinearLayout.LayoutParams(d(25f),d(25f)))
                 val text=TextView(this@MainActivity).apply {
                     this.text=spec.label
@@ -221,7 +230,8 @@ class MainActivity : Activity() {
         val top=ui.buttons.filter{it.slot=="top"}
         val bottom=ui.buttons.filter{it.slot=="bottom"}
         val totalDp=resources.displayMetrics.widthPixels/resources.displayMetrics.density
-        val size=(if(top.isEmpty()) 40f else (totalDp-198f)/top.size-4f).coerceIn(30f,46f)
+        val upperBound=(if(top.isEmpty())46f else ((totalDp-186f)/top.size)-4f)
+        val size=ui.topButtonSizeDp.toFloat().coerceAtMost(upperBound).coerceAtLeast(28f)
         for(spec in top) {
             val v=createUiButton(spec,ui)
             val p=LinearLayout.LayoutParams(d(size),d(size))
@@ -250,7 +260,7 @@ class MainActivity : Activity() {
                 label.text="${values[position]}  ▾"
                 label.textSize=14f
                 label.setSingleLine(true)
-                label.setTextColor(paleText)
+                label.setTextColor(currentSelectorColor)
                 label.setPadding(d(12f),0,d(7f),0)
                 return label
             }
@@ -258,7 +268,7 @@ class MainActivity : Activity() {
                 val label=super.getDropDownView(position,convertView,parent) as TextView
                 label.text=values[position]
                 label.textSize=16f
-                label.setTextColor(paleText)
+                label.setTextColor(currentSelectorColor)
                 label.setPadding(d(15f),d(10f),d(9f),d(10f))
                 label.setBackgroundColor(Color.rgb(24,48,62))
                 return label
@@ -283,10 +293,11 @@ class MainActivity : Activity() {
         updater = PatchManager(this)
         updater.reconcileAfterCrash()
         wireframe = getPreferences(MODE_PRIVATE).getBoolean("wireframe", false)
-        window.statusBarColor = Color.rgb(39, 48, 55)
-        window.navigationBarColor = Color.rgb(31, 41, 49)
+        window.statusBarColor = Color.rgb(101,103,103)
+        window.navigationBarColor = Color.rgb(101,103,103)
         surface = SurfaceView(this)
         val root = FrameLayout(this)
+        mainRoot=root
         root.addView(surface, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
         // Android 15+ edge-to-edge: keep controls out of the status and navigation bars.
@@ -332,8 +343,8 @@ class MainActivity : Activity() {
             gravity=Gravity.CENTER_VERTICAL
         }
         // Actual logo geometry, including the requested longer underline.
-        val logo=LabLogoView(this)
-        headerRow.addView(logo,LinearLayout.LayoutParams(d(37f),d(48f)))
+        logoMark=LabLogoView(this)
+        headerRow.addView(logoMark,LinearLayout.LayoutParams(d(37f),d(48f)))
         val branding=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             gravity=Gravity.CENTER_VERTICAL
@@ -364,6 +375,7 @@ class MainActivity : Activity() {
             textSize=11f
             gravity=Gravity.CENTER
             setTextColor(Color.rgb(220,238,242))
+            visibility=View.GONE
             setPadding(0,d(7f),0,d(2f))
             setSingleLine(true)
         }
@@ -378,7 +390,7 @@ class MainActivity : Activity() {
         fpsPill=TextView(this).apply {
             text="— FPS · Filament"
             textSize=11f
-            setTextColor(Color.rgb(147,219,219))
+            setTextColor(Color.rgb(109,224,222))
             setPadding(d(13f),d(6f),d(13f),d(6f))
             background=roundedFill(Color.rgb(19,41,54),30f,Color.argb(130,109,185,203))
         }
@@ -512,6 +524,27 @@ class MainActivity : Activity() {
         }
     }
 
+    /** System bar appearance and immersive mode are signed patch settings. */
+    private fun setSystemBarMode(ui:UiLayout) {
+        window.statusBarColor=ui.systemBarColor
+        window.navigationBarColor=ui.systemBarColor
+        if(Build.VERSION.SDK_INT>=30) {
+            val controller=window.insetsController
+            if(ui.immersiveMode) {
+                controller?.hide(WindowInsets.Type.systemBars())
+                controller?.systemBarsBehavior=
+                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else controller?.show(WindowInsets.Type.systemBars())
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility=if(ui.immersiveMode) (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) else 0
+        }
+        mainRoot.requestApplyInsets()
+    }
+
     /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
@@ -519,6 +552,13 @@ class MainActivity : Activity() {
             // The signed JSON is fully validated first: no partial invalid actions.
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
+            currentSelectorColor=ui.selectorTextColor
+            logoMark.showUnderline=ui.showLogoUnderline
+            logoMark.logoColor=ui.logoColor
+            fpsPill.setTextColor(ui.fpsTextColor)
+            label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE
+            chooseObject.invalidateViews()
+            chooseLod.invalidateViews()
             diagnosticLabels=ui.diagnostics
             diagnosticSections=ui.diagnosticSections
             currentUiColor=ui.buttonColor
@@ -531,6 +571,7 @@ class MainActivity : Activity() {
             bottomPanel.background=roundedFill(Color.argb(opacity,35,47,58),19f,
                 Color.argb(180,177,218,225))
             renderUiButtons(ui)
+            setSystemBarMode(ui)
             status()
             return true
         } catch(e:Exception) {
