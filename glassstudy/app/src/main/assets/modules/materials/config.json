@@ -1,5 +1,6 @@
 {
   "schema": 1,
   "id": "materials",
-  "variants": {}
+  "variants": {},
+  "overrides": {}
 }
