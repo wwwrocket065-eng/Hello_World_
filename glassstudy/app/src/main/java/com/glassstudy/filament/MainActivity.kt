@@ -84,6 +84,7 @@ class MainActivity : Activity() {
     private lateinit var fpsPill: TextView
     private var cameraModule = CameraModuleConfig()
     private var renderModule = RenderModuleConfig()
+    private var diagnosticsModule = DiagnosticsModuleConfig()
     private var zoomPower = .50
     // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
     private var invertHorizontal = true
@@ -582,9 +583,11 @@ class MainActivity : Activity() {
             val ui=UiLayout.parse(updater.readUiConfig(candidate))
             val nextCameraModule = CameraModuleConfig.parse(updater.readModuleConfig("camera", candidate))
             val nextRenderModule = RenderModuleConfig.parse(updater.readModuleConfig("render", candidate))
+            val nextDiagnosticsModule = DiagnosticsModuleConfig.parse(updater.readModuleConfig("diagnostics", candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
+            diagnosticsModule=nextDiagnosticsModule
             applyRenderModule()
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
@@ -816,6 +819,20 @@ class MainActivity : Activity() {
                 }
             }
             appendLine()
+            if (diagnosticsModule.includeModuleStatus) {
+                appendLine("▸ МОДУЛИ")
+                appendLine("Камера / Рендер / Диагностика: конфигурация загружена")
+                appendLine("Активная версия ресурсов: $active")
+            }
+            if (diagnosticsModule.includeRenderParameters) {
+                appendLine("▸ НАСТРОЙКИ РЕНДЕРА")
+                appendLine("IBL: ${num(renderModule.iblIntensity.toDouble())} · FXAA: ${if(renderModule.fxaa) "ВКЛ" else "ВЫКЛ"}")
+                appendLine("Экспозиция: f/${num(renderModule.exposureAperture.toDouble())} · ISO ${num(renderModule.exposureSensitivity.toDouble())}")
+            }
+            if (diagnosticsModule.includeCameraParameters) {
+                appendLine("▸ НАСТРОЙКИ КАМЕРЫ")
+                appendLine("FOV: ${num(cameraModule.fieldOfView)}° · диапазон: ${num(cameraModule.minDistance)}–${num(cameraModule.maxDistance)}")
+            }
             append(tr("measurementNote"))
         }
         // A non-modal anchored overlay rather than AlertDialog. Outside taps
