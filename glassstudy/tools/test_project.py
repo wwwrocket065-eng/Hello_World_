@@ -42,7 +42,7 @@ assert 'View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY' in activity
 assert 'label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in activity
 assert 'logoMark.showUnderline=ui.showLogoUnderline' in activity
 assert 'logoParams.width=d(ui.logoSizeDp.toFloat())' in activity
-assert 'logoSizeDp' in uic
+assert 'logoSizeDp' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert layout['logoSizeDp']==31
 assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
