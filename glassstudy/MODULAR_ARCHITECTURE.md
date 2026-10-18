@@ -48,3 +48,10 @@ Never claim full modularity merely because the updater accepts more file types.
 - Actual values come from the active native camera/render modules; JSON cannot forge measurements.
 - Material overrides still require verified Filament material bindings; no materials consumer is claimed yet.
 - CI and device validation pending.
+
+## Material variants (source implementation)
+- Signed `modules/materials/config.json` maps existing object/LOD selections to allowlisted `models/*.glb` variants.
+- The variant GLB carries its own glTF PBR materials, loaded through the existing Filament GLB loader.
+- A referenced resource must exist at render time, or staged patch application is rejected.
+- Fine-grained live per-property material parameters and material-only overrides are NOT implemented.
+- Build and device tests remain necessary before release.
