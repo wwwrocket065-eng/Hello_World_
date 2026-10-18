@@ -639,6 +639,7 @@ class MainActivity : Activity() {
         try {
             viewer.loadModelGlb(modelData(candidate))
             if (viewer.asset == null) throw IllegalStateException("Filament gltfio rejected the GLB")
+            MaterialOverrides.parse(updater.readModuleConfig("materials", candidate)).apply(viewer)
             status()
             return true
         } catch (e: Exception) {
