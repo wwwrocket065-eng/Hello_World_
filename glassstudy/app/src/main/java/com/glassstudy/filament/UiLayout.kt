@@ -33,7 +33,8 @@ data class UiLayout(
     val diagnosticSections: List<String>,
     val buttons: List<UiButtonSpec>,
     val showFps:Boolean,
-    val panelOpacity:Int
+    val panelOpacity:Int,
+    val invertHorizontal:Boolean
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -209,6 +210,8 @@ data class UiLayout(
                 parsed
             }
             val showFps=if(j.has("showFps"))j.getBoolean("showFps") else true
+            // Old signed UI patches had no switch; invert remains enabled.
+            val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true
             val opacity=number("panelOpacity",0.86,0.20,1.0)
             return UiLayout(
                 color("topColor","#20313D"),color("bottomColor","#20313D"),
@@ -224,7 +227,7 @@ data class UiLayout(
                 text("diagnosticText","Диагностика"),
                 number("zoomPower",0.5,0.15,1.25),
                 labels.toMap(),sections,
-                specs,showFps,(opacity*255).toInt()
+                specs,showFps,(opacity*255).toInt(),invertHorizontal
             )
         }
     }

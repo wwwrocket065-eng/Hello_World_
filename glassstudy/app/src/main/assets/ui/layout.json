@@ -144,5 +144,6 @@
     }
   ],
   "showFps": true,
-  "panelOpacity": 0.86
+  "panelOpacity": 0.86,
+  "invertHorizontal": true
 }

@@ -72,6 +72,8 @@ class MainActivity : Activity() {
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
     private var zoomPower = .50
+    // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
+    private var invertHorizontal = true
     private var diagnosticLabels: Map<String,String> = emptyMap()
     private var diagnosticSections: List<String> =
         listOf("updates","performance","memory","scene","renderer","camera","device")
@@ -516,6 +518,7 @@ class MainActivity : Activity() {
             val ui=UiLayout.parse(updater.readUiConfig(candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             zoomPower=ui.zoomPower
+            invertHorizontal=ui.invertHorizontal
             diagnosticLabels=ui.diagnostics
             diagnosticSections=ui.diagnosticSections
             currentUiColor=ui.buttonColor
@@ -614,7 +617,8 @@ class MainActivity : Activity() {
                     lightElevation = (lightElevation + dy * .006).coerceIn(.06,1.5)
                 } else {
                     // Identical to v0.1.22: 0.008/0.005 radians per CSS pixel.
-                    yaw += dx * .008
+                    // A signed UI patch can flip direction; default is inverted.
+                    yaw += dx * (if(invertHorizontal) -.008 else .008)
                     pitch = (pitch + dy * .005).coerceIn(-.05,1.23)
                 }
             }

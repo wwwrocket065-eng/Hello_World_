@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.21' in props and 'GLASSSTUDY_VERSION_CODE=20021' in props
+assert 'GLASSSTUDY_VERSION=0.2.22' in props and 'GLASSSTUDY_VERSION_CODE=20022' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -80,6 +80,10 @@ assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnos
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleLight','toggleGrid']
 assert not any(x['action']=='export' for x in layout['uiButtons'])
 assert layout['panelOpacity'] < 1.0
+assert layout['invertHorizontal'] is True
+assert 'invertHorizontal=ui.invertHorizontal' in activity
+assert 'yaw += dx * (if(invertHorizontal) -.008 else .008)' in activity
+assert 'val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert len(layout['diagnostics'])>=50
 assert layout['diagnosticSections']==['updates','performance','memory','scene','renderer','camera','device']
 instrumentation=(root/'app/src/main/java/com/glassstudy/filament/FrameProfiler.kt').read_text()
@@ -106,7 +110,7 @@ assert 'resetCameraToHome()' in activity
 assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
 assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower))' in activity
 assert 'pitch = (pitch + dy * .005).coerceIn(-.05,1.23)' in activity
-assert 'yaw += dx * .008' in activity
+assert 'yaw += dx * (if(invertHorizontal) -.008 else .008)' in activity
 assert 'lightAz += dx * .009' in activity
 assert 'lightElevation = (lightElevation + dy * .006).coerceIn(.06,1.5)' in activity
 assert 'e.x - oldX' in activity and 'resources.displayMetrics.density' in activity
