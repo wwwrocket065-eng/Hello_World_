@@ -142,7 +142,7 @@ assert 'if(spec.action=="toggleLight")' in activity
 assert 'target.setOnLongClickListener' in activity
 assert 'resetCameraToHome()' in activity
 assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
-assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower))' in activity
+assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(cameraModule.minDistance, cameraModule.maxDistance)' in activity
 assert 'pitch = (pitch + dy * cameraModule.pitchSensitivity)' in activity
 assert 'yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
 assert 'lightAz += dx * cameraModule.lightYawSensitivity' in activity
