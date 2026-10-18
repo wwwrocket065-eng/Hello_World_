@@ -43,9 +43,6 @@ assert 'label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in ac
 assert 'logoMark.showUnderline=ui.showLogoUnderline' in activity
 assert 'logoParams.width=d(ui.logoSizeDp.toFloat())' in activity
 assert 'logoSizeDp' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
-assert layout['logoSizeDp']==31
-assert layout['logoColor']=="#6DE0DE"
-assert layout['buttonTextColor']=="#A3D0D3"
 
 assert 'exportButton' not in activity
 assert 'exportScene()' not in activity
@@ -85,6 +82,9 @@ assert 'applyUiLayout(candidate)' in activity
 assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
 assert 'source.copyTo(target,overwrite=false)' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
+assert layout['logoSizeDp']==31
+assert layout['logoColor']=="#6DE0DE"
+assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
 assert len(layout['uiButtons'])==6
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','resetCamera','menu']
