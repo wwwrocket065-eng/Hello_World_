@@ -193,6 +193,10 @@ assert 'CameraModuleConfig.parse(config)' in updater
 assert 'RenderModuleConfig.parse(config)' in updater
 assert 'DiagnosticsModuleConfig.parse(config)' in updater
 assert 'MaterialOverrides.parse(config)' in updater
+assert 'CameraModuleConfig.parse(stagedModule("camera"))' in updater
+assert 'RenderModuleConfig.parse(stagedModule("render"))' in updater
+assert 'DiagnosticsModuleConfig.parse(stagedModule("diagnostics"))' in updater
+assert 'Missing material variant: $path' in updater
 assert 'material.hasParameter(name)' in (src/'MaterialOverrides.kt').read_text()
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
 print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
