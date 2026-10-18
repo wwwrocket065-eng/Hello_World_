@@ -85,6 +85,7 @@ class MainActivity : Activity() {
     private var cameraModule = CameraModuleConfig()
     private var renderModule = RenderModuleConfig()
     private var diagnosticsModule = DiagnosticsModuleConfig()
+    private var materialModule = MaterialModuleConfig()
     private var zoomPower = .50
     // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
     private var invertHorizontal = true
@@ -584,10 +585,12 @@ class MainActivity : Activity() {
             val nextCameraModule = CameraModuleConfig.parse(updater.readModuleConfig("camera", candidate))
             val nextRenderModule = RenderModuleConfig.parse(updater.readModuleConfig("render", candidate))
             val nextDiagnosticsModule = DiagnosticsModuleConfig.parse(updater.readModuleConfig("diagnostics", candidate))
+            val nextMaterialModule = MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
             diagnosticsModule=nextDiagnosticsModule
+            materialModule=nextMaterialModule
             applyRenderModule()
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
@@ -650,8 +653,13 @@ class MainActivity : Activity() {
         }
     }
     private fun modelData(candidate: PatchManager.Candidate? = null): ByteBuffer {
-        val name="models/${currentId}_${currentLod}${if(wireframe) "_debug" else ""}.glb"
-        val bytes = if(candidate != null) updater.readModel(name,candidate) else updater.readModel(name)
+        val defaultName="models/${currentId}_${currentLod}${if(wireframe) "_debug" else ""}.glb"
+        val catalog = if (candidate != null)
+            MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
+            else materialModule
+        val name = catalog.resolve(currentId, currentLod, wireframe) ?: defaultName
+        val bytes = updater.readResourceOrNull(name, candidate)
+            ?: throw IllegalArgumentException("Missing material/model asset: $name")
         return ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).apply { put(bytes); flip() }
     }
     private fun resetCameraToHome() {
