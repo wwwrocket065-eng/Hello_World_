@@ -151,6 +151,9 @@ assert 'e.x - oldX' in activity and 'resources.displayMetrics.density' in activi
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
+assert 'putInt("blockedAfterCrash",pending)' in updater
+assert 'feed.patchVersion != blockedVersion' in updater
+assert 'remove("blockedAfterCrash")' in updater
 assert 'if (!prefs.edit().putInt("previous",current).putInt("active",candidate.version)' in updater
 assert 'glasses' not in updater.lower() # no unintended paths
 assert 'REQUEST_INSTALL_PACKAGES' not in (root/'app/src/main/AndroidManifest.xml').read_text()
