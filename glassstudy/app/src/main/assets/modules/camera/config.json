@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "camera",
+  "fieldOfView": 45,
+  "nearClip": 0.05,
+  "farClip": 125,
+  "minDistance": 2.7,
+  "maxDistance": 60,
+  "yawSensitivity": 0.008,
+  "pitchSensitivity": 0.005,
+  "lightYawSensitivity": 0.009,
+  "lightPitchSensitivity": 0.006,
+  "lightIntensity": 100000,
+  "minBrightness": 0.05,
+  "maxBrightness": 3
+}
