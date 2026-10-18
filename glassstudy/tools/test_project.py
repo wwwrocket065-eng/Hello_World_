@@ -189,6 +189,10 @@ for module in ('camera','render','diagnostics','materials'):
     assert config['id']==module and config['schema']==1
     assert 'readModuleConfig("'+module+'", candidate)' in activity
 assert 'MaterialOverrides.parse(' in activity
+assert 'CameraModuleConfig.parse(config)' in updater
+assert 'RenderModuleConfig.parse(config)' in updater
+assert 'DiagnosticsModuleConfig.parse(config)' in updater
+assert 'MaterialOverrides.parse(config)' in updater
 assert 'material.hasParameter(name)' in (src/'MaterialOverrides.kt').read_text()
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
 print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
