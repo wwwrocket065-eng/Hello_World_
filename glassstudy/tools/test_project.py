@@ -10,12 +10,22 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.25' in props and 'GLASSSTUDY_VERSION_CODE=20025' in props
+assert 'GLASSSTUDY_VERSION=0.2.26' in props and 'GLASSSTUDY_VERSION_CODE=20026' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
 assert 'applyButton' not in activity
+assert 'private var diagnosticPopup:PopupWindow?' in activity
+assert 'popup.showAtLocation(mainRoot' in activity
+assert 'if(action=="diagnostics")' in activity
+assert 'diagnosticPopup?.dismiss()' in activity
+assert 'setTouchModal(false)' in activity
+assert 'text="Диагностика"' in activity
+assert 'LabIconView(this,"copy")' in activity
+assert 'setTextIsSelectable(true)' in activity
+assert 'AlertDialog.Builder(this).setTitle(tr("title"))' not in activity
+assert '"copy" -> {' in (root/'app/src/main/java/com/glassstudy/filament/LabUiIcons.kt').read_text()
 assert 'Применить' not in activity or 'no "Применить"' in activity
 assert 'chooseObject.onItemSelectedListener=onSelection' in activity
 assert 'chooseLod.onItemSelectedListener=onSelection' in activity

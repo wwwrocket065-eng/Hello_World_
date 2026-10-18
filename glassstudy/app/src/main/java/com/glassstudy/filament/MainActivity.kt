@@ -29,6 +29,11 @@ import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.PopupWindow
+import android.widget.ScrollView
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.view.KeyEvent
 import com.google.android.filament.Camera
 import com.google.android.filament.Skybox
 import com.google.android.filament.utils.KTX1Loader
@@ -61,6 +66,7 @@ class MainActivity : Activity() {
     private var wireframe = false
     private lateinit var label: TextView
     private lateinit var logoMark: LabLogoView
+    private var diagnosticPopup:PopupWindow?=null
     private lateinit var logoFrame:android.widget.FrameLayout
     private lateinit var topPanel: LinearLayout
     private lateinit var bottomPanel: LinearLayout
@@ -140,8 +146,14 @@ class MainActivity : Activity() {
         view.elevation=d(2f).toFloat()
     }
     private fun clickAction(action:String) {
+        if(action=="diagnostics") {
+            if(diagnosticPopup?.isShowing==true) {
+                diagnosticPopup?.dismiss()
+            } else showDiagnostic()
+            return
+        }
+        diagnosticPopup?.dismiss()
         when(action) {
-            "diagnostics" -> showDiagnostic()
             "toggleLight" -> { lightMode=!lightMode;status() }
             "resetCamera" -> resetCameraToHome()
             "menu" -> openMenu()
@@ -282,6 +294,7 @@ class MainActivity : Activity() {
         return adapter
     }
     private fun openMenu() {
+        diagnosticPopup?.dismiss()
         AlertDialog.Builder(this).setTitle("GlassStudy · 3D LAB")
             .setItems(arrayOf("Выбрать объект", "Сбросить камеру", "Диагностика")) { _,which ->
                 when(which) {
@@ -789,12 +802,81 @@ class MainActivity : Activity() {
             appendLine()
             append(tr("measurementNote"))
         }
-        AlertDialog.Builder(this).setTitle(tr("title"))
-            .setMessage(report).setPositiveButton("ОК",null)
-            .setNeutralButton("Копировать") { _, _ ->
-                val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",report))
-            }.show()
+        // A non-modal anchored overlay rather than AlertDialog. Outside taps
+        // dismiss it; top toolbar buttons remain clickable and switch actions.
+        val density=resources.displayMetrics.density
+        val margin=d(18f)
+        val availableWidth=(resources.displayMetrics.widthPixels-margin*2).coerceAtLeast(d(220f))
+        val outer=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(15f),d(14f),d(15f),d(14f))
+            background=roundedFill(Color.argb(225,76,80,87),19f,
+                Color.argb(180,161,190,205))
+        }
+        val header=LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL
+            gravity=Gravity.CENTER_VERTICAL
+        }
+        val heading=TextView(this).apply {
+            text="Диагностика"
+            textSize=15f
+            setTextColor(Color.rgb(219,235,239))
+            gravity=Gravity.CENTER_VERTICAL
+        }
+        header.addView(heading,LinearLayout.LayoutParams(0,d(40f),1f))
+        // The only actionable item in the header is the framed copy glyph.
+        val copy=FrameLayout(this).apply {
+            contentDescription="Копировать диагностику"
+            isFocusable=true
+            isClickable=true
+            background=roundedFill(Color.argb(215,16,44,60),8f,
+                Color.rgb(91,185,193))
+        }
+        val copyIcon=LabIconView(this,"copy").apply {
+            iconColor=Color.rgb(109,224,222)
+        }
+        copy.addView(copyIcon,FrameLayout.LayoutParams(d(31f),d(31f),Gravity.CENTER))
+        header.addView(copy,LinearLayout.LayoutParams(d(43f),d(40f)))
+        outer.addView(header)
+        val reportText=TextView(this).apply {
+            text=report
+            setTextColor(Color.rgb(175,212,225))
+            typeface=Typeface.MONOSPACE
+            textSize=11.5f
+            setTextIsSelectable(true)
+            setPadding(d(10f),d(12f),d(10f),d(10f))
+        }
+        val scrolling=ScrollView(this).apply {
+            isFillViewport=false
+            background=roundedFill(Color.rgb(5,23,36),8f,
+                Color.argb(100,100,155,165))
+            addView(reportText)
+        }
+        val heightCap=(resources.displayMetrics.heightPixels*.63).toInt()
+        val contentParams=LinearLayout.LayoutParams(-1,heightCap)
+        contentParams.topMargin=d(10f)
+        outer.addView(scrolling,contentParams)
+        val popup=PopupWindow(outer,availableWidth,-2,false).apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            isOutsideTouchable=true
+            isTouchable=true
+            isClippingEnabled=true
+            if(Build.VERSION.SDK_INT>=29) setTouchModal(false)
+            elevation=d(10f).toFloat()
+            setOnDismissListener {
+                if(diagnosticPopup===this)diagnosticPopup=null
+            }
+        }
+        copy.setOnClickListener {
+            val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",report))
+            Toast.makeText(this,"Скопировано",Toast.LENGTH_SHORT).show()
+        }
+        diagnosticPopup=popup
+        // Lower than toolbar, so another toolbar icon remains accessible.
+        popup.showAtLocation(mainRoot,Gravity.TOP or Gravity.CENTER_HORIZONTAL,0,
+            d(69f))
+    }
     }
     override fun onResume() {
         super.onResume()
@@ -804,6 +886,11 @@ class MainActivity : Activity() {
         }
 
     }
-    override fun onPause() { running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
+    @Deprecated("Legacy Android back callback; closes only the open report")
+    override fun onBackPressed() {
+        if(diagnosticPopup?.isShowing==true) diagnosticPopup?.dismiss()
+        else super.onBackPressed()
+    }
+    override fun onPause() { diagnosticPopup?.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
     override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onDestroy() }
 }

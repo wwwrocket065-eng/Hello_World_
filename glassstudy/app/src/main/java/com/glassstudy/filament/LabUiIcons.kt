@@ -51,6 +51,12 @@ class LabIconView(context:Context, val iconName:String):View(context) {
                     canvas.drawLine(9f,p,14f,p,ink)
                 }
             }
+            "copy" -> {
+                canvas.drawRoundRect(-12f,-8f,5f,12f,2f,2f,ink)
+                canvas.drawLine(-4f,-13f,12f,-13f,ink)
+                canvas.drawLine(12f,-13f,12f,6f,ink)
+                canvas.drawLine(12f,6f,8f,6f,ink)
+            }
             "sun" -> {
                 canvas.drawCircle(0f,0f,6f,ink)
                 for(i in 0 until 8) {
