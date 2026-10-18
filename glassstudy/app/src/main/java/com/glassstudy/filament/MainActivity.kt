@@ -71,6 +71,7 @@ class MainActivity : Activity() {
     private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
     private var currentUiColor:Int=Color.rgb(27,56,75)
     private var currentSelectorColor=Color.rgb(109,224,222)
+    private var currentTopOutlineColor=Color.rgb(109,185,203)
     private lateinit var mainRoot:FrameLayout
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
@@ -167,7 +168,8 @@ class MainActivity : Activity() {
         activeButtonSpecs.forEach { spec ->
             activeButtons[spec.id]?.let {
                 skin(it,spec.highlight || isActionActive(spec.action),
-                    spec.fill?:currentUiColor,spec.outline)
+                    spec.fill?:currentUiColor,
+                    if(spec.slot=="top")currentTopOutlineColor else spec.outline)
             }
         }
     }
@@ -218,7 +220,8 @@ class MainActivity : Activity() {
                 true
             }
         }
-        skin(target,spec.highlight || isActionActive(spec.action),spec.fill?:ui.buttonColor,spec.outline)
+        skin(target,spec.highlight || isActionActive(spec.action),spec.fill?:ui.buttonColor,
+            if(spec.slot=="top")ui.topButtonOutlineColor else spec.outline)
         return target
     }
     private fun renderUiButtons(ui:UiLayout) {
@@ -557,11 +560,14 @@ class MainActivity : Activity() {
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
             currentSelectorColor=ui.selectorTextColor
+            currentTopOutlineColor=ui.topButtonOutlineColor
             logoMark.showUnderline=ui.showLogoUnderline
             logoMark.logoColor=ui.logoColor
             val logoParams=logoMark.layoutParams as FrameLayout.LayoutParams
             logoParams.width=d(ui.logoSizeDp.toFloat())
             logoParams.height=d(ui.logoSizeDp*1.22f)
+            logoParams.topMargin=d(ui.logoOffsetYDp.toFloat())
+            logoParams.gravity=Gravity.CENTER
             logoMark.layoutParams=logoParams
             fpsPill.setTextColor(ui.fpsTextColor)
             label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE
@@ -574,8 +580,12 @@ class MainActivity : Activity() {
             label.setTextColor(ui.textColor)
             fpsPill.visibility=if(ui.showFps)View.VISIBLE else View.GONE
             val opacity=ui.panelOpacity
-            topPanel.background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(opacity,24,34,44),Color.argb(6,24,34,44)))
+            // Top shading independently configurable; zero removes the dark veil
+            // without changing the bottom panel opacity.
+            topPanel.background=if(ui.topOverlayOpacity==0) null else
+                GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(Color.argb(ui.topOverlayOpacity,24,34,44),
+                        Color.argb(0,24,34,44)))
             bottomPanel.background=roundedFill(Color.argb(opacity,35,47,58),19f,
                 Color.argb(180,177,218,225))
             renderUiButtons(ui)

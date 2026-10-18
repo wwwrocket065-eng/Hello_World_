@@ -162,5 +162,8 @@
   "logoColor": "#6DE0DE",
   "selectorTextColor": "#A3D0D3",
   "fpsTextColor": "#A3D0D3",
-  "logoSizeDp": 31
+  "logoSizeDp": 31,
+  "logoOffsetYDp": 5,
+  "topOverlayOpacity": 0,
+  "topButtonOutlineColor": "#6DB9CB"
 }

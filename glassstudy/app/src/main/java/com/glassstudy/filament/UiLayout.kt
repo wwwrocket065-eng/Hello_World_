@@ -44,6 +44,9 @@ data class UiLayout(
     val systemBarColor:Int,
     val logoColor:Int,
     val logoSizeDp:Int,
+    val logoOffsetYDp:Int,
+    val topOverlayOpacity:Int,
+    val topButtonOutlineColor:Int,
     val selectorTextColor:Int,
     val fpsTextColor:Int
 ) {
@@ -248,6 +251,9 @@ data class UiLayout(
                 topSize,iconScale,hint,underline,fillChip,immersive,
                 color("systemBarColor","#656767"),color("logoColor","#6DE0DE"),
                 number("logoSizeDp",31.0,24.0,42.0).toInt(),
+                number("logoOffsetYDp",5.0,-12.0,12.0).toInt(),
+                (number("topOverlayOpacity",0.0,0.0,1.0)*255).toInt(),
+                color("topButtonOutlineColor","#6DB9CB"),
                 color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE")
             )
         }

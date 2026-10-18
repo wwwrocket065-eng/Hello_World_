@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.24' in props and 'GLASSSTUDY_VERSION_CODE=20024' in props
+assert 'GLASSSTUDY_VERSION=0.2.25' in props and 'GLASSSTUDY_VERSION_CODE=20025' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -83,6 +83,12 @@ assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
 assert 'source.copyTo(target,overwrite=false)' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
 assert layout['logoSizeDp']==31
+assert layout['logoOffsetYDp']==5
+assert layout['topOverlayOpacity']==0
+assert layout['topButtonOutlineColor']=="#6DB9CB"
+assert 'logoParams.topMargin=d(ui.logoOffsetYDp.toFloat())' in activity
+assert 'if(ui.topOverlayOpacity==0) null' in activity
+assert 'currentTopOutlineColor=ui.topButtonOutlineColor' in activity
 assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
