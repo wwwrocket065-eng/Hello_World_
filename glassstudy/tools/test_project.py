@@ -201,6 +201,21 @@ assert 'RenderModuleConfig.parse(stagedModule("render"))' in updater
 assert 'DiagnosticsModuleConfig.parse(stagedModule("diagnostics"))' in updater
 assert 'Missing material variant: $path' in updater
 assert 'material.hasParameter(name)' in (src/'MaterialOverrides.kt').read_text()
+# Reject accidental default changes that would alter the installed app even without a patch.
+camera=json.loads((root/'app/src/main/assets/modules/camera/config.json').read_text())
+render=json.loads((root/'app/src/main/assets/modules/render/config.json').read_text())
+diagnostics=json.loads((root/'app/src/main/assets/modules/diagnostics/config.json').read_text())
+materials=json.loads((root/'app/src/main/assets/modules/materials/config.json').read_text())
+assert camera['fieldOfView']==45 and camera['minDistance']==2.7 and camera['maxDistance']==60
+assert camera['yawSensitivity']==0.008 and camera['pitchSensitivity']==0.005
+assert render['iblIntensity']==30000 and render['fxaa'] is True
+assert render['exposureAperture']==16 and render['exposureSensitivity']==100
+assert diagnostics['includeModuleStatus'] is False and diagnostics['includeRenderParameters'] is False
+assert diagnostics['includeCameraParameters'] is False
+assert materials['variants']=={} and materials['overrides']=={}
+# The failure path must keep the previous active patch and restore its UI/model.
+assert 'updater.reject(candidate)' in activity and 'applyUiLayout()' in activity and 'loadSelected()' in activity
+assert 'blockedAfterCrash' in updater and 'feed.patchVersion != blockedVersion' in updater
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
 print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
 print('NOTE: Android SDK/Gradle compile and device runtime must be tested separately.')
