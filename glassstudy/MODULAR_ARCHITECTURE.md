@@ -72,3 +72,9 @@ Never claim full modularity merely because the updater accepts more file types.
 - Variant model dependencies must exist in staged assets or bundled APK resources.
 - Missing assets cause staging rejection rather than a later selection-time crash.
 - Android compilation and runtime smoke test are still unverified; no release APK should be distributed yet.
+
+## Crash-loop prevention
+- If a pending resource patch is rolled back after an unconfirmed launch, remember that patch version as `blockedAfterCrash`.
+- Background update checks skip exactly that version rather than downloading and crashing repeatedly; a later version may install.
+- A successful confirmed frame clears the quarantine. Local explicit patch import remains available for recovery.
+- This is a source-level safeguard; Android build and device testing are still required.
