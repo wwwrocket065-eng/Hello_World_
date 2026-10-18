@@ -1,0 +1,31 @@
+# GlassStudy modular architecture — implementation tracker
+
+## Existing guarantees retained
+- Existing RSA SHA256 signed `.pupdate` canonical manifest remains unchanged.
+- Old `ui/layout.json` and model paths continue to be accepted.
+- Assets are staged before activation; previous resources are copied forward.
+- Pending patches are rolled back if first frame is not confirmed.
+- Never store signing private keys in GitHub.
+
+## Implemented (phase 1, source)
+- `PatchResourceRegistry` validates paths and JSON configuration envelopes.
+- `PatchManager.readResourceOrNull` can resolve signed resources from pending, active and APK-bundled assets.
+- `PatchManager.readModuleConfig` returns a module's versioned JSON configuration.
+- Signed patches may include `modules/<id>/{config,manifest}.json`, `catalogs/*.json`,
+  `scenes/*.json`, `shaders/<id>/*.glsl|mat`, `textures/<id>/*.(png|jpg|ktx|ktx2)`,
+  `ui/*.json`, `models/*.glb`.
+- These are DATA assets, **not** dynamically executable native code.
+
+## Still to implement / verify
+1. Android Gradle CI build and runtime install of an independently signed patch containing module resources.
+2. Per-module API/consumer interfaces and lifecycle in the renderer, scene, camera, UI and diagnostics.
+3. Transactional schema migration and module dependency/version checks, per-module size quotas and resource-specific validators.
+4. Preview/commit/rollback for modules that touch Filament, with error diagnostics.
+5. Fully declarative buttons/styles/actions and runtime redraw, then diagnostic/copy button fix via a separate patch.
+6. Additional extensibility only through predefined native hooks and safe declarative scripting.
+7. Signed APK release using the existing certificate; patch signing key is external to repo.
+
+## Limits
+Android permissions, manifest, DEX, libraries and new native APIs may require a rebuilt APK.
+A patch can carry a shader or model without making it active until a renderer consumer supports it.
+Never claim full modularity merely because the updater accepts more file types.
