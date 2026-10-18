@@ -131,7 +131,7 @@ class PatchManager(private val context: Context) {
         val pending = prefs.getInt("pending",0)
         if (pending != 0) {
             val previous = prefs.getInt("previous", BASE_VERSION)
-            prefs.edit().putInt("active",previous).remove("pending").commit()
+            prefs.edit().putInt("active",previous).putInt("blockedAfterCrash",pending).remove("pending").commit()
             updateStatus="Откат патча $pending: запуск не был подтверждён. Активен $previous"
             Log.w(TAG,"Unconfirmed asset version $pending rolled back to $previous")
         } else {
@@ -148,6 +148,7 @@ class PatchManager(private val context: Context) {
                 updateStatus="Патч $pending: ошибка сохранения подтверждения"
                 return
             }
+            prefs.edit().remove("blockedAfterCrash").apply()
             updateStatus="Патч $pending установлен и подтверждён отрисовкой"
             val previous=prefs.getInt("previous",BASE_VERSION)
             patchRoot.listFiles()?.filter {
@@ -169,11 +170,15 @@ class PatchManager(private val context: Context) {
                     j.optString("patchName").takeIf { it.isNotBlank() },
                     j.optString("patchSha256").takeIf { it.isNotBlank() })
                 serverPatchVersion=feed.patchVersion
-                updateStatus=if(feed.patchVersion>installedPatchVersion())
+                val blockedVersion = prefs.getInt("blockedAfterCrash", 0)
+                updateStatus=if(feed.patchVersion == blockedVersion)
+                    "Патч $blockedVersion пропущен: вызвал сбой предыдущего запуска"
+                else if(feed.patchVersion>installedPatchVersion())
                     "Найден патч ${feed.patchVersion}, загружаем"
                 else "Обновлений нет: установлен ${installedPatchVersion()}, сервер ${feed.patchVersion}"
                 // Never accept an arbitrary URL from the feed: only validated file names on this host.
-                if (feed.patchVersion > installedPatchVersion() && feed.patchName == "GlassStudy_Filament_${feed.patchVersion}.pupdate") {
+                if (feed.patchVersion > installedPatchVersion() && feed.patchVersion != blockedVersion &&
+                    feed.patchName == "GlassStudy_Filament_${feed.patchVersion}.pupdate") {
                     try {
                         require(feed.patchSha256?.matches(Regex("[a-f0-9]{64}")) == true)
                         val patch = fetch("$base/${feed.patchName}", MAX_PATCH_BYTES)
