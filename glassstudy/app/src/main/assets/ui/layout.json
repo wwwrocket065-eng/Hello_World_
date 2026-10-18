@@ -92,5 +92,57 @@
     "renderer",
     "camera",
     "device"
-  ]
+  ],
+  "uiButtons": [
+    {
+      "id": "diagnostics",
+      "action": "diagnostics",
+      "slot": "top",
+      "icon": "chip",
+      "label": "",
+      "heightDp": 44
+    },
+    {
+      "id": "light_top",
+      "action": "toggleLight",
+      "slot": "top",
+      "icon": "sun",
+      "label": "",
+      "heightDp": 44
+    },
+    {
+      "id": "reset",
+      "action": "resetCamera",
+      "slot": "top",
+      "icon": "reset",
+      "label": "",
+      "heightDp": 44
+    },
+    {
+      "id": "menu",
+      "action": "menu",
+      "slot": "top",
+      "icon": "menu",
+      "label": "",
+      "heightDp": 44
+    },
+    {
+      "id": "light_bottom",
+      "action": "toggleLight",
+      "slot": "bottom",
+      "icon": "sun",
+      "label": "Свет / Камера",
+      "heightDp": 46
+    },
+    {
+      "id": "grid",
+      "action": "toggleGrid",
+      "slot": "bottom",
+      "icon": "grid",
+      "label": "Сетка",
+      "heightDp": 46
+    }
+  ],
+  "showFps": true,
+  "panelOpacity": 0.86
 }

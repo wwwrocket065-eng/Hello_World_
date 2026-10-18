@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.20' in props and 'GLASSSTUDY_VERSION_CODE=20020' in props
+assert 'GLASSSTUDY_VERSION=0.2.21' in props and 'GLASSSTUDY_VERSION_CODE=20021' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -20,8 +20,22 @@ assert 'Применить' not in activity or 'no "Применить"' in acti
 assert 'chooseObject.onItemSelectedListener=onSelection' in activity
 assert 'chooseLod.onItemSelectedListener=onSelection' in activity
 assert 'loadSelected()' in activity
-assert 'headerRow.addView(b,lp)' in activity
-assert 'bottomPanel.addView(diagnosticButton,LinearLayout.LayoutParams(-1,d(47f)))' in activity
+assert 'headerRow.addView(topButtonHost' in activity
+assert 'bottomPanel.addView(bottomButtonHost' in activity
+assert 'renderUiButtons(ui)' in activity
+assert 'topButtonHost.removeAllViews()' in activity
+assert 'bottomButtonHost.removeAllViews()' in activity
+assert 'createUiButton(spec,ui)' in activity
+assert 'UiLayout.parse(updater.readUiConfig(candidate))' in activity
+assert 'LabIconView(this,spec.icon)' in activity
+assert 'LabLogoView(this)' in activity
+assert 'diagnosticButton' not in activity and 'quickObjects' not in activity
+assert 'exportScene()' not in activity and 'applyButton' not in activity
+icons=(root/'app/src/main/java/com/glassstudy/filament/LabUiIcons.kt').read_text()
+assert 'class LabIconView' in icons and 'class LabLogoView' in icons
+assert 'canvas.drawRect(-4f,-4f,4f,4f,ink)' in icons
+assert 'Extended underline' in icons
+
 assert 'exportButton' not in activity
 assert 'exportScene()' not in activity
 assert 'Экспорт сцены' not in activity
@@ -39,7 +53,11 @@ assert 'Реально нарисованных кадров Filament:' in activ
 assert 'diagnosticLabels' in activity and 'ui.diagnostics' in activity
 assert 'updater.lastConfirmedVersion()' in activity and 'updater.serverPatchVersion' in activity
 assert 'tr("pathTracing")' in activity and 'tr(if(hasIbl)' in activity
-assert 'private val DIAGNOSTIC_DEFAULTS' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
+uic=(root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
+assert 'private val DIAGNOSTIC_DEFAULTS' in uic
+assert 'data class UiButtonSpec' in uic and 'uiButtons' in uic
+assert 'Unknown button action, location or icon' in uic
+assert 'At least one menu or diagnostics control must remain available' in uic
 assert 'putInt("lastConfirmed",pending)' in updater
 assert 'Патч $pending установлен и подтверждён отрисовкой' in updater
 assert 'fun reject(candidate: Candidate)' in updater
@@ -57,6 +75,11 @@ assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
 assert 'source.copyTo(target,overwrite=false)' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
+assert len(layout['uiButtons'])==6
+assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','resetCamera','menu']
+assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleLight','toggleGrid']
+assert not any(x['action']=='export' for x in layout['uiButtons'])
+assert layout['panelOpacity'] < 1.0
 assert len(layout['diagnostics'])>=50
 assert layout['diagnosticSections']==['updates','performance','memory','scene','renderer','camera','device']
 instrumentation=(root/'app/src/main/java/com/glassstudy/filament/FrameProfiler.kt').read_text()

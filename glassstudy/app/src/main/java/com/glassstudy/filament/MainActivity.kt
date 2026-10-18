@@ -63,17 +63,14 @@ class MainActivity : Activity() {
     private lateinit var topPanel: LinearLayout
     private lateinit var bottomPanel: LinearLayout
     private lateinit var selectorRow: LinearLayout
-    private lateinit var actionsRow: LinearLayout
+    private lateinit var topButtonHost: LinearLayout
+    private lateinit var bottomButtonHost: LinearLayout
+    private val activeButtons=linkedMapOf<String,View>()
+    private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
+    private var currentUiColor:Int=Color.rgb(27,56,75)
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
-    private lateinit var quickObjects: Button
-    private lateinit var quickLight: Button
-    private lateinit var quickReset: Button
-    private lateinit var quickMenu: Button
-    private lateinit var cameraButton: Button
-    private lateinit var gridButton: Button
-    private lateinit var diagnosticButton: Button
     private var zoomPower = .50
     private var diagnosticLabels: Map<String,String> = emptyMap()
     private var diagnosticSections: List<String> =
@@ -122,38 +119,121 @@ class MainActivity : Activity() {
     // cyan #6ad8db, translucent surfaces, outlined rounded buttons.
     private fun roundedFill(color:Int, radius:Float=15f, outline:Int=cyan, stroke:Float=1f):GradientDrawable {
         return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(color, Color.rgb(16,39,58))).apply {
+            intArrayOf(color, Color.argb(Color.alpha(color),16,39,58))).apply {
             cornerRadius=d(radius).toFloat()
             setStroke(d(stroke).coerceAtLeast(1), outline)
         }
     }
-    private fun skin(button: Button, selected:Boolean=false, color:Int=Color.rgb(27,56,75)) {
-        val accent=if(selected) Color.rgb(48,116,124) else color
-        val outline=if(selected) Color.rgb(166,246,233) else Color.argb(180,109,185,203)
-        val gradient=roundedFill(accent,14f,outline)
-        button.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),gradient,null)
-        button.setTextColor(paleText)
-        button.elevation=d(2f).toFloat()
+    private fun skin(view:View,selected:Boolean=false,color:Int=currentUiColor,outline:Int?=null) {
+        val alpha=Color.alpha(color)
+        val accent=if(selected) Color.argb(alpha,48,116,124) else color
+        val stroke=outline ?: if(selected)Color.rgb(166,246,233) else Color.argb(180,109,185,203)
+        val gradient=roundedFill(accent,14f,stroke)
+        view.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),gradient,null)
+        view.elevation=d(2f).toFloat()
     }
-    private fun button(text: String, action: () -> Unit) = Button(this).apply {
-        this.text = text
-        textSize=14f
-        setAllCaps(false)
-        minimumWidth=0
-        minimumHeight=0
-        minWidth=0
-        minHeight=0
-        setPadding(d(7f),0,d(7f),0)
-        skin(this)
-        setOnClickListener { action() }
-    }
-    private fun shortcut(text: String, tip:String, action: () -> Unit): Button =
-        button(text,action).apply {
-            textSize=23f
-            contentDescription=tip
-            setPadding(0,0,0,0)
-            layoutParams=LinearLayout.LayoutParams(d(39f),d(43f))
+    private fun clickAction(action:String) {
+        when(action) {
+            "diagnostics" -> showDiagnostic()
+            "toggleLight" -> { lightMode=!lightMode;status() }
+            "resetCamera" -> resetCameraToHome()
+            "menu" -> openMenu()
+            "selectModel" -> chooseObject.performClick()
+            "selectQuality" -> chooseLod.performClick()
+            "toggleGrid" -> {
+                wireframe=!wireframe
+                getPreferences(MODE_PRIVATE).edit().putBoolean("wireframe",wireframe).apply()
+                loadSelected()
+                status()
+            }
+            "toggleFps" -> {
+                fpsPill.visibility=if(fpsPill.visibility==View.VISIBLE) View.GONE else View.VISIBLE
+            }
+            else -> throw IllegalArgumentException("Unknown UI action")
         }
+    }
+    private fun isActionActive(action:String)=when(action) {
+        "toggleLight" -> lightMode
+        "toggleGrid" -> wireframe
+        else -> false
+    }
+    private fun updateButtonHighlights() {
+        activeButtonSpecs.forEach { spec ->
+            activeButtons[spec.id]?.let {
+                skin(it,spec.highlight || isActionActive(spec.action),
+                    spec.fill?:currentUiColor,spec.outline)
+            }
+        }
+    }
+    private fun createUiButton(spec:UiButtonSpec,ui:UiLayout):View {
+        val ink=spec.textColor?:ui.buttonTextColor
+        val target=if(spec.slot=="top") {
+            LabIconView(this,spec.icon).apply {
+                iconColor=ink
+                contentDescription=when(spec.action) {
+                    "diagnostics" -> "Диагностика"
+                    "toggleLight" -> "Свет / Камера"
+                    "resetCamera" -> "Сброс камеры"
+                    "menu" -> "Меню"
+                    else -> if(spec.label.isBlank()) spec.action else spec.label
+                }
+            }
+        } else {
+            LinearLayout(this).apply {
+                orientation=LinearLayout.HORIZONTAL
+                gravity=Gravity.CENTER
+                val icon=LabIconView(this@MainActivity,spec.icon).apply { iconColor=ink }
+                addView(icon,LinearLayout.LayoutParams(d(25f),d(25f)))
+                val text=TextView(this@MainActivity).apply {
+                    this.text=spec.label
+                    textSize=if(spec.label.length>22) 12f else 14f
+                    setTextColor(ink)
+                    gravity=Gravity.CENTER
+                    isSingleLine=true
+                    setPadding(d(5f),0,0,0)
+                }
+                addView(text)
+                contentDescription=spec.label
+            }
+        }
+        target.isClickable=true
+        target.isFocusable=true
+        target.setOnClickListener { clickAction(spec.action) }
+        skin(target,spec.highlight || isActionActive(spec.action),spec.fill?:ui.buttonColor,spec.outline)
+        return target
+    }
+    private fun renderUiButtons(ui:UiLayout) {
+        // Spec was validated BEFORE rebuilding. No code, arbitrary URLs or view
+        // class names can come from a .pupdate: only whitelisted actions/icons.
+        topButtonHost.removeAllViews()
+        bottomButtonHost.removeAllViews()
+        activeButtons.clear()
+        activeButtonSpecs=ui.buttons
+        val top=ui.buttons.filter{it.slot=="top"}
+        val bottom=ui.buttons.filter{it.slot=="bottom"}
+        val totalDp=resources.displayMetrics.widthPixels/resources.displayMetrics.density
+        val size=(if(top.isEmpty()) 40f else (totalDp-198f)/top.size-4f).coerceIn(30f,46f)
+        for(spec in top) {
+            val v=createUiButton(spec,ui)
+            val p=LinearLayout.LayoutParams(d(size),d(size))
+            p.leftMargin=d(4f)
+            topButtonHost.addView(v,p)
+            activeButtons[spec.id]=v
+        }
+        for(group in bottom.chunked(2)) {
+            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+            for((index,spec) in group.withIndex()) {
+                val v=createUiButton(spec,ui)
+                val p=LinearLayout.LayoutParams(0,d(spec.heightDp.toFloat()),1f)
+                if(index>0)p.leftMargin=d(8f)
+                row.addView(v,p)
+                activeButtons[spec.id]=v
+            }
+            val rowParams=LinearLayout.LayoutParams(-1,-2)
+            rowParams.topMargin=d(8f)
+            bottomButtonHost.addView(row,rowParams)
+        }
+    }
     private fun selectionAdapter(values:Array<String>):ArrayAdapter<String> {
         val adapter=object: ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values) {
             override fun getView(position:Int, convertView:View?, parent:ViewGroup):View {
@@ -242,13 +322,9 @@ class MainActivity : Activity() {
             orientation=LinearLayout.HORIZONTAL
             gravity=Gravity.CENTER_VERTICAL
         }
-        val logo=TextView(this).apply {
-            text="◇"
-            textSize=34f
-            gravity=Gravity.CENTER
-            setTextColor(cyan)
-        }
-        headerRow.addView(logo, LinearLayout.LayoutParams(d(34f),d(48f)))
+        // Actual logo geometry, including the requested longer underline.
+        val logo=LabLogoView(this)
+        headerRow.addView(logo,LinearLayout.LayoutParams(d(37f),d(48f)))
         val branding=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             gravity=Gravity.CENTER_VERTICAL
@@ -269,18 +345,11 @@ class MainActivity : Activity() {
         branding.addView(brandTitle)
         branding.addView(headerSubtitle)
         headerRow.addView(branding, LinearLayout.LayoutParams(0,d(48f),1f))
-        quickObjects=shortcut("▣","Выбрать объект") { chooseObject.performClick() }
-        quickLight=shortcut("☼","Освещение / камера") {
-            lightMode=!lightMode
-            status()
+        topButtonHost=LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL
+            gravity=Gravity.CENTER_VERTICAL
         }
-        quickReset=shortcut("↶","Сброс камеры") { resetCameraToHome() }
-        quickMenu=shortcut("☷","Меню") { openMenu() }
-        for(b in listOf(quickObjects,quickLight,quickReset,quickMenu)) {
-            val lp=LinearLayout.LayoutParams(d(39f),d(43f))
-            lp.leftMargin=d(4f)
-            headerRow.addView(b,lp)
-        }
+        headerRow.addView(topButtonHost,LinearLayout.LayoutParams(-2,d(48f)))
         topPanel.addView(headerRow)
         label=TextView(this).apply {
             textSize=11f
@@ -311,7 +380,7 @@ class MainActivity : Activity() {
         bottomPanel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(d(11f),d(11f),d(11f),d(12f))
-            background=roundedFill(Color.rgb(35,47,58),19f,Color.argb(120,177,218,225))
+            background=roundedFill(Color.argb(220,35,47,58),19f,Color.argb(175,177,218,225))
             elevation=d(6f).toFloat()
         }
         selectorRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
@@ -329,37 +398,12 @@ class MainActivity : Activity() {
         selectorRow.addView(chooseLod,LinearLayout.LayoutParams(0,d(45f),1f))
         bottomPanel.addView(selectorRow)
 
-        actionsRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        val aLp=LinearLayout.LayoutParams(-1,d(45f))
-        aLp.topMargin=d(8f)
-        bottomPanel.addView(actionsRow,aLp)
-        cameraButton=button("☼  Свет / Камера") {
-            lightMode=!lightMode
-            status()
+        bottomButtonHost=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
         }
-        cameraButton.setOnLongClickListener {
-            resetCameraToHome()
-            Toast.makeText(this,"Камера сброшена",Toast.LENGTH_SHORT).show()
-            true
-        }
-        val camLp=LinearLayout.LayoutParams(0,-1,1.25f)
-        camLp.rightMargin=d(7f)
-        actionsRow.addView(cameraButton,camLp)
-        gridButton=button("▦  Сетка") {
-            wireframe=!wireframe
-            getPreferences(MODE_PRIVATE).edit().putBoolean("wireframe",wireframe).apply()
-            loadSelected()
-            status()
-        }
-        actionsRow.addView(gridButton,LinearLayout.LayoutParams(0,-1,.78f))
-        val div=View(this).apply { setBackgroundColor(Color.argb(75,181,220,223)) }
-        val divLp=LinearLayout.LayoutParams(-1,d(1f))
-        divLp.topMargin=d(10f)
-        divLp.bottomMargin=d(9f)
-        bottomPanel.addView(div,divLp)
-        diagnosticButton=button("▤  Диагностика CPU/RAM") { showDiagnostic() }
-        diagnosticButton.textSize=14f
-        bottomPanel.addView(diagnosticButton,LinearLayout.LayoutParams(-1,d(47f)))
+        bottomPanel.addView(bottomButtonHost,LinearLayout.LayoutParams(-1,-2))
+        // No fixed Apply / Export / Diagnostics buttons below. All actions
+        // are created by the signed declarative UI patch layout.
         dock.addView(bottomPanel)
         root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
 
@@ -459,27 +503,25 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Safe declarative style, still accepted from signed .pupdate version 20023+. */
+    /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
             val ui=UiLayout.parse(updater.readUiConfig(candidate))
+            // The signed JSON is fully validated first: no partial invalid actions.
             zoomPower=ui.zoomPower
             diagnosticLabels=ui.diagnostics
             diagnosticSections=ui.diagnosticSections
+            currentUiColor=ui.buttonColor
             label.textSize=ui.textSizeSp.coerceIn(11f,14f)
             label.setTextColor(ui.textColor)
-            // Old patches use #203E4F; apply that to the new rounded, outlined
-            // buttons without reverting to Android's old rectangular layout.
-            val allButtons=listOf(cameraButton,gridButton,diagnosticButton,
-                quickObjects,quickLight,quickReset,quickMenu)
-            for (b in allButtons) {
-                skin(b,b===quickLight && lightMode,ui.buttonColor)
-                b.setTextColor(ui.buttonTextColor)
-            }
+            fpsPill.visibility=if(ui.showFps)View.VISIBLE else View.GONE
+            val opacity=ui.panelOpacity
+            topPanel.background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.argb(opacity,24,34,44),Color.argb(6,24,34,44)))
+            bottomPanel.background=roundedFill(Color.argb(opacity,35,47,58),19f,
+                Color.argb(180,177,218,225))
+            renderUiButtons(ui)
             status()
-            // Legacy signed UI patches may still contain exportText; intentionally
-            // ignore it. Export has been removed from the UI and menu entirely.
-            diagnosticButton.text="▤  ${ui.diagnosticText}"
             return true
         } catch(e:Exception) {
             android.util.Log.w("GlassStudy","Rejected UI patch",e)
@@ -583,15 +625,7 @@ class MainActivity : Activity() {
         if (::label.isInitialized) {
             val source = if (lightMode) "СВЕТ: палец — направление, два — яркость" else "КАМЕРА: палец — вращение, два — масштаб"
             label.text=source
-            if(::quickLight.isInitialized) skin(quickLight,lightMode)
-            if(::gridButton.isInitialized) {
-                gridButton.text=if(wireframe) "▦  Сетка: ВКЛ" else "▦  Сетка"
-                skin(gridButton,wireframe)
-            }
-            if(::cameraButton.isInitialized) {
-                cameraButton.text=if(lightMode) "☼  Свет: ВКЛ" else "☼  Свет / Камера"
-                skin(cameraButton,lightMode)
-            }
+            updateButtonHighlights()
         }
     }
     private fun showDiagnostic() {
