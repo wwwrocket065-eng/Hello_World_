@@ -86,6 +86,24 @@ class PatchManager(private val context: Context) {
         return if (v == BASE_VERSION || File(patchRoot, "v$v").isDirectory) v else BASE_VERSION
     }
 
+    /** Resolve any allowlisted signed resource, falling back to bundled assets.
+     * Missing optional modules return null; callers must handle absence explicitly.
+     */
+    fun readResourceOrNull(path: String, candidate: Candidate? = null): ByteArray? {
+        require(PatchResourceRegistry.accepts(path)) { "Unsupported resource path: $path" }
+        val staged = candidate?.let { File(it.staging, path) }
+        if (staged?.isFile == true) return staged.readBytes()
+        val active = File(patchRoot, "v${installedPatchVersion()}/$path")
+        if (active.isFile) return active.readBytes()
+        return try { context.assets.open(path).use { it.readBytes() } }
+        catch (_: java.io.FileNotFoundException) { null }
+    }
+
+    fun readModuleConfig(id: String, candidate: Candidate? = null): JSONObject? {
+        val data = readResourceOrNull("modules/$id/config.json", candidate) ?: return null
+        return JSONObject(String(data, StandardCharsets.UTF_8))
+    }
+
     fun readModel(path: String): ByteArray {
         require(MODEL_PATH.matches(path)) { "Invalid model name" }
         val installed = File(patchRoot, "v${installedPatchVersion()}/$path")
@@ -189,7 +207,7 @@ class PatchManager(private val context: Context) {
             val v = entries.getJSONObject(i)
             val path=v.getString("path")
             val hash=v.getString("sha256")
-            require(MODEL_PATH.matches(path) || path==UI_PATH) { "Not a supported patch path: $path" }
+            require(PatchResourceRegistry.accepts(path)) { "Not a supported patch path: $path" }
             require(hash.matches(Regex("[a-f0-9]{64}")))
             records.add(Triple(path,hash,v.getString("data")))
         }
@@ -213,7 +231,7 @@ class PatchManager(private val context: Context) {
             if (prior.isDirectory) {
                 prior.walkTopDown().filter { it.isFile }.forEach { source ->
                     val path=source.relativeTo(prior).invariantSeparatorsPath
-                    require(MODEL_PATH.matches(path) || path==UI_PATH) { "Unknown carried patch path" }
+                    require(PatchResourceRegistry.accepts(path)) { "Unknown carried patch path" }
                     val target=File(staging,path)
                     require(target.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
                     source.copyTo(target,overwrite=false)
@@ -227,6 +245,7 @@ class PatchManager(private val context: Context) {
                 total += raw.size
                 require(total <= MAX_PATCH_BYTES)
                 require(sha(raw)==hash) { "Invalid SHA256: $path" }
+                PatchResourceRegistry.validate(path, raw)
                 if(path==UI_PATH) UiLayout.parse(raw) // Reject malformed or non-declarative UI before activation.
                 val f=File(staging,path)
                 require(f.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
