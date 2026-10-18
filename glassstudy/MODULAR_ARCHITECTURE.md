@@ -41,3 +41,10 @@
 Android permissions, manifest, DEX, libraries and new native APIs may require a rebuilt APK.
 A patch can carry a shader or model without making it active until a renderer consumer supports it.
 Never claim full modularity merely because the updater accepts more file types.
+
+## Diagnostics consumer implemented (source only)
+- `modules/diagnostics/config.json` controls whether the live report includes patch version, camera or render module values.
+- Defaults disable these additional sections, preserving the existing diagnostics appearance.
+- Actual values come from the active native camera/render modules; JSON cannot forge measurements.
+- Material overrides still require verified Filament material bindings; no materials consumer is claimed yet.
+- CI and device validation pending.
