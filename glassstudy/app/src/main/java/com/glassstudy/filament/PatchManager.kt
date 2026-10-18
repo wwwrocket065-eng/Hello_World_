@@ -263,6 +263,27 @@ class PatchManager(private val context: Context) {
                 require(f.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
                 FileOutputStream(f).use { it.write(raw);it.fd.sync() }
             }
+            // Validate the entire resulting snapshot, not only files updated by this patch.
+            // A broken carried-forward module must never become active again.
+            fun stagedModule(id: String): JSONObject? {
+                val file = File(staging, "modules/$id/config.json")
+                if (file.isFile) return JSONObject(file.readText(Charsets.UTF_8))
+                return readModuleConfig(id)
+            }
+            CameraModuleConfig.parse(stagedModule("camera"))
+            RenderModuleConfig.parse(stagedModule("render"))
+            DiagnosticsModuleConfig.parse(stagedModule("diagnostics"))
+            val materialsJson = stagedModule("materials")
+            val materials = MaterialModuleConfig.parse(materialsJson)
+            MaterialOverrides.parse(materialsJson)
+            // Every declared material variant must resolve within the signed snapshot
+            // or the APK's bundled assets. Do not defer missing assets until a user selects one.
+            materials.variants.values.forEach { path ->
+                val staged = File(staging, path)
+                val bundled = try { context.assets.open(path).use { true } }
+                    catch (_: java.io.FileNotFoundException) { false }
+                require(staged.isFile || bundled) { "Missing material variant: $path" }
+            }
             require(staging.walkTopDown().filter { it.isFile }.sumOf { it.length() } <= MAX_PATCH_BYTES) { "Installed assets exceed limit" }
             return Candidate(version,staging,records.map { it.first }.toSet())
         } catch (e:Exception) { staging.deleteRecursively(); throw e }
