@@ -66,3 +66,9 @@ Never claim full modularity merely because the updater accepts more file types.
 - The optional signed `modules/materials/config.json` `overrides` object now accepts `transmission` in [0,1] and `ior` in [1,2.5].
 - The handler checks `material.hasParameter(name)` before writing a scalar. Compiled glTF material features cannot be introduced into a material that lacks them merely by setting a value.
 - This code MUST pass Filament 1.57.1 compilation and actual transparent-glass device tests before release. Successful CI was not verified here.
+
+## Patch preflight hardening
+- Full resulting module snapshot (including inherited modules) is validated before activation.
+- Variant model dependencies must exist in staged assets or bundled APK resources.
+- Missing assets cause staging rejection rather than a later selection-time crash.
+- Android compilation and runtime smoke test are still unverified; no release APK should be distributed yet.
