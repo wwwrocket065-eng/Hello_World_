@@ -61,3 +61,8 @@ Never claim full modularity merely because the updater accepts more file types.
 - Android code applies these values to loaded Filament material instances; omitted settings preserve original GLB material parameters.
 - Filament material packages differ in supported parameter names: test with our actual GLBs. Transmission / IOR are not yet patchable in this handler.
 - Compilation, Android smoke test and signed patch activation are NOT confirmed.
+
+## Transmission / IOR override phase (source only)
+- The optional signed `modules/materials/config.json` `overrides` object now accepts `transmission` in [0,1] and `ior` in [1,2.5].
+- The handler checks `material.hasParameter(name)` before writing a scalar. Compiled glTF material features cannot be introduced into a material that lacks them merely by setting a value.
+- This code MUST pass Filament 1.57.1 compilation and actual transparent-glass device tests before release. Successful CI was not verified here.
