@@ -557,8 +557,8 @@ class MainActivity : Activity() {
             logoMark.logoColor=ui.logoColor
             fpsPill.setTextColor(ui.fpsTextColor)
             label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE
-            chooseObject.invalidateViews()
-            chooseLod.invalidateViews()
+            (chooseObject.adapter as? android.widget.BaseAdapter)?.notifyDataSetChanged()
+            (chooseLod.adapter as? android.widget.BaseAdapter)?.notifyDataSetChanged()
             diagnosticLabels=ui.diagnostics
             diagnosticSections=ui.diagnosticSections
             currentUiColor=ui.buttonColor
