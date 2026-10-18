@@ -26,6 +26,25 @@ object PatchResourceRegistry {
 
     fun validate(path: String, raw: ByteArray) {
         require(accepts(path)) { "Resource path not supported: $path" }
+        if (path.endsWith(".glb")) {
+            require(raw.size >= 20) { "GLB too small: $path" }
+            fun u32(offset: Int): Long =
+                (raw[offset].toLong() and 255L) or
+                ((raw[offset + 1].toLong() and 255L) shl 8) or
+                ((raw[offset + 2].toLong() and 255L) shl 16) or
+                ((raw[offset + 3].toLong() and 255L) shl 24)
+            require(raw[0] == 0x67.toByte() && raw[1] == 0x6c.toByte() &&
+                raw[2] == 0x54.toByte() && raw[3] == 0x46.toByte()) { "GLB magic invalid: $path" }
+            require(u32(4) == 2L && u32(8) == raw.size.toLong()) { "GLB header invalid: $path" }
+            val jsonLength = u32(12)
+            require(jsonLength >= 2L && jsonLength <= raw.size.toLong() - 20L) {
+                "GLB JSON chunk invalid: $path"
+            }
+            require(raw[16] == 0x4a.toByte() && raw[17] == 0x53.toByte() &&
+                raw[18] == 0x4f.toByte() && raw[19] == 0x4e.toByte()) {
+                "GLB first chunk is not JSON: $path"
+            }
+        }
         if (path.endsWith(".json")) {
             val json = JSONObject(raw.toString(Charsets.UTF_8))
             require(json.toString().length <= 1024 * 1024) { "JSON resource too large" }
