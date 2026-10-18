@@ -83,6 +83,7 @@ class MainActivity : Activity() {
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
     private var cameraModule = CameraModuleConfig()
+    private var renderModule = RenderModuleConfig()
     private var zoomPower = .50
     // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
     private var invertHorizontal = true
@@ -343,8 +344,7 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             android.util.Log.w("GlassStudy", "Optional IBL could not load", e)
         }
-        viewer.camera.setExposure(16f, 1f / 125f, 100f)
-        viewer.view.antiAliasing = com.google.android.filament.View.AntiAliasing.FXAA
+        applyRenderModule()
         viewer.view.ambientOcclusionOptions = viewer.view.ambientOcclusionOptions.apply { enabled = true }
         // Scene and view resize are owned by ModelViewer, gestures by this Activity.
         surface.setOnTouchListener { _, ev -> touch(ev) }
@@ -566,13 +566,26 @@ class MainActivity : Activity() {
         mainRoot.requestApplyInsets()
     }
 
+    private fun applyRenderModule() {
+        if (!::viewer.isInitialized) return
+        viewer.camera.setExposure(renderModule.exposureAperture, renderModule.exposureShutter,
+            renderModule.exposureSensitivity)
+        viewer.view.antiAliasing = if (renderModule.fxaa)
+            com.google.android.filament.View.AntiAliasing.FXAA
+            else com.google.android.filament.View.AntiAliasing.NONE
+        viewer.scene.indirectLight?.intensity = renderModule.iblIntensity
+    }
+
     /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
             val ui=UiLayout.parse(updater.readUiConfig(candidate))
             val nextCameraModule = CameraModuleConfig.parse(updater.readModuleConfig("camera", candidate))
+            val nextRenderModule = RenderModuleConfig.parse(updater.readModuleConfig("render", candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             cameraModule=nextCameraModule
+            renderModule=nextRenderModule
+            applyRenderModule()
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
             currentSelectorColor=ui.selectorTextColor
