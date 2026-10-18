@@ -246,6 +246,18 @@ class PatchManager(private val context: Context) {
                 require(total <= MAX_PATCH_BYTES)
                 require(sha(raw)==hash) { "Invalid SHA256: $path" }
                 PatchResourceRegistry.validate(path, raw)
+                if (path.startsWith("modules/") && path.endsWith("/config.json")) {
+                    val config = JSONObject(String(raw, StandardCharsets.UTF_8))
+                    when (path) {
+                        "modules/camera/config.json" -> CameraModuleConfig.parse(config)
+                        "modules/render/config.json" -> RenderModuleConfig.parse(config)
+                        "modules/diagnostics/config.json" -> DiagnosticsModuleConfig.parse(config)
+                        "modules/materials/config.json" -> {
+                            MaterialModuleConfig.parse(config)
+                            MaterialOverrides.parse(config)
+                        }
+                    }
+                }
                 if(path==UI_PATH) UiLayout.parse(raw) // Reject malformed or non-declarative UI before activation.
                 val f=File(staging,path)
                 require(f.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
