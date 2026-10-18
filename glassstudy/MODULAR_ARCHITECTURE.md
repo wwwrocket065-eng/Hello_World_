@@ -16,9 +16,15 @@
   `ui/*.json`, `models/*.glb`.
 - These are DATA assets, **not** dynamically executable native code.
 
+## First consumer implemented
+- Camera and lighting now read `modules/camera/config.json` from signed staged or active assets.
+- Zoom limits, gesture sensitivities, FOV, clip range, brightness limits and light intensity are patchable.
+- Bundled module configuration uses unchanged legacy defaults; absence of an external patch leaves behavior intact.
+- Invalid camera module settings abort `applyUiLayout(candidate)` before patch activation.
+
 ## Still to implement / verify
 1. Android Gradle CI build and runtime install of an independently signed patch containing module resources.
-2. Per-module API/consumer interfaces and lifecycle in the renderer, scene, camera, UI and diagnostics.
+2. Per-module API/consumer interfaces and lifecycle in the renderer, scene, UI and diagnostics (camera consumer started).
 3. Transactional schema migration and module dependency/version checks, per-module size quotas and resource-specific validators.
 4. Preview/commit/rollback for modules that touch Filament, with error diagnostics.
 5. Fully declarative buttons/styles/actions and runtime redraw, then diagnostic/copy button fix via a separate patch.
