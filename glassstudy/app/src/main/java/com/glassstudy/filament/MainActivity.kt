@@ -61,6 +61,7 @@ class MainActivity : Activity() {
     private var wireframe = false
     private lateinit var label: TextView
     private lateinit var logoMark: LabLogoView
+    private lateinit var logoFrame:android.widget.FrameLayout
     private lateinit var topPanel: LinearLayout
     private lateinit var bottomPanel: LinearLayout
     private lateinit var selectorRow: LinearLayout
@@ -344,7 +345,10 @@ class MainActivity : Activity() {
         }
         // Actual logo geometry, including the requested longer underline.
         logoMark=LabLogoView(this)
-        headerRow.addView(logoMark,LinearLayout.LayoutParams(d(37f),d(48f)))
+        logoFrame=FrameLayout(this)
+        val logoParams=FrameLayout.LayoutParams(d(31f),d(38f),Gravity.CENTER)
+        logoFrame.addView(logoMark,logoParams)
+        headerRow.addView(logoFrame,LinearLayout.LayoutParams(d(33f),d(48f)))
         val branding=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             gravity=Gravity.CENTER_VERTICAL
@@ -555,6 +559,10 @@ class MainActivity : Activity() {
             currentSelectorColor=ui.selectorTextColor
             logoMark.showUnderline=ui.showLogoUnderline
             logoMark.logoColor=ui.logoColor
+            val logoParams=logoMark.layoutParams as FrameLayout.LayoutParams
+            logoParams.width=d(ui.logoSizeDp.toFloat())
+            logoParams.height=d(ui.logoSizeDp*1.22f)
+            logoMark.layoutParams=logoParams
             fpsPill.setTextColor(ui.fpsTextColor)
             label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE
             (chooseObject.adapter as? android.widget.BaseAdapter)?.notifyDataSetChanged()

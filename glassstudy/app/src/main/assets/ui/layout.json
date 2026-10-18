@@ -4,8 +4,8 @@
   "topColor": "#20313D",
   "bottomColor": "#20313D",
   "buttonColor": "#173043",
-  "buttonTextColor": "#6DE0DE",
-  "textColor": "#6DE0DE",
+  "buttonTextColor": "#A3D0D3",
+  "textColor": "#A3D0D3",
   "textSizeSp": 13,
   "paddingDp": 8,
   "actionHeightDp": 48,
@@ -101,7 +101,7 @@
       "icon": "chip",
       "label": "",
       "heightDp": 44,
-      "textColor": "#6DE0DE"
+      "textColor": "#A3D0D3"
     },
     {
       "id": "light_top",
@@ -110,7 +110,7 @@
       "icon": "sun",
       "label": "",
       "heightDp": 44,
-      "textColor": "#6DE0DE"
+      "textColor": "#A3D0D3"
     },
     {
       "id": "reset",
@@ -119,7 +119,7 @@
       "icon": "reset",
       "label": "",
       "heightDp": 44,
-      "textColor": "#6DE0DE"
+      "textColor": "#A3D0D3"
     },
     {
       "id": "menu",
@@ -128,7 +128,7 @@
       "icon": "menu",
       "label": "",
       "heightDp": 44,
-      "textColor": "#6DE0DE"
+      "textColor": "#A3D0D3"
     },
     {
       "id": "light_bottom",
@@ -137,7 +137,7 @@
       "icon": "sun",
       "label": "Свет / Камера",
       "heightDp": 46,
-      "textColor": "#6DE0DE"
+      "textColor": "#A3D0D3"
     },
     {
       "id": "grid",
@@ -146,7 +146,7 @@
       "icon": "grid",
       "label": "Сетка",
       "heightDp": 46,
-      "textColor": "#6DE0DE"
+      "textColor": "#A3D0D3"
     }
   ],
   "showFps": true,
@@ -160,6 +160,7 @@
   "immersiveMode": true,
   "systemBarColor": "#656767",
   "logoColor": "#6DE0DE",
-  "selectorTextColor": "#6DE0DE",
-  "fpsTextColor": "#6DE0DE"
+  "selectorTextColor": "#A3D0D3",
+  "fpsTextColor": "#A3D0D3",
+  "logoSizeDp": 31
 }

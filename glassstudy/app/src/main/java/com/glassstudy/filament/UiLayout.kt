@@ -43,6 +43,7 @@ data class UiLayout(
     val immersiveMode:Boolean,
     val systemBarColor:Int,
     val logoColor:Int,
+    val logoSizeDp:Int,
     val selectorTextColor:Int,
     val fpsTextColor:Int
 ) {
@@ -246,7 +247,8 @@ data class UiLayout(
                 specs,showFps,(opacity*255).toInt(),invertHorizontal,
                 topSize,iconScale,hint,underline,fillChip,immersive,
                 color("systemBarColor","#656767"),color("logoColor","#6DE0DE"),
-                color("selectorTextColor","#6DE0DE"),color("fpsTextColor","#6DE0DE")
+                number("logoSizeDp",31.0,24.0,42.0).toInt(),
+                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE")
             )
         }
     }
