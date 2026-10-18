@@ -22,6 +22,12 @@
 - Bundled module configuration uses unchanged legacy defaults; absence of an external patch leaves behavior intact.
 - Invalid camera module settings abort `applyUiLayout(candidate)` before patch activation.
 
+## Render consumer implemented (source only)
+- `modules/render/config.json` now controls camera exposure, FXAA and IBL intensity.
+- Renderer module validated before activation through `applyUiLayout(candidate)`.
+- Skybox color fields are reserved; runtime skybox replacement is NOT implemented yet.
+- GitHub Actions build / device test have NOT been confirmed for this revision.
+
 ## Still to implement / verify
 1. Android Gradle CI build and runtime install of an independently signed patch containing module resources.
 2. Per-module API/consumer interfaces and lifecycle in the renderer, scene, UI and diagnostics (camera consumer started).
