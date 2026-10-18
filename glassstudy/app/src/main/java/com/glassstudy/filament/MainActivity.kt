@@ -82,6 +82,7 @@ class MainActivity : Activity() {
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
+    private var cameraModule = CameraModuleConfig()
     private var zoomPower = .50
     // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
     private var invertHorizontal = true
@@ -569,7 +570,9 @@ class MainActivity : Activity() {
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
             val ui=UiLayout.parse(updater.readUiConfig(candidate))
+            val nextCameraModule = CameraModuleConfig.parse(updater.readModuleConfig("camera", candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
+            cameraModule=nextCameraModule
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
             currentSelectorColor=ui.selectorTextColor
@@ -652,14 +655,14 @@ class MainActivity : Activity() {
         val y = 1.0 + distance * sin(pitch)
         viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
         val aspect = max(.2, surface.width.toDouble() / max(1, surface.height))
-        viewer.camera.setProjection(45.0, aspect, 0.05, 125.0, Camera.Fov.VERTICAL)
+        viewer.camera.setProjection(cameraModule.fieldOfView, aspect, cameraModule.nearClip, cameraModule.farClip, Camera.Fov.VERTICAL)
         val dx = cos(lightElevation) * sin(lightAz)
         val dy = sin(lightElevation)
         val dz = cos(lightElevation) * cos(lightAz)
         val mgr = viewer.engine.lightManager
         val inst = mgr.getInstance(viewer.light)
         mgr.setDirection(inst, (-dx).toFloat(),(-dy).toFloat(),(-dz).toFloat())
-        mgr.setIntensity(inst,(100000f * brightness).toFloat())
+        mgr.setIntensity(inst,(cameraModule.lightIntensity * brightness).toFloat())
     }
     private fun touch(e: MotionEvent): Boolean {
         if (e.actionMasked == MotionEvent.ACTION_DOWN || e.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
@@ -671,9 +674,9 @@ class MainActivity : Activity() {
             if (e.pointerCount >= 2) {
                 val delta = pinch(e)
                 if (oldPinch > 0f && delta > 1f) {
-                    if (lightMode) brightness = (brightness * (delta / oldPinch).toDouble().pow(.7)).coerceIn(.05, 3.0)
+                    if (lightMode) brightness = (brightness * (delta / oldPinch).toDouble().pow(.7)).coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
                     // Spread two fingers => move closer; pinch => farther. Same as v0.1.22.
-                    else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(2.7, 60.0)
+                    else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(cameraModule.minDistance, cameraModule.maxDistance)
                 }
                 oldPinch = delta
             } else {
@@ -685,13 +688,13 @@ class MainActivity : Activity() {
                 val dy = (e.y - oldY).toDouble() / pxToCss
                 if (lightMode) {
                     // Identical to v0.1.22: 0.009/0.006 radians per CSS pixel.
-                    lightAz += dx * .009
-                    lightElevation = (lightElevation + dy * .006).coerceIn(.06,1.5)
+                    lightAz += dx * cameraModule.lightYawSensitivity
+                    lightElevation = (lightElevation + dy * cameraModule.lightPitchSensitivity).coerceIn(.06,1.5)
                 } else {
                     // Identical to v0.1.22: 0.008/0.005 radians per CSS pixel.
                     // A signed UI patch can flip direction; default is inverted.
-                    yaw += dx * (if(invertHorizontal) -.008 else .008)
-                    pitch = (pitch + dy * .005).coerceIn(-.05,1.23)
+                    yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)
+                    pitch = (pitch + dy * cameraModule.pitchSensitivity).coerceIn(-.05,1.23)
                 }
             }
             oldX = e.getX(0); oldY = e.getY(0)
