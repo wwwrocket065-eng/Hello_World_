@@ -877,7 +877,6 @@ class MainActivity : Activity() {
         popup.showAtLocation(mainRoot,Gravity.TOP or Gravity.CENTER_HORIZONTAL,0,
             d(69f))
     }
-    }
     override fun onResume() {
         super.onResume()
         if (::viewer.isInitialized && !running) {
