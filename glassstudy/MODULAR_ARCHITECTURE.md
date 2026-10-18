@@ -55,3 +55,9 @@ Never claim full modularity merely because the updater accepts more file types.
 - A referenced resource must exist at render time, or staged patch application is rejected.
 - Fine-grained live per-property material parameters and material-only overrides are NOT implemented.
 - Build and device tests remain necessary before release.
+
+## Material scalar overrides (needs build and device verification)
+- `modules/materials/config.json` may specify `overrides.metallic`, `overrides.roughness`, and `overrides.reflectance` in [0,1].
+- Android code applies these values to loaded Filament material instances; omitted settings preserve original GLB material parameters.
+- Filament material packages differ in supported parameter names: test with our actual GLBs. Transmission / IOR are not yet patchable in this handler.
+- Compilation, Android smoke test and signed patch activation are NOT confirmed.
