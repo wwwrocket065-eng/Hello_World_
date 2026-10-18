@@ -186,6 +186,8 @@ for name in ('PatchResourceRegistry','CameraModuleConfig','RenderModuleConfig',
     assert (src/(name+'.kt')).is_file(), name
 registry=(src/'PatchResourceRegistry.kt').read_text()
 assert 'modules/' in registry and 'PatchResourceRegistry.validate(path, raw)' in updater
+assert 'GLB magic invalid:' in registry and 'GLB header invalid:' in registry
+assert 'GLB first chunk is not JSON:' in registry
 assert 'signature.verify(' in updater  # Modules must pass the old signature check.
 for module in ('camera','render','diagnostics','materials'):
     config=json.loads((root/'app/src/main/assets/modules'/module/'config.json').read_text())
