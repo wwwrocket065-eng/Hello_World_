@@ -52,12 +52,12 @@ def encode_value(value):
     try:return json.loads(value)
     except json.JSONDecodeError:return value
 
-def config_resource(alias):
+def config_resource(alias,baseline):
     path=ALIASES.get(alias)
     if path is None:raise ValueError("Unknown module alias: "+alias)
     source=ASSETS/path
     if not source.is_file():raise ValueError("Default resource not found: "+str(source))
-    doc=json.loads(source.read_text("utf-8"))
+    doc=json.loads(baseline.get(path,source.read_bytes()))
     if not isinstance(doc,dict):raise ValueError("Configuration must be an object")
     return path,doc
 
@@ -123,7 +123,51 @@ def create_patch(version,items,key):
     key.public_key().verify(signature,canonical(version,records),padding.PKCS1v15(),hashes.SHA256())
     return payload
 
+def published_baseline():
+    """Resolve ALL prior published incremental patch resources, oldest to newest.
+
+    Prevents the very common bug where editing one size with bundled defaults
+    silently undoes unrelated colors, menus or earlier module customizations.
+    Verify each archive against the APK's embedded PATCH public RSA key.
+    """
+    from cryptography.hazmat.primitives.serialization import load_der_public_key
+    source=(ROOT/"app/src/main/java/com/glassstudy/filament/PatchManager.kt").read_text()
+    matched=re.search(r'PUBLIC_KEY_BASE64\\s*=\\s*"([^"]+)"',source)
+    if not matched:raise ValueError("Missing Android patch public key")
+    pub=serialization.load_der_public_key(base64.b64decode(matched.group(1)))
+    updates=ROOT/"updates/v2"
+    feed=json.loads((updates/"latest.json").read_text("utf-8"))
+    published=feed["patchVersion"]
+    current_name=feed["patchName"]
+    latest_raw=(updates/current_name).read_bytes()
+    if hashlib.sha256(latest_raw).hexdigest()!=feed["patchSha256"]:
+        raise ValueError("Published feed checksum does not match patch")
+    resources={}
+    version=0
+    for path in sorted(updates.glob("GlassStudy_Filament_*.pupdate"),
+                       key=lambda p:int(p.stem.split("_")[-1])):
+        doc=json.loads(path.read_bytes())
+        if doc.get("version",0)>published:continue
+        if doc.get("format")!=FORMAT:raise ValueError("Bad patch format: "+path.name)
+        version=doc["version"]
+        entries=doc["entries"]
+        sig=base64.b64decode(doc["signature"],validate=True)
+        pub.verify(sig,canonical(version,entries),padding.PKCS1v15(),hashes.SHA256())
+        for e in entries:
+            name=e["path"]
+            if not accepted(name):raise ValueError("Unsupported published path "+name)
+            raw=base64.b64decode(e["data"],validate=True)
+            if hashlib.sha256(raw).hexdigest()!=e["sha256"]:
+                raise ValueError("Published resource hash mismatch "+name)
+            resources[name]=raw
+    if version!=published:raise ValueError("Published patch history incomplete")
+    return published,resources
+
+
 def produce(args):
+    current_version,baseline=published_baseline()
+    if args.version<=current_version:
+        raise ValueError("New patch version must exceed live published "+str(current_version))
     files={}
     base={}
     for item in args.set:
@@ -133,12 +177,12 @@ def produce(args):
         if not dot:raise ValueError("Expected module.property")
         path=ALIASES.get(alias)
         if path is None:raise ValueError("Unknown module: "+alias)
-        if path not in base:base[path]=config_resource(alias)[1]
+        if path not in base:base[path]=config_resource(alias,baseline)[1]
         assign(base[path],selector,encode_value(value))
     for path,doc in base.items():
         raw=(json.dumps(doc,ensure_ascii=False,indent=2)+"\n").encode("utf-8")
         # No change, no need to ship it.
-        if raw!= (ASSETS/path).read_bytes():files[path]=raw
+        if raw!=baseline.get(path,(ASSETS/path).read_bytes()):files[path]=raw
 
     for declaration in args.file:
         if "=" not in declaration:raise ValueError("--file requires resource/path=local_file")
@@ -148,7 +192,7 @@ def produce(args):
         if not source.is_file():raise ValueError("Missing file "+source.as_posix())
         data=source.read_bytes()
         # Skip the unchanged built-in file automatically.
-        if not (ASSETS/name).is_file() or data!=(ASSETS/name).read_bytes():
+        if data!=baseline.get(name,(ASSETS/name).read_bytes() if (ASSETS/name).is_file() else None):
             files[name]=data
 
     if not files:raise ValueError("No changed resources: patch omitted")
