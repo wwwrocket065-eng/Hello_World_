@@ -1,0 +1,9 @@
+{
+  "id": "overlay",
+  "schema": 1,
+  "enabled": true,
+  "showWith": "light",
+  "label": "Яркость освещения",
+  "bottomMarginDp": 116,
+  "widthDp": 260
+}
