@@ -78,6 +78,9 @@ class MainActivity : Activity() {
     private var currentUiColor:Int=Color.rgb(27,56,75)
     private var currentSelectorColor=Color.rgb(109,224,222)
     private var currentTopOutlineColor=Color.rgb(109,185,203)
+    private var currentTopIconColor=Color.rgb(163,208,211)
+    private var currentTopButtonSizeDp=35
+    private var currentTopIconScale=.82f
     private lateinit var mainRoot:FrameLayout
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
@@ -180,6 +183,7 @@ class MainActivity : Activity() {
     private fun isActionActive(action:String)=when(action) {
         "toggleLight" -> lightMode
         "toggleGrid" -> wireframe
+        "diagnostics" -> diagnosticPopup?.isShowing == true
         else -> false
     }
     private fun updateButtonHighlights() {
@@ -598,6 +602,9 @@ class MainActivity : Activity() {
             invertHorizontal=ui.invertHorizontal
             currentSelectorColor=ui.selectorTextColor
             currentTopOutlineColor=ui.topButtonOutlineColor
+            currentTopIconColor=ui.buttonTextColor
+            currentTopButtonSizeDp=ui.topButtonSizeDp
+            currentTopIconScale=ui.topIconScale
             logoMark.showUnderline=ui.showLogoUnderline
             logoMark.logoColor=ui.logoColor
             val logoParams=logoMark.layoutParams as FrameLayout.LayoutParams
@@ -873,14 +880,16 @@ class MainActivity : Activity() {
             contentDescription="Копировать диагностику"
             isFocusable=true
             isClickable=true
-            background=roundedFill(Color.argb(215,16,44,60),8f,
-                Color.rgb(91,185,193))
+            // Same signed theme and dimensions as the four toolbar buttons.
+            skin(this,false,currentUiColor,currentTopOutlineColor)
         }
         val copyIcon=LabIconView(this,"copy").apply {
-            iconColor=Color.rgb(109,224,222)
+            iconColor=currentTopIconColor
+            glyphScale=currentTopIconScale
         }
-        copy.addView(copyIcon,FrameLayout.LayoutParams(d(31f),d(31f),Gravity.CENTER))
-        header.addView(copy,LinearLayout.LayoutParams(d(43f),d(40f)))
+        val copySize=d(currentTopButtonSizeDp.toFloat())
+        copy.addView(copyIcon,FrameLayout.LayoutParams(copySize,copySize,Gravity.CENTER))
+        header.addView(copy,LinearLayout.LayoutParams(copySize,copySize))
         outer.addView(header)
         val reportText=TextView(this).apply {
             text=report
@@ -909,6 +918,7 @@ class MainActivity : Activity() {
             elevation=d(10f).toFloat()
             setOnDismissListener {
                 if(diagnosticPopup===this)diagnosticPopup=null
+                updateButtonHighlights()
             }
         }
         copy.setOnClickListener {
@@ -920,6 +930,7 @@ class MainActivity : Activity() {
         // Lower than toolbar, so another toolbar icon remains accessible.
         popup.showAtLocation(mainRoot,Gravity.TOP or Gravity.CENTER_HORIZONTAL,0,
             d(69f))
+        updateButtonHighlights()
     }
     override fun onResume() {
         super.onResume()
