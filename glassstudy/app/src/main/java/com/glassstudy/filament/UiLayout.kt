@@ -50,7 +50,8 @@ data class UiLayout(
     val selectorTextColor:Int,
     val fpsTextColor:Int,
     val windows: Map<String, DeclarativeWindow>,
-    val animations: Map<String, UiAnimationSpec>
+    val animations: Map<String, UiAnimationSpec>,
+    val adaptive: AdaptiveUiConfig
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -137,6 +138,7 @@ data class UiLayout(
             val j=JSONObject(String(bytes, StandardCharsets.UTF_8))
             val windows = DeclarativeWindows.parse(j)
             val animations = UiAnimationEngine.parse(j)
+            val adaptive = AdaptiveUiConfig.parse(j)
             val theme = UiThemeEngine.parse(j)
             require(j.getString("format")=="glassstudy-ui-v1" && j.optInt("schema",0)==1) { "Unsupported UI schema" }
             fun color(key: String, fallback: String): Int {
@@ -263,7 +265,7 @@ data class UiLayout(
                 number("logoOffsetYDp",5.0,-12.0,12.0).toInt(),
                 (number("topOverlayOpacity",0.0,0.0,1.0)*255).toInt(),
                 color("topButtonOutlineColor","#6DB9CB"),
-                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows,animations
+                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows,animations,adaptive
             )
         }
     }
