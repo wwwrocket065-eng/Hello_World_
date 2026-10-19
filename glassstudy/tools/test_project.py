@@ -322,7 +322,8 @@ assert overlay_config['showWith']=='light'
 assert 'OverlayModuleConfig.parse(stagedModule("overlay"))' in updater
 assert '"modules/overlay/config.json" -> OverlayModuleConfig.parse(config)' in updater
 assert 'private fun updateContextualOverlay()' in activity
-assert 'updateCamera()' in activity[activity.index('private fun updateContextualOverlay()'):activity.index('private fun showDiagnostic()')]
+# Observable user changes pass through the common binding rather than a hardcoded renderer call.
+assert 'uiController.write("brightnessPercent",' in activity[activity.index('private fun updateContextualOverlay()'):activity.index('private fun showDiagnostic()')]
 
 for name in ('backgroundColor','borderColor','textColor','progressColor','thumbColor'):
     assert overlay_config.get(name, '').startswith('#')
