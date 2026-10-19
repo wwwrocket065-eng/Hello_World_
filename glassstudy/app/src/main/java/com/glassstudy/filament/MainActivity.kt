@@ -319,7 +319,7 @@ class MainActivity : Activity() {
             topButtonHost.addView(v,p)
             activeButtons[spec.id]=v
         }
-        for(group in bottom.chunked(2)) {
+        for(group in bottom.chunked(OrientationLayoutManager.bottomColumns(resources.configuration, bottom.size))) {
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
             for((index,spec) in group.withIndex()) {
                 val v=createUiButton(spec,ui)
