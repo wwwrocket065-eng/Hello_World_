@@ -358,10 +358,79 @@ class MainActivity : Activity() {
     }
 
     private fun openSceneMenu() {
-        AlertDialog.Builder(this).setTitle("Сцена")
-            .setItems(arrayOf("Пол", "Skybox")) { _, index ->
-                if (index == 0) openFloorChoices() else openSkyChoices()
-            }.show()
+        // One compact, signed-theme compatible panel instead of stacked stock Android menus.
+        val foreground=currentTopIconColor
+        val panel=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(18f),d(16f),d(18f),d(18f))
+            background=roundedFill(Color.rgb(17,35,49),20f,currentTopOutlineColor)
+        }
+        fun text(value:String, size:Float, color:Int, top:Int=0):TextView =
+            TextView(this).apply {
+                this.text=value;textSize=size;setTextColor(color)
+                val lp=LinearLayout.LayoutParams(-1,-2)
+                lp.topMargin=d(top.toFloat());layoutParams=lp
+            }
+        panel.addView(text("СЦЕНА",17f,foreground))
+        panel.addView(text("Пол и окружение настраиваются отдельно",12f,
+            Color.rgb(157,184,195),5))
+        var dialog:AlertDialog?=null
+        fun heading(label:String) {
+            panel.addView(text(label,13f,foreground,17))
+        }
+        fun choice(label:String,selected:Boolean,onSelect:()->Unit) {
+            val item=TextView(this).apply {
+                text=(if(selected) "●  " else "○  ")+label
+                textSize=14f
+                setTextColor(if(selected)foreground else Color.rgb(216,229,234))
+                gravity=Gravity.CENTER_VERTICAL
+                setPadding(d(14f),0,d(12f),0)
+                background=roundedFill(if(selected)Color.rgb(31,72,84)
+                    else Color.rgb(23,48,64),11f,
+                    if(selected)currentTopOutlineColor else Color.rgb(59,94,108))
+                isClickable=true;isFocusable=true
+                setOnClickListener {
+                    dialog?.dismiss()
+                    onSelect()
+                }
+            }
+            val lp=LinearLayout.LayoutParams(-1,d(42f))
+            lp.topMargin=d(6f)
+            panel.addView(item,lp)
+        }
+        heading("ПОЛ")
+        choice("Шахматная доска",floorMode=="checker") {
+            floorMode="checker";saveSceneChoices();applySceneFloor();openSceneMenu()
+        }
+        choice("Белая платформа",floorMode=="white") {
+            floorMode="white";saveSceneChoices();applySceneFloor();openSceneMenu()
+        }
+        choice("Без пола",floorMode=="none") {
+            floorMode="none";saveSceneChoices();applySceneFloor();openSceneMenu()
+        }
+        heading("SKYBOX")
+        val skyChoices=listOf(
+            "gray" to "Серый · Blender",
+            "studio" to "Студийный",
+            "white" to "Белый",
+            "dark" to "Тёмный",
+            "custom" to "Свой цвет · RGB"
+        )
+        skyChoices.forEach { (mode,label) ->
+            choice(label,skyMode==mode) {
+                if(mode=="custom") openCustomSkyColor()
+                else { skyMode=mode;saveSceneChoices();applySceneSkybox();openSceneMenu() }
+            }
+        }
+        val scroll=ScrollView(this).apply {
+            isFillViewport=false
+            addView(panel)
+        }
+        dialog=AlertDialog.Builder(this).setView(scroll).create()
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels*.91f).toInt(),
+            ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun openFloorChoices() {
