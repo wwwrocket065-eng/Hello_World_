@@ -90,7 +90,7 @@ class DiagnosticsReportService(
                     "scene" -> {
                         appendLine()
                         appendLine("▸ ${tr("sectionScene")}")
-                        appendLine("${tr("model")}: ${state.modelName} · $state.modelLod · ${tr("gridMode")}: ${if(state.wireframe) tr("yes") else tr("no")}")
+                        appendLine("${tr("model")}: ${state.modelName} · ${state.modelLod} · ${tr("gridMode")}: ${if(state.wireframe) tr("yes") else tr("no")}")
                         if(mesh != null) {
                             appendLine("GLB: ${mesh.vertices} ${tr("vertices")} · ${mesh.triangles} ${tr("triangles")}${if(mesh.segments>0) " · ${mesh.segments} ${tr("segments")}" else ""}")
                             appendLine("${mesh.primitives} ${tr("primitives")} · ${num(mesh.bytes/1024.0)} ${tr("kilobytes")} · SHA256: ${mesh.sha12}…")
