@@ -503,3 +503,12 @@ assert 'private fun selectionAdapter(' not in activity
 assert 'private fun setSystemBarMode(' not in activity
 assert 'private fun skin(' not in activity
 assert 'uiChrome.selectionAdapter(' in activity
+
+# Prevent the v0.2.37 broken extraction from silently reaching the Kotlin compiler.
+assert '/** Safe dynamic layout:    /**' not in activity
+assert activity.count('private fun applyUiLayout(')==1
+for required in ('private fun applyUiLayout(','private fun loadSelected(',
+                 'private fun resetCameraToHome(', 'private fun status(',
+                 'private fun showDiagnostic('):
+    assert required in activity, 'Lost lifecycle method: '+required
+assert 'uiChrome.apply(ui,bundle.windows,bundle.overlay)' in activity

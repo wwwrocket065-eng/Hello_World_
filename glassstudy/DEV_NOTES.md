@@ -169,3 +169,8 @@
 - UiChromeViews is an explicit typed view port bound once after UI construction. UiChromeController contains no Filament, updater, model loading or patch activation. MainActivity only wires feature modules and delegates presentation application after PatchUiBundle validation.
 - Diagnostic popup style and report labels/sections now read from the same applied UI chrome snapshot; reduces color drift after signed patch updates. Contextual HUD remains passive and only appears during actual light gestures.
 - Version 0.2.37/20037, published signed feed 20028 unchanged. CI compilation and Android 16 device interaction testing required; an installable update still requires matching original APK certificate.
+
+### v0.2.37 CI finding and preventive check (2026-10-19)
+- Root cause: a scripted block extraction duplicated the opening Kotlin doc-comment token on the MainActivity applyUiLayout header, leaving an unclosed nested comment. Android compiler reported many secondary 'Unresolved reference' messages plus primary 'Unclosed comment'; the referenced methods were actually present below the malformed comment.
+- Fix commit aad69b78: restore a single well-formed doc comment, without rewriting app logic or disabling validation. Always identify the FIRST syntax error before treating downstream missing references as separate bugs.
+- New static regression gate checks for the accidental nested doc-comment header and for presence of key lifecycle/patch/diagnostics methods before the long Android compile. Continue to rely on actual Kotlin CI compiler as authoritative.
