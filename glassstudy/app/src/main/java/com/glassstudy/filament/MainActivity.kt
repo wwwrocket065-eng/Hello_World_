@@ -174,7 +174,16 @@ class MainActivity : Activity() {
             }
             return
         }
+        if(action=="openScene" || action=="menu") {
+            val mode=GlassDialogFactory.theme.windowClickModes.getValue(action)
+            if(GlassDialogFactory.isOpen(action)) {
+                if(mode!="openOnly") GlassDialogFactory.closeCurrent()
+                return
+            }
+            if(mode=="closeOnly") return
+        }
         diagnosticPopup?.dismiss()
+        GlassDialogFactory.closeCurrent()
         when(action) {
             "toggleLight" -> { lightMode=!lightMode;status() }
             "resetCamera" -> resetCameraToHome()
@@ -444,7 +453,7 @@ class MainActivity : Activity() {
             isFillViewport=false
             addView(panel)
         }
-        dialog=GlassDialogFactory.show(this,scroll)
+        dialog=GlassDialogFactory.show(this,scroll,key="openScene")
     }
 
     private fun openCustomSkyColor() {
@@ -494,7 +503,7 @@ class MainActivity : Activity() {
         action("Отмена",false)
         action("Применить",true)
         panel.addView(actions)
-        dialog=GlassDialogFactory.show(this,panel)
+        dialog=GlassDialogFactory.show(this,panel,key="skyColor")
     }
 
     private fun openMenu() {
