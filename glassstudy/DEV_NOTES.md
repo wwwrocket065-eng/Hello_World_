@@ -102,3 +102,11 @@
 - The source PEM private key must be converted to PKCS#8 DER for official `apksigner --key`: `openssl pkcs8 -topk8 -nocrypt -in apk_key.pem -outform DER -out apk_key.pk8`. `apksigner sign --key apk_key.pk8 --cert apk_cert.der --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled false --out signed.apk unsigned.apk`. Then `apksigner verify --verbose --print-certs signed.apk`.
 - Repaired release: `GlassStudy_3D_LAB_v0.2.30_VERIFIED_ORIGINAL_KEY.apk`, source CI #303, SHA256 `92ff5e9eba043bcd77746b9bdedeab8bc1307da14aec7564fc58538a30b564e0`, 11,439,731 bytes. Official apksigner: `Verifies`; v2: true, one signer; cert matches prior 0.2.29. ZIP CRC good and all 3 native libraries 4096-aligned.
 - Device install of this repaired release still needs user confirmation; preserve installed previous APK until confirmed. Never publish private signing keys or even PKCS8 intermediate.
+
+## 2026-10-19 — Rich modular windows milestone
+- Added strict signed-JSON `windows[].elements` controls: headings, text, safe buttons, switches (lightMode/grid/fps), and brightnessPercent sliders. Old `windows[].buttons` patches continue to parse.
+- Central renderer `PatchWindowRenderer.kt` handles all declarative panel presentation; `MainActivity` provides only explicitly whitelisted state bindings. No arbitrary code, intents or reflection through patches.
+- Preserved patch, Scene, main menu and diagnostics windows across orientation changes without recreating the Filament renderer; keep checking this on Android 16.
+- Rich window demo: `PROJECT_RULES/RICH_WINDOW_EXAMPLE.json`. Use its `windows` object in a complete `ui/layout.json` and a validated `uiButtons[].action="openWindow:lightControls"` to expose it.
+- CRITICAL COMPATIBILITY: Do NOT publish `windows[].elements` into the shared live .pupdate feed until a new ORIGINAL-KEY-SIGNED APK implementing the rich renderer is installed. Existing v0.2.30 builds only understand legacy `buttons` and would reject the patch.
+- Original-key signing, actual .pupdate installation/rollback and Android device smoke tests remain separate release gates, beyond successful source/CI compilation.
