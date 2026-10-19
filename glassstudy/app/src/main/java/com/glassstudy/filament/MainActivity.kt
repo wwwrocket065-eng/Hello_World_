@@ -843,32 +843,19 @@ class MainActivity : Activity() {
     /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
-            // Installed 20028 patches still carry the former arrow/reset control.
-            // Migrate only that top button to Scene; retain all other signed styles.
-            val parsedUi=UiLayout.parse(updater.readUiConfig(candidate))
-            val ui=parsedUi.copy(buttons=parsedUi.buttons.map { button ->
-                if (button.slot=="top" && button.action=="resetCamera")
-                    button.copy(action="openScene",icon="scene",label="")
-                else button
-            })
-            val nextCameraModule = CameraModuleConfig.parse(updater.readModuleConfig("camera", candidate))
-            val nextRenderModule = RenderModuleConfig.parse(updater.readModuleConfig("render", candidate))
-            val nextDiagnosticsModule = DiagnosticsModuleConfig.parse(updater.readModuleConfig("diagnostics", candidate))
-            val nextMaterialModule = MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
-            val nextSceneModule = SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))
-            val nextWindowStyle = WindowStyleConfig.parse(updater.readModuleConfig("windows", candidate))
-            val nextOverlayModule = OverlayModuleConfig.parse(updater.readModuleConfig("overlay",candidate))
-            // The signed JSON is fully validated first: no partial invalid actions.
-            patchWindows=ui.windows
-            uiAnimations=ui.animations
-            cameraModule=nextCameraModule
-            renderModule=nextRenderModule
-            diagnosticsModule=nextDiagnosticsModule
-            materialModule=nextMaterialModule
-            val sceneChanged=sceneModule != nextSceneModule
-            sceneModule=nextSceneModule
-            GlassDialogFactory.applyTheme(nextWindowStyle)
-            overlayModule=nextOverlayModule
+            val bundle = PatchUiBundle.read(updater, candidate)
+            val ui = bundle.ui
+            // Parsing every module completed before any live state is replaced.
+            patchWindows = ui.windows
+            uiAnimations = ui.animations
+            cameraModule = bundle.camera
+            renderModule = bundle.render
+            diagnosticsModule = bundle.diagnostics
+            materialModule = bundle.materials
+            val sceneChanged = sceneModule != bundle.scene
+            sceneModule = bundle.scene
+            GlassDialogFactory.applyTheme(bundle.windows)
+            overlayModule = bundle.overlay
             updateContextualOverlay()
             if (sceneChanged) applySceneFloor()
             applyRenderModule()
