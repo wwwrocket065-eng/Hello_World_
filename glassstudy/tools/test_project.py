@@ -267,3 +267,9 @@ assert 'GlassDialogFactory.message(this,"Патч отклонён"' in activity
 assert 'fun menu(activity:Activity' in dialog_factory
 assert 'fun message(activity:Activity' in dialog_factory
 assert scene_config.get('sectionOrder')==['skybox','floor']
+
+# All window creation uses the shared factory, including non-modal diagnostics.
+assert 'AlertDialog.Builder(this)' not in activity
+assert 'PopupWindow(outer,availableWidth' not in activity
+assert 'GlassDialogFactory.popup(this,outer,availableWidth)' in activity
+assert 'GlassDialogFactory.message(this,"Патч не установлен",reason)' in activity
