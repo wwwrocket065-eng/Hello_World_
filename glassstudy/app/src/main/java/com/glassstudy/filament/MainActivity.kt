@@ -429,26 +429,6 @@ class MainActivity : Activity() {
         dialog=GlassDialogFactory.show(this,scroll)
     }
 
-    private fun openFloorChoices() {
-        val choices=arrayOf("Шахматная доска","Белая платформа","Без пола")
-        val modes=arrayOf("checker","white","none")
-        AlertDialog.Builder(this).setTitle("Пол")
-            .setSingleChoiceItems(choices,modes.indexOf(floorMode)) { dialog,index ->
-                floorMode=modes[index];saveSceneChoices();applySceneFloor();dialog.dismiss()
-            }.setNegativeButton("Назад") { _,_->openSceneMenu() }.show()
-    }
-
-    private fun openSkyChoices() {
-        val choices=arrayOf("Серый (как в Blender)","Студийный Skybox","Белый","Тёмный","Свой цвет")
-        val modes=arrayOf("gray","studio","white","dark","custom")
-        AlertDialog.Builder(this).setTitle("Skybox")
-            .setSingleChoiceItems(choices,modes.indexOf(skyMode)) { dialog,index ->
-                dialog.dismiss()
-                if (modes[index]=="custom") openCustomSkyColor()
-                else { skyMode=modes[index];saveSceneChoices();applySceneSkybox() }
-            }.setNegativeButton("Назад") { _,_->openSceneMenu() }.show()
-    }
-
     private fun openCustomSkyColor() {
         val sliders=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
