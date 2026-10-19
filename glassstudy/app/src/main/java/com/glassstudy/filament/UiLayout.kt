@@ -119,9 +119,6 @@ data class UiLayout(
             listOf("updates","performance","memory","scene","renderer","camera","device")
         // UI actions are strictly whitelisted. Patches can add/remove/reorder
         // button instances but cannot execute new code or start arbitrary intents.
-        private val ACTIONS=setOf(
-            "diagnostics","toggleLight","resetCamera","openScene","menu",
-            "selectModel","selectQuality","toggleGrid","toggleFps")
         private val ICONS=setOf(
             "chip","sun","reset","scene","menu","objects","quality","grid","fps","info")
         private val DEFAULT_BUTTONS=listOf(
@@ -203,8 +200,9 @@ data class UiLayout(
                     val icon=obj.getString("icon")
                     val label=obj.optString("label","")
                     require(Regex("[a-z][a-zA-Z0-9_]{0,31}").matches(id)) { "Bad button id" }
-                    require((action in ACTIONS || (action.startsWith("openWindow:") &&
-                        windows.containsKey(action.substringAfter(':')))) &&
+                    require(UiInteractionRegistry.acceptsAction(action) &&
+                        (!action.startsWith("openWindow:") ||
+                            windows.containsKey(action.substringAfter(':'))) &&
                         slot in listOf("top","bottom") && icon in ICONS) {
                         "Unknown button action, location or icon"
                     }
