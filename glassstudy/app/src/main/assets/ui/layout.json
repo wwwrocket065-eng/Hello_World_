@@ -165,5 +165,6 @@
   "logoSizeDp": 31,
   "logoOffsetYDp": 5,
   "topOverlayOpacity": 0,
-  "topButtonOutlineColor": "#6DB9CB"
+  "topButtonOutlineColor": "#6DB9CB",
+  "gearInnerRoundness": 0.8
 }
