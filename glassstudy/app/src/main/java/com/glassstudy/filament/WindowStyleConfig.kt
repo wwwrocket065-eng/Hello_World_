@@ -20,7 +20,8 @@ data class WindowStyleConfig(
     val menuOrder:List<String> = listOf("model","camera","diagnostics"),
     val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
     val titles:Map<String,String> = defaultTitles(),
-    val diagnosticsClickMode:String = "toggle"
+    val diagnosticsClickMode:String = "toggle",
+    val windowClickModes:Map<String,String> = mapOf("diagnostics" to "toggle","openScene" to "toggle","menu" to "toggle")
 ) {
     companion object {
         fun defaultTitles():Map<String,String> = linkedMapOf(
@@ -76,6 +77,17 @@ data class WindowStyleConfig(
             require(diagnosticsClickMode in setOf("toggle","openOnly","closeOnly")) {
                 "Invalid diagnosticsClickMode"
             }
+            val defaultWindowModes=mapOf("diagnostics" to "toggle","openScene" to "toggle","menu" to "toggle")
+            val windowModes=defaultWindowModes.toMutableMap()
+            if(json.has("windowClickModes")) {
+                val controls=json.getJSONObject("windowClickModes")
+                for(key in controls.keys()) {
+                    require(key in defaultWindowModes) { "Unknown window behavior key" }
+                    val mode=controls.getString(key)
+                    require(mode in setOf("toggle","openOnly","closeOnly")) { "Invalid window behavior" }
+                    windowModes[key]=mode
+                }
+            }
             return WindowStyleConfig(
                 color("background",Color.rgb(17,35,49)),
                 color("control",Color.rgb(23,48,64)),
@@ -88,7 +100,7 @@ data class WindowStyleConfig(
                 number("controlCornerDp",11.0,0.0,28.0),
                 number("paddingDp",18.0,4.0,36.0).toInt(),
                 number("rowHeightDp",43.0,32.0,64.0).toInt(),
-                number("widthFraction",.91,.65,1.0),menuOrder,headerOrder,titles,diagnosticsClickMode)
+                number("widthFraction",.91,.65,1.0),menuOrder,headerOrder,titles,diagnosticsClickMode,windowModes)
         }
     }
 }
