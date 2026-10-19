@@ -48,7 +48,8 @@ data class UiLayout(
     val topOverlayOpacity:Int,
     val topButtonOutlineColor:Int,
     val selectorTextColor:Int,
-    val fpsTextColor:Int
+    val fpsTextColor:Int,
+    val windows: Map<String, DeclarativeWindow>
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -133,6 +134,7 @@ data class UiLayout(
         fun parse(bytes: ByteArray): UiLayout {
             require(bytes.size in 64..32768) { "UI patch size is invalid" }
             val j=JSONObject(String(bytes, StandardCharsets.UTF_8))
+            val windows = DeclarativeWindows.parse(j)
             val theme = UiThemeEngine.parse(j)
             require(j.getString("format")=="glassstudy-ui-v1" && j.optInt("schema",0)==1) { "Unsupported UI schema" }
             fun color(key: String, fallback: String): Int {
@@ -196,7 +198,9 @@ data class UiLayout(
                     val icon=obj.getString("icon")
                     val label=obj.optString("label","")
                     require(Regex("[a-z][a-zA-Z0-9_]{0,31}").matches(id)) { "Bad button id" }
-                    require(action in ACTIONS && slot in listOf("top","bottom") && icon in ICONS) {
+                    require((action in ACTIONS || (action.startsWith("openWindow:") &&
+                        windows.containsKey(action.substringAfter(':')))) &&
+                        slot in listOf("top","bottom") && icon in ICONS) {
                         "Unknown button action, location or icon"
                     }
                     require(label.length<=40 && !label.any { it.isISOControl() }) { "Bad button label" }
@@ -257,7 +261,7 @@ data class UiLayout(
                 number("logoOffsetYDp",5.0,-12.0,12.0).toInt(),
                 (number("topOverlayOpacity",0.0,0.0,1.0)*255).toInt(),
                 color("topButtonOutlineColor","#6DB9CB"),
-                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE")
+                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows
             )
         }
     }
