@@ -39,3 +39,12 @@
 - Latest verified Android CI: workflow run 39189400749, success. APK 0.2.29 was signed locally using the ORIGINAL APK certificate and verified via APK Signature Scheme v2, byte-level digest, and ZIP CRC.
 - Remote signed patch feed remains 20028 on purpose. DO NOT publish scene UI patch to users of 0.2.28: that APK does not implement openScene and will reject it.
 - Pending device smoke test: GLB floor drawn, checker placement, studio Skybox visuals, scene reopening, and preservation of IBL and model selection. Keep the old signed 0.2.28 APK available.
+
+## 2026-10-19 — Scene UI layout and window unification (CI pending)
+- Scene sections now default to skybox ABOVE floor. Signed scene module config gains validated sectionOrder, skyboxOrder and floorOrder; this supports rearranging scene options without APK.
+- Shared GlassDialogFactory handles themed scene selection, RGB picker, main menu, patch confirmations/rejection, and model-load errors.
+- Removed duplicate stock Android dialogs for these flows. Diagnostics retains its specialized popup and is not yet unified.
+- Existing top and bottom toolbar use patchable uiButtons arrays; scene dialog order is now patchable independently.
+- Limitation: universal drag/reorder for controls in every type of window is NOT finished. Planned generic declarative window schema and adapter.
+- Keep published feed 20028 unchanged until user installs and confirms a new original-key signed APK. Older APKs do not contain these action handlers.
+- Regression: earlier test was brittle after declarative scene options; updated to check option map and scene ordering. GitHub Actions run 39197621546 pending at time of note.
