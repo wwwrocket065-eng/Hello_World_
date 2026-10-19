@@ -78,3 +78,11 @@
 - Versioned windows module now includes validated windowClickModes for diagnostics, openScene and menu with toggle / openOnly / closeOnly modes; default toggle. Signed patch can change these policies after installing a compatible APK.
 - Existing declarative uiButtons already allow remapping toolbar buttons to validated known actions via signed UI patch; arbitrary executable actions remain disallowed.
 - CI run 39199849807; awaiting build before any signed APK publication.
+
+## 2026-10-19 — Contextual interactive UI
+- Added OverlayModuleConfig and signed `modules/overlay/config.json` with validation in staged patch and merged snapshot.
+- First live control: a contextual brightness SeekBar appears when lighting mode is active, changes Filament light brightness through updateCamera, disappears when disabled.
+- Supported signed settings: enabled, showWith (light/always/never), label, bottomMarginDp and widthDp.
+- Uses safe native Android widgets and a validated builtin binding; no untrusted executable code.
+- Extending to arbitrary per-feature button/slider/toggle definitions and reusable control registry remains a separate architectural phase; do not misrepresent this as universal yet.
+- CI run 39202174451 pending at note time; existing published patch feed remains unchanged.
