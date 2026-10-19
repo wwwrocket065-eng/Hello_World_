@@ -19,7 +19,8 @@ data class WindowStyleConfig(
     val widthFraction:Float=.91f,
     val menuOrder:List<String> = listOf("model","camera","diagnostics"),
     val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
-    val titles:Map<String,String> = defaultTitles()
+    val titles:Map<String,String> = defaultTitles(),
+    val diagnosticsClickMode:String = "toggle"
 ) {
     companion object {
         fun defaultTitles():Map<String,String> = linkedMapOf(
@@ -71,6 +72,10 @@ data class WindowStyleConfig(
                     titles[key]=title
                 }
             }
+            val diagnosticsClickMode=json.optString("diagnosticsClickMode","toggle")
+            require(diagnosticsClickMode in setOf("toggle","openOnly","closeOnly")) {
+                "Invalid diagnosticsClickMode"
+            }
             return WindowStyleConfig(
                 color("background",Color.rgb(17,35,49)),
                 color("control",Color.rgb(23,48,64)),
@@ -83,7 +88,7 @@ data class WindowStyleConfig(
                 number("controlCornerDp",11.0,0.0,28.0),
                 number("paddingDp",18.0,4.0,36.0).toInt(),
                 number("rowHeightDp",43.0,32.0,64.0).toInt(),
-                number("widthFraction",.91,.65,1.0),menuOrder,headerOrder,titles)
+                number("widthFraction",.91,.65,1.0),menuOrder,headerOrder,titles,diagnosticsClickMode)
         }
     }
 }
