@@ -989,21 +989,21 @@ class MainActivity : Activity() {
         val container=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(d(12f),d(9f),d(12f),d(9f))
-            background=roundedFill(GlassDialogFactory.theme.background,
-                GlassDialogFactory.theme.controlCornerDp,GlassDialogFactory.theme.border)
+            background=roundedFill(cfg.backgroundColor?:GlassDialogFactory.theme.background,
+                GlassDialogFactory.theme.controlCornerDp,cfg.borderColor?:GlassDialogFactory.theme.border)
         }
         container.addView(TextView(this).apply {
             text=cfg.label
             textSize=12f
-            setTextColor(GlassDialogFactory.theme.accent)
+            setTextColor(cfg.textColor?:GlassDialogFactory.theme.accent)
         })
         container.addView(android.widget.SeekBar(this).apply {
             max=1000
             val lo=cameraModule.minBrightness
             val hi=cameraModule.maxBrightness
             progress=(((brightness-lo)/(hi-lo))*max).toInt().coerceIn(0,max)
-            progressTintList=ColorStateList.valueOf(GlassDialogFactory.theme.accent)
-            thumbTintList=ColorStateList.valueOf(GlassDialogFactory.theme.accent)
+            progressTintList=ColorStateList.valueOf(cfg.progressColor?:GlassDialogFactory.theme.accent)
+            thumbTintList=ColorStateList.valueOf(cfg.thumbColor?:GlassDialogFactory.theme.accent)
             setOnSeekBarChangeListener(object:android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar:android.widget.SeekBar?,value:Int,fromUser:Boolean) {
                     if(fromUser) {
