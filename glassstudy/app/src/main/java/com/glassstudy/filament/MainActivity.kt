@@ -1105,17 +1105,9 @@ class MainActivity : Activity() {
         val contentParams=LinearLayout.LayoutParams(-1,heightCap)
         contentParams.topMargin=d(10f)
         outer.addView(scrolling,contentParams)
-        val popup=PopupWindow(outer,availableWidth,-2,false).apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            isOutsideTouchable=true
-            isTouchable=true
-            isClippingEnabled=true
-            if(Build.VERSION.SDK_INT>=29) setTouchModal(false)
-            elevation=d(10f).toFloat()
-            setOnDismissListener {
-                if(diagnosticPopup===this)diagnosticPopup=null
-                updateButtonHighlights()
-            }
+        val popup=GlassDialogFactory.popup(this,outer,availableWidth) {
+            diagnosticPopup=null
+            updateButtonHighlights()
         }
         copy.setOnClickListener {
             val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
