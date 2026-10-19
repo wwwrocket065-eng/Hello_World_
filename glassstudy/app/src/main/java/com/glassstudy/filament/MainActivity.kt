@@ -163,14 +163,17 @@ class MainActivity : Activity() {
     private fun clickAction(action:String) {
         if(action=="diagnostics") {
             val open=diagnosticPopup?.isShowing==true
-            val mode=GlassDialogFactory.theme.diagnosticsClickMode
+            val mode=GlassDialogFactory.theme.windowClickModes.getValue("diagnostics")
             if(open) {
                 if(mode!="openOnly") diagnosticPopup?.dismiss()
             } else if(mode!="closeOnly") {
                 // A non-modal popup can dismiss on the SAME tap delivered to its toolbar icon.
                 // Do not reopen when that tap was only intended to close it.
                 val sinceDismiss=SystemClock.uptimeMillis()-diagnosticDismissedAtMs
-                if(sinceDismiss !in 0L..280L) showDiagnostic()
+                if(sinceDismiss !in 0L..280L) {
+                    GlassDialogFactory.closeCurrent()
+                    showDiagnostic()
+                }
             }
             return
         }
