@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.30' in props and 'GLASSSTUDY_VERSION_CODE=20030' in props
+assert 'GLASSSTUDY_VERSION=0.2.31' in props and 'GLASSSTUDY_VERSION_CODE=20031' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -346,3 +346,18 @@ assert len(example['windows'])==1
 assert example['windows'][0]['elements'][3]['type']=='slider'
 assert example['windows'][0]['elements'][3]['binding']=='brightnessPercent'
 assert example['windows'][0]['landscapeWidthFraction'] < example['windows'][0]['widthFraction']
+
+# Central controller: native buttons, patch window controls and overlays share
+# the same validated action registry and side-effect layer.
+interaction=(root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
+assert 'object UiInteractionRegistry' in interaction
+assert 'class UiInteractionController' in interaction
+assert 'UiInteractionRegistry.acceptsAction(action)' in interaction
+assert 'fun acceptsBinding(type: String, binding: String)' in interaction
+assert 'private fun clickAction(action: String) = uiController.dispatch(action)' in activity
+assert 'readBinding = uiController::read' in activity
+assert 'writeBinding = uiController::write' in activity
+assert 'performAction = uiController::dispatch' in activity
+assert 'UiInteractionRegistry.acceptsAction(action)' in uic
+assert 'UiInteractionRegistry.acceptsBinding(type, binding)' in window_schema
+assert 'overlayBrightnessSlider?.progress =' in activity
