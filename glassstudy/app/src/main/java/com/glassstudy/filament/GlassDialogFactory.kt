@@ -8,6 +8,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.PopupWindow
+import android.os.Build
 import android.view.Gravity
 import android.graphics.drawable.GradientDrawable
 
@@ -86,4 +88,20 @@ object GlassDialogFactory {
 
     private fun dp(activity:Activity,value:Float):Int =
         (activity.resources.displayMetrics.density*value+.5f).toInt()
+
+    /** Non-modal window, sharing the factory lifecycle policy.
+     * Used by diagnostics so the toolbar remains interactive.
+     */
+    fun popup(activity:Activity, content:View, width:Int, onDismiss:()->Unit):PopupWindow {
+        require(width>0)
+        return PopupWindow(content,width,-2,false).apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            isOutsideTouchable=true
+            isTouchable=true
+            isClippingEnabled=true
+            if(Build.VERSION.SDK_INT>=29) setTouchModal(false)
+            elevation=dp(activity,10f).toFloat()
+            setOnDismissListener { onDismiss() }
+        }
+    }
 }
