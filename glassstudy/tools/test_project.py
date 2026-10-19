@@ -139,7 +139,8 @@ assert layout['immersiveMode'] is True
 assert layout['topButtonSizeDp']==35
 assert all(b['textColor']=="#A3D0D3" for b in layout['uiButtons'])
 assert layout['invertHorizontal'] is True
-assert 'invertHorizontal=ui.invertHorizontal' in activity
+assert 'cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)' in activity
+assert 'invertHorizontal=inverted' in camera_light
 assert 'yaw+=dx*(if(invertHorizontal)-config.yawSensitivity else config.yawSensitivity)' in camera_light
 assert 'val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert len(layout['diagnostics'])>=50
