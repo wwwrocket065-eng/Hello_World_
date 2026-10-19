@@ -65,7 +65,7 @@ class GlassStudyModelViewer(
         private val uiHelper: UiHelper
 ) : android.view.View.OnTouchListener {
     private var floorAsset: FilamentAsset? = null
-    private val floorResourceLoader = ResourceLoader(engine, normalizeSkinningWeights)
+    private val floorResourceLoader = ResourceLoader(engine, true)
 
     fun setFloorGlb(buffer: Buffer?) {
         floorResourceLoader.asyncCancelLoad()
