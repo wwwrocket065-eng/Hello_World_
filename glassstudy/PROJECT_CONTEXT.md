@@ -125,3 +125,7 @@
 ## 2026-10-20 fast modular patch builder checkpoint
 - glassstudy/tools/fast_patch.py is the unified no-Gradle/no-APK signed .pupdate builder: --version N --set module.property=jsonValue (repeatable), --file allowed/resource=local_path (repeatable), --dry-run, --key-backup protected original PATCH signing archive, --output directory. All built-in signed module configs and allowlisted resources are supported. It verifies cumulative signed baseline from published patch history first to avoid reset of old customizations.
 - CI runs tools/test_fast_patch.py. Protected key backups must never be pushed to repo; publish via existing deploy_feed.py after review. Old live feed 20028 is unchanged. Native Kotlin changes require original-signing APK and cannot be arbitrary patch executables.
+
+
+## 2026-10-20 server auto-update restored for installed v0.2.40
+- Previously server feed was 20028 while user asked to install signed appearance patch 20030 and supplied Android 16 diagnostics showing 20028/20028/20028. Published signed 20030 to the server in commit 98e1c857, no APK change. test_fast_patch.py now computes future test version from latest feed (commit 51e795ea). Fresh Activity onCreate checks the remote feed; diagnostic target after restart is 20030 installed/confirmed/server. Standalone Downloads files are only imported via ACTION_VIEW/ACTION_SEND, NOT automatically scanned under Android 16 scoped storage.
