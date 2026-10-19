@@ -114,9 +114,9 @@
     },
     {
       "id": "reset",
-      "action": "resetCamera",
+      "action": "openScene",
       "slot": "top",
-      "icon": "reset",
+      "icon": "scene",
       "label": "",
       "heightDp": 44,
       "textColor": "#A3D0D3"
