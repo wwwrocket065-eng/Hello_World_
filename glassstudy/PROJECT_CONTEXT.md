@@ -70,3 +70,8 @@
 - Личные ключи НЕ выкладывать на публичный GitHub и не включать в скачиваемые APK/архивы.
 
 Продолжать изменения маленькими итерациями, с короткими отчётами и настоящими проверенными артефактами.
+
+
+## Checkpoint 2026-10-19 — source v0.2.33 (pending Android/device verification)
+- SceneEnvironmentController.kt is responsible for saved floor/Skybox states and Filament scene resources. SceneSettingsPanel.kt builds the Scene+RGB windows against a typed State interface and the shared GlassDialogFactory panel/option methods. MainActivity only creates/wires the two components.
+- Preserve signed scene ordering, existing project IDs and last published patch 20028. Existing device releases do not inherit new Kotlin classes via patch alone. Do not distribute an unsigned artifact.

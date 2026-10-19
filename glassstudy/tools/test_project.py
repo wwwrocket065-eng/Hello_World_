@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.32' in props and 'GLASSSTUDY_VERSION_CODE=20032' in props
+assert 'GLASSSTUDY_VERSION=0.2.33' in props and 'GLASSSTUDY_VERSION_CODE=20033' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -218,7 +218,13 @@ for module in ('camera','render','diagnostics','materials'):
     assert 'readModuleConfig("'+module+'", candidate)' in bundle
 assert 'MaterialOverrides.parse(' in activity
 assert '"openScene" -> openSceneMenu()' in activity
-assert 'SceneFloorGlb.create(true, sceneModule.floorWidth' in activity and 'SceneFloorGlb.create(false, sceneModule.floorWidth' in activity
+assert 'sceneSettings.show()' in activity
+assert 'sceneEnvironment.applyConfiguration(bundle.scene)' in activity
+assert 'sceneEnvironment.applySkybox()' in activity
+assert 'SceneSettingsPanel(this,sceneEnvironment)' in activity
+environment=(src/'SceneEnvironmentController.kt').read_text()
+panel=(src/'SceneSettingsPanel.kt').read_text()
+assert 'SceneFloorGlb.create(true,module.floorWidth' in environment and 'SceneFloorGlb.create(false,module.floorWidth' in environment
 assert 'fun setFloorGlb(buffer: Buffer?)' in custom
 assert 'floorAsset?.let { populateScene(it) }' in custom
 assert '"scene" -> {' in icons
@@ -259,24 +265,26 @@ assert scene_config['floorWidth']==12 and scene_config['tileWidth']==0.6
 assert scene_config['darkLevel']<=0.01 and scene_config['whiteLevel']>=0.95
 assert 'val cells = if (checker) (width / tileWidth)' in scene_src
 assert 'number("floorWidth"' in scene_module and 'number("whiteLevel"' in scene_module
-assert 'SceneFloorGlb.create(true, sceneModule.floorWidth, sceneModule.tileWidth' in activity
-assert 'SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidth' in activity
+assert 'SceneFloorGlb.create(true,module.floorWidth,module.tileWidth' in environment
+assert 'SceneFloorGlb.create(false,module.floorWidth,module.tileWidth' in environment
 assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' in bundle
 assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updater
 assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
-assert 'theme.titles.getValue("scene")' in activity
-assert '"white" to "Белая платформа"' in activity and 'heading("SKYBOX")' in activity
+assert 'theme.titles.getValue("scene")' in panel
+assert '"white" to "Белая платформа"' in panel and 'heading("SKYBOX")' in panel
 
 # Shared window presentation and signed scene-order controls.
 scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.kt').read_text()
 dialog_factory=(root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
-assert 'sceneModule.sectionOrder.forEach' in activity
-assert 'sceneModule.skyboxOrder.forEach' in activity
-assert 'sceneModule.floorOrder.forEach' in activity
+assert 'state.module.sectionOrder.forEach' in panel
+assert 'state.module.skyboxOrder.forEach' in panel
+assert 'state.module.floorOrder.forEach' in panel
 assert 'order("sectionOrder",listOf("skybox","floor"))' in scene_module
 assert 'GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles' in activity
 assert 'theme.titles.getValue("patchRejected")' in activity
 assert 'fun menu(activity:Activity' in dialog_factory
+assert 'fun panel(activity:Activity' in dialog_factory
+assert 'fun option(activity:Activity' in dialog_factory
 assert 'fun message(activity:Activity' in dialog_factory
 assert scene_config.get('sectionOrder')==['skybox','floor']
 
@@ -312,8 +320,8 @@ assert 'setOf("toggle","openOnly","closeOnly")' in (root/'app/src/main/java/com/
 assert window_theme['windowClickModes']=={'diagnostics':'toggle','openScene':'toggle','menu':'toggle'}
 assert 'host.isWindowOpen(action)' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'GlassDialogFactory.closeCurrent()' in activity
-assert 'key="openScene"' in activity
-assert 'key="skyColor"' in activity
+assert 'key="openScene"' in panel
+assert 'key="skyColor"' in panel
 assert 'Unknown window behavior key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 
 # Signed contextual overlay with safe live bindings and controlled appearance.

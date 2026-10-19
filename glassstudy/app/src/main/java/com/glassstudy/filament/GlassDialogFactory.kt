@@ -84,7 +84,8 @@ object GlassDialogFactory {
         return dialog
     }
 
-    private fun panel(activity:Activity,title:String):LinearLayout =
+    /** Common styled header and container for every modular settings window. */
+    fun panel(activity:Activity,title:String):LinearLayout =
         LinearLayout(activity).apply {
             orientation=LinearLayout.VERTICAL
             val pad=dp(activity,theme.paddingDp.toFloat())
@@ -93,6 +94,16 @@ object GlassDialogFactory {
             addView(TextView(activity).apply {
                 text=title;textSize=theme.titleTextSizeSp;setTextColor(theme.accent)
             })
+        }
+
+    fun option(activity:Activity,caption:String,selected:Boolean):TextView =
+        control(activity,caption).apply {
+            text=(if(selected) "●  " else "○  ")+caption
+            if(selected) {
+                setTextColor(theme.accent)
+                background=background(theme.selected,
+                    dp(activity,theme.controlCornerDp).toFloat(),theme.border)
+            }
         }
 
     private fun control(activity:Activity,caption:String):TextView=TextView(activity).apply {

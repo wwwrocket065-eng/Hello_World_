@@ -160,11 +160,8 @@ class MainActivity : Activity() {
     private var renderModule = RenderModuleConfig()
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private var materialModule = MaterialModuleConfig()
-    private var sceneModule = SceneModuleConfig()
-    private var floorMode = "checker"
-    private var skyMode = "gray"
-    private var customSkyColor = Color.rgb(110,110,110)
-    private var appliedSkybox:Skybox? = null
+    private lateinit var sceneEnvironment:SceneEnvironmentController
+    private lateinit var sceneSettings:SceneSettingsPanel
     private var zoomPower = .50
     // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
     private var invertHorizontal = true
@@ -274,183 +271,8 @@ class MainActivity : Activity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         return adapter
     }
-    private fun applySceneSkybox() {
-        if (!::viewer.isInitialized) return
-        val rgb = when (skyMode) {
-            "white" -> Color.rgb(240,240,240)
-            "dark" -> Color.rgb(27,30,35)
-            "custom" -> customSkyColor
-            else -> Color.rgb(110,110,110)
-        }
-        val next = if (skyMode=="studio") {
-            try {
-                val raw=assets.open("envs/studio_ibl.ktx").use { it.readBytes() }
-                val data=ByteBuffer.allocateDirect(raw.size).order(ByteOrder.nativeOrder())
-                data.put(raw).flip()
-                KTX1Loader.createSkybox(viewer.engine,data)
-            } catch (e:Exception) {
-                android.util.Log.w("GlassStudy","Studio Skybox unavailable; using gray background",e)
-                Skybox.Builder().color(.43f,.43f,.43f,1f).build(viewer.engine)
-            }
-        } else Skybox.Builder().color(Color.red(rgb)/255f,Color.green(rgb)/255f,
-            Color.blue(rgb)/255f,1f).build(viewer.engine)
-        viewer.scene.skybox=next
-        appliedSkybox?.let { viewer.engine.destroySkybox(it) }
-        appliedSkybox=next
-    }
-
-    private fun applySceneFloor() {
-        if (!::viewer.isInitialized) return
-        try {
-            viewer.setFloorGlb(when(floorMode) {
-                "checker" -> SceneFloorGlb.create(true, sceneModule.floorWidth, sceneModule.tileWidth,
-                    sceneModule.darkLevel, sceneModule.lightLevel)
-                "white" -> SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidth,
-                    sceneModule.darkLevel, sceneModule.whiteLevel)
-                else -> null
-            })
-        } catch (e: Exception) {
-            android.util.Log.e("GlassStudy", "Floor GLB rejected; keeping the main model running",e)
-            floorMode="none"
-            try { viewer.setFloorGlb(null) } catch (_:Exception) {}
-        }
-    }
-
-    private fun saveSceneChoices() {
-        getPreferences(MODE_PRIVATE).edit().putString("floorMode",floorMode)
-            .putString("skyMode",skyMode).putInt("customSkyColor",customSkyColor).apply()
-    }
-
     private fun openSceneMenu() {
-        // One compact, signed-theme compatible panel instead of stacked stock Android menus.
-        val foreground=currentTopIconColor
-        val panel=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL
-            setPadding(d(18f),d(16f),d(18f),d(18f))
-            background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,currentTopOutlineColor)
-        }
-        fun text(value:String, size:Float, color:Int, top:Int=0):TextView =
-            TextView(this).apply {
-                this.text=value;textSize=size;setTextColor(color)
-                val lp=LinearLayout.LayoutParams(-1,-2)
-                lp.topMargin=d(top.toFloat());layoutParams=lp
-            }
-        panel.addView(text(GlassDialogFactory.theme.titles.getValue("scene"),17f,foreground))
-        panel.addView(text("Пол и окружение настраиваются отдельно",12f,
-            GlassDialogFactory.theme.hint,5))
-        var dialog:AlertDialog?=null
-        fun heading(label:String) {
-            panel.addView(text(label,13f,foreground,17))
-        }
-        fun choice(label:String,selected:Boolean,onSelect:()->Unit) {
-            val item=TextView(this).apply {
-                text=(if(selected) "●  " else "○  ")+label
-                textSize=14f
-                setTextColor(if(selected)foreground else GlassDialogFactory.theme.text)
-                gravity=Gravity.CENTER_VERTICAL
-                setPadding(d(14f),0,d(12f),0)
-                background=roundedFill(if(selected)GlassDialogFactory.theme.selected
-                    else GlassDialogFactory.theme.control,11f,
-                    if(selected)currentTopOutlineColor else Color.rgb(59,94,108))
-                isClickable=true;isFocusable=true
-                setOnClickListener {
-                    dialog?.dismiss()
-                    onSelect()
-                }
-            }
-            val lp=LinearLayout.LayoutParams(-1,d(42f))
-            lp.topMargin=d(6f)
-            panel.addView(item,lp)
-        }
-        val skyChoices=mapOf(
-            "gray" to "Серый · Blender",
-            "studio" to "Студийный",
-            "white" to "Белый",
-            "dark" to "Тёмный",
-            "custom" to "Свой цвет · RGB"
-        )
-        val floorChoices=mapOf(
-            "checker" to "Шахматная доска",
-            "white" to "Белая платформа",
-            "none" to "Без пола"
-        )
-        // Both sections and their contents are ordered by a signed scene module.
-        sceneModule.sectionOrder.forEach { section ->
-            when (section) {
-                "skybox" -> {
-                    heading("SKYBOX")
-                    sceneModule.skyboxOrder.forEach { mode ->
-                        choice(skyChoices.getValue(mode),skyMode==mode) {
-                            if(mode=="custom") openCustomSkyColor()
-                            else { skyMode=mode;saveSceneChoices();applySceneSkybox();openSceneMenu() }
-                        }
-                    }
-                }
-                "floor" -> {
-                    heading("ПОЛ")
-                    sceneModule.floorOrder.forEach { mode ->
-                        choice(floorChoices.getValue(mode),floorMode==mode) {
-                            floorMode=mode;saveSceneChoices();applySceneFloor();openSceneMenu()
-                        }
-                    }
-                }
-            }
-        }
-        val scroll=ScrollView(this).apply {
-            isFillViewport=false
-            addView(panel)
-        }
-        dialog=GlassDialogFactory.show(this,scroll,key="openScene")
-    }
-
-    private fun openCustomSkyColor() {
-        val panel=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL
-            setPadding(d(18f),d(16f),d(18f),d(18f))
-            background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,currentTopOutlineColor)
-        }
-        panel.addView(TextView(this).apply {
-            text=GlassDialogFactory.theme.titles.getValue("skyColor");textSize=17f;setTextColor(currentTopIconColor)
-        })
-        val original=intArrayOf(Color.red(customSkyColor),Color.green(customSkyColor),
-            Color.blue(customSkyColor))
-        val bars=Array(3) { index ->
-            val bar=android.widget.SeekBar(this).apply {
-                max=255;progress=original[index]
-                progressTintList=ColorStateList.valueOf(currentTopIconColor)
-                thumbTintList=ColorStateList.valueOf(currentTopIconColor)
-            }
-            panel.addView(TextView(this).apply {
-                text=arrayOf("Красный","Зелёный","Синий")[index]
-                textSize=13f;setTextColor(GlassDialogFactory.theme.text)
-                setPadding(0,d(13f),0,0)
-            })
-            panel.addView(bar)
-            bar
-        }
-        val actions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-        var dialog:AlertDialog?=null
-        fun action(title:String,commit:Boolean) {
-            actions.addView(TextView(this).apply {
-                text=title;textSize=14f;gravity=Gravity.CENTER
-                setTextColor(currentTopIconColor)
-                background=roundedFill(GlassDialogFactory.theme.control,11f,currentTopOutlineColor)
-                setOnClickListener {
-                    dialog?.dismiss()
-                    if(commit) {
-                        customSkyColor=Color.rgb(bars[0].progress,bars[1].progress,bars[2].progress)
-                        skyMode="custom";saveSceneChoices();applySceneSkybox()
-                    }
-                    openSceneMenu()
-                }
-            },LinearLayout.LayoutParams(0,d(42f),1f).apply {
-                setMargins(d(3f),d(16f),d(3f),0)
-            })
-        }
-        action("Отмена",false)
-        action("Применить",true)
-        panel.addView(actions)
-        dialog=GlassDialogFactory.show(this,panel,key="skyColor")
+        sceneSettings.show()
     }
 
     private fun openMenu() {
@@ -470,9 +292,6 @@ class MainActivity : Activity() {
         updater = PatchManager(this)
         updater.reconcileAfterCrash()
         wireframe = getPreferences(MODE_PRIVATE).getBoolean("wireframe", false)
-        floorMode=getPreferences(MODE_PRIVATE).getString("floorMode","checker") ?: "checker"
-        skyMode=getPreferences(MODE_PRIVATE).getString("skyMode","gray") ?: "gray"
-        customSkyColor=getPreferences(MODE_PRIVATE).getInt("customSkyColor",Color.rgb(110,110,110))
         window.statusBarColor = Color.rgb(101,103,103)
         window.navigationBarColor = Color.rgb(101,103,103)
         surface = SurfaceView(this)
@@ -493,7 +312,9 @@ class MainActivity : Activity() {
         }
 
         viewer = GlassStudyModelViewer(surface, manipulator = null)
-        applySceneSkybox()
+        sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE))
+        sceneSettings=SceneSettingsPanel(this,sceneEnvironment)
+        sceneEnvironment.applySkybox()
         // Filament uses glTF PBR. Proper specular IBL appears when cmgen-produced studio_ibl.ktx is packaged.
         try {
             val bytes = assets.open("envs/studio_ibl.ktx").use { it.readBytes() }
@@ -636,7 +457,7 @@ class MainActivity : Activity() {
         chooseLod.setSelection(1)
         applyUiLayout()
         loadSelected()
-        applySceneFloor()
+        sceneEnvironment.applyFloor()
         // Immediately reload when a model or LOD is chosen, replacing "Применить".
         val onSelection=object: AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent:AdapterView<*>?, view:View?, position:Int, id:Long) {
@@ -797,12 +618,10 @@ class MainActivity : Activity() {
             renderModule = bundle.render
             diagnosticsModule = bundle.diagnostics
             materialModule = bundle.materials
-            val sceneChanged = sceneModule != bundle.scene
-            sceneModule = bundle.scene
+            sceneEnvironment.applyConfiguration(bundle.scene)
             GlassDialogFactory.applyTheme(bundle.windows)
             overlayModule = bundle.overlay
             updateContextualOverlay()
-            if (sceneChanged) applySceneFloor()
             applyRenderModule()
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
@@ -1208,5 +1027,10 @@ class MainActivity : Activity() {
         else super.onBackPressed()
     }
     override fun onPause() { lightIndicator?.hide();diagnosticPopup?.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
-    override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onDestroy() }
+    override fun onDestroy() {
+        running=false
+        Choreographer.getInstance().removeFrameCallback(frameCallback)
+        if(::sceneEnvironment.isInitialized)sceneEnvironment.release()
+        super.onDestroy()
+    }
 }

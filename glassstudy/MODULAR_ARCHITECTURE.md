@@ -78,3 +78,9 @@ Never claim full modularity merely because the updater accepts more file types.
 - Background update checks skip exactly that version rather than downloading and crashing repeatedly; a later version may install.
 - A successful confirmed frame clears the quarantine. Local explicit patch import remains available for recovery.
 - This is a source-level safeguard; Android build and device testing are still required.
+
+## v0.2.33 — Scene UI / lifecycle extraction (source milestone)
+- SceneEnvironmentController owns persistent Skybox/floor mode, KTX-backed Skybox lifecycle and GLB floor, receiving only a validated SceneModuleConfig.
+- SceneSettingsPanel uses a narrowly typed State interface and common GlassDialogFactory.panel/option rendering. No Filament or patch reading in view construction.
+- Existing signed SceneModuleConfig ordering and user mode preferences are retained; the main Activity is now a host, not a scene settings renderer.
+- Still to separate: diagnostic report/data collection, its popup presentation, and further application state bindings. Require Android CI + device checks before releasing.

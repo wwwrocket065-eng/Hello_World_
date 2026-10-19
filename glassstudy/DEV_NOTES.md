@@ -139,3 +139,9 @@
 - One gear menu item opens the themed lighting indicator settings panel. Each of azimuth, elevation and brightness has its own saved classic/minimal/technical style and an RGB picker; resetting returns to signed module color defaults. Legacy global selection remains a compatibility fallback.
 - LightingIndicatorStyles only persists validated user preferences; LightIndicatorView remains a passive renderer. Color defaults can be changed through signed overlay module, and user overrides continue to take priority.
 - This is source-only work until Android build and original-certificate device smoke test pass.
+
+## 2026-10-19 — v0.2.33 large architecture stage: Scene controller and shared settings windows
+- Extracted scene state/persistence and Filament Skybox + floor lifecycle from MainActivity into SceneEnvironmentController. Existing floor GLB behaviour, studio IBL fallback, favorite modes and persisted RGB restored. Invalid stored modes fall back safely; failed floor renders switch to none with persistence.
+- Extracted Scene and Skybox RGB window creation to SceneSettingsPanel. It consumes a typed State interface; signed SceneModuleConfig controls section and option ordering. The shared GlassDialogFactory now supplies themed panel/option controls, avoiding duplicate widget styling and window creation.
+- Activity only wires Scene controller, settings panel and applies validated bundle; scene renderer operations no longer live in MainActivity. Version 0.2.33/20033. Added structural regression assertions and retained legacy signed UI/scene patch support.
+- Release feed 20028 intentionally unchanged. GitHub Android CI compilation and real-device smoke test must succeed; only original certificate may sign installable APK.
