@@ -43,6 +43,7 @@ class UiToolbarController(
             LabIconView(activity,spec.icon).apply {
                 iconColor=ink
                 glyphScale=ui.topIconScale
+                gearInnerRoundness=ui.gearInnerRoundness
                 chipCenterFilled=ui.fillChipCenter
                 contentDescription=when(spec.action) {
                     "diagnostics" -> "Диагностика"

@@ -22,6 +22,9 @@ class LabIconView(context:Context, val iconName:String):View(context) {
         set(value) { field=value.coerceIn(.55f,1f);invalidate() }
     var chipCenterFilled:Boolean=true
         set(value) { field=value;invalidate() }
+    /** Signed UI styling can change rounded inner tooth valleys, not executable paths. */
+    var gearInnerRoundness:Float=.80f
+        set(value) { field=value.coerceIn(.30f,1f);invalidate() }
     private val ink=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style=Paint.Style.STROKE;strokeJoin=Paint.Join.ROUND
         strokeCap=Paint.Cap.ROUND;strokeWidth=2.2f
@@ -88,13 +91,27 @@ class LabIconView(context:Context, val iconName:String):View(context) {
                 canvas.drawPath(arrow,ink)
             }
             "gear" -> {
+                // Eight genuine teeth. Rounded quadratic valleys replace the
+                // former sharp inner zig-zags, preserving the central round hole.
                 val gear=Path()
-                for(i in 0 until 24) {
-                    val angle=i*Math.PI/12
-                    val r=if(i%2==0)15.5 else 12.0
-                    val gx=(r*cos(angle)).toFloat()
-                    val gy=(r*sin(angle)).toFloat()
-                    if(i==0)gear.moveTo(gx,gy) else gear.lineTo(gx,gy)
+                fun polar(radius:Double,angle:Double):Pair<Float,Float> =
+                    Pair((radius*cos(angle)).toFloat(),(radius*sin(angle)).toFloat())
+                val spacing=Math.PI/4.0
+                val start=-Math.PI/2.0
+                val first=polar(12.2,start-.28)
+                gear.moveTo(first.first,first.second)
+                for(i in 0 until 8) {
+                    val center=start+i*spacing
+                    val left=polar(15.6,center-.12)
+                    val cap=polar(16.2,center)
+                    val right=polar(15.6,center+.12)
+                    val inner=polar(12.2,center+.28)
+                    val valley=polar(12.0-1.7*gearInnerRoundness,center+spacing/2.0)
+                    val next=polar(12.2,center+spacing-.28)
+                    gear.lineTo(left.first,left.second)
+                    gear.quadTo(cap.first,cap.second,right.first,right.second)
+                    gear.lineTo(inner.first,inner.second)
+                    gear.quadTo(valley.first,valley.second,next.first,next.second)
                 }
                 gear.close()
                 canvas.drawPath(gear,ink)

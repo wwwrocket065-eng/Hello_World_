@@ -13,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.39' in props and 'GLASSSTUDY_VERSION_CODE=20039' in props
+assert 'GLASSSTUDY_VERSION=0.2.40' in props and 'GLASSSTUDY_VERSION_CODE=20040' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -546,3 +546,14 @@ assert 'zipalign' in test_apk and '16384' in test_apk
 assert '"apksigner", "verify"' in test_apk
 assert 'GLASSSTUDY_VERSION_CODE' in test_apk
 assert 'require(prefs.getInt("pending",0)==0)' in updater
+
+# Compact visual buttons preserve accessible 44dp hit zones. Gear valleys are signed-style patchable.
+assert 'topVisualSizeDp=ui.topButtonSizeDp' in chrome_src
+assert 'InsetDrawable(surface,inset)' in chrome_src
+assert 'val hitPx=view.layoutParams?.width' in chrome_src
+assert 'gearInnerRoundness=ui.gearInnerRoundness' in toolbar
+assert 'val gearInnerRoundness:Float' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
+assert 'number("gearInnerRoundness",0.80,0.30,1.0)' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
+assert 'gear.quadTo(valley.first,valley.second,next.first,next.second)' in icons
+assert 'for(i in 0 until 8)' in icons
+assert 'gearInnerRoundness:Float=.80f' in icons

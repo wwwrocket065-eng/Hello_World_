@@ -116,3 +116,7 @@
 - apksigner verify --min-sdk-version 26 --print-certs --verbose: v2 true; v1/v3 false; signer fingerprint matches original. ZIP payload SHA digests identical pre/post signature; native .so library alignment 16 KiB, resources.arsc 4-byte; valid ZIP CRC. Package ID com.glassstudy.filament.stable, Android versionCode 20039, versionName 0.2.39 checked in CI.
 - Published .pupdate feed stays 20028. Runtime installation over user's current Android 16 APK, real touch/lighting rendering, local patch install, crash-recovery and four-frame confirmation are NOT yet phone-verified. Do not mark device test complete from CI alone.
 - The next Git commit adds documentation only. It does not alter built APK payload or source and does not imply the signed APK was produced from that later documentation-only commit.
+
+
+## 2026-10-20 v0.2.40 compact toolbar architecture
+- UiChromeController renders VISUAL button backgrounds as inset squares inside unchanged 44dp touch hitboxes; no more overlarge 44dp visible squares. UiLayout gets signed-patchable gearInnerRoundness and LabIconView gear now has eight smooth inner-tooth curves. Default native visual topButtonSizeDp 35dp, patch target 32dp for testing. Build signed native APK v0.2.40 with original key first; older v0.2.39 cannot fully render new geometry or smaller visual backgrounds from a patch alone.

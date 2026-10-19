@@ -52,7 +52,8 @@ data class UiLayout(
     val fpsTextColor:Int,
     val windows: Map<String, DeclarativeWindow>,
     val animations: Map<String, UiAnimationSpec>,
-    val adaptive: AdaptiveUiConfig
+    val adaptive: AdaptiveUiConfig,
+    val gearInnerRoundness:Float
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -265,7 +266,8 @@ data class UiLayout(
                 number("logoOffsetYDp",5.0,-12.0,12.0).toInt(),
                 (number("topOverlayOpacity",0.0,0.0,1.0)*255).toInt(),
                 color("topButtonOutlineColor","#6DB9CB"),
-                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows,animations,adaptive
+                color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows,animations,adaptive,
+                number("gearInnerRoundness",0.80,0.30,1.0).toFloat()
             )
         }
     }

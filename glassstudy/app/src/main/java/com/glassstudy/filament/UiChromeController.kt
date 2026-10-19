@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Build
 import android.view.Gravity
@@ -56,6 +57,8 @@ class UiChromeController(private val activity:Activity) {
     private var iconColor=Color.rgb(163,208,211)
     private var iconSizeDp=35
     private var iconScale=.82f
+    private var topVisualSizeDp=35
+    private var topVisualScale=1f
 
     fun dp(v:Float):Int=(v*activity.resources.displayMetrics.density).toInt()
 
@@ -72,8 +75,18 @@ class UiChromeController(private val activity:Activity) {
         val actual=if(selected)Color.argb(alpha,48,116,124) else color
         val stroke=outline ?:
             if(selected)Color.rgb(166,246,233) else Color.argb(180,109,185,203)
+        val surface=roundedFill(actual,14f,stroke)
+        // The four compact TOP glyph buttons keep their full 44dp+ touch target.
+        // Only the painted square is inset, independently of adaptive hitbox sizing.
+        val content=if(view is LabIconView) {
+            val density=activity.resources.displayMetrics.density
+            val hitPx=view.layoutParams?.width?.takeIf{it>0}?.toFloat() ?: dp(44f).toFloat()
+            val visualPx=dp(topVisualSizeDp*topVisualScale).toFloat()
+            val inset=((hitPx-visualPx)/2f).coerceAtLeast(0f).toInt()
+            InsetDrawable(surface,inset)
+        } else surface
         view.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),
-            roundedFill(actual,14f,stroke),null)
+            content,null)
         view.elevation=dp(2f).toFloat()
     }
 
@@ -127,6 +140,8 @@ class UiChromeController(private val activity:Activity) {
         topOutlineColor=ui.topButtonOutlineColor
         iconColor=ui.buttonTextColor
         iconSizeDp=ui.topButtonSizeDp
+        topVisualSizeDp=ui.topButtonSizeDp
+        topVisualScale=ui.adaptive.scale((activity.resources.displayMetrics.widthPixels / activity.resources.displayMetrics.density).toInt())
         iconScale=ui.topIconScale
         fillColor=ui.buttonColor
         diagnosticLabels=ui.diagnostics
