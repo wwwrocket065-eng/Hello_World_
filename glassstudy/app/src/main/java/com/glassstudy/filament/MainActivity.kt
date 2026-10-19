@@ -167,10 +167,11 @@ class MainActivity : Activity() {
     }
     private fun openPatchWindow(id: String) {
         val spec = patchWindows[id] ?: return
-        GlassDialogFactory.menu(this, spec.title, spec.buttons.map { it.title }, { index ->
+        GlassDialogFactory.menu(this, spec.title, spec.buttons.map { it.title },
+            uiAnimations[id], spec.widthFraction ?: GlassDialogFactory.theme.widthFraction) { index ->
             val selected = spec.buttons.getOrNull(index) ?: return@menu
             clickAction(selected.action)
-        }, uiAnimations[id], spec.widthFraction ?: GlassDialogFactory.theme.widthFraction)
+        }
     }
 
     private fun clickAction(action:String) {
