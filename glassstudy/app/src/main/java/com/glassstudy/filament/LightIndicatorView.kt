@@ -21,6 +21,7 @@ class LightIndicatorView(context:Context):View(context) {
     private var target=0f
     private var style="classic"
     private var tint=Color.rgb(242,214,158)
+    private var guide=Color.rgb(173,192,206)
     private val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND
     }
@@ -32,10 +33,10 @@ class LightIndicatorView(context:Context):View(context) {
         importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
         visibility=GONE;alpha=0f;setLayerType(LAYER_TYPE_SOFTWARE,null)
     }
-    fun show(next:Mode,actual:Float,appearance:String,color:Int) {
+    fun show(next:Mode,actual:Float,appearance:String,color:Int,guideColor:Int) {
         if(!actual.isFinite())return
         if(mode!=next)value=actual
-        mode=next;target=actual;style=appearance;tint=color
+        mode=next;target=actual;style=appearance;tint=color;guide=guideColor
         if(visibility!=VISIBLE) {
             animate().cancel();alpha=0f;visibility=VISIBLE
             animate().alpha(1f).setDuration(140L).start()
@@ -59,7 +60,7 @@ class LightIndicatorView(context:Context):View(context) {
         canvas.translate(width/2f,height/2f)
         val scale=min(width,height).toFloat()/230f
         canvas.scale(scale,scale)
-        pen.style=Paint.Style.STROKE;pen.color=Color.rgb(173,192,206)
+        pen.style=Paint.Style.STROKE;pen.color=guide
         pen.strokeWidth=if(style=="minimal")1.4f else 2.3f
         caption.color=tint
         var x=0f;var y=0f;var rotation=0f;var rays=6f

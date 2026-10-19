@@ -613,7 +613,8 @@ class MainActivity : Activity() {
         root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
         // Non-interactive HUD above the Filament SurfaceView.
         lightIndicator=LightIndicatorView(this).also { hud ->
-            root.addView(hud,FrameLayout.LayoutParams(d(230f),d(230f),Gravity.CENTER))
+            root.addView(hud,FrameLayout.LayoutParams(d(overlayModule.indicatorSizeDp.toFloat()),
+                d(overlayModule.indicatorSizeDp.toFloat()),Gravity.CENTER))
         }
 
         toolbarController=UiToolbarController(this,topButtonHost,bottomButtonHost,topPanel,
@@ -909,12 +910,8 @@ class MainActivity : Activity() {
     }
     private fun showLightIndicator(mode:LightIndicatorView.Mode,number:Float) {
         if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")return
-        val tint=when(mode) {
-            LightIndicatorView.Mode.AZIMUTH -> Color.rgb(240,210,132)
-            LightIndicatorView.Mode.ELEVATION -> Color.rgb(236,225,194)
-            LightIndicatorView.Mode.BRIGHTNESS -> Color.rgb(255,220,130)
-        }
-        lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this),tint)
+        lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this),
+            overlayModule.indicatorColor(mode),overlayModule.guideColor)
     }
     private fun touch(e: MotionEvent): Boolean {
         when (e.actionMasked) {
@@ -1007,8 +1004,13 @@ class MainActivity : Activity() {
     }
     /** Passive indicator replaces the previous interactive brightness slider. */
     private fun updateContextualOverlay() {
-        if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")
-            lightIndicator?.hide()
+        lightIndicator?.let { hud ->
+            val px=d(overlayModule.indicatorSizeDp.toFloat())
+            val size=hud.layoutParams as FrameLayout.LayoutParams
+            size.width=px;size.height=px;hud.layoutParams=size
+            if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")
+                hud.hide()
+        }
     }
 
     private fun showDiagnostic() {

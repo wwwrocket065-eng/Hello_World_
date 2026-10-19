@@ -14,8 +14,18 @@ data class OverlayModuleConfig(
     val borderColor:Int?=null,
     val textColor:Int?=null,
     val progressColor:Int?=null,
-    val thumbColor:Int?=null
+    val thumbColor:Int?=null,
+    val indicatorSizeDp:Int=230,
+    val azimuthColor:Int=Color.rgb(240,210,132),
+    val elevationColor:Int=Color.rgb(236,225,194),
+    val brightnessColor:Int=Color.rgb(255,220,130),
+    val guideColor:Int=Color.rgb(173,192,206)
 ) {
+    fun indicatorColor(mode:LightIndicatorView.Mode):Int=when(mode) {
+        LightIndicatorView.Mode.AZIMUTH -> azimuthColor
+        LightIndicatorView.Mode.ELEVATION -> elevationColor
+        LightIndicatorView.Mode.BRIGHTNESS -> brightnessColor
+    }
     companion object {
         fun parse(j:JSONObject?):OverlayModuleConfig {
             if(j==null)return OverlayModuleConfig()
@@ -32,9 +42,15 @@ data class OverlayModuleConfig(
                 require(Regex("^#[0-9A-Fa-f]{6}$").matches(hex)) { "Invalid overlay color $key" }
                 return Color.parseColor(hex)
             }
+            val size=j.optInt("indicatorSizeDp",230)
+            require(size in 160..340) { "Invalid indicator size" }
             return OverlayModuleConfig(j.optBoolean("enabled",true),mode,label,bottom,width,
                 optionalColor("backgroundColor"),optionalColor("borderColor"),
-                optionalColor("textColor"),optionalColor("progressColor"),optionalColor("thumbColor"))
+                optionalColor("textColor"),optionalColor("progressColor"),optionalColor("thumbColor"),
+                size,optionalColor("azimuthColor")?:Color.rgb(240,210,132),
+                optionalColor("elevationColor")?:Color.rgb(236,225,194),
+                optionalColor("brightnessColor")?:Color.rgb(255,220,130),
+                optionalColor("guideColor")?:Color.rgb(173,192,206))
         }
     }
 }

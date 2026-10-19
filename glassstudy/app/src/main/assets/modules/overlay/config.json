@@ -10,5 +10,10 @@
   "borderColor": "#6DB9CB",
   "textColor": "#A3D0D3",
   "progressColor": "#6DE0DE",
-  "thumbColor": "#A3D0D3"
+  "thumbColor": "#A3D0D3",
+  "indicatorSizeDp": 230,
+  "azimuthColor": "#F0D284",
+  "elevationColor": "#ECE1C2",
+  "brightnessColor": "#FFDC82",
+  "guideColor": "#ADC0CE"
 }
