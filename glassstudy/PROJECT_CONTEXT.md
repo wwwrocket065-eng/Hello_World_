@@ -120,3 +120,8 @@
 
 ## 2026-10-20 v0.2.40 compact toolbar architecture
 - UiChromeController renders VISUAL button backgrounds as inset squares inside unchanged 44dp touch hitboxes; no more overlarge 44dp visible squares. UiLayout gets signed-patchable gearInnerRoundness and LabIconView gear now has eight smooth inner-tooth curves. Default native visual topButtonSizeDp 35dp, patch target 32dp for testing. Build signed native APK v0.2.40 with original key first; older v0.2.39 cannot fully render new geometry or smaller visual backgrounds from a patch alone.
+
+
+## 2026-10-20 fast modular patch builder checkpoint
+- glassstudy/tools/fast_patch.py is the unified no-Gradle/no-APK signed .pupdate builder: --version N --set module.property=jsonValue (repeatable), --file allowed/resource=local_path (repeatable), --dry-run, --key-backup protected original PATCH signing archive, --output directory. All built-in signed module configs and allowlisted resources are supported. It verifies cumulative signed baseline from published patch history first to avoid reset of old customizations.
+- CI runs tools/test_fast_patch.py. Protected key backups must never be pushed to repo; publish via existing deploy_feed.py after review. Old live feed 20028 is unchanged. Native Kotlin changes require original-signing APK and cannot be arbitrary patch executables.

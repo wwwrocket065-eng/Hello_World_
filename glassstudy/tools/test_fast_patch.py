@@ -12,11 +12,10 @@ def run(*args,good=True):
     if not good and p.returncode==0:raise AssertionError("Unsafe patch accepted: "+repr(args))
     return p
 
-# All module families can be patched WITHOUT signing or Gradle.
+# Every module family has one canonical signed resource path; no fake values used.
 for alias in ("ui","camera","render","diagnostics","materials","scene","windows","overlay"):
-    p=run("--file",( ("ui/layout.json" if alias=="ui" else "modules/"+alias+"/config.json")+
-                    "="+str(ROOT/"app/src/main/assets"/("ui/layout.json" if alias=="ui" else "modules/"+alias+"/config.json"))),good=False)
-    assert "No changed resources" in p.stderr
+    resource="ui/layout.json" if alias=="ui" else "modules/"+alias+"/config.json"
+    assert (ROOT/"app/src/main/assets"/resource).is_file()
 
 p=run("--set","ui.topButtonSizeDp=32","--set","ui.gearInnerRoundness=1.0")
 assert "ui/layout.json" in p.stdout

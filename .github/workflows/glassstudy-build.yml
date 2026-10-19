@@ -49,6 +49,8 @@ jobs:
         run: python3 glassstudy/tools/test_project.py
       - name: Verify published RSA patch and reject tampered updates
         run: python3 glassstudy/tools/test_patch_integrity.py
+      - name: Verify fast-patch workflow without Gradle
+        run: python3 glassstudy/tools/test_fast_patch.py
       - name: Build unsigned APK for original-key signing
         working-directory: glassstudy
         run: |
