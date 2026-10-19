@@ -1065,8 +1065,8 @@ class MainActivity : Activity() {
         val outer=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(d(15f),d(14f),d(15f),d(14f))
-            background=roundedFill(Color.argb(225,76,80,87),19f,
-                Color.argb(180,161,190,205))
+            background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,
+                GlassDialogFactory.theme.border)
         }
         val header=LinearLayout(this).apply {
             orientation=LinearLayout.HORIZONTAL
@@ -1075,10 +1075,10 @@ class MainActivity : Activity() {
         val heading=TextView(this).apply {
             text="Диагностика"
             textSize=15f
-            setTextColor(Color.rgb(219,235,239))
+            setTextColor(GlassDialogFactory.theme.accent)
             gravity=Gravity.CENTER_VERTICAL
         }
-        header.addView(heading,LinearLayout.LayoutParams(0,d(40f),1f))
+        // Header controls are inserted below in signed declarative order.
         // The only actionable item in the header is the framed copy glyph.
         val copy=FrameLayout(this).apply {
             contentDescription="Копировать диагностику"
@@ -1093,11 +1093,16 @@ class MainActivity : Activity() {
         }
         val copySize=d(currentTopButtonSizeDp.toFloat())
         copy.addView(copyIcon,FrameLayout.LayoutParams(copySize,copySize,Gravity.CENTER))
-        header.addView(copy,LinearLayout.LayoutParams(copySize,copySize))
+        GlassDialogFactory.theme.diagnosticHeaderOrder.forEach { item ->
+            when(item) {
+                "title" -> header.addView(heading,LinearLayout.LayoutParams(0,d(40f),1f))
+                "copy" -> header.addView(copy,LinearLayout.LayoutParams(copySize,copySize))
+            }
+        }
         outer.addView(header)
         val reportText=TextView(this).apply {
             text=report
-            setTextColor(Color.rgb(175,212,225))
+            setTextColor(GlassDialogFactory.theme.text)
             typeface=Typeface.MONOSPACE
             textSize=11.5f
             setTextIsSelectable(true)
