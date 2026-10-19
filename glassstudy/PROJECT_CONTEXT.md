@@ -106,4 +106,13 @@
 
 ## Checkpoint 2026-10-19 — source 0.2.39
 - Added offline real RSA/SHA tests at glassstudy/tools/test_patch_integrity.py and unsigned APK/16K preflight at glassstudy/tools/test_apk_preflight.py, enforced in GitHub Actions. Added PatchManager.stage guard when pending install is unconfirmed. 0.2.39/20039 is an unsigned-source/CI milestone; live patch feed stays 20028.
-- APK original signing key not present in Library index; do not substitute a new key. Android 16 device runtime verification remains a separate necessary step.
+- Verified original GlassStudy signing backup exists in the user's private Library (GlassStudy_PRIVATE_Keys_Backup.zip), NOT in the public GitHub repository. Original APK certificate SHA256 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc. Never expose private-key bytes.
+
+
+## Release checkpoint 2026-10-19 — GlassStudy 0.2.39 ORIGINAL-KEY APK ready
+- Native source APK built by GitHub Actions from code commit 62a02426ae3279868c535d711a3f4072b23af2c7, build run 39321129964. The three 0.2.39 workflows (two Android builds and one Filament build) all passed, including real published 20028 RSA/SHA tamper tests and official unsigned-APK package/version/ZIP/16-KiB checks.
+- Resulting file in conversation artifact storage: GlassStudy_3D_LAB_v0.2.39_ORIGINAL_KEY.apk, 11,488,883 bytes, SHA-256 dab14762145b9707de53c8288ea79fd2b8456b8f0d18fb9969b360e1ca06025d.
+- Original signing source: protected private Library GlassStudy_PRIVATE_Keys_Backup.zip, never copied into GitHub or the signed package. Original DER certificate SHA-256 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc. Confirmed same certificate fingerprint against protected Library GlassStudy_3D_LAB_v0.2.30_VERIFIED_ORIGINAL_KEY.apk. Private key was extracted only into an ephemeral protected temporary directory and deleted after signing; temporary copy of the key backup in runtime was deleted.
+- apksigner verify --min-sdk-version 26 --print-certs --verbose: v2 true; v1/v3 false; signer fingerprint matches original. ZIP payload SHA digests identical pre/post signature; native .so library alignment 16 KiB, resources.arsc 4-byte; valid ZIP CRC. Package ID com.glassstudy.filament.stable, Android versionCode 20039, versionName 0.2.39 checked in CI.
+- Published .pupdate feed stays 20028. Runtime installation over user's current Android 16 APK, real touch/lighting rendering, local patch install, crash-recovery and four-frame confirmation are NOT yet phone-verified. Do not mark device test complete from CI alone.
+- The next Git commit adds documentation only. It does not alter built APK payload or source and does not imply the signed APK was produced from that later documentation-only commit.

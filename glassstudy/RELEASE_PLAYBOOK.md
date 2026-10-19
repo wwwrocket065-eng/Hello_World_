@@ -51,3 +51,9 @@
 - Verify test_patch_integrity.py passes with the ACTUAL published .pupdate and embedded public key; all tamper variants must be rejected. If feed hash or signature fails, stop and investigate rather than changing public-key material.
 - After assembleCiUnsigned, run test_apk_preflight.py against the actual APK: original package identifier, matching versionName/versionCode, ZIP consistency, 4B resources alignment, 16KiB uncompressed JNI native alignment and expected unsigned apksigner verification failure. Do not release if any gate fails.
 - Only then sign with ORIGINAL private key and verify certificate matches the known installed GlassStudy signer. If key unavailable, keep source/CI milestone and report the signing blocker; never use a new release key.
+
+
+## Confirmed signed 0.2.39 handoff (2026-10-19)
+- The verified original-key APK exists as a conversation artifact: GlassStudy_3D_LAB_v0.2.39_ORIGINAL_KEY.apk. Its SHA256 is dab14762145b9707de53c8288ea79fd2b8456b8f0d18fb9969b360e1ca06025d.
+- The public certificate SHA256 equals both the v0.2.30 previously-working signed baseline and original backup certificate: 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc. Do not upload the private backup, passwords or extracted PEM/DER secrets to GitHub or conversation artifacts.
+- All 0.2.39 CI tests passed, including true RSA/tamper verification of the live 20028 asset patch, Android package/version and 16KiB native alignment. Device install, usability, actual GPU/Filament model and patch rollback remain unverified until Android 16 feedback.
