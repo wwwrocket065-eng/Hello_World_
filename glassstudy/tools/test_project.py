@@ -326,3 +326,23 @@ assert 'updateCamera()' in activity[activity.index('private fun updateContextual
 for name in ('backgroundColor','borderColor','textColor','progressColor','thumbColor'):
     assert overlay_config.get(name, '').startswith('#')
     assert ('cfg.'+name) in activity
+
+# Rich window schema is declarative and wired into the real UI, not just docs.
+window_schema=(root/'app/src/main/java/com/glassstudy/filament/DeclarativeWindows.kt').read_text()
+rich_renderer=(root/'app/src/main/java/com/glassstudy/filament/PatchWindowRenderer.kt').read_text()
+example=json.loads((root/'PROJECT_RULES/RICH_WINDOW_EXAMPLE.json').read_text())
+assert 'PatchWindowRenderer.show(this, spec, uiAnimations[id]' in activity
+assert 'key = "patch:${window.id}"' in rich_renderer
+assert 'patchWindows.keys.firstOrNull' in activity and 'patchToRestore ->' not in activity
+assert 'patchToRestore != null -> openPatchWindow(patchToRestore)' in activity
+assert all(('"' + kind + '"') in window_schema for kind in ('heading','text','button','switch','slider'))
+assert 'Exactly one of buttons or elements is required' in window_schema
+assert 'Unknown window element field' in window_schema
+assert 'Unresolved window target' in window_schema
+assert 'readBinding(binding)' in rich_renderer and 'writeBinding(binding,' in rich_renderer
+assert 'brightnessPercent' in activity and 'brightnessPercent' in window_schema
+assert 'GlassDialogFactory.show(activity, scroll, fraction' in rich_renderer
+assert len(example['windows'])==1
+assert example['windows'][0]['elements'][3]['type']=='slider'
+assert example['windows'][0]['elements'][3]['binding']=='brightnessPercent'
+assert example['windows'][0]['landscapeWidthFraction'] < example['windows'][0]['widthFraction']
