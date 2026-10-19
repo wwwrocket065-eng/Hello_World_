@@ -292,7 +292,14 @@ assert 'titles' in window_theme and window_theme['titles']['scene']=='СЦЕНА
 assert 'Unknown window title key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 
 assert window_theme['diagnosticsClickMode']=='toggle'
-assert 'mode=GlassDialogFactory.theme.diagnosticsClickMode' in activity
+assert 'mode=GlassDialogFactory.theme.windowClickModes.getValue("diagnostics")' in activity
 assert 'diagnosticDismissedAtMs=SystemClock.uptimeMillis()' in activity
 assert 'sinceDismiss !in 0L..280L' in activity
 assert 'setOf("toggle","openOnly","closeOnly")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
+
+assert window_theme['windowClickModes']=={'diagnostics':'toggle','openScene':'toggle','menu':'toggle'}
+assert 'GlassDialogFactory.isOpen(action)' in activity
+assert 'GlassDialogFactory.closeCurrent()' in activity
+assert 'key="openScene"' in activity
+assert 'key="skyColor"' in activity
+assert 'Unknown window behavior key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
