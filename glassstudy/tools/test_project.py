@@ -340,9 +340,9 @@ assert 'OverlayModuleConfig.parse(stagedModule("overlay"))' in updater
 assert '"modules/overlay/config.json" -> OverlayModuleConfig.parse(config)' in updater
 assert 'private fun updateContextualOverlay()' in activity
 # Observable user changes pass through the common binding rather than a hardcoded renderer call.
-assert 'showLightIndicator(LightIndicatorView.Mode.BRIGHTNESS' in activity
-assert 'showLightIndicator(LightIndicatorView.Mode.AZIMUTH' in activity
-assert 'showLightIndicator(LightIndicatorView.Mode.ELEVATION' in activity
+assert 'showIndicator(LightIndicatorView.Mode.BRIGHTNESS' in camera_light
+assert 'showIndicator(LightIndicatorView.Mode.AZIMUTH' in camera_light
+assert 'showIndicator(LightIndicatorView.Mode.ELEVATION' in camera_light
 
 assert 'showWith' in overlay_config and 'enabled' in overlay_config
 assert 'LightIndicatorView(this)' in activity
