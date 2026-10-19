@@ -254,3 +254,16 @@ assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updat
 assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
 assert 'panel.addView(text("СЦЕНА"' in activity
 assert 'choice("Белая платформа"' in activity and 'heading("SKYBOX")' in activity
+
+# Shared window presentation and signed scene-order controls.
+scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.kt').read_text()
+dialog_factory=(root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
+assert 'sceneModule.sectionOrder.forEach' in activity
+assert 'sceneModule.skyboxOrder.forEach' in activity
+assert 'sceneModule.floorOrder.forEach' in activity
+assert 'order("sectionOrder",listOf("skybox","floor"))' in scene_module
+assert 'GlassDialogFactory.menu(this,"GlassStudy' in activity
+assert 'GlassDialogFactory.message(this,"Патч отклонён"' in activity
+assert 'fun menu(activity:Activity' in dialog_factory
+assert 'fun message(activity:Activity' in dialog_factory
+assert scene_config.get('sectionOrder')==['skybox','floor']
