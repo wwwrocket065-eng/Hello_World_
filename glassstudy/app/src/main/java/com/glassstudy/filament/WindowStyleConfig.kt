@@ -19,6 +19,8 @@ data class WindowStyleConfig(
     val widthFraction:Float=.91f,
     val titleTextSizeSp:Float=17f,
     val controlTextSizeSp:Float=14f,
+    val rowSpacingDp:Int=7,
+    val controlHorizontalPaddingDp:Int=14,
     val menuOrder:List<String> = listOf("model","camera","diagnostics"),
     val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
     val titles:Map<String,String> = defaultTitles(),
@@ -105,6 +107,8 @@ data class WindowStyleConfig(
                 number("widthFraction",.91,.65,1.0),
                 number("titleTextSizeSp",17.0,11.0,26.0),
                 number("controlTextSizeSp",14.0,10.0,22.0),
+                number("rowSpacingDp",7.0,0.0,24.0).toInt(),
+                number("controlHorizontalPaddingDp",14.0,0.0,32.0).toInt(),
                 menuOrder,headerOrder,titles,diagnosticsClickMode,windowModes)
         }
     }
