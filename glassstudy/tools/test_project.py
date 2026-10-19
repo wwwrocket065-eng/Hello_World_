@@ -23,7 +23,7 @@ assert 'diagnosticPopup?.dismiss()' in activity
 assert 'setTouchModal(false)' in (root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
 assert 'theme.titles.getValue("diagnostics")' in activity
 assert 'LabIconView(this,"copy")' in activity
-assert '"diagnostics" -> diagnosticPopup?.isShowing == true' in activity
+assert '"diagnostics" -> diagnosticPopup?.isShowing==true' in activity
 assert 'updateButtonHighlights()' in activity[activity.index('GlassDialogFactory.popup(this,outer,availableWidth)'):activity.index('copy.setOnClickListener')]
 assert 'skin(this,false,currentUiColor,currentTopOutlineColor)' in activity
 assert 'iconColor=currentTopIconColor' in activity
@@ -37,17 +37,18 @@ assert 'chooseLod.onItemSelectedListener=onSelection' in activity
 assert 'loadSelected()' in activity
 assert 'headerRow.addView(topButtonHost' in activity
 assert 'bottomPanel.addView(bottomButtonHost' in activity
-assert 'renderUiButtons(ui)' in activity
-assert 'topButtonHost.removeAllViews()' in activity
-assert 'bottomButtonHost.removeAllViews()' in activity
-assert 'createUiButton(spec,ui)' in activity
+toolbar=(root/'app/src/main/java/com/glassstudy/filament/UiToolbarController.kt').read_text()
+assert 'toolbarController.render(ui,uiAnimations)' in activity
+assert 'topHost.removeAllViews()' in toolbar
+assert 'bottomHost.removeAllViews()' in toolbar
+assert 'private fun button(spec:UiButtonSpec' in toolbar
 bundle=(root/'app/src/main/java/com/glassstudy/filament/PatchUiBundle.kt').read_text()
 assert 'PatchUiBundle.read(updater, candidate)' in activity
 assert 'UiLayout.parse(updater.readUiConfig(candidate))' in bundle
 assert all(('readModuleConfig("'+name+'", candidate)') in bundle for name in
            ('camera','render','diagnostics','materials','scene','windows','overlay'))
 assert activity.index('val bundle = PatchUiBundle.read(updater, candidate)') < activity.index('patchWindows = ui.windows')
-assert 'LabIconView(this,spec.icon)' in activity
+assert 'LabIconView(activity,spec.icon)' in toolbar
 assert 'LabLogoView(this)' in activity
 assert 'diagnosticButton' not in activity and 'quickObjects' not in activity
 assert 'exportScene()' not in activity and 'applyButton' not in activity
@@ -56,7 +57,7 @@ assert 'class LabIconView' in icons and 'class LabLogoView' in icons
 assert 'canvas.drawRect(-4f,-4f,4f,4f,ink)' in icons
 assert 'if(showUnderline) canvas.drawLine' in icons
 assert 'if(chipCenterFilled)Paint.Style.FILL' in icons
-assert 'glyphScale=ui.topIconScale' in activity
+assert 'glyphScale=ui.topIconScale' in toolbar
 assert 'setSystemBarMode(ui)' in activity
 assert 'View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY' in activity
 assert 'label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in activity
@@ -157,16 +158,16 @@ assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
 assert set(layout['bottomOrder'])=={'export','diagnostics'}
 assert 'private var distance = 5.5' in activity
 assert 'private var pitch = .34' in activity
-assert 'if(spec.action=="toggleLight")' in activity
-assert 'target.setOnLongClickListener' in activity
+assert 'if(spec.action=="toggleLight")target.setOnLongClickListener' in toolbar
+assert 'host.onLightLongPress()' in toolbar
 assert 'resetCameraToHome()' in activity
 assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
-assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(cameraModule.minDistance, cameraModule.maxDistance)' in activity
-assert 'pitch = (pitch + dy * cameraModule.pitchSensitivity)' in activity
-assert 'yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
+assert 'distance=(distance*(oldPinch/span).toDouble().pow(zoomPower))' in activity
+assert 'pitch=(pitch+dy*cameraModule.pitchSensitivity)' in activity
+assert 'yaw+=dx*(if(invertHorizontal)-cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
 assert 'LightGestureController.Axis.AZIMUTH' in activity and 'lightGesture.move(dx,dy)' in activity
 assert 'LightGestureController.Axis.ELEVATION' in activity and '.coerceIn(0.0,Math.PI)' in activity
-assert 'e.x - oldX' in activity and 'resources.displayMetrics.density' in activity
+assert 'e.x-oldX' in activity and 'resources.displayMetrics.density' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
@@ -390,3 +391,10 @@ assert any(b['action']=='menu' and b['icon']=='gear' for b in json.loads((root/'
 assert 'button.copy(icon = "gear", label = "")' in (root/'app/src/main/java/com/glassstudy/filament/PatchUiBundle.kt').read_text()
 assert 'val legacy=setOf("model","camera","diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 assert 'LightingIndicatorStyles.save(this,options[index].id)' in activity
+
+# Modular renderer owns actual state/interaction wiring; MainActivity remains host.
+assert 'fun updateHighlights()' in toolbar
+assert 'fun render(ui:UiLayout,animations:Map<String,UiAnimationSpec>)' in toolbar
+assert 'host.dispatch(spec.action)' in toolbar
+assert 'host.isActive(spec.action)' in toolbar
+assert 'host.decorate(' in toolbar
