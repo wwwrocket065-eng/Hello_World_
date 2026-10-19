@@ -28,3 +28,14 @@
 ## Рабочий цикл предотвращения регрессий
 
 Сверить ветку HEAD → короткий план → правка → regression test → GitHub Actions build → оригинальная подпись APK / RSA подпись patch → аудит → Android test → записать причину/решение. После любых ошибок сборки читать настоящие логи, а не гадать.
+
+## 2026-10-19 — Scene controls / 0.2.29
+- Baseline v0.2.28 original certificate, working automatic signed .pupdate 20028 remains the rollback/reference point.
+- Replaced the third top reset icon with a scene glyph (isometric plane + sphere), without a text label.
+- Scene popup separates ground (checker/white/none) and skybox (gray/studio/white/dark/custom RGB). Preferences persist locally.
+- Floor is independent glTF geometry, not a wireframe toggle, and has its own ResourceLoader to avoid canceling main-model loads.
+- Existing installed 20028 ui/layout.json is migrated at runtime to the scene action; old user styles otherwise preserved.
+- Studio background uses bundled KTX environment; it is not a confirmed pixel-for-pixel reproduction of the old web viewer.
+- Latest verified Android CI: workflow run 39189400749, success. APK 0.2.29 was signed locally using the ORIGINAL APK certificate and verified via APK Signature Scheme v2, byte-level digest, and ZIP CRC.
+- Remote signed patch feed remains 20028 on purpose. DO NOT publish scene UI patch to users of 0.2.28: that APK does not implement openScene and will reject it.
+- Pending device smoke test: GLB floor drawn, checker placement, studio Skybox visuals, scene reopening, and preservation of IBL and model selection. Keep the old signed 0.2.28 APK available.
