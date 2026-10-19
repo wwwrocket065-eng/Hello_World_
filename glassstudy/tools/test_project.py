@@ -361,3 +361,13 @@ assert 'performAction = uiController::dispatch' in activity
 assert 'UiInteractionRegistry.acceptsAction(action)' in uic
 assert 'UiInteractionRegistry.acceptsBinding(type, binding)' in window_schema
 assert 'overlayBrightnessSlider?.progress =' in activity
+
+# Release signing is a separate, explicit gate, never an unsigned APK renamed
+# to a usable build or a fallback key with a different certificate.
+signer=(root/'tools/sign_original_apk.py').read_text()
+assert 'ORIGINAL_APK_CERT_SHA256' in signer
+assert 'inspect_zip_alignment(unsigned)' in signer
+assert 'verify_payload_unchanged(unsigned, output)' in signer
+assert '"--v2-signing-enabled", "true"' in signer
+assert '"--v3-signing-enabled", "false"' in signer
+assert 'output.unlink(missing_ok=True)' in signer
