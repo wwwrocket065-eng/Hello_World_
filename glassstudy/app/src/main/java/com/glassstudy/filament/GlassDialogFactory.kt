@@ -62,8 +62,9 @@ object GlassDialogFactory {
             })
         }
         dialog=show(activity,content,key="menu")
+        val shown = dialog
         if (animation != null) content.post {
-            if (dialog?.isShowing == true) UiAnimationEngine.enter(content,animation,activity.resources.displayMetrics.density)
+            if (shown?.isShowing == true) UiAnimationEngine.enter(content,animation,activity.resources.displayMetrics.density)
         }
         return dialog
     }
