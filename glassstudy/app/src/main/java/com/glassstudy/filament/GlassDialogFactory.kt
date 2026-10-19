@@ -52,7 +52,7 @@ object GlassDialogFactory {
     }
 
     /** Common modal presentation for menus, failures and confirmations. */
-    fun menu(activity:Activity, title:String, entries:List<String>, onChoice:(Int)->Unit, animation:UiAnimationSpec?=null):AlertDialog {
+    fun menu(activity:Activity, title:String, entries:List<String>, onChoice:(Int)->Unit, animation:UiAnimationSpec?=null, widthFraction:Float=theme.widthFraction):AlertDialog {
         val content=panel(activity,title)
         var dialog:AlertDialog?=null
         entries.forEachIndexed { index,caption ->
@@ -62,7 +62,7 @@ object GlassDialogFactory {
                 topMargin=dp(activity,7f)
             })
         }
-        dialog=show(activity,content,key="menu")
+        dialog=show(activity,content,widthFraction=widthFraction,key="menu")
         val shown = dialog
         if (animation != null) content.post {
             if (shown?.isShowing == true) UiAnimationEngine.enter(content,animation,activity.resources.displayMetrics.density)
