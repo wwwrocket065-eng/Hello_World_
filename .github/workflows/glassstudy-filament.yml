@@ -3,6 +3,10 @@ on:
   push:
     branches: [glassstudy-filament-ci]
   workflow_dispatch:
+# Keep only the newest branch/PR build when multiple commits arrive quickly.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   apk:
     runs-on: ubuntu-latest
