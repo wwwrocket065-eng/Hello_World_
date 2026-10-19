@@ -300,7 +300,8 @@ assert window_theme['id']=='windows' and window_theme['schema']==1
 assert 'WindowStyleConfig.parse(stagedModule("windows"))' in updater
 assert '"modules/windows/config.json" -> WindowStyleConfig.parse(config)' in updater
 assert 'GlassDialogFactory.applyTheme(bundle.windows)' in activity
-assert 'GlassDialogFactory.theme.selected' in activity
+assert 'theme.selected' in dialog_factory
+assert 'GlassDialogFactory.option(activity,label,selected)' in panel
 assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
 
 assert 'GlassDialogFactory.theme.diagnosticHeaderOrder.forEach' in activity
