@@ -371,7 +371,7 @@ class MainActivity : Activity() {
                 val lp=LinearLayout.LayoutParams(-1,-2)
                 lp.topMargin=d(top.toFloat());layoutParams=lp
             }
-        panel.addView(text("СЦЕНА",17f,foreground))
+        panel.addView(text(GlassDialogFactory.theme.titles.getValue("scene"),17f,foreground))
         panel.addView(text("Пол и окружение настраиваются отдельно",12f,
             GlassDialogFactory.theme.hint,5))
         var dialog:AlertDialog?=null
@@ -446,7 +446,7 @@ class MainActivity : Activity() {
             background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,currentTopOutlineColor)
         }
         panel.addView(TextView(this).apply {
-            text="ЦВЕТ SKYBOX";textSize=17f;setTextColor(currentTopIconColor)
+            text=GlassDialogFactory.theme.titles.getValue("skyColor");textSize=17f;setTextColor(currentTopIconColor)
         })
         val original=intArrayOf(Color.red(customSkyColor),Color.green(customSkyColor),
             Color.blue(customSkyColor))
@@ -497,7 +497,7 @@ class MainActivity : Activity() {
             "diagnostics" to "Диагностика"
         )
         val menuOrder=GlassDialogFactory.theme.menuOrder
-        GlassDialogFactory.menu(this,"GlassStudy · 3D LAB",
+        GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
             menuOrder.map { actions.getValue(it) }) { which ->
             when(menuOrder[which]) {
                 "model" -> chooseObject.performClick()
@@ -711,7 +711,7 @@ class MainActivity : Activity() {
             onError = { reason ->
                 localPatchBusy = false
                 if (!isFinishing && !isDestroyed) {
-                    GlassDialogFactory.message(this,"Патч не установлен",reason)
+                    GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("patchError"),reason)
                 }
             }
         )
@@ -729,7 +729,7 @@ class MainActivity : Activity() {
             status()
             val message="Патч ${candidate.version} установлен"
             if (fromDownloads) {
-                GlassDialogFactory.message(this,"GlassStudy",message)
+                GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("patchInstalled"),message)
             } else {
                 Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
             }
@@ -738,7 +738,7 @@ class MainActivity : Activity() {
             applyUiLayout()
             loadSelected()
             if (fromDownloads) {
-                GlassDialogFactory.message(this,"Патч отклонён",
+                GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("patchRejected"),
                     "Модель или настройки не прошли проверку. Рабочая версия сохранена.")
             }
         }
@@ -860,7 +860,7 @@ class MainActivity : Activity() {
                 // Reject bad background patches silently: preserve the working scene.
                 android.util.Log.w("GlassStudy", "Staged model failed to render", e)
             } else {
-                GlassDialogFactory.message(this,"Ошибка загрузки модели",
+                GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("modelError"),
                     e.stackTraceToString().take(3000))
             }
             return false
@@ -1073,7 +1073,7 @@ class MainActivity : Activity() {
             gravity=Gravity.CENTER_VERTICAL
         }
         val heading=TextView(this).apply {
-            text="Диагностика"
+            text=GlassDialogFactory.theme.titles.getValue("diagnostics")
             textSize=15f
             setTextColor(GlassDialogFactory.theme.accent)
             gravity=Gravity.CENTER_VERTICAL
