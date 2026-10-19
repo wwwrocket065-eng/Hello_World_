@@ -29,7 +29,7 @@ internal class UiThemeEngine private constructor(
         private val hexColor = Regex("^#[0-9a-fA-F]{6}$")
         private val allowedColors = setOf(
             "topColor", "bottomColor", "buttonColor", "buttonTextColor",
-            "textColor", "systemBarColor", "logoColor", "topButtonOutlineColor",
+            "textColor", "systemBarColor", "logoColor", "subtitleColor", "topButtonOutlineColor",
             "selectorTextColor", "fpsTextColor"
         )
         private val buttonKeys = setOf("fill", "outline", "textColor")
