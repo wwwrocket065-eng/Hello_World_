@@ -91,12 +91,12 @@ object GlassDialogFactory {
             setPadding(pad,pad,pad,pad)
             background=background(theme.background,dp(activity,theme.cornerDp).toFloat(),theme.border)
             addView(TextView(activity).apply {
-                text=title;textSize=17f;setTextColor(theme.accent)
+                text=title;textSize=theme.titleTextSizeSp;setTextColor(theme.accent)
             })
         }
 
     private fun control(activity:Activity,caption:String):TextView=TextView(activity).apply {
-        text=caption;textSize=14f
+        text=caption;textSize=theme.controlTextSizeSp
         gravity=Gravity.CENTER_VERTICAL
         setTextColor(theme.text)
         setPadding(dp(activity,14f),0,dp(activity,12f),0)
