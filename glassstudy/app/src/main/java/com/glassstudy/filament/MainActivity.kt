@@ -398,28 +398,38 @@ class MainActivity : Activity() {
             lp.topMargin=d(6f)
             panel.addView(item,lp)
         }
-        heading("ПОЛ")
-        choice("Шахматная доска",floorMode=="checker") {
-            floorMode="checker";saveSceneChoices();applySceneFloor();openSceneMenu()
-        }
-        choice("Белая платформа",floorMode=="white") {
-            floorMode="white";saveSceneChoices();applySceneFloor();openSceneMenu()
-        }
-        choice("Без пола",floorMode=="none") {
-            floorMode="none";saveSceneChoices();applySceneFloor();openSceneMenu()
-        }
-        heading("SKYBOX")
-        val skyChoices=listOf(
+        val skyChoices=mapOf(
             "gray" to "Серый · Blender",
             "studio" to "Студийный",
             "white" to "Белый",
             "dark" to "Тёмный",
             "custom" to "Свой цвет · RGB"
         )
-        skyChoices.forEach { (mode,label) ->
-            choice(label,skyMode==mode) {
-                if(mode=="custom") openCustomSkyColor()
-                else { skyMode=mode;saveSceneChoices();applySceneSkybox();openSceneMenu() }
+        val floorChoices=mapOf(
+            "checker" to "Шахматная доска",
+            "white" to "Белая платформа",
+            "none" to "Без пола"
+        )
+        // Both sections and their contents are ordered by a signed scene module.
+        sceneModule.sectionOrder.forEach { section ->
+            when (section) {
+                "skybox" -> {
+                    heading("SKYBOX")
+                    sceneModule.skyboxOrder.forEach { mode ->
+                        choice(skyChoices.getValue(mode),skyMode==mode) {
+                            if(mode=="custom") openCustomSkyColor()
+                            else { skyMode=mode;saveSceneChoices();applySceneSkybox();openSceneMenu() }
+                        }
+                    }
+                }
+                "floor" -> {
+                    heading("ПОЛ")
+                    sceneModule.floorOrder.forEach { mode ->
+                        choice(floorChoices.getValue(mode),floorMode==mode) {
+                            floorMode=mode;saveSceneChoices();applySceneFloor();openSceneMenu()
+                        }
+                    }
+                }
             }
         }
         val scroll=ScrollView(this).apply {
