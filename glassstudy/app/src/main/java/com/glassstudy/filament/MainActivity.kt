@@ -686,7 +686,14 @@ class MainActivity : Activity() {
     /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
-            val ui=UiLayout.parse(updater.readUiConfig(candidate))
+            // Installed 20028 patches still carry the former arrow/reset control.
+            // Migrate only that top button to Scene; retain all other signed styles.
+            val parsedUi=UiLayout.parse(updater.readUiConfig(candidate))
+            val ui=parsedUi.copy(buttons=parsedUi.buttons.map { button ->
+                if (button.slot=="top" && button.action=="resetCamera")
+                    button.copy(action="openScene",icon="scene",label="")
+                else button
+            })
             val nextCameraModule = CameraModuleConfig.parse(updater.readModuleConfig("camera", candidate))
             val nextRenderModule = RenderModuleConfig.parse(updater.readModuleConfig("render", candidate))
             val nextDiagnosticsModule = DiagnosticsModuleConfig.parse(updater.readModuleConfig("diagnostics", candidate))
