@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "windows",
+  "background": "#112331",
+  "control": "#173040",
+  "selected": "#1F4854",
+  "border": "#6DB9CB",
+  "accent": "#A3D0D3",
+  "text": "#D8E5EA",
+  "hint": "#9DB8C3",
+  "cornerDp": 20,
+  "controlCornerDp": 11,
+  "paddingDp": 18,
+  "rowHeightDp": 43,
+  "widthFraction": 0.91
+}
