@@ -102,6 +102,8 @@ assert 'applyUiLayout(candidate)' in activity
 assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
 assert 'source.copyTo(target,overwrite=false)' in updater
 assert 'installedFiles.size <= MAX_ENTRIES' in updater
+assert 'candidate.staging.parentFile?.canonicalFile != patchRoot.canonicalFile' in updater
+assert 'candidate.staging.name.startsWith(expectedPrefix)' in updater
 assert 'installedFiles.sumOf { it.length() } <= MAX_PATCH_BYTES' in updater
 assert 'UiLayout.parse(stagedUi.readBytes())' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
