@@ -206,7 +206,7 @@ for module in ('camera','render','diagnostics','materials'):
     assert 'readModuleConfig("'+module+'", candidate)' in activity
 assert 'MaterialOverrides.parse(' in activity
 assert '"openScene" -> openSceneMenu()' in activity
-assert 'SceneFloorGlb.create(true)' in activity and 'SceneFloorGlb.create(false)' in activity
+assert 'SceneFloorGlb.create(true, sceneModule.floorWidth' in activity and 'SceneFloorGlb.create(false, sceneModule.floorWidth' in activity
 assert 'fun setFloorGlb(buffer: Buffer?)' in custom
 assert 'floorAsset?.let { populateScene(it) }' in custom
 assert '"scene" -> {' in icons
