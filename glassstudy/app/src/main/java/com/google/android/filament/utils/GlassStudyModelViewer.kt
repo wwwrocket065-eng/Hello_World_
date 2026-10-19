@@ -65,15 +65,18 @@ class GlassStudyModelViewer(
         private val uiHelper: UiHelper
 ) : android.view.View.OnTouchListener {
     private var floorAsset: FilamentAsset? = null
+    private val floorResourceLoader = ResourceLoader(engine, normalizeSkinningWeights)
 
     fun setFloorGlb(buffer: Buffer?) {
+        floorResourceLoader.asyncCancelLoad()
+        floorResourceLoader.evictResourceData()
         floorAsset?.let { scene.removeEntities(it.entities); assetLoader.destroyAsset(it) }
         floorAsset = null
         if (buffer != null) {
             val next = assetLoader.createAsset(buffer)
                 ?: throw IllegalArgumentException("Could not create floor GLB")
             floorAsset = next
-            resourceLoader.asyncBeginLoad(next)
+            floorResourceLoader.asyncBeginLoad(next)
             next.releaseSourceData()
         }
     }
@@ -307,6 +310,7 @@ class GlassStudyModelViewer(
 
         // Allow the resource loader to finalize textures that have become ready.
         resourceLoader.asyncUpdateLoad()
+        floorResourceLoader.asyncUpdateLoad()
 
         // Add renderable entities to the scene as they become ready.
         asset?.let { populateScene(it) }
@@ -353,6 +357,7 @@ class GlassStudyModelViewer(
                 materialProvider.destroyMaterials()
                 materialProvider.destroy()
                 resourceLoader.destroy()
+                floorResourceLoader.destroy()
 
                 engine.destroyEntity(light)
                 engine.destroyRenderer(renderer)
