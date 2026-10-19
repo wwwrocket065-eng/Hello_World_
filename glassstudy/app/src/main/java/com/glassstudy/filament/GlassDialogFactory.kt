@@ -22,11 +22,25 @@ object GlassDialogFactory {
 
     fun applyTheme(next:WindowStyleConfig) { theme=next }
 
-    fun show(activity: Activity, content: View, widthFraction: Float = theme.widthFraction): AlertDialog {
+    private var activeDialog:AlertDialog?=null
+    private var activeKey:String?=null
+    fun isOpen(key:String):Boolean = activeKey==key && activeDialog?.isShowing==true
+    fun closeCurrent() { activeDialog?.dismiss() }
+
+
+    fun show(activity: Activity, content: View, widthFraction: Float = theme.widthFraction, key:String?=null): AlertDialog {
+        closeCurrent()
         require(widthFraction in .6f..1f)
         val dialog = AlertDialog.Builder(activity).setView(content).create()
         dialog.setCanceledOnTouchOutside(true)
         dialog.setCancelable(true)
+        if(key!=null) {
+            activeKey=key
+            activeDialog=dialog
+            dialog.setOnDismissListener {
+                if(activeDialog===dialog) { activeDialog=null;activeKey=null }
+            }
+        }
         dialog.show()
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(
@@ -47,7 +61,7 @@ object GlassDialogFactory {
                 topMargin=dp(activity,7f)
             })
         }
-        dialog=show(activity,content)
+        dialog=show(activity,content,key="menu")
         return dialog
     }
 
