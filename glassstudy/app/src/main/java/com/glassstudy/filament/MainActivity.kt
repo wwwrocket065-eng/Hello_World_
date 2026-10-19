@@ -426,11 +426,7 @@ class MainActivity : Activity() {
             isFillViewport=false
             addView(panel)
         }
-        dialog=AlertDialog.Builder(this).setView(scroll).create()
-        dialog.show()
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout((resources.displayMetrics.widthPixels*.91f).toInt(),
-            ViewGroup.LayoutParams.WRAP_CONTENT)
+        dialog=GlassDialogFactory.show(this,scroll)
     }
 
     private fun openFloorChoices() {
