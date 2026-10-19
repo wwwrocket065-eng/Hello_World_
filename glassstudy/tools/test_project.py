@@ -253,7 +253,7 @@ assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' i
 assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updater
 assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
 assert 'panel.addView(text("СЦЕНА"' in activity
-assert 'choice("Белая платформа"' in activity and 'heading("SKYBOX")' in activity
+assert '"white" to "Белая платформа"' in activity and 'heading("SKYBOX")' in activity
 
 # Shared window presentation and signed scene-order controls.
 scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.kt').read_text()
