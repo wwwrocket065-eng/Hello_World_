@@ -44,8 +44,8 @@ object PatchWindowRenderer {
         performAction: (String) -> Unit
     ): AlertDialog {
         val theme = GlassDialogFactory.theme
-        val orientation = activity.resources.configuration.orientation
-        val fraction = (if (orientation == Configuration.ORIENTATION_LANDSCAPE)
+        val screenOrientation = activity.resources.configuration.orientation
+        val fraction = (if (screenOrientation == Configuration.ORIENTATION_LANDSCAPE)
             window.landscapeWidthFraction ?: window.widthFraction else window.widthFraction)
             ?: theme.widthFraction
 
