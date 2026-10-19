@@ -117,6 +117,7 @@ class MainActivity : Activity() {
                     "lightMode" -> {
                         lightMode = value >= .5f
                         lightGesture.reset()
+                        if(!lightMode)lightIndicator?.hide()
                         status()
                     }
                     "grid" -> {
@@ -136,10 +137,6 @@ class MainActivity : Activity() {
                     "brightnessPercent" -> {
                         brightness = (value.toDouble() / 100.0)
                             .coerceIn(0.0, 2.0)
-                        val range = cameraModule.maxBrightness - cameraModule.minBrightness
-                        overlayBrightnessSlider?.progress =
-                            (((brightness - cameraModule.minBrightness) / range) * 1000.0)
-                                .toInt().coerceIn(0, 1000)
                         updateCamera()
                     }
                     else -> throw IllegalArgumentException("Unsupported binding: $binding")
@@ -181,8 +178,7 @@ class MainActivity : Activity() {
     private var currentLod = "medium"
     private var lightMode = false
     private var overlayModule=OverlayModuleConfig()
-    private var contextualOverlay:LinearLayout?=null
-    private var overlayBrightnessSlider:android.widget.SeekBar?=null
+    private var lightIndicator:LightIndicatorView?=null
     // Stable orbit defaults and elevation bounds adapted from GlassStudy v0.1.22.
     private var yaw = .56
     private var pitch = .34
@@ -615,6 +611,10 @@ class MainActivity : Activity() {
         // are created by the signed declarative UI patch layout.
         dock.addView(bottomPanel)
         root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
+        // Non-interactive HUD above the Filament SurfaceView.
+        lightIndicator=LightIndicatorView(this).also { hud ->
+            root.addView(hud,FrameLayout.LayoutParams(d(230f),d(230f),Gravity.CENTER))
+        }
 
         toolbarController=UiToolbarController(this,topButtonHost,bottomButtonHost,topPanel,
             object:UiToolbarController.Host {
@@ -907,17 +907,29 @@ class MainActivity : Activity() {
         mgr.setDirection(inst, (-dx).toFloat(),(-dy).toFloat(),(-dz).toFloat())
         mgr.setIntensity(inst,(cameraModule.lightIntensity * brightness).toFloat())
     }
+    private fun showLightIndicator(mode:LightIndicatorView.Mode,number:Float) {
+        if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")return
+        val tint=when(mode) {
+            LightIndicatorView.Mode.AZIMUTH -> Color.rgb(240,210,132)
+            LightIndicatorView.Mode.ELEVATION -> Color.rgb(236,225,194)
+            LightIndicatorView.Mode.BRIGHTNESS -> Color.rgb(255,220,130)
+        }
+        lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this),tint)
+    }
     private fun touch(e: MotionEvent): Boolean {
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 lightGesture.reset()
                 oldX=e.getX(0); oldY=e.getY(0)
                 oldPinch=if (e.pointerCount>=2) pinch(e) else 0f
+                if(lightMode && e.pointerCount>=2)
+                    showLightIndicator(LightIndicatorView.Mode.BRIGHTNESS,(brightness*100).toFloat())
                 return true
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 // The surviving finger begins a fresh axis decision.
                 lightGesture.reset()
+                lightIndicator?.hide()
                 val remaining=if (e.actionIndex==0 && e.pointerCount>1) 1 else 0
                 oldX=e.getX(remaining); oldY=e.getY(remaining)
                 oldPinch=0f
@@ -925,6 +937,7 @@ class MainActivity : Activity() {
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 lightGesture.reset()
+                lightIndicator?.hide()
                 oldPinch=0f
                 return true
             }
@@ -938,6 +951,7 @@ class MainActivity : Activity() {
                             // Additive pinch can brighten again even from 0%.
                             val next=(brightness+(span-oldPinch)/density/160.0).coerceIn(0.0,2.0)
                             uiController.write("brightnessPercent",(next*100.0).toFloat())
+                            showLightIndicator(LightIndicatorView.Mode.BRIGHTNESS,(brightness*100).toFloat())
                         } else {
                             distance=(distance*(oldPinch/span).toDouble().pow(zoomPower))
                                 .coerceIn(cameraModule.minDistance,cameraModule.maxDistance)
@@ -955,12 +969,16 @@ class MainActivity : Activity() {
                                 val turn=2.0*Math.PI
                                 lightAz=(lightAz+motion.deltaDp*cameraModule.lightYawSensitivity)%turn
                                 if(lightAz<0.0) lightAz+=turn
+                                showLightIndicator(LightIndicatorView.Mode.AZIMUTH,
+                                    Math.toDegrees(lightAz).toFloat())
                             }
                             LightGestureController.Axis.ELEVATION -> {
                                 // 180-degree vertical arc: from 0 to 180 degrees.
                                 lightElevation=(lightElevation+
                                     motion.deltaDp*cameraModule.lightPitchSensitivity)
                                     .coerceIn(0.0,Math.PI)
+                                showLightIndicator(LightIndicatorView.Mode.ELEVATION,
+                                    Math.toDegrees(lightElevation).toFloat())
                             }
                         }
                     } else {
@@ -987,53 +1005,10 @@ class MainActivity : Activity() {
             updateContextualOverlay()
         }
     }
-    /** Context controls are created from validated patch data, without dynamic code loading. */
+    /** Passive indicator replaces the previous interactive brightness slider. */
     private fun updateContextualOverlay() {
-        if(!::mainRoot.isInitialized || !::viewer.isInitialized) return
-        contextualOverlay?.let { mainRoot.removeView(it) }
-        contextualOverlay=null
-        overlayBrightnessSlider=null
-        val cfg=overlayModule
-        if(!cfg.enabled || cfg.showWith=="never" ||
-            (cfg.showWith=="light" && !lightMode)) return
-        val container=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL
-            setPadding(d(12f),d(9f),d(12f),d(9f))
-            background=roundedFill(cfg.backgroundColor?:GlassDialogFactory.theme.background,
-                GlassDialogFactory.theme.controlCornerDp,cfg.borderColor?:GlassDialogFactory.theme.border)
-        }
-        container.addView(TextView(this).apply {
-            text=cfg.label
-            textSize=12f
-            setTextColor(cfg.textColor?:GlassDialogFactory.theme.accent)
-        })
-        val slider=android.widget.SeekBar(this).apply {
-            max=1000
-            val lo=cameraModule.minBrightness
-            val hi=cameraModule.maxBrightness
-            progress=(((brightness-lo)/(hi-lo))*max).toInt().coerceIn(0,max)
-            progressTintList=ColorStateList.valueOf(cfg.progressColor?:GlassDialogFactory.theme.accent)
-            thumbTintList=ColorStateList.valueOf(cfg.thumbColor?:GlassDialogFactory.theme.accent)
-            setOnSeekBarChangeListener(object:android.widget.SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(bar:android.widget.SeekBar?,value:Int,fromUser:Boolean) {
-                    if(fromUser) {
-                        // The slider uses the same state writer as patch-defined
-                        // windows, so all UI controls remain synchronized.
-                        uiController.write("brightnessPercent",
-                            ((lo + (hi - lo) * value / 1000.0) * 100.0).toFloat())
-                    }
-                }
-                override fun onStartTrackingTouch(bar:android.widget.SeekBar?) {}
-                override fun onStopTrackingTouch(bar:android.widget.SeekBar?) {}
-            })
-        }
-        container.addView(slider)
-        overlayBrightnessSlider=slider
-        val params=FrameLayout.LayoutParams(d(cfg.widthDp.toFloat()),-2,
-            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
-        params.bottomMargin=d(cfg.bottomMarginDp.toFloat())
-        mainRoot.addView(container,params)
-        contextualOverlay=container
+        if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")
+            lightIndicator?.hide()
     }
 
     private fun showDiagnostic() {
@@ -1231,6 +1206,6 @@ class MainActivity : Activity() {
         if(diagnosticPopup?.isShowing==true) diagnosticPopup?.dismiss()
         else super.onBackPressed()
     }
-    override fun onPause() { diagnosticPopup?.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
+    override fun onPause() { lightIndicator?.hide();diagnosticPopup?.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
     override fun onDestroy() { running=false;Choreographer.getInstance().removeFrameCallback(frameCallback); super.onDestroy() }
 }
