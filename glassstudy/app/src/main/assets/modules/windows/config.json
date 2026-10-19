@@ -12,5 +12,10 @@
   "controlCornerDp": 11,
   "paddingDp": 18,
   "rowHeightDp": 43,
-  "widthFraction": 0.91
+  "widthFraction": 0.91,
+  "menuOrder": [
+    "model",
+    "camera",
+    "diagnostics"
+  ]
 }
