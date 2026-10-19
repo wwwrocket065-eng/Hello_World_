@@ -43,8 +43,14 @@ object UiAnimationEngine {
 
     fun enter(view: View, spec: UiAnimationSpec?, density: Float) {
         view.animate().cancel()
-        if (spec == null || !view.isAttachedToWindow) return
-        if (spec.durationMs == 0L) return
+        // A cancelled previous animation may leave an already-rendered control
+        // partly transparent or scaled when the next preset is disabled.
+        view.alpha = 1f
+        view.scaleX = 1f
+        view.scaleY = 1f
+        view.rotation = 0f
+        view.translationY = 0f
+        if (spec == null || !view.isAttachedToWindow || spec.durationMs == 0L) return
         view.alpha = spec.alphaFrom
         view.scaleX = spec.scaleFrom
         view.scaleY = spec.scaleFrom
