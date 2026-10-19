@@ -163,8 +163,8 @@ object PatchWindowRenderer {
             isFillViewport = false
             addView(panel, ViewGroup.LayoutParams(-1, -2))
         }
-        dialog = GlassDialogFactory.show(activity, scroll, fraction, key = "menu")
-        val shown = dialog
+        val shown = GlassDialogFactory.show(activity, scroll, fraction, key = "menu")
+        dialog = shown
         if (animation != null) panel.post {
             if (shown.isShowing) UiAnimationEngine.enter(panel, animation,
                 activity.resources.displayMetrics.density)
