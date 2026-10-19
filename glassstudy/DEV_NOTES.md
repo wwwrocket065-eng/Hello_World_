@@ -56,3 +56,11 @@
 - Added CI assertions forbidding direct MainActivity AlertDialog.Builder and PopupWindow(outer,...); updated old assumptions about setTouchModal and dismiss listener location.
 - CI run 39198244536 pending; do not release unsigned or untested APK.
 - Remaining structural goal: central patch-configurable window theme and declarative placement of interior controls across specialized windows (current scene section/item order and toolbar order already patchable).
+
+## 2026-10-19 — Signed unified window styling
+- Added WindowStyleConfig and module path modules/windows/config.json. Colors, control selection state, padding, radius, row height, and modal width are schema-validated.
+- GlassDialogFactory show/menu/message now reads common theme. Scene and Skybox RGB panels read common theme colors and corner radius.
+- PatchManager validates an individual windows module and validates the inherited merged snapshot before activation; backward-compatible default theme when no module present.
+- Existing SceneModuleConfig controls section/item order; UI layout json controls top/bottom toolbar order.
+- Universal arbitrary repositioning inside every diagnostic/specialized view is still not implemented; do not claim full declarative layout support.
+- CI verification run 39198584069; leave old signed feed untouched until original-key APK/device verification.
