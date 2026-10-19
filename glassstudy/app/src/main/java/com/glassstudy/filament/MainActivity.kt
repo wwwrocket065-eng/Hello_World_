@@ -78,6 +78,76 @@ class MainActivity : Activity() {
     private val activeButtons=linkedMapOf<String,View>()
     private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
     private var patchWindows: Map<String, DeclarativeWindow> = emptyMap()
+
+    /** All controls (toolbar, windows, overlays) go through one typed action API. */
+    private val uiController by lazy(LazyThreadSafetyMode.NONE) {
+        UiInteractionController(object : UiInteractionController.Host {
+            override fun isDiagnosticsOpen() = diagnosticPopup?.isShowing == true
+            override fun diagnosticsLastDismissedAtMs() = diagnosticDismissedAtMs
+            override fun closeDiagnostics() { diagnosticPopup?.dismiss() }
+            override fun showDiagnostics() { showDiagnostic() }
+            override fun isWindowOpen(key: String) = GlassDialogFactory.isOpen(key)
+            override fun closeWindow() { GlassDialogFactory.closeCurrent() }
+            override fun openPatchWindow(id: String) {
+                this@MainActivity.openPatchWindow(id)
+            }
+            override fun windowMode(key: String): String =
+                GlassDialogFactory.theme.windowClickModes[key] ?: "toggle"
+
+            override fun performNativeAction(action: String) {
+                when (action) {
+                    "resetCamera" -> resetCameraToHome()
+                    "openScene" -> openSceneMenu()
+                    "menu" -> openMenu()
+                    "selectModel" -> chooseObject.performClick()
+                    "selectQuality" -> chooseLod.performClick()
+                    else -> throw IllegalArgumentException("Unknown native action: $action")
+                }
+            }
+
+            override fun readState(binding: String): Float = when (binding) {
+                "lightMode" -> if (lightMode) 1f else 0f
+                "grid" -> if (wireframe) 1f else 0f
+                "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
+                "brightnessPercent" -> (brightness * 100.0).toFloat()
+                else -> throw IllegalArgumentException("Unsupported binding: $binding")
+            }
+
+            override fun writeState(binding: String, value: Float) {
+                when (binding) {
+                    "lightMode" -> {
+                        lightMode = value >= .5f
+                        status()
+                    }
+                    "grid" -> {
+                        val enabled = value >= .5f
+                        if (enabled != wireframe) {
+                            wireframe = enabled
+                            getPreferences(MODE_PRIVATE).edit()
+                                .putBoolean("wireframe", wireframe).apply()
+                            loadSelected()
+                            status()
+                        }
+                    }
+                    "fps" -> {
+                        fpsPill.visibility = if (value >= .5f) View.VISIBLE else View.GONE
+                        updateButtonHighlights()
+                    }
+                    "brightnessPercent" -> {
+                        brightness = (value.toDouble() / 100.0)
+                            .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
+                        val range = cameraModule.maxBrightness - cameraModule.minBrightness
+                        overlayBrightnessSlider?.progress =
+                            (((brightness - cameraModule.minBrightness) / range) * 1000.0)
+                                .toInt().coerceIn(0, 1000)
+                        updateCamera()
+                    }
+                    else -> throw IllegalArgumentException("Unsupported binding: $binding")
+                }
+            }
+        })
+    }
+
     private var uiAnimations: Map<String, UiAnimationSpec> = emptyMap()
     private var currentUiColor:Int=Color.rgb(27,56,75)
     private var currentSelectorColor=Color.rgb(109,224,222)
@@ -172,104 +242,16 @@ class MainActivity : Activity() {
      */
     private fun openPatchWindow(id: String) {
         val spec = patchWindows[id] ?: return
-        PatchWindowRenderer.show(this, spec, uiAnimations[id],
-            readBinding = { binding ->
-                when (binding) {
-                    "lightMode" -> if (lightMode) 1f else 0f
-                    "grid" -> if (wireframe) 1f else 0f
-                    "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
-                    "brightnessPercent" -> (brightness * 100.0).toFloat()
-                    else -> throw IllegalArgumentException("Unsupported window binding")
-                }
-            },
-            writeBinding = { binding, value ->
-                when (binding) {
-                    "lightMode" -> {
-                        lightMode = value >= .5f
-                        updateContextualOverlay()
-                        status()
-                    }
-                    "grid" -> {
-                        val enabled = value >= .5f
-                        if (enabled != wireframe) {
-                            wireframe = enabled
-                            getPreferences(MODE_PRIVATE).edit()
-                                .putBoolean("wireframe", wireframe).apply()
-                            loadSelected()
-                            status()
-                        }
-                    }
-                    "fps" -> {
-                        fpsPill.visibility = if (value >= .5f) View.VISIBLE else View.GONE
-                    }
-                    "brightnessPercent" -> {
-                        brightness = (value.toDouble() / 100.0)
-                            .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
-                        val range = cameraModule.maxBrightness - cameraModule.minBrightness
-                        overlayBrightnessSlider?.progress =
-                            (((brightness - cameraModule.minBrightness) / range) * 1000.0)
-                                .toInt().coerceIn(0, 1000)
-                        updateCamera()
-                    }
-                    else -> throw IllegalArgumentException("Unsupported window binding")
-                }
-            },
-            performAction = { action -> clickAction(action) }
+        PatchWindowRenderer.show(
+            this, spec, uiAnimations[id],
+            readBinding = uiController::read,
+            writeBinding = uiController::write,
+            performAction = uiController::dispatch
         )
     }
 
-    private fun clickAction(action:String) {
-        if (action.startsWith("openWindow:")) {
-            diagnosticPopup?.dismiss()
-            GlassDialogFactory.closeCurrent()
-            openPatchWindow(action.substringAfter(':'))
-            return
-        }
-        if(action=="diagnostics") {
-            val open=diagnosticPopup?.isShowing==true
-            val mode=GlassDialogFactory.theme.windowClickModes.getValue("diagnostics")
-            if(open) {
-                if(mode!="openOnly") diagnosticPopup?.dismiss()
-            } else if(mode!="closeOnly") {
-                // A non-modal popup can dismiss on the SAME tap delivered to its toolbar icon.
-                // Do not reopen when that tap was only intended to close it.
-                val sinceDismiss=SystemClock.uptimeMillis()-diagnosticDismissedAtMs
-                if(sinceDismiss !in 0L..280L) {
-                    GlassDialogFactory.closeCurrent()
-                    showDiagnostic()
-                }
-            }
-            return
-        }
-        if(action=="openScene" || action=="menu") {
-            val mode=GlassDialogFactory.theme.windowClickModes.getValue(action)
-            if(GlassDialogFactory.isOpen(action)) {
-                if(mode!="openOnly") GlassDialogFactory.closeCurrent()
-                return
-            }
-            if(mode=="closeOnly") return
-        }
-        diagnosticPopup?.dismiss()
-        GlassDialogFactory.closeCurrent()
-        when(action) {
-            "toggleLight" -> { lightMode=!lightMode;status() }
-            "resetCamera" -> resetCameraToHome()
-            "openScene" -> openSceneMenu()
-            "menu" -> openMenu()
-            "selectModel" -> chooseObject.performClick()
-            "selectQuality" -> chooseLod.performClick()
-            "toggleGrid" -> {
-                wireframe=!wireframe
-                getPreferences(MODE_PRIVATE).edit().putBoolean("wireframe",wireframe).apply()
-                loadSelected()
-                status()
-            }
-            "toggleFps" -> {
-                fpsPill.visibility=if(fpsPill.visibility==View.VISIBLE) View.GONE else View.VISIBLE
-            }
-            else -> throw IllegalArgumentException("Unknown UI action")
-        }
-    }
+    private fun clickAction(action: String) = uiController.dispatch(action)
+
     private fun isActionActive(action:String)=when(action) {
         "toggleLight" -> lightMode
         "toggleGrid" -> wireframe
