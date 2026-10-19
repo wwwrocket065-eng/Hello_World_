@@ -59,7 +59,7 @@ object GlassDialogFactory {
             val item=control(activity,caption)
             item.setOnClickListener { dialog?.dismiss(); onChoice(index) }
             content.addView(item,LinearLayout.LayoutParams(-1,dp(activity,theme.rowHeightDp.toFloat())).apply {
-                topMargin=dp(activity,7f)
+                topMargin=dp(activity,theme.rowSpacingDp.toFloat())
             })
         }
         dialog=show(activity,content,widthFraction=widthFraction,key="menu")
@@ -99,7 +99,8 @@ object GlassDialogFactory {
         text=caption;textSize=theme.controlTextSizeSp
         gravity=Gravity.CENTER_VERTICAL
         setTextColor(theme.text)
-        setPadding(dp(activity,14f),0,dp(activity,12f),0)
+        setPadding(dp(activity,theme.controlHorizontalPaddingDp.toFloat()),0,
+            dp(activity,theme.controlHorizontalPaddingDp.toFloat()),0)
         background=background(theme.control,dp(activity,theme.controlCornerDp).toFloat(),theme.border)
         isClickable=true;isFocusable=true
     }
