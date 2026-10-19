@@ -116,3 +116,8 @@
 - Added an independent `LightGestureController` that locks the initially dominant swipe axis until finger lift; second-finger gesture resets the lock.
 - Light elevation now spans 0–180 degrees and azimuth wraps at 360 degrees. Pinch brightness uses additive 0–200% adjustment so 0% can be increased again. Camera gestures are kept separate.
 - Regression checks updated for input arbiter. **Passive indicator rendering and replacing the contextual slider remain to do.** No release APK or live signed patch published at this stage.
+
+## 2026-10-19 — Lighting settings menu requirement (not yet implemented)
+- Replace the hamburger/list toolbar icon with a gear icon labeled «Настройки».
+- Settings menu should contain only style, color, and animation choices for the three lighting indicators; remove model, camera reset, and diagnostics from that menu. Diagnostics stays available through its own top chip and Scene through its own top button.
+- Keep selection and visual options patch-compatible in the common UI and settings architecture; do not claim the gear or indicator styles are already implemented.
