@@ -430,26 +430,53 @@ class MainActivity : Activity() {
     }
 
     private fun openCustomSkyColor() {
-        val sliders=LinearLayout(this).apply {
+        val panel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
-            setPadding(d(20f),d(12f),d(20f),d(12f))
+            setPadding(d(18f),d(16f),d(18f),d(18f))
+            background=roundedFill(Color.rgb(17,35,49),20f,currentTopOutlineColor)
         }
-        val initial=intArrayOf(Color.red(customSkyColor),Color.green(customSkyColor),Color.blue(customSkyColor))
-        val bars=Array(3) { channel ->
-            android.widget.SeekBar(this).apply {
-                max=255;progress=initial[channel]
-                sliders.addView(TextView(this@MainActivity).apply {
-                    text=arrayOf("Красный","Зелёный","Синий")[channel]
-                })
-                sliders.addView(this)
+        panel.addView(TextView(this).apply {
+            text="ЦВЕТ SKYBOX";textSize=17f;setTextColor(currentTopIconColor)
+        })
+        val original=intArrayOf(Color.red(customSkyColor),Color.green(customSkyColor),
+            Color.blue(customSkyColor))
+        val bars=Array(3) { index ->
+            val bar=android.widget.SeekBar(this).apply {
+                max=255;progress=original[index]
+                progressTintList=ColorStateList.valueOf(currentTopIconColor)
+                thumbTintList=ColorStateList.valueOf(currentTopIconColor)
             }
+            panel.addView(TextView(this).apply {
+                text=arrayOf("Красный","Зелёный","Синий")[index]
+                textSize=13f;setTextColor(Color.rgb(216,229,234))
+                setPadding(0,d(13f),0,0)
+            })
+            panel.addView(bar)
+            bar
         }
-        AlertDialog.Builder(this).setTitle("Цвет Skybox (RGB)")
-            .setView(sliders)
-            .setPositiveButton("Применить") { _,_->
-                customSkyColor=Color.rgb(bars[0].progress,bars[1].progress,bars[2].progress)
-                skyMode="custom";saveSceneChoices();applySceneSkybox()
-            }.setNegativeButton("Отмена",null).show()
+        val actions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        var dialog:AlertDialog?=null
+        fun action(title:String,commit:Boolean) {
+            actions.addView(TextView(this).apply {
+                text=title;textSize=14f;gravity=Gravity.CENTER
+                setTextColor(currentTopIconColor)
+                background=roundedFill(Color.rgb(23,48,64),11f,currentTopOutlineColor)
+                setOnClickListener {
+                    dialog?.dismiss()
+                    if(commit) {
+                        customSkyColor=Color.rgb(bars[0].progress,bars[1].progress,bars[2].progress)
+                        skyMode="custom";saveSceneChoices();applySceneSkybox()
+                    }
+                    openSceneMenu()
+                }
+            },LinearLayout.LayoutParams(0,d(42f),1f).apply {
+                setMargins(d(3f),d(16f),d(3f),0)
+            })
+        }
+        action("Отмена",false)
+        action("Применить",true)
+        panel.addView(actions)
+        dialog=GlassDialogFactory.show(this,panel)
     }
 
     private fun openMenu() {
