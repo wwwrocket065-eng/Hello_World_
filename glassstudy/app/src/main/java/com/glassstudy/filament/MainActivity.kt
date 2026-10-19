@@ -336,11 +336,17 @@ class MainActivity : Activity() {
 
     private fun applySceneFloor() {
         if (!::viewer.isInitialized) return
-        viewer.setFloorGlb(when(floorMode) {
-            "checker" -> SceneFloorGlb.create(true)
-            "white" -> SceneFloorGlb.create(false)
-            else -> null
-        })
+        try {
+            viewer.setFloorGlb(when(floorMode) {
+                "checker" -> SceneFloorGlb.create(true)
+                "white" -> SceneFloorGlb.create(false)
+                else -> null
+            })
+        } catch (e: Exception) {
+            android.util.Log.e("GlassStudy", "Floor GLB rejected; keeping the main model running",e)
+            floorMode="none"
+            try { viewer.setFloorGlb(null) } catch (_:Exception) {}
+        }
     }
 
     private fun saveSceneChoices() {
