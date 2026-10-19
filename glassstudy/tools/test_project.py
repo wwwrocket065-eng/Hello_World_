@@ -250,5 +250,7 @@ assert 'number("floorWidth"' in scene_module and 'number("whiteLevel"' in scene_
 assert 'SceneFloorGlb.create(true, sceneModule.floorWidth, sceneModule.tileWidth' in activity
 assert 'SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidth' in activity
 assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' in activity
+assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updater
+assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
 assert 'panel.addView(text("СЦЕНА"' in activity
 assert 'choice("Белая платформа"' in activity and 'heading("SKYBOX")' in activity
