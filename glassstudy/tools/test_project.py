@@ -393,7 +393,9 @@ assert 'brightness+(span-oldPinch)/density/160.0' in activity
 assert any(b['action']=='menu' and b['icon']=='gear' for b in json.loads((root/'app/src/main/assets/ui/layout.json').read_text())['uiButtons'])
 assert 'button.copy(icon = "gear", label = "")' in (root/'app/src/main/java/com/glassstudy/filament/PatchUiBundle.kt').read_text()
 assert 'val legacy=setOf("model","camera","diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
-assert 'LightingIndicatorStyles.save(this,options[index].id)' in activity
+assert 'LightIndicatorSettingsPanel(this)' in activity
+assert 'LightingIndicatorStyles.save(activity,mode,variants[index].id)' in (root/'app/src/main/java/com/glassstudy/filament/LightIndicatorSettingsPanel.kt').read_text()
+assert 'LightingIndicatorStyles.saveColor(activity,mode,' in (root/'app/src/main/java/com/glassstudy/filament/LightIndicatorSettingsPanel.kt').read_text()
 
 # Modular renderer owns actual state/interaction wiring; MainActivity remains host.
 assert 'fun updateHighlights()' in toolbar

@@ -460,11 +460,9 @@ class MainActivity : Activity() {
             listOf("Стиль индикаторов освещения")) { showLightingIndicatorStyles() }
     }
     private fun showLightingIndicatorStyles() {
-        val options=LightingIndicatorStyles.options
-        GlassDialogFactory.menu(this,"Стиль индикаторов освещения",
-            options.map { it.title + if(LightingIndicatorStyles.selected(this)==it.id) " ✓" else "" }) { index ->
-            LightingIndicatorStyles.save(this,options[index].id)
-        }
+        LightIndicatorSettingsPanel(this) {
+            updateContextualOverlay()
+        }.show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -910,8 +908,9 @@ class MainActivity : Activity() {
     }
     private fun showLightIndicator(mode:LightIndicatorView.Mode,number:Float) {
         if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")return
-        lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this),
-            overlayModule.indicatorColor(mode),overlayModule.guideColor)
+        lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this,mode),
+            LightingIndicatorStyles.color(this,mode,overlayModule.indicatorColor(mode)),
+            overlayModule.guideColor)
     }
     private fun touch(e: MotionEvent): Boolean {
         when (e.actionMasked) {

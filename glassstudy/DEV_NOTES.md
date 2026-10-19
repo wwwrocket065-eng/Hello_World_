@@ -134,3 +134,8 @@
 - LightIndicatorView now displays real Filament lighting controls using the same shared animation renderer: brightness rail with moving rotating hollow 8-ray sun and percent, elevation arc, azimuth compass with degrees and shadow. HUD consumes no touch; it fades after release. Legacy on-screen brightness SeekBar removed.
 - Settings-only gear has classic/minimal/technical user-saved presets; selection now visibly affects the HUD renderer.
 - Source version 0.2.32. Not yet approved for release: CI build, actual original-certificate APK signing, Android 16 smoke test and separately signed patch compatibility remain necessary. Do not publish old live feed 20028 differently yet.
+
+## 2026-10-19 — Per-indicator style/RGB preferences
+- One gear menu item opens the themed lighting indicator settings panel. Each of azimuth, elevation and brightness has its own saved classic/minimal/technical style and an RGB picker; resetting returns to signed module color defaults. Legacy global selection remains a compatibility fallback.
+- LightingIndicatorStyles only persists validated user preferences; LightIndicatorView remains a passive renderer. Color defaults can be changed through signed overlay module, and user overrides continue to take priority.
+- This is source-only work until Android build and original-certificate device smoke test pass.
