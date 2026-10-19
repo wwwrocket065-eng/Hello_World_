@@ -304,8 +304,11 @@ class MainActivity : Activity() {
         val top=ui.buttons.filter{it.slot=="top"}
         val bottom=ui.buttons.filter{it.slot=="bottom"}
         val totalDp=resources.displayMetrics.widthPixels/resources.displayMetrics.density
+        val windowDp=totalDp.toInt()
         val upperBound=(if(top.isEmpty())46f else ((totalDp-186f)/top.size)-4f)
-        val size=ui.topButtonSizeDp.toFloat().coerceAtMost(upperBound).coerceAtLeast(28f)
+        // Available space wins over scaling: header must never extend off-screen.
+        val size=ui.adaptive.touchSizeDp(ui.topButtonSizeDp,windowDp).toFloat()
+            .coerceAtMost(upperBound.coerceAtLeast(28f))
         for(spec in top) {
             val v=createUiButton(spec,ui)
             val p=LinearLayout.LayoutParams(d(size),d(size))
@@ -317,7 +320,7 @@ class MainActivity : Activity() {
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
             for((index,spec) in group.withIndex()) {
                 val v=createUiButton(spec,ui)
-                val p=LinearLayout.LayoutParams(0,d(spec.heightDp.toFloat()),1f)
+                val p=LinearLayout.LayoutParams(0,d(ui.adaptive.touchSizeDp(spec.heightDp,windowDp).toFloat()),1f)
                 if(index>0)p.leftMargin=d(8f)
                 row.addView(v,p)
                 activeButtons[spec.id]=v
