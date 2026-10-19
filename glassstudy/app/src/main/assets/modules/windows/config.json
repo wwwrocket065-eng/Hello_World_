@@ -31,5 +31,6 @@
     "patchRejected": "Патч отклонён",
     "patchError": "Патч не установлен",
     "modelError": "Ошибка загрузки модели"
-  }
+  },
+  "diagnosticsClickMode": "toggle"
 }
