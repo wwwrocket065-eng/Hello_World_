@@ -301,7 +301,14 @@ class PatchManager(private val context: Context) {
                     catch (_: java.io.FileNotFoundException) { false }
                 require(staged.isFile || bundled) { "Missing material variant: $path" }
             }
-            require(staging.walkTopDown().filter { it.isFile }.sumOf { it.length() } <= MAX_PATCH_BYTES) { "Installed assets exceed limit" }
+            // An incremental patch can be small while accumulated carried assets
+            // exceed the safe entry count. Enforce limits on the final snapshot.
+            val installedFiles = staging.walkTopDown().filter { it.isFile }.toList()
+            require(installedFiles.size <= MAX_ENTRIES) { "Installed asset count exceeds limit" }
+            require(installedFiles.sumOf { it.length() } <= MAX_PATCH_BYTES) { "Installed assets exceed limit" }
+            val stagedUi = File(staging, UI_PATH)
+            if (stagedUi.isFile) UiLayout.parse(stagedUi.readBytes())
+            // Validate a carried-forward UI, not just UI files in this new delta.
             return Candidate(version,staging,records.map { it.first }.toSet())
         } catch (e:Exception) { staging.deleteRecursively(); throw e }
     }
