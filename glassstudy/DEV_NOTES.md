@@ -91,3 +91,14 @@
 - OverlayModuleConfig accepts signed optional #RRGGBB settings backgroundColor, borderColor, textColor, progressColor, thumbColor; omitted values inherit unified GlassDialogFactory theme.
 - Updated light-mode brightness SeekBar and label to consume the independent colors.
 - Regression coverage verifies config keys and consumer bindings; Android CI run 39202725868.
+
+## 2026-10-19 — CRITICAL: rejected 0.2.30 APK; fixed signing with official Android tool
+
+- On Xiaomi Android 16, both original 0.2.30 APK and "FIXED" APK failed with "invalid package (e.g. corrupted)".
+- Source CI #303 succeeded and ZIP CRC checked, but those are NOT APK signature verification.
+- The home-grown `/mnt/data/.glass_sign_work/signapk.py` produced MALFORMED APK v2 signer records. Its corresponding home-grown verify.py incorrectly said PASS. Enlarging APK signing-block padding did NOT help.
+- Downloaded `apksigner.jar` from Android build-tools on the CI runner (workflow `.github/workflows/glassstudy-build.yml` now exports Android verification tools). Official `apksigner verify --verbose --print-certs` rejects both original 0.2.30 APKs with `Malformed APK Signature Scheme v2 signature record #1` / `Malformed signer block` while confirming 0.2.28 and 0.2.29 verify successfully.
+- **Permanent policy:** never release APK based on own signature-verifier; sign APKs using official Android build-tools `apksigner`, verify with that same official tool, compare certificate fingerprint with old installed release (SHA256 `35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc`), check ZIP integrity and native library alignment. Private key remains local, never uploaded to GitHub.
+- The source PEM private key must be converted to PKCS#8 DER for official `apksigner --key`: `openssl pkcs8 -topk8 -nocrypt -in apk_key.pem -outform DER -out apk_key.pk8`. `apksigner sign --key apk_key.pk8 --cert apk_cert.der --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled false --out signed.apk unsigned.apk`. Then `apksigner verify --verbose --print-certs signed.apk`.
+- Repaired release: `GlassStudy_3D_LAB_v0.2.30_VERIFIED_ORIGINAL_KEY.apk`, source CI #303, SHA256 `92ff5e9eba043bcd77746b9bdedeab8bc1307da14aec7564fc58538a30b564e0`, 11,439,731 bytes. Official apksigner: `Verifies`; v2: true, one signer; cert matches prior 0.2.29. ZIP CRC good and all 3 native libraries 4096-aligned.
+- Device install of this repaired release still needs user confirmation; preserve installed previous APK until confirmed. Never publish private signing keys or even PKCS8 intermediate.
