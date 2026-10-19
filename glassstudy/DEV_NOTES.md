@@ -151,3 +151,9 @@
 - Extracted themed single-title/copy, non-modal outside-click-safe PopupWindow into DiagnosticsPopupController; preserves copy-without-dismissal, two controls in header, scrollable Russian report and exact last-dismiss timestamp used by UiInteractionController toggle debounce.
 - MainActivity passes live state, redirects user actions to independent popup controller, retains shared action registry and existing signed WindowStyleConfig ordering. GlassDialogFactory exposes one shared themed surface helper rather than a second window renderer. No new permissions or arbitrary patch execution.
 - Version 0.2.34/20034; added static regression coverage, CI build & on-device Android 16 checks required. Existing live signed patch feed 20028 untouched. Original APK certificate needed for any installable release.
+
+## 2026-10-19 — v0.2.35 camera/light render separation
+- Introduced CameraLightController as the single owner of orbit, gestures, light direction/intensity and Filament projection, with passive indicator event callbacks. Existing LightGestureController axis lock and 0–200% additive pinch preserved, including recovery from exactly 0%.
+- Introduced RenderEnvironmentController for actual Filament exposure, FXAA, optional studio KTX indirect light and ambient occlusion; driven by signed validated RenderModuleConfig. Skybox/floor remain owned by SceneEnvironmentController.
+- MainActivity now delegates SurfaceView touch events, obtains typed camera/light snapshot for diagnostics and applies validated CameraModuleConfig/RenderModuleConfig. No native code added through .pupdate. Source version 0.2.35/20035, live feed 20028 unchanged.
+- CI compile and real Android 16 touch/device tests are mandatory before a signed release using the ORIGINAL certificate.

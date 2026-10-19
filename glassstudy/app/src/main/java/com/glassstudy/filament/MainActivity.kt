@@ -109,19 +109,17 @@ class MainActivity : Activity() {
             }
 
             override fun readState(binding: String): Float = when (binding) {
-                "lightMode" -> if (lightMode) 1f else 0f
+                "lightMode" -> if (cameraLight.lightMode) 1f else 0f
                 "grid" -> if (wireframe) 1f else 0f
                 "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
-                "brightnessPercent" -> (brightness * 100.0).toFloat()
+                "brightnessPercent" -> (cameraLight.brightness * 100.0).toFloat()
                 else -> throw IllegalArgumentException("Unsupported binding: $binding")
             }
 
             override fun writeState(binding: String, value: Float) {
                 when (binding) {
                     "lightMode" -> {
-                        lightMode = value >= .5f
-                        lightGesture.reset()
-                        if(!lightMode)lightIndicator?.hide()
+                        cameraLight.setLightMode(value>=.5f)
                         status()
                     }
                     "grid" -> {
@@ -138,11 +136,7 @@ class MainActivity : Activity() {
                         fpsPill.visibility = if (value >= .5f) View.VISIBLE else View.GONE
                         updateButtonHighlights()
                     }
-                    "brightnessPercent" -> {
-                        brightness = (value.toDouble() / 100.0)
-                            .coerceIn(0.0, 2.0)
-                        updateCamera()
-                    }
+                    "brightnessPercent" -> cameraLight.setBrightnessPercent(value)
                     else -> throw IllegalArgumentException("Unsupported binding: $binding")
                 }
             }
@@ -160,15 +154,12 @@ class MainActivity : Activity() {
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
-    private var cameraModule = CameraModuleConfig()
-    private var renderModule = RenderModuleConfig()
+    private lateinit var cameraLight:CameraLightController
+    private lateinit var renderEnvironment:RenderEnvironmentController
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private var materialModule = MaterialModuleConfig()
     private lateinit var sceneEnvironment:SceneEnvironmentController
     private lateinit var sceneSettings:SceneSettingsPanel
-    private var zoomPower = .50
-    // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
-    private var invertHorizontal = true
     private var diagnosticLabels: Map<String,String> = emptyMap()
     private var diagnosticSections: List<String> =
         listOf("updates","performance","memory","scene","renderer","camera","device")
@@ -177,20 +168,8 @@ class MainActivity : Activity() {
     private lateinit var chooseLod: Spinner
     private var currentId = "tumbler"
     private var currentLod = "medium"
-    private var lightMode = false
     private var overlayModule=OverlayModuleConfig()
     private var lightIndicator:LightIndicatorView?=null
-    // Stable orbit defaults and elevation bounds adapted from GlassStudy v0.1.22.
-    private var yaw = .56
-    private var pitch = .34
-    private var distance = 5.5
-    private var lightAz = 1.3
-    private var lightElevation = .9
-    private var brightness = 1.0
-    private var oldX = 0f
-    private var oldY = 0f
-    private var oldPinch = 0f
-    private val lightGesture = LightGestureController()
     private var running = false
     private var stableFrames = 0
     private var localPatchBusy = false
@@ -199,7 +178,7 @@ class MainActivity : Activity() {
             if (!running) return
             Choreographer.getInstance().postFrameCallback(this)
             val submitStartNs=SystemClock.elapsedRealtimeNanos()
-            updateCamera()
+            cameraLight.applyToFilament()
             val framesBefore = viewer.renderedFrames
             viewer.render(frameTimeNanos)
             val frameWasRendered = viewer.renderedFrames > framesBefore
@@ -319,21 +298,12 @@ class MainActivity : Activity() {
         sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE))
         sceneSettings=SceneSettingsPanel(this,sceneEnvironment)
         sceneEnvironment.applySkybox()
-        // Filament uses glTF PBR. Proper specular IBL appears when cmgen-produced studio_ibl.ktx is packaged.
-        try {
-            val bytes = assets.open("envs/studio_ibl.ktx").use { it.readBytes() }
-            val buf = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
-            buf.put(bytes).flip()
-            viewer.scene.indirectLight = KTX1Loader.createIndirectLight(viewer.engine, buf).also { it.intensity = 30_000f }
-        } catch (_: java.io.FileNotFoundException) {
-            // Development fallback: built-in directional light from ModelViewer, no fabricated HDR lighting.
-        } catch (e: Exception) {
-            android.util.Log.w("GlassStudy", "Optional IBL could not load", e)
-        }
-        applyRenderModule()
-        viewer.view.ambientOcclusionOptions = viewer.view.ambientOcclusionOptions.apply { enabled = true }
-        // Scene and view resize are owned by ModelViewer, gestures by this Activity.
-        surface.setOnTouchListener { _, ev -> touch(ev) }
+        renderEnvironment=RenderEnvironmentController(this,viewer)
+        renderEnvironment.initialize()
+        cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
+            {mode,value -> showLightIndicator(mode,value)},
+            {lightIndicator?.hide()})
+        surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
 
         // Floating header, modeled on GlassStudy 3D LAB v0.1.22.
         topPanel = LinearLayout(this).apply {
@@ -444,7 +414,7 @@ class MainActivity : Activity() {
             object:UiToolbarController.Host {
                 override fun dispatch(action:String) { uiController.dispatch(action) }
                 override fun isActive(action:String):Boolean=when(action) {
-                    "toggleLight" -> lightMode
+                    "toggleLight" -> cameraLight.lightMode
                     "toggleGrid" -> wireframe
                     "diagnostics" -> diagnosticsPopup.isShowing
                     else -> false
@@ -600,16 +570,6 @@ class MainActivity : Activity() {
         mainRoot.requestApplyInsets()
     }
 
-    private fun applyRenderModule() {
-        if (!::viewer.isInitialized) return
-        viewer.camera.setExposure(renderModule.exposureAperture, renderModule.exposureShutter,
-            renderModule.exposureSensitivity)
-        viewer.view.antiAliasing = if (renderModule.fxaa)
-            com.google.android.filament.View.AntiAliasing.FXAA
-            else com.google.android.filament.View.AntiAliasing.NONE
-        viewer.scene.indirectLight?.intensity = renderModule.iblIntensity
-    }
-
     /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
@@ -618,17 +578,14 @@ class MainActivity : Activity() {
             // Parsing every module completed before any live state is replaced.
             patchWindows = ui.windows
             uiAnimations = ui.animations
-            cameraModule = bundle.camera
-            renderModule = bundle.render
+            cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)
+            renderEnvironment.apply(bundle.render)
             diagnosticsModule = bundle.diagnostics
             materialModule = bundle.materials
             sceneEnvironment.applyConfiguration(bundle.scene)
             GlassDialogFactory.applyTheme(bundle.windows)
             overlayModule = bundle.overlay
             updateContextualOverlay()
-            applyRenderModule()
-            zoomPower=ui.zoomPower
-            invertHorizontal=ui.invertHorizontal
             currentSelectorColor=ui.selectorTextColor
             currentTopOutlineColor=ui.topButtonOutlineColor
             currentTopIconColor=ui.buttonTextColor
@@ -703,122 +660,19 @@ class MainActivity : Activity() {
         return ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).apply { put(bytes); flip() }
     }
     private fun resetCameraToHome() {
-        yaw = .56
-        pitch = .34
-        distance = 5.5
-        lightMode = false
-        lightGesture.reset()
+        cameraLight.resetHome()
         status()
-        if (::viewer.isInitialized) updateCamera()
     }
 
-    private fun updateCamera() {
-        val cy = cos(pitch)
-        val x = distance * cy * sin(yaw)
-        val z = distance * cy * cos(yaw)
-        // Target the center of the glass at y=1, as in GlassStudy v0.1.22.
-        val y = 1.0 + distance * sin(pitch)
-        viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
-        val aspect = max(.2, surface.width.toDouble() / max(1, surface.height))
-        viewer.camera.setProjection(cameraModule.fieldOfView, aspect, cameraModule.nearClip, cameraModule.farClip, Camera.Fov.VERTICAL)
-        val dx = cos(lightElevation) * sin(lightAz)
-        val dy = sin(lightElevation)
-        val dz = cos(lightElevation) * cos(lightAz)
-        val mgr = viewer.engine.lightManager
-        val inst = mgr.getInstance(viewer.light)
-        mgr.setDirection(inst, (-dx).toFloat(),(-dy).toFloat(),(-dz).toFloat())
-        mgr.setIntensity(inst,(cameraModule.lightIntensity * brightness).toFloat())
-    }
     private fun showLightIndicator(mode:LightIndicatorView.Mode,number:Float) {
-        if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")return
+        if(!cameraLight.lightMode || !overlayModule.enabled || overlayModule.showWith=="never")return
         lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this,mode),
             LightingIndicatorStyles.color(this,mode,overlayModule.indicatorColor(mode)),
             overlayModule.guideColor)
     }
-    private fun touch(e: MotionEvent): Boolean {
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                lightGesture.reset()
-                oldX=e.getX(0); oldY=e.getY(0)
-                oldPinch=if (e.pointerCount>=2) pinch(e) else 0f
-                if(lightMode && e.pointerCount>=2)
-                    showLightIndicator(LightIndicatorView.Mode.BRIGHTNESS,(brightness*100).toFloat())
-                return true
-            }
-            MotionEvent.ACTION_POINTER_UP -> {
-                // The surviving finger begins a fresh axis decision.
-                lightGesture.reset()
-                lightIndicator?.hide()
-                val remaining=if (e.actionIndex==0 && e.pointerCount>1) 1 else 0
-                oldX=e.getX(remaining); oldY=e.getY(remaining)
-                oldPinch=0f
-                return true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                lightGesture.reset()
-                lightIndicator?.hide()
-                oldPinch=0f
-                return true
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val density=resources.displayMetrics.density.coerceAtLeast(.1f)
-                if (e.pointerCount>=2) {
-                    lightGesture.reset()
-                    val span=pinch(e)
-                    if(oldPinch>0f && span>1f) {
-                        if(lightMode) {
-                            // Additive pinch can brighten again even from 0%.
-                            val next=(brightness+(span-oldPinch)/density/160.0).coerceIn(0.0,2.0)
-                            uiController.write("brightnessPercent",(next*100.0).toFloat())
-                            showLightIndicator(LightIndicatorView.Mode.BRIGHTNESS,(brightness*100).toFloat())
-                        } else {
-                            distance=(distance*(oldPinch/span).toDouble().pow(zoomPower))
-                                .coerceIn(cameraModule.minDistance,cameraModule.maxDistance)
-                        }
-                    }
-                    oldPinch=span
-                } else {
-                    // Gesture sensitivity is defined per dp, not physical pixels.
-                    val dx=(e.x-oldX).toDouble()/density
-                    val dy=(e.y-oldY).toDouble()/density
-                    if(lightMode) {
-                        val motion=lightGesture.move(dx,dy)
-                        if(motion!=null) when(motion.axis) {
-                            LightGestureController.Axis.AZIMUTH -> {
-                                val turn=2.0*Math.PI
-                                lightAz=(lightAz+motion.deltaDp*cameraModule.lightYawSensitivity)%turn
-                                if(lightAz<0.0) lightAz+=turn
-                                showLightIndicator(LightIndicatorView.Mode.AZIMUTH,
-                                    Math.toDegrees(lightAz).toFloat())
-                            }
-                            LightGestureController.Axis.ELEVATION -> {
-                                // 180-degree vertical arc: from 0 to 180 degrees.
-                                lightElevation=(lightElevation+
-                                    motion.deltaDp*cameraModule.lightPitchSensitivity)
-                                    .coerceIn(0.0,Math.PI)
-                                showLightIndicator(LightIndicatorView.Mode.ELEVATION,
-                                    Math.toDegrees(lightElevation).toFloat())
-                            }
-                        }
-                    } else {
-                        yaw+=dx*(if(invertHorizontal)-cameraModule.yawSensitivity else cameraModule.yawSensitivity)
-                        pitch=(pitch+dy*cameraModule.pitchSensitivity).coerceIn(-.05,1.23)
-                    }
-                }
-                oldX=e.getX(0);oldY=e.getY(0)
-                return true
-            }
-        }
-        return true
-    }
-    private fun pinch(e: MotionEvent): Float {
-        val a=e.getX(0)-e.getX(1)
-        val b=e.getY(0)-e.getY(1)
-        return sqrt(a*a+b*b)
-    }
     private fun status() {
         if (::label.isInitialized) {
-            val source = if (lightMode) "СВЕТ: палец — направление, два — яркость" else "КАМЕРА: палец — вращение, два — масштаб"
+            val source = if (cameraLight.lightMode) "СВЕТ: палец — направление, два — яркость" else "КАМЕРА: палец — вращение, два — масштаб"
             label.text=source
             updateButtonHighlights()
             updateContextualOverlay()
@@ -830,7 +684,7 @@ class MainActivity : Activity() {
             val px=d(overlayModule.indicatorSizeDp.toFloat())
             val size=hud.layoutParams as FrameLayout.LayoutParams
             size.width=px;size.height=px;hud.layoutParams=size
-            if(!lightMode || !overlayModule.enabled || overlayModule.showWith=="never")
+            if(!cameraLight.lightMode || !overlayModule.enabled || overlayModule.showWith=="never")
                 hud.hide()
         }
     }
@@ -840,8 +694,8 @@ class MainActivity : Activity() {
             diagnosticLabels=diagnosticLabels,
             diagnosticSections=diagnosticSections,
             diagnosticsModule=diagnosticsModule,
-            renderModule=renderModule,
-            cameraModule=cameraModule,
+            renderModule=renderEnvironment.configuration,
+            cameraModule=cameraLight.config,
             modelId=currentId,
             modelName=names[ids.indexOf(currentId).coerceAtLeast(0)],
             modelLod=currentLod,
@@ -850,12 +704,12 @@ class MainActivity : Activity() {
             surfaceWidth=surface.width,
             surfaceHeight=surface.height,
             pixelDensity=resources.displayMetrics.density.toDouble(),
-            distance=distance,
-            yaw=yaw,
-            pitch=pitch,
-            lightAz=lightAz,
-            lightElevation=lightElevation,
-            brightness=brightness
+            distance=cameraLight.distance,
+            yaw=cameraLight.yaw,
+            pitch=cameraLight.pitch,
+            lightAz=cameraLight.lightAz,
+            lightElevation=cameraLight.lightElevation,
+            brightness=cameraLight.brightness
         ))
         diagnosticsPopup.show(report,DiagnosticsPopupStyle(
             fill=currentUiColor,border=currentTopOutlineColor,
@@ -876,7 +730,14 @@ class MainActivity : Activity() {
         if(diagnosticsPopup.isShowing) diagnosticsPopup.dismiss()
         else super.onBackPressed()
     }
-    override fun onPause() { lightIndicator?.hide();diagnosticsPopup.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
+    override fun onPause() {
+        cameraLight.resetGesture()
+        diagnosticsPopup.dismiss()
+        running=false
+        profiler.resetAfterPause()
+        Choreographer.getInstance().removeFrameCallback(frameCallback)
+        super.onPause()
+    }
     override fun onDestroy() {
         running=false
         Choreographer.getInstance().removeFrameCallback(frameCallback)

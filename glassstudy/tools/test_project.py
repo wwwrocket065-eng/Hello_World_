@@ -5,12 +5,14 @@ from pathlib import Path
 from xml.etree import ElementTree
 root=Path(__file__).resolve().parents[1]
 activity=(root/'app/src/main/java/com/glassstudy/filament/MainActivity.kt').read_text()
+camera_light=(root/'app/src/main/java/com/glassstudy/filament/CameraLightController.kt').read_text()
+render_env=(root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
 updater=(root/'app/src/main/java/com/glassstudy/filament/PatchManager.kt').read_text()
 build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.34' in props and 'GLASSSTUDY_VERSION_CODE=20034' in props
+assert 'GLASSSTUDY_VERSION=0.2.35' in props and 'GLASSSTUDY_VERSION_CODE=20035' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -138,7 +140,7 @@ assert layout['topButtonSizeDp']==35
 assert all(b['textColor']=="#A3D0D3" for b in layout['uiButtons'])
 assert layout['invertHorizontal'] is True
 assert 'invertHorizontal=ui.invertHorizontal' in activity
-assert 'yaw+=dx*(if(invertHorizontal)-cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
+assert 'yaw+=dx*(if(invertHorizontal)-config.yawSensitivity else config.yawSensitivity)' in camera_light
 assert 'val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert len(layout['diagnostics'])>=50
 assert layout['diagnosticSections']==['updates','performance','memory','scene','renderer','camera','device']
@@ -161,18 +163,18 @@ assert layout['diagnostics']['installedPatch']=='Установленный па
 assert layout['diagnostics']['pathTracingValue']=='В этой бета-версии не реализована'
 assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
 assert set(layout['bottomOrder'])=={'export','diagnostics'}
-assert 'private var distance = 5.5' in activity
-assert 'private var pitch = .34' in activity
+assert 'var distance=5.5' in camera_light
+assert 'var pitch=.34' in camera_light
 assert 'if(spec.action=="toggleLight")target.setOnLongClickListener' in toolbar
 assert 'host.onLightLongPress()' in toolbar
 assert 'resetCameraToHome()' in activity
-assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
-assert 'distance=(distance*(oldPinch/span).toDouble().pow(zoomPower))' in activity
-assert 'pitch=(pitch+dy*cameraModule.pitchSensitivity)' in activity
-assert 'yaw+=dx*(if(invertHorizontal)-cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
-assert 'LightGestureController.Axis.AZIMUTH' in activity and 'lightGesture.move(dx,dy)' in activity
-assert 'LightGestureController.Axis.ELEVATION' in activity and '.coerceIn(0.0,Math.PI)' in activity
-assert 'e.x-oldX' in activity and 'resources.displayMetrics.density' in activity
+assert 'viewer.camera.lookAt(x,y,z,0.0,1.0,0.0' in camera_light
+assert 'distance=(distance*(oldPinch/span).toDouble().pow(zoomPower))' in camera_light
+assert 'pitch=(pitch+dy*config.pitchSensitivity)' in camera_light
+assert 'yaw+=dx*(if(invertHorizontal)-config.yawSensitivity else config.yawSensitivity)' in camera_light
+assert 'LightGestureController.Axis.AZIMUTH' in camera_light and 'lightGesture.move(dx,dy)' in camera_light
+assert 'LightGestureController.Axis.ELEVATION' in camera_light and '.coerceIn(0.0,Math.PI)' in camera_light
+assert 'e.x-oldX' in camera_light and 'resources.displayMetrics.density' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
@@ -400,8 +402,8 @@ gesture_code=(root/'app/src/main/java/com/glassstudy/filament/LightGestureContro
 assert 'class LightGestureController' in gesture_code
 assert 'if (lockedAxis == null)' in gesture_code
 assert 'Axis.ELEVATION else Axis.AZIMUTH' in gesture_code
-assert 'lightGesture.reset()' in activity
-assert 'brightness+(span-oldPinch)/density/160.0' in activity
+assert 'lightGesture.reset()' in camera_light
+assert 'brightness+(span-oldPinch)/dp/160.0' in camera_light
 
 # Modular toolbar and settings-only gear. Old signed menu is migrated safely.
 assert any(b['action']=='menu' and b['icon']=='gear' for b in json.loads((root/'app/src/main/assets/ui/layout.json').read_text())['uiButtons'])
@@ -432,3 +434,19 @@ assert 'isShowing:Boolean get()=popup?.isShowing==true' in popup_src
 assert 'setTouchModal(false)' in dialog_factory
 assert 'windowBackground(activity,theme.background,theme.border)' in popup_src
 assert 'diagnosticsPopup.dismissedAtMs' in activity
+
+# Camera/light/render separate ownership and signed resource boundary.
+assert 'class CameraLightController(' in camera_light
+assert 'class RenderEnvironmentController(' in render_env
+assert 'surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }' in activity
+assert 'cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)' in activity
+assert 'renderEnvironment.apply(bundle.render)' in activity
+assert 'cameraLight.applyToFilament()' in activity
+assert 'cameraLight.setBrightnessPercent(value)' in activity
+assert 'cameraLight.resetHome()' in activity
+assert 'mgr.setIntensity(instance,(config.lightIntensity*brightness).toFloat())' in camera_light
+assert 'viewer.camera.setExposure(' in render_env
+assert 'viewer.view.antiAliasing=' in render_env
+assert 'KTX1Loader.createIndirectLight(viewer.engine,buf)' in render_env
+assert 'LightGestureController()' in camera_light
+assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity

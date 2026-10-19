@@ -80,3 +80,8 @@
 ## 2026-10-19 checkpoint v0.2.34 (source)
 - DiagnosticsReportService.kt + DiagnosticsPopupController.kt replace embedded diagnostic format and popup in MainActivity. Integration is through DiagnosticsReportState and DiagnosticsPopupStyle, and existing UiInteractionController toggle modes remain authoritative.
 - Same controls and Russian labels as prior version. Before distribution: signed original-key APK and user Android 16 test; never publish new Kotlin via .pupdate to legacy APK.
+
+
+## Checkpoint 2026-10-19 v0.2.35
+- CameraLightController.kt: orbit and light gesture state, Filament camera/light projection. RenderEnvironmentController.kt: indirect studio IBL/exposure/FXAA/AO. Activity is composition root and uses their read-only properties for DiagnosticsReportState.
+- Requires CI and Android device checks and only original-certificate signing. Shared signed patch feed 20028 must not be changed for old APKs.

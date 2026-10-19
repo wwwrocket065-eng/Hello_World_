@@ -89,3 +89,7 @@ Never claim full modularity merely because the updater accepts more file types.
 - DiagnosticsReportService collects the real current patch/OS/GLB/Filament values when the report opens, renders one Russian plain-text report from an immutable DiagnosticsReportState. It owns no View or popup.
 - DiagnosticsPopupController owns only the window, style, copy button, dismissal timestamps, and visibility callback; UiInteractionController coordinates actions and reopen/toggle semantics.
 - MainActivity now only marshals a typed snapshot of current model/camera/light state. More module boundaries (camera/light/render) can be extracted without duplicating diagnostics UI.
+
+## 0.2.35 — camera/light and render ownership
+- CameraLightController owns mutable orbit, zoom, light direction/intensity and touch gesture lock; outputs to actual Filament camera/light manager. On-screen indicators only observe callbacks.
+- RenderEnvironmentController owns IBL, FXAA, exposure, AO. SceneEnvironmentController exclusively owns Skybox/floor. MainActivity composes the modules and applies validated signed configs.
