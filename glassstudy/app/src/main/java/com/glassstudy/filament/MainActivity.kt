@@ -89,6 +89,10 @@ class MainActivity : Activity() {
     private var renderModule = RenderModuleConfig()
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private var materialModule = MaterialModuleConfig()
+    private var floorMode = "checker"
+    private var skyMode = "gray"
+    private var customSkyColor = Color.rgb(110,110,110)
+    private var appliedSkybox:Skybox? = null
     private var zoomPower = .50
     // Signed .pupdate switch; enabled by default to reverse horizontal object turn.
     private var invertHorizontal = true
@@ -165,6 +169,7 @@ class MainActivity : Activity() {
         when(action) {
             "toggleLight" -> { lightMode=!lightMode;status() }
             "resetCamera" -> resetCameraToHome()
+            "openScene" -> openSceneMenu()
             "menu" -> openMenu()
             "selectModel" -> chooseObject.performClick()
             "selectQuality" -> chooseLod.performClick()
@@ -206,6 +211,7 @@ class MainActivity : Activity() {
                     "diagnostics" -> "Диагностика"
                     "toggleLight" -> "Свет / Камера"
                     "resetCamera" -> "Сброс камеры"
+                    "openScene" -> "Сцена"
                     "menu" -> "Меню"
                     else -> if(spec.label.isBlank()) spec.action else spec.label
                 }
@@ -303,6 +309,85 @@ class MainActivity : Activity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         return adapter
     }
+    private fun applySceneSkybox() {
+        if (!::viewer.isInitialized) return
+        val rgb = when (skyMode) {
+            "white" -> Color.rgb(240,240,240)
+            "dark" -> Color.rgb(27,30,35)
+            "custom" -> customSkyColor
+            else -> Color.rgb(110,110,110)
+        }
+        val next = Skybox.Builder().color(Color.red(rgb)/255f,Color.green(rgb)/255f,
+            Color.blue(rgb)/255f,1f).build(viewer.engine)
+        viewer.scene.skybox=next
+        appliedSkybox?.let { viewer.engine.destroySkybox(it) }
+        appliedSkybox=next
+    }
+
+    private fun applySceneFloor() {
+        if (!::viewer.isInitialized) return
+        viewer.setFloorGlb(when(floorMode) {
+            "checker" -> SceneFloorGlb.create(true)
+            "white" -> SceneFloorGlb.create(false)
+            else -> null
+        })
+    }
+
+    private fun saveSceneChoices() {
+        getPreferences(MODE_PRIVATE).edit().putString("floorMode",floorMode)
+            .putString("skyMode",skyMode).putInt("customSkyColor",customSkyColor).apply()
+    }
+
+    private fun openSceneMenu() {
+        AlertDialog.Builder(this).setTitle("Сцена")
+            .setItems(arrayOf("Пол", "Skybox")) { _, index ->
+                if (index == 0) openFloorChoices() else openSkyChoices()
+            }.show()
+    }
+
+    private fun openFloorChoices() {
+        val choices=arrayOf("Шахматная доска","Белая платформа","Без пола")
+        val modes=arrayOf("checker","white","none")
+        AlertDialog.Builder(this).setTitle("Пол")
+            .setSingleChoiceItems(choices,modes.indexOf(floorMode)) { dialog,index ->
+                floorMode=modes[index];saveSceneChoices();applySceneFloor();dialog.dismiss()
+            }.setNegativeButton("Назад") { _,_->openSceneMenu() }.show()
+    }
+
+    private fun openSkyChoices() {
+        val choices=arrayOf("Серый (как в Blender)","Белый","Тёмный","Свой цвет")
+        val modes=arrayOf("gray","white","dark","custom")
+        AlertDialog.Builder(this).setTitle("Skybox")
+            .setSingleChoiceItems(choices,modes.indexOf(skyMode)) { dialog,index ->
+                dialog.dismiss()
+                if (modes[index]=="custom") openCustomSkyColor()
+                else { skyMode=modes[index];saveSceneChoices();applySceneSkybox() }
+            }.setNegativeButton("Назад") { _,_->openSceneMenu() }.show()
+    }
+
+    private fun openCustomSkyColor() {
+        val sliders=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(20f),d(12f),d(20f),d(12f))
+        }
+        val initial=intArrayOf(Color.red(customSkyColor),Color.green(customSkyColor),Color.blue(customSkyColor))
+        val bars=Array(3) { channel ->
+            android.widget.SeekBar(this).apply {
+                max=255;progress=initial[channel]
+                sliders.addView(TextView(this@MainActivity).apply {
+                    text=arrayOf("Красный","Зелёный","Синий")[channel]
+                })
+                sliders.addView(this)
+            }
+        }
+        AlertDialog.Builder(this).setTitle("Цвет Skybox (RGB)")
+            .setView(sliders)
+            .setPositiveButton("Применить") { _,_->
+                customSkyColor=Color.rgb(bars[0].progress,bars[1].progress,bars[2].progress)
+                skyMode="custom";saveSceneChoices();applySceneSkybox()
+            }.setNegativeButton("Отмена",null).show()
+    }
+
     private fun openMenu() {
         diagnosticPopup?.dismiss()
         AlertDialog.Builder(this).setTitle("GlassStudy · 3D LAB")
@@ -320,6 +405,9 @@ class MainActivity : Activity() {
         updater = PatchManager(this)
         updater.reconcileAfterCrash()
         wireframe = getPreferences(MODE_PRIVATE).getBoolean("wireframe", false)
+        floorMode=getPreferences(MODE_PRIVATE).getString("floorMode","checker") ?: "checker"
+        skyMode=getPreferences(MODE_PRIVATE).getString("skyMode","gray") ?: "gray"
+        customSkyColor=getPreferences(MODE_PRIVATE).getInt("customSkyColor",Color.rgb(110,110,110))
         window.statusBarColor = Color.rgb(101,103,103)
         window.navigationBarColor = Color.rgb(101,103,103)
         surface = SurfaceView(this)
@@ -340,7 +428,7 @@ class MainActivity : Activity() {
         }
 
         viewer = GlassStudyModelViewer(surface, manipulator = null)
-        viewer.scene.skybox = Skybox.Builder().color(.43f, .43f, .43f, 1f).build(viewer.engine)
+        applySceneSkybox()
         // Filament uses glTF PBR. Proper specular IBL appears when cmgen-produced studio_ibl.ktx is packaged.
         try {
             val bytes = assets.open("envs/studio_ibl.ktx").use { it.readBytes() }
@@ -461,6 +549,7 @@ class MainActivity : Activity() {
         chooseLod.setSelection(1)
         applyUiLayout()
         loadSelected()
+        applySceneFloor()
         // Immediately reload when a model or LOD is chosen, replacing "Применить".
         val onSelection=object: AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent:AdapterView<*>?, view:View?, position:Int, id:Long) {
