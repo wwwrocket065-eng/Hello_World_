@@ -101,3 +101,8 @@ Never claim full modularity merely because the updater accepts more file types.
 ## v0.2.37 — Single UI chrome presentation owner
 - UiChromeController receives signed, fully parsed UiLayout plus WindowStyleConfig/OverlayModuleConfig; it is the only owner of view colors, selector appearance, logo metrics, FPS/hint visibility, toolbar rendering, status indicators and Android immersive system bar flags. UiThemeEngine continues to resolve signed palette tokens, GlassDialogFactory handles popup lifecycle.
 - UiChromeViews binds existing Android View references after onCreate setup. MainActivity retains lifecycle/feature module composition and delegates UI patch projection to uiChrome.apply; it no longer contains duplicated style rules.
+
+## 0.2.38 — Patch integration state machine
+- PatchActivationCoordinator owns ordered candidate validation, model preview, UI preview, disk activation and cleanup/recovery. Host interface wires existing services; it never parses unsigned code or duplicates renderer/UI functions.
+- PatchManager retains RSA validation, staging, persistence and real-frame confirmation. No stacking onto a pending unconfirmed patch; last confirmed rollback remains safe.
+- MainActivity retains notifications and lifecycle only; user-visible status and diagnostic failure details come from PatchManager.

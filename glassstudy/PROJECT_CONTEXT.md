@@ -97,3 +97,8 @@
 - Preserve old patch feed 20028 for pre-native clients, do not distribute CI unsigned APK. Run Android CI and original-cert Android 16 device smoke tests.
 
 - Note for future refactors: the first v0.2.37 CI compile found a malformed nested Kotlin doc-comment in MainActivity; it was fixed at aad69b78. New regression preflight rejects recurrence before Kotlin compilation. Always check logs for the first syntax error; do not patch individual secondary unresolved references blindly.
+
+
+## Checkpoint 2026-10-19: source 0.2.38
+- PatchActivationCoordinator.kt performs ordered signed-patch validate/model/UI/activate and previous-version recovery via existing service host. New PatchManager.activate guard rejects simultaneous nested pending activations; failures preserve detailed phase in diagnostics updateStatus. Gradle version 0.2.38/20038.
+- Do not change published patch 20028 without secure signing & audit. Native Kotlin work still requires original-cert signed APK and real Android 16 test.

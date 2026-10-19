@@ -319,6 +319,14 @@ class PatchManager(private val context: Context) {
 
     /** Call ONLY after Filament successfully loads a model from staging. */
     fun activate(candidate: Candidate): Boolean {
+        // An unconfirmed patch must NEVER become the rollback base of another.
+        // This also handles an imported patch racing the background update.
+        val pending=prefs.getInt("pending",0)
+        if(pending!=0) {
+            updateStatus="Патч ${candidate.version} отложен: патч $pending ещё не подтверждён кадром"
+            Log.w(TAG,"Refused activation over an unconfirmed patch")
+            return false
+        }
         val current=installedPatchVersion()
         if (candidate.version <= current) {
             updateStatus="Патч ${candidate.version} не новее установленного $current"
@@ -347,6 +355,12 @@ class PatchManager(private val context: Context) {
         }
         updateStatus="Патч ${candidate.version} установлен, ожидает подтверждения отрисовкой"
         return true
+    }
+
+    /** Preserve an actionable failure phase in the existing diagnostic status. */
+    fun reportActivationFailure(version:Int,detail:String) {
+        updateStatus="Патч $version отклонён: ${detail.take(220)}"
+        Log.w(TAG,updateStatus)
     }
 
     fun reject(candidate: Candidate) {

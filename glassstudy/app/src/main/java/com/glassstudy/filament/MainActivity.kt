@@ -465,29 +465,41 @@ class MainActivity : Activity() {
         return true
     }
 
-    /** The same validated staging path is used for local and online updates. */
-    private fun applyVerifiedPatch(candidate: PatchManager.Candidate, fromDownloads: Boolean) {
-        if (isFinishing || isDestroyed) {
-            updater.reject(candidate)
+    /** A single failure-safe path for both local and online signed updates. */
+    private val patchActivation by lazy(LazyThreadSafetyMode.NONE) {
+        PatchActivationCoordinator(updater,object:PatchActivationCoordinator.Host {
+            override fun validate(candidate:PatchManager.Candidate) {
+                PatchUiBundle.read(updater,candidate)
+            }
+            override fun previewModel(candidate:PatchManager.Candidate)=loadSelected(candidate)
+            override fun previewUi(candidate:PatchManager.Candidate)=applyUiLayout(candidate)
+            override fun restoreActive():Boolean {
+                // Both restore steps run, even if one returns false or throws.
+                val ui=runCatching { applyUiLayout() }.getOrDefault(false)
+                val model=runCatching { loadSelected() }.getOrDefault(false)
+                return ui && model
+            }
+        })
+    }
+
+    private fun applyVerifiedPatch(candidate:PatchManager.Candidate,fromDownloads:Boolean) {
+        if(isFinishing || isDestroyed) {
+            patchActivation.rejectUnavailable(candidate)
             return
         }
-        if (loadSelected(candidate) && applyUiLayout(candidate) && updater.activate(candidate)) {
-            stableFrames = 0
+        val outcome=patchActivation.apply(candidate)
+        if(outcome.installed) {
+            stableFrames=0
             status()
-            val message="Патч ${candidate.version} установлен"
-            if (fromDownloads) {
-                GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("patchInstalled"),message)
-            } else {
-                Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
-            }
+            val message="Патч ${candidate.version} установлен, ожидает подтверждения кадром"
+            if(fromDownloads) {
+                GlassDialogFactory.message(this,
+                    GlassDialogFactory.theme.titles.getValue("patchInstalled"),message)
+            } else Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
         } else {
-            updater.reject(candidate)
-            applyUiLayout()
-            loadSelected()
-            if (fromDownloads) {
-                GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("patchRejected"),
-                    "Модель или настройки не прошли проверку. Рабочая версия сохранена.")
-            }
+            android.util.Log.w("GlassStudy","Patch application rejected: "+outcome.message)
+            if(fromDownloads) GlassDialogFactory.message(this,
+                GlassDialogFactory.theme.titles.getValue("patchRejected"),outcome.message)
         }
     }
 

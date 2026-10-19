@@ -13,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.37' in props and 'GLASSSTUDY_VERSION_CODE=20037' in props
+assert 'GLASSSTUDY_VERSION=0.2.38' in props and 'GLASSSTUDY_VERSION_CODE=20038' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -268,7 +268,10 @@ assert diagnostics['includeModuleStatus'] is False and diagnostics['includeRende
 assert diagnostics['includeCameraParameters'] is False
 assert materials['variants']=={} and materials['overrides']=={}
 # The failure path must keep the previous active patch and restore its UI/model.
-assert 'updater.reject(candidate)' in activity and 'applyUiLayout()' in activity and 'loadSelected()' in activity
+coordinator=(src/'PatchActivationCoordinator.kt').read_text()
+assert 'updater.reject(candidate)' in coordinator
+assert 'runCatching { applyUiLayout() }' in activity
+assert 'runCatching { loadSelected() }' in activity
 assert 'blockedAfterCrash' in updater and 'feed.patchVersion != blockedVersion' in updater
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
 print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
@@ -512,3 +515,22 @@ for required in ('private fun applyUiLayout(','private fun loadSelected(',
                  'private fun showDiagnostic('):
     assert required in activity, 'Lost lifecycle method: '+required
 assert 'uiChrome.apply(ui,bundle.windows,bundle.overlay)' in activity
+
+# Version 0.2.38: signed patch state machine & explicit recovery
+assert 'PatchActivationCoordinator(updater,object:PatchActivationCoordinator.Host' in activity
+assert 'PatchUiBundle.read(updater,candidate)' in activity
+assert 'val outcome=patchActivation.apply(candidate)' in activity
+assert 'stableFrames=0' in activity
+assert 'if(outcome.installed)' in activity
+assert 'updater.activate(candidate)' in coordinator
+assert coordinator.index('host.validate(candidate)') < coordinator.index('host.previewModel(candidate)') < coordinator.index('host.previewUi(candidate)') < coordinator.index('updater.activate(candidate)')
+assert 'updater.reject(candidate)' in coordinator
+assert 'host.restoreActive()' in coordinator
+assert 'updater.reportActivationFailure(candidate.version,message)' in coordinator
+assert 'val pending=prefs.getInt("pending",0)' in updater
+assert 'if(pending!=0)' in updater[updater.index('fun activate(candidate: Candidate)'):updater.index('fun reject(candidate: Candidate)')]
+assert updater.index('if(pending!=0)',updater.index('fun activate(candidate: Candidate)')) < updater.index('val current=installedPatchVersion()',updater.index('fun activate(candidate: Candidate)'))
+assert 'if (!prefs.edit().putInt("previous",current).putInt("active",candidate.version)' in updater
+assert 'fun reportActivationFailure(version:Int,detail:String)' in updater
+assert 'val ui=runCatching { applyUiLayout() }' in activity
+assert 'val model=runCatching { loadSelected() }' in activity
