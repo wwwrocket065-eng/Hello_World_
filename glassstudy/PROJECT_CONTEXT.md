@@ -102,3 +102,8 @@
 ## Checkpoint 2026-10-19: source 0.2.38
 - PatchActivationCoordinator.kt performs ordered signed-patch validate/model/UI/activate and previous-version recovery via existing service host. New PatchManager.activate guard rejects simultaneous nested pending activations; failures preserve detailed phase in diagnostics updateStatus. Gradle version 0.2.38/20038.
 - Do not change published patch 20028 without secure signing & audit. Native Kotlin work still requires original-cert signed APK and real Android 16 test.
+
+
+## Checkpoint 2026-10-19 — source 0.2.39
+- Added offline real RSA/SHA tests at glassstudy/tools/test_patch_integrity.py and unsigned APK/16K preflight at glassstudy/tools/test_apk_preflight.py, enforced in GitHub Actions. Added PatchManager.stage guard when pending install is unconfirmed. 0.2.39/20039 is an unsigned-source/CI milestone; live patch feed stays 20028.
+- APK original signing key not present in Library index; do not substitute a new key. Android 16 device runtime verification remains a separate necessary step.

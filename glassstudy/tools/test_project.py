@@ -13,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.38' in props and 'GLASSSTUDY_VERSION_CODE=20038' in props
+assert 'GLASSSTUDY_VERSION=0.2.39' in props and 'GLASSSTUDY_VERSION_CODE=20039' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -534,3 +534,15 @@ assert 'if (!prefs.edit().putInt("previous",current).putInt("active",candidate.v
 assert 'fun reportActivationFailure(version:Int,detail:String)' in updater
 assert 'val ui=runCatching { applyUiLayout() }' in activity
 assert 'val model=runCatching { loadSelected() }' in activity
+
+# Release-grade offline RSA test and unsigned APK identity/16 KiB alignment preflight.
+test_patch=(root/'tools/test_patch_integrity.py').read_text()
+test_apk=(root/'tools/test_apk_preflight.py').read_text()
+assert 'verify_rsa(public_der, signature, message)' in test_patch
+assert 'live_public_key()' in test_patch
+assert 'feed.get("patchSha256") == hashlib.sha256(patch_bytes).hexdigest()' in test_patch
+assert 'PASS rejected tamper:' in test_patch
+assert 'zipalign' in test_apk and '16384' in test_apk
+assert '"apksigner", "verify"' in test_apk
+assert 'GLASSSTUDY_VERSION_CODE' in test_apk
+assert 'require(prefs.getInt("pending",0)==0)' in updater

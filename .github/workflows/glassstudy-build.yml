@@ -47,11 +47,15 @@ jobs:
           PY
       - name: Verify source / camera / updater / assets
         run: python3 glassstudy/tools/test_project.py
+      - name: Verify published RSA patch and reject tampered updates
+        run: python3 glassstudy/tools/test_patch_integrity.py
       - name: Build unsigned APK for original-key signing
         working-directory: glassstudy
         run: |
           set -o pipefail
           gradle --no-daemon :app:assembleCiUnsigned --stacktrace 2>&1 | tee ../glassstudy-gradle-build.log
+      - name: Validate unsigned APK identity and 16 KiB ZIP alignment
+        run: python3 glassstudy/tools/test_apk_preflight.py
       - name: Upload build log (including failures)
         if: always()
         uses: actions/upload-artifact@v4

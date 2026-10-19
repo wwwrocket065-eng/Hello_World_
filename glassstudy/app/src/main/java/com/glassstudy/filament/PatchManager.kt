@@ -211,6 +211,11 @@ class PatchManager(private val context: Context) {
         require(j.getString("format") == FORMAT) { "Patch format mismatch" }
         val version = j.getInt("version")
         require(version > installedPatchVersion()) { "Downgrade or repeat update" }
+        // Refuse to stage another candidate over an unconfirmed install.
+        // This also prevents expensive copying and rendering of doomed previews.
+        require(prefs.getInt("pending",0)==0) {
+            "Предыдущий патч ожидает подтверждения кадром"
+        }
         val entries = j.getJSONArray("entries")
         require(entries.length() in 1..MAX_ENTRIES) { "Invalid number of entries" }
         val records = mutableListOf<Triple<String,String,String>>()

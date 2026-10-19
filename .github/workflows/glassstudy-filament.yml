@@ -32,6 +32,8 @@ jobs:
           python3 -c 'from pathlib import Path; p=Path("glassstudy/app/src/main/assets/studio_ibl.ktx"); assert p.stat().st_size>10000 and p.read_bytes().startswith(bytes.fromhex("ab4b5458203131bb0d0a1a0a")), "Invalid KTX1 IBL";print("Verified studio IBL bytes",p.stat().st_size)'
       - name: Generate shared GLB models
         run: python3 glassstudy/tools/make_models.py
+      - name: Verify published signed patch with actual RSA key and attack vectors
+        run: python3 glassstudy/tools/test_patch_integrity.py
       - name: Build native Android APK
         working-directory: glassstudy
         run: gradle --no-daemon :app:assembleDebug

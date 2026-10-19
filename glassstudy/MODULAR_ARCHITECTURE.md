@@ -106,3 +106,8 @@ Never claim full modularity merely because the updater accepts more file types.
 - PatchActivationCoordinator owns ordered candidate validation, model preview, UI preview, disk activation and cleanup/recovery. Host interface wires existing services; it never parses unsigned code or duplicates renderer/UI functions.
 - PatchManager retains RSA validation, staging, persistence and real-frame confirmation. No stacking onto a pending unconfirmed patch; last confirmed rollback remains safe.
 - MainActivity retains notifications and lifecycle only; user-visible status and diagnostic failure details come from PatchManager.
+
+## v0.2.39 — CI release acceptance gates
+- test_patch_integrity.py exercises the real published signed patch, RSA/canonical-hash integration and tamper rejection with the APK-embedded public identity, offline.
+- test_apk_preflight.py checks actual generated unsigned APK identity, version, ZIP and 16KiB JNI alignment before any private-key signing.
+- PatchManager.stage and activate independently refuse stacking unconfirmed pending installs. No changes to patch authority or original private signing keys.

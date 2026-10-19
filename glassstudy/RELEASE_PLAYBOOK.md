@@ -45,3 +45,9 @@
 - Нет возврата «Применить»/«Экспорт сцены», нет лишних Android permissions.
 - UI изменения тестировать на реальном Android: нажатие/закрытие попапа, края экрана, иконки, полноценные переключения.
 - Краткий отчёт пользователю: версия, сделано, проверено, что НЕ проверено, реальная ссылка на файл.
+
+
+## 0.2.39 mandatory CI preflight
+- Verify test_patch_integrity.py passes with the ACTUAL published .pupdate and embedded public key; all tamper variants must be rejected. If feed hash or signature fails, stop and investigate rather than changing public-key material.
+- After assembleCiUnsigned, run test_apk_preflight.py against the actual APK: original package identifier, matching versionName/versionCode, ZIP consistency, 4B resources alignment, 16KiB uncompressed JNI native alignment and expected unsigned apksigner verification failure. Do not release if any gate fails.
+- Only then sign with ORIGINAL private key and verify certificate matches the known installed GlassStudy signer. If key unavailable, keep source/CI milestone and report the signing blocker; never use a new release key.
