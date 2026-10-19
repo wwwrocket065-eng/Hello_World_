@@ -263,6 +263,7 @@ class PatchManager(private val context: Context) {
                         "modules/camera/config.json" -> CameraModuleConfig.parse(config)
                         "modules/render/config.json" -> RenderModuleConfig.parse(config)
                         "modules/scene/config.json" -> SceneModuleConfig.parse(config)
+                        "modules/windows/config.json" -> WindowStyleConfig.parse(config)
                         "modules/diagnostics/config.json" -> DiagnosticsModuleConfig.parse(config)
                         "modules/materials/config.json" -> {
                             MaterialModuleConfig.parse(config)
@@ -285,6 +286,7 @@ class PatchManager(private val context: Context) {
             CameraModuleConfig.parse(stagedModule("camera"))
             RenderModuleConfig.parse(stagedModule("render"))
             SceneModuleConfig.parse(stagedModule("scene"))
+            WindowStyleConfig.parse(stagedModule("windows"))
             DiagnosticsModuleConfig.parse(stagedModule("diagnostics"))
             val materialsJson = stagedModule("materials")
             val materials = MaterialModuleConfig.parse(materialsJson)
