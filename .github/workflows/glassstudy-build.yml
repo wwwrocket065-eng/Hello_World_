@@ -60,3 +60,16 @@ jobs:
         with:
           name: GlassStudy-CI-unsigned-SIGN-BEFORE-INSTALL
           path: glassstudy/app/build/outputs/apk/ciUnsigned/*.apk
+      - name: Export official APK validation tools (no signing keys)
+        if: success()
+        run: |
+          set -euo pipefail
+          mkdir -p glassstudy-apk-validation-tools
+          TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          test -f "$TOOLS/apksigner" || TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          cp "$TOOLS/apksigner" "$TOOLS/zipalign" "$TOOLS/lib/apksigner.jar" glassstudy-apk-validation-tools/
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: GlassStudy-official-APK-verification-tools
+          path: glassstudy-apk-validation-tools/
