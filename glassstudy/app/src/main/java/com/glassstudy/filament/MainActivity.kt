@@ -75,8 +75,7 @@ class MainActivity : Activity() {
     private lateinit var selectorRow: LinearLayout
     private lateinit var topButtonHost: LinearLayout
     private lateinit var bottomButtonHost: LinearLayout
-    private val activeButtons=linkedMapOf<String,View>()
-    private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
+    private lateinit var toolbarController:UiToolbarController
     private var patchWindows: Map<String, DeclarativeWindow> = emptyMap()
 
     /** All controls (toolbar, windows, overlays) go through one typed action API. */
@@ -252,115 +251,8 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun clickAction(action: String) = uiController.dispatch(action)
-
-    private fun isActionActive(action:String)=when(action) {
-        "toggleLight" -> lightMode
-        "toggleGrid" -> wireframe
-        "diagnostics" -> diagnosticPopup?.isShowing == true
-        else -> false
-    }
     private fun updateButtonHighlights() {
-        activeButtonSpecs.forEach { spec ->
-            activeButtons[spec.id]?.let {
-                skin(it,spec.highlight || isActionActive(spec.action),
-                    spec.fill?:currentUiColor,
-                    spec.outline ?: if(spec.slot=="top") currentTopOutlineColor else null)
-            }
-        }
-    }
-    private fun createUiButton(spec:UiButtonSpec,ui:UiLayout):View {
-        val ink=spec.textColor?:ui.buttonTextColor
-        val target=if(spec.slot=="top") {
-            LabIconView(this,spec.icon).apply {
-                iconColor=ink
-                glyphScale=ui.topIconScale
-                chipCenterFilled=ui.fillChipCenter
-                contentDescription=when(spec.action) {
-                    "diagnostics" -> "Диагностика"
-                    "toggleLight" -> "Свет / Камера"
-                    "resetCamera" -> "Сброс камеры"
-                    "openScene" -> "Сцена"
-                    "menu" -> "Меню"
-                    else -> if(spec.label.isBlank()) spec.action else spec.label
-                }
-            }
-        } else {
-            LinearLayout(this).apply {
-                orientation=LinearLayout.HORIZONTAL
-                gravity=Gravity.CENTER
-                val icon=LabIconView(this@MainActivity,spec.icon).apply {
-                    iconColor=ink
-                    glyphScale=.80f
-                    chipCenterFilled=ui.fillChipCenter
-                }
-                addView(icon,LinearLayout.LayoutParams(d(25f),d(25f)))
-                val text=TextView(this@MainActivity).apply {
-                    this.text=spec.label
-                    textSize=if(spec.label.length>22) 12f else 14f
-                    setTextColor(ink)
-                    gravity=Gravity.CENTER
-                    isSingleLine=true
-                    setPadding(d(5f),0,0,0)
-                }
-                addView(text)
-                contentDescription=spec.label
-            }
-        }
-        target.isClickable=true
-        target.isFocusable=true
-        target.setOnClickListener {
-            UiAnimationEngine.enter(target, uiAnimations[spec.id], resources.displayMetrics.density)
-            clickAction(spec.action)
-        }
-        if(spec.action=="toggleLight") {
-            target.setOnLongClickListener {
-                resetCameraToHome()
-                Toast.makeText(this,"Камера сброшена",Toast.LENGTH_SHORT).show()
-                true
-            }
-        }
-        skin(target,spec.highlight || isActionActive(spec.action),spec.fill?:ui.buttonColor,
-            spec.outline ?: if(spec.slot=="top") ui.topButtonOutlineColor else null)
-        return target
-    }
-    private fun renderUiButtons(ui:UiLayout) {
-        // Spec was validated BEFORE rebuilding. No code, arbitrary URLs or view
-        // class names can come from a .pupdate: only whitelisted actions/icons.
-        topButtonHost.removeAllViews()
-        bottomButtonHost.removeAllViews()
-        activeButtons.clear()
-        activeButtonSpecs=ui.buttons
-        val top=ui.buttons.filter{it.slot=="top"}
-        val bottom=ui.buttons.filter{it.slot=="bottom"}
-        // Use the actual container width when available (split-screen and insets).
-        val availablePx=(topPanel.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels)
-        val totalDp=availablePx/resources.displayMetrics.density
-        val windowDp=totalDp.toInt()
-        val upperBound=(if(top.isEmpty())46f else ((totalDp-186f)/top.size)-4f)
-        // Available space wins over scaling: header must never extend off-screen.
-        val size=ui.adaptive.touchSizeDp(ui.topButtonSizeDp,windowDp).toFloat()
-            .coerceAtMost(upperBound.coerceAtLeast(28f))
-        for(spec in top) {
-            val v=createUiButton(spec,ui)
-            val p=LinearLayout.LayoutParams(d(size),d(size))
-            p.leftMargin=d(4f)
-            topButtonHost.addView(v,p)
-            activeButtons[spec.id]=v
-        }
-        for(group in bottom.chunked(OrientationLayoutManager.bottomColumns(resources.configuration, bottom.size))) {
-            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-            for((index,spec) in group.withIndex()) {
-                val v=createUiButton(spec,ui)
-                val p=LinearLayout.LayoutParams(0,d(ui.adaptive.touchSizeDp(spec.heightDp,windowDp).toFloat()),1f)
-                if(index>0)p.leftMargin=d(8f)
-                row.addView(v,p)
-                activeButtons[spec.id]=v
-            }
-            val rowParams=LinearLayout.LayoutParams(-1,-2)
-            rowParams.topMargin=d(8f)
-            bottomButtonHost.addView(row,rowParams)
-        }
+        if(::toolbarController.isInitialized)toolbarController.updateHighlights()
     }
     private fun selectionAdapter(values:Array<String>):ArrayAdapter<String> {
         val adapter=object: ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values) {
@@ -567,19 +459,15 @@ class MainActivity : Activity() {
 
     private fun openMenu() {
         diagnosticPopup?.dismiss()
-        val actions=mapOf(
-            "model" to "Выбрать объект",
-            "camera" to "Сбросить камеру",
-            "diagnostics" to "Диагностика"
-        )
-        val menuOrder=GlassDialogFactory.theme.menuOrder
+        // Dedicated toolbar actions never appear a second time in settings.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            menuOrder.map { actions.getValue(it) }) { which ->
-            when(menuOrder[which]) {
-                "model" -> chooseObject.performClick()
-                "camera" -> resetCameraToHome()
-                "diagnostics" -> showDiagnostic()
-            }
+            listOf("Стиль индикаторов освещения")) { showLightingIndicatorStyles() }
+    }
+    private fun showLightingIndicatorStyles() {
+        val options=LightingIndicatorStyles.options
+        GlassDialogFactory.menu(this,"Стиль индикаторов освещения",
+            options.map { it.title + if(LightingIndicatorStyles.selected(this)==it.id) " ✓" else "" }) { index ->
+            LightingIndicatorStyles.save(this,options[index].id)
         }
     }
 
@@ -728,6 +616,23 @@ class MainActivity : Activity() {
         dock.addView(bottomPanel)
         root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
 
+        toolbarController=UiToolbarController(this,topButtonHost,bottomButtonHost,topPanel,
+            object:UiToolbarController.Host {
+                override fun dispatch(action:String) { uiController.dispatch(action) }
+                override fun isActive(action:String):Boolean=when(action) {
+                    "toggleLight" -> lightMode
+                    "toggleGrid" -> wireframe
+                    "diagnostics" -> diagnosticPopup?.isShowing==true
+                    else -> false
+                }
+                override fun decorate(view:View,selected:Boolean,color:Int,outline:Int?) {
+                    skin(view,selected,color,outline)
+                }
+                override fun onLightLongPress() {
+                    resetCameraToHome()
+                    Toast.makeText(this@MainActivity,"Камера сброшена",Toast.LENGTH_SHORT).show()
+                }
+            })
         chooseObject.setSelection(1)
         chooseLod.setSelection(1)
         applyUiLayout()
@@ -935,7 +840,7 @@ class MainActivity : Activity() {
                         Color.argb(0,24,34,44)))
             bottomPanel.background=roundedFill(Color.argb(opacity,35,47,58),19f,
                 Color.argb(180,177,218,225))
-            renderUiButtons(ui)
+            toolbarController.render(ui,uiAnimations)
             setSystemBarMode(ui)
             status()
             return true

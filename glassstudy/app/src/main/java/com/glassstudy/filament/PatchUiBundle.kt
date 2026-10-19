@@ -23,6 +23,8 @@ data class PatchUiBundle(
             val ui = original.copy(buttons = original.buttons.map { button ->
                 if (button.slot == "top" && button.action == "resetCamera")
                     button.copy(action = "openScene", icon = "scene", label = "")
+                else if (button.slot == "top" && button.action == "menu")
+                    button.copy(icon = "gear", label = "")
                 else button
             })
             return PatchUiBundle(

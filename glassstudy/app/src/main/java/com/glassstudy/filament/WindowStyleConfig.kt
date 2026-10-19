@@ -21,7 +21,7 @@ data class WindowStyleConfig(
     val controlTextSizeSp:Float=14f,
     val rowSpacingDp:Int=7,
     val controlHorizontalPaddingDp:Int=14,
-    val menuOrder:List<String> = listOf("model","camera","diagnostics"),
+    val menuOrder:List<String> = listOf("indicatorStyle"),
     val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
     val titles:Map<String,String> = defaultTitles(),
     val diagnosticsClickMode:String = "toggle",
@@ -30,7 +30,7 @@ data class WindowStyleConfig(
     companion object {
         fun defaultTitles():Map<String,String> = linkedMapOf(
             "scene" to "СЦЕНА", "skyColor" to "ЦВЕТ SKYBOX",
-            "diagnostics" to "Диагностика", "mainMenu" to "GlassStudy · 3D LAB",
+            "diagnostics" to "Диагностика", "mainMenu" to "Настройки",
             "patchInstalled" to "GlassStudy", "patchRejected" to "Патч отклонён",
             "patchError" to "Патч не установлен", "modelError" to "Ошибка загрузки модели")
         fun parse(json:JSONObject?):WindowStyleConfig {
@@ -46,14 +46,17 @@ data class WindowStyleConfig(
                 require(v.isFinite() && v in low..high) { "Invalid window size $key" }
                 return v.toFloat()
             }
-            val menuDefaults=listOf("model","camera","diagnostics")
+            val menuDefaults=listOf("indicatorStyle")
             val menuOrder=if(json.has("menuOrder")) {
                 val array=json.getJSONArray("menuOrder")
                 val names=(0 until array.length()).map { array.getString(it) }
-                require(names.size==menuDefaults.size && names.toSet()==menuDefaults.toSet()) {
-                    "Invalid menu item order"
+                // Legacy signed patches have the old three-item menu.
+                // Migrate this data without exposing removed items.
+                val legacy=setOf("model","camera","diagnostics")
+                if(names.size==3 && names.toSet()==legacy) menuDefaults else {
+                    require(names==menuDefaults) { "Invalid menu item order" }
+                    names
                 }
-                names
             } else menuDefaults
             val headerDefaults=listOf("title","copy")
             val headerOrder=if(json.has("diagnosticHeaderOrder")) {

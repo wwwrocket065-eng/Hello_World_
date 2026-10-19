@@ -87,6 +87,19 @@ class LabIconView(context:Context, val iconName:String):View(context) {
                 }
                 canvas.drawPath(arrow,ink)
             }
+            "gear" -> {
+                val gear=Path()
+                for(i in 0 until 24) {
+                    val angle=i*Math.PI/12
+                    val r=if(i%2==0)15.5 else 12.0
+                    val gx=(r*cos(angle)).toFloat()
+                    val gy=(r*sin(angle)).toFloat()
+                    if(i==0)gear.moveTo(gx,gy) else gear.lineTo(gx,gy)
+                }
+                gear.close()
+                canvas.drawPath(gear,ink)
+                canvas.drawCircle(0f,0f,5.5f,ink)
+            }
             "menu" -> {
                 for(y in listOf(-9f,0f,9f)){
                     canvas.drawLine(-6f,y,13f,y,ink)

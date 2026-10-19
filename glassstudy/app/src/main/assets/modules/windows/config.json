@@ -14,9 +14,7 @@
   "rowHeightDp": 43,
   "widthFraction": 0.91,
   "menuOrder": [
-    "model",
-    "camera",
-    "diagnostics"
+    "indicatorStyle"
   ],
   "diagnosticHeaderOrder": [
     "title",
@@ -26,7 +24,7 @@
     "scene": "СЦЕНА",
     "skyColor": "ЦВЕТ SKYBOX",
     "diagnostics": "Диагностика",
-    "mainMenu": "GlassStudy · 3D LAB",
+    "mainMenu": "Настройки",
     "patchInstalled": "GlassStudy",
     "patchRejected": "Патч отклонён",
     "patchError": "Патч не установлен",

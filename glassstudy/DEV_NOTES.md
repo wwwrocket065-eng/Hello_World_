@@ -121,3 +121,10 @@
 - Replace the hamburger/list toolbar icon with a gear icon labeled «Настройки».
 - Settings menu should contain only style, color, and animation choices for the three lighting indicators; remove model, camera reset, and diagnostics from that menu. Diagnostics stays available through its own top chip and Scene through its own top button.
 - Keep selection and visual options patch-compatible in the common UI and settings architecture; do not claim the gear or indicator styles are already implemented.
+
+## 2026-10-19 — Major modular UI stage: toolbar and settings gear (CI pending)
+- Extracted creation, layout, accessibility labels, animations, click wiring and active highlighting for both toolbar slots into UiToolbarController. MainActivity now supplies a typed Host for dispatch, state and styling; no parallel action implementation added.
+- Settings gear replaces the three-line menu. Main menu has only the lighting-indicator style entry; diagnostic/scene/object actions stay on their dedicated controls. Existing signed three-item menu configurations are safely migrated to the new single entry, rather than rejected.
+- Added persisted, validated LightingIndicatorStyles selection for classic/minimal/technical. This stores presentation choice only; the future passive indicator renderer must consume it before asserting visible style changes.
+- Updated stale gesture-literal static regression to current implementation. Historical signed patch feed stays unchanged; do not publish new schema to older Android clients.
+- Required: Android Gradle CI and real-device smoke test; no signed APK has been produced by this commit.

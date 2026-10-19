@@ -120,12 +120,12 @@ data class UiLayout(
         // UI actions are strictly whitelisted. Patches can add/remove/reorder
         // button instances but cannot execute new code or start arbitrary intents.
         private val ICONS=setOf(
-            "chip","sun","reset","scene","menu","objects","quality","grid","fps","info")
+            "chip","sun","reset","scene","menu","gear","objects","quality","grid","fps","info")
         private val DEFAULT_BUTTONS=listOf(
             UiButtonSpec("diagnostics","diagnostics","top","chip","",44,null,null,null,false),
             UiButtonSpec("light_top","toggleLight","top","sun","",44,null,null,null,false),
             UiButtonSpec("reset","openScene","top","scene","",44,null,null,null,false),
-            UiButtonSpec("menu","menu","top","menu","",44,null,null,null,false),
+            UiButtonSpec("menu","menu","top","gear","",44,null,null,null,false),
             UiButtonSpec("light_bottom","toggleLight","bottom","sun","Свет / Камера",46,null,null,null,false),
             UiButtonSpec("grid","toggleGrid","bottom","grid","Сетка",46,null,null,null,false)
         )

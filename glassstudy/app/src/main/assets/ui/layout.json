@@ -125,7 +125,7 @@
       "id": "menu",
       "action": "menu",
       "slot": "top",
-      "icon": "menu",
+      "icon": "gear",
       "label": "",
       "heightDp": 44,
       "textColor": "#A3D0D3"

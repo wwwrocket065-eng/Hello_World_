@@ -132,7 +132,7 @@ assert layout['topButtonSizeDp']==35
 assert all(b['textColor']=="#A3D0D3" for b in layout['uiButtons'])
 assert layout['invertHorizontal'] is True
 assert 'invertHorizontal=ui.invertHorizontal' in activity
-assert 'yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
+assert 'yaw+=dx*(if(invertHorizontal)-cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
 assert 'val invertHorizontal=if(j.has("invertHorizontal"))j.getBoolean("invertHorizontal") else true' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert len(layout['diagnostics'])>=50
 assert layout['diagnosticSections']==['updates','performance','memory','scene','renderer','camera','device']
@@ -297,7 +297,7 @@ assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
 assert 'GlassDialogFactory.theme.diagnosticHeaderOrder.forEach' in activity
 assert 'val diagnosticHeaderOrder:List<String>' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 assert window_theme['diagnosticHeaderOrder']==['title','copy']
-assert window_theme['menuOrder']==['model','camera','diagnostics']
+assert window_theme['menuOrder']==['indicatorStyle']
 
 assert 'titles' in window_theme and window_theme['titles']['scene']=='СЦЕНА'
 assert 'Unknown window title key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
@@ -354,7 +354,12 @@ assert 'object UiInteractionRegistry' in interaction
 assert 'class UiInteractionController' in interaction
 assert 'UiInteractionRegistry.acceptsAction(action)' in interaction
 assert 'fun acceptsBinding(type: String, binding: String)' in interaction
-assert 'private fun clickAction(action: String) = uiController.dispatch(action)' in activity
+toolbar=(root/'app/src/main/java/com/glassstudy/filament/UiToolbarController.kt').read_text()
+assert 'class UiToolbarController(' in toolbar
+assert 'UiToolbarController(this,topButtonHost,bottomButtonHost,topPanel,' in activity
+assert 'toolbarController.render(ui,uiAnimations)' in activity
+assert 'host.dispatch(spec.action)' in toolbar
+assert 'uiController.dispatch(action)' in activity
 assert 'readBinding = uiController::read' in activity
 assert 'writeBinding = uiController::write' in activity
 assert 'performAction = uiController::dispatch' in activity
@@ -379,3 +384,9 @@ assert 'if (lockedAxis == null)' in gesture_code
 assert 'Axis.ELEVATION else Axis.AZIMUTH' in gesture_code
 assert 'lightGesture.reset()' in activity
 assert 'brightness+(span-oldPinch)/density/160.0' in activity
+
+# Modular toolbar and settings-only gear. Old signed menu is migrated safely.
+assert any(b['action']=='menu' and b['icon']=='gear' for b in json.loads((root/'app/src/main/assets/ui/layout.json').read_text())['uiButtons'])
+assert 'button.copy(icon = "gear", label = "")' in (root/'app/src/main/java/com/glassstudy/filament/PatchUiBundle.kt').read_text()
+assert 'val legacy=setOf("model","camera","diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
+assert 'LightingIndicatorStyles.save(this,options[index].id)' in activity
