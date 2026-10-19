@@ -338,8 +338,8 @@ class MainActivity : Activity() {
         if (!::viewer.isInitialized) return
         try {
             viewer.setFloorGlb(when(floorMode) {
-                "checker" -> SceneFloorGlb.create(true)
-                "white" -> SceneFloorGlb.create(false)
+                "checker" -> SceneFloorGlb.create(true, width=12f, tileWidth=.6f)
+                "white" -> SceneFloorGlb.create(false, width=12f, tileWidth=.6f)
                 else -> null
             })
         } catch (e: Exception) {
