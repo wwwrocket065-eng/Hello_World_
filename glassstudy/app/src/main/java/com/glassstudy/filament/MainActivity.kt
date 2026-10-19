@@ -1080,8 +1080,10 @@ class MainActivity : Activity() {
             setOnSeekBarChangeListener(object:android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar:android.widget.SeekBar?,value:Int,fromUser:Boolean) {
                     if(fromUser) {
-                        brightness=lo+(hi-lo)*value/1000.0
-                        updateCamera()
+                        // The slider uses the same state writer as patch-defined
+                        // windows, so all UI controls remain synchronized.
+                        uiController.write("brightnessPercent",
+                            ((lo + (hi - lo) * value / 1000.0) * 100.0).toFloat())
                     }
                 }
                 override fun onStartTrackingTouch(bar:android.widget.SeekBar?) {}
