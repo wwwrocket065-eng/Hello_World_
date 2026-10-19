@@ -10,6 +10,7 @@ import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
+import android.content.res.Configuration
 import android.os.SystemClock
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -721,6 +722,21 @@ class MainActivity : Activity() {
             updater.checkOnStart(onCandidate = { candidate ->
                 applyVerifiedPatch(candidate, false)
             })
+        }
+    }
+
+    /** Handle rotation without destroying Filament, camera state, or loaded models. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        diagnosticPopup?.dismiss()
+        GlassDialogFactory.closeCurrent()
+        if (::mainRoot.isInitialized) {
+            mainRoot.post {
+                if (!isFinishing && !isDestroyed && ::updater.isInitialized) {
+                    applyUiLayout()
+                    updateContextualOverlay()
+                }
+            }
         }
     }
 
