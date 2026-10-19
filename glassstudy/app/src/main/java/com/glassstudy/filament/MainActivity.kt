@@ -491,14 +491,14 @@ class MainActivity : Activity() {
 
     private fun openMenu() {
         diagnosticPopup?.dismiss()
-        AlertDialog.Builder(this).setTitle("GlassStudy · 3D LAB")
-            .setItems(arrayOf("Выбрать объект", "Сбросить камеру", "Диагностика")) { _,which ->
-                when(which) {
-                    0 -> chooseObject.performClick()
-                    1 -> resetCameraToHome()
-                    2 -> showDiagnostic()
-                }
-            }.show()
+        GlassDialogFactory.menu(this,"GlassStudy · 3D LAB",
+            listOf("Выбрать объект","Сбросить камеру","Диагностика")) { which ->
+            when(which) {
+                0 -> chooseObject.performClick()
+                1 -> resetCameraToHome()
+                2 -> showDiagnostic()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -726,8 +726,7 @@ class MainActivity : Activity() {
             status()
             val message="Патч ${candidate.version} установлен"
             if (fromDownloads) {
-                AlertDialog.Builder(this).setTitle("GlassStudy")
-                    .setMessage(message).setPositiveButton("OK",null).show()
+                GlassDialogFactory.message(this,"GlassStudy",message)
             } else {
                 Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
             }
@@ -736,9 +735,8 @@ class MainActivity : Activity() {
             applyUiLayout()
             loadSelected()
             if (fromDownloads) {
-                AlertDialog.Builder(this).setTitle("Патч отклонён")
-                    .setMessage("Модель или настройки не прошли проверку. Рабочая версия сохранена.")
-                    .setPositiveButton("OK",null).show()
+                GlassDialogFactory.message(this,"Патч отклонён",
+                    "Модель или настройки не прошли проверку. Рабочая версия сохранена.")
             }
         }
     }
@@ -857,8 +855,8 @@ class MainActivity : Activity() {
                 // Reject bad background patches silently: preserve the working scene.
                 android.util.Log.w("GlassStudy", "Staged model failed to render", e)
             } else {
-                AlertDialog.Builder(this).setTitle("Ошибка загрузки модели")
-                    .setMessage(e.stackTraceToString().take(3000)).setPositiveButton("OK", null).show()
+                GlassDialogFactory.message(this,"Ошибка загрузки модели",
+                    e.stackTraceToString().take(3000))
             }
             return false
         }
