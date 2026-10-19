@@ -17,7 +17,12 @@ import android.graphics.drawable.GradientDrawable
  * Window content is built by a feature; modality and dismissal follow one policy.
  */
 object GlassDialogFactory {
-    fun show(activity: Activity, content: View, widthFraction: Float = .91f): AlertDialog {
+    var theme:WindowStyleConfig=WindowStyleConfig()
+        private set
+
+    fun applyTheme(next:WindowStyleConfig) { theme=next }
+
+    fun show(activity: Activity, content: View, widthFraction: Float = theme.widthFraction): AlertDialog {
         require(widthFraction in .6f..1f)
         val dialog = AlertDialog.Builder(activity).setView(content).create()
         dialog.setCanceledOnTouchOutside(true)
@@ -38,7 +43,7 @@ object GlassDialogFactory {
         entries.forEachIndexed { index,caption ->
             val item=control(activity,caption)
             item.setOnClickListener { dialog?.dismiss(); onChoice(index) }
-            content.addView(item,LinearLayout.LayoutParams(-1,dp(activity,43f)).apply {
+            content.addView(item,LinearLayout.LayoutParams(-1,dp(activity,theme.rowHeightDp.toFloat())).apply {
                 topMargin=dp(activity,7f)
             })
         }
@@ -49,13 +54,13 @@ object GlassDialogFactory {
     fun message(activity:Activity,title:String,body:String):AlertDialog {
         val content=panel(activity,title)
         content.addView(TextView(activity).apply {
-            text=body;textSize=13f;setTextColor(Color.rgb(216,229,234))
+            text=body;textSize=13f;setTextColor(theme.text)
             setPadding(0,dp(activity,12f),0,dp(activity,10f))
         })
         var dialog:AlertDialog?=null
         val ok=control(activity,"Понятно")
         ok.setOnClickListener { dialog?.dismiss() }
-        content.addView(ok,LinearLayout.LayoutParams(-1,dp(activity,43f)))
+        content.addView(ok,LinearLayout.LayoutParams(-1,dp(activity,theme.rowHeightDp.toFloat())))
         dialog=show(activity,content)
         return dialog
     }
@@ -63,20 +68,20 @@ object GlassDialogFactory {
     private fun panel(activity:Activity,title:String):LinearLayout =
         LinearLayout(activity).apply {
             orientation=LinearLayout.VERTICAL
-            val pad=dp(activity,18f)
+            val pad=dp(activity,theme.paddingDp.toFloat())
             setPadding(pad,pad,pad,pad)
-            background=background(Color.rgb(17,35,49),20f,Color.rgb(109,185,203))
+            background=background(theme.background,dp(activity,theme.cornerDp).toFloat(),theme.border)
             addView(TextView(activity).apply {
-                text=title;textSize=17f;setTextColor(Color.rgb(163,208,211))
+                text=title;textSize=17f;setTextColor(theme.accent)
             })
         }
 
     private fun control(activity:Activity,caption:String):TextView=TextView(activity).apply {
         text=caption;textSize=14f
         gravity=Gravity.CENTER_VERTICAL
-        setTextColor(Color.rgb(216,229,234))
+        setTextColor(theme.text)
         setPadding(dp(activity,14f),0,dp(activity,12f),0)
-        background=background(Color.rgb(23,48,64),11f,Color.rgb(59,94,108))
+        background=background(theme.control,dp(activity,theme.controlCornerDp).toFloat(),theme.border)
         isClickable=true;isFocusable=true
     }
 
