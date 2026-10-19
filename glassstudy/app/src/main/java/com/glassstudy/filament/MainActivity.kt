@@ -165,15 +165,52 @@ class MainActivity : Activity() {
         view.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),gradient,null)
         view.elevation=d(2f).toFloat()
     }
+    /**
+     * All patch-defined windows, including their interactive controls, use one
+     * renderer and a fixed whitelist of safe application state bindings.
+     */
     private fun openPatchWindow(id: String) {
         val spec = patchWindows[id] ?: return
-        GlassDialogFactory.menu(this, spec.title, spec.buttons.map { it.title },
-            uiAnimations[id], (if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
-                spec.landscapeWidthFraction ?: spec.widthFraction else spec.widthFraction)
-                ?: GlassDialogFactory.theme.widthFraction) { index ->
-            val selected = spec.buttons.getOrNull(index) ?: return@menu
-            clickAction(selected.action)
-        }
+        PatchWindowRenderer.show(this, spec, uiAnimations[id],
+            readBinding = { binding ->
+                when (binding) {
+                    "lightMode" -> if (lightMode) 1f else 0f
+                    "grid" -> if (wireframe) 1f else 0f
+                    "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
+                    "brightnessPercent" -> (brightness * 100.0).toFloat()
+                    else -> throw IllegalArgumentException("Unsupported window binding")
+                }
+            },
+            writeBinding = { binding, value ->
+                when (binding) {
+                    "lightMode" -> {
+                        lightMode = value >= .5f
+                        updateContextualOverlay()
+                        status()
+                    }
+                    "grid" -> {
+                        val enabled = value >= .5f
+                        if (enabled != wireframe) {
+                            wireframe = enabled
+                            getPreferences(MODE_PRIVATE).edit()
+                                .putBoolean("wireframe", wireframe).apply()
+                            loadSelected()
+                            status()
+                        }
+                    }
+                    "fps" -> {
+                        fpsPill.visibility = if (value >= .5f) View.VISIBLE else View.GONE
+                    }
+                    "brightnessPercent" -> {
+                        brightness = (value.toDouble() / 100.0)
+                            .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
+                        updateContextualOverlay()
+                    }
+                    else -> throw IllegalArgumentException("Unsupported window binding")
+                }
+            },
+            performAction = { action -> clickAction(action) }
+        )
     }
 
     private fun clickAction(action:String) {
