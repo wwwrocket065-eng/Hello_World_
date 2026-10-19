@@ -101,6 +101,9 @@ assert 'root.setOnApplyWindowInsetsListener' in activity
 assert 'applyUiLayout(candidate)' in activity
 assert 'ui/layout.json' in updater and 'UiLayout.parse(raw)' in updater
 assert 'source.copyTo(target,overwrite=false)' in updater
+assert 'installedFiles.size <= MAX_ENTRIES' in updater
+assert 'installedFiles.sumOf { it.length() } <= MAX_PATCH_BYTES' in updater
+assert 'UiLayout.parse(stagedUi.readBytes())' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
 assert layout['logoSizeDp']==31
 assert layout['logoOffsetYDp']==5
