@@ -59,6 +59,15 @@ def config_resource(alias,baseline):
     if not source.is_file():raise ValueError("Default resource not found: "+str(source))
     doc=json.loads(baseline.get(path,source.read_bytes()))
     if not isinstance(doc,dict):raise ValueError("Configuration must be an object")
+    # Older signed layouts omit newly introduced optional keys. Merge ONLY
+    # missing keys from the APK defaults; preserve every previously patched value.
+    defaults=json.loads(source.read_bytes())
+    def fill_missing(target,origin):
+        for key,value in origin.items():
+            if key not in target:target[key]=value
+            elif isinstance(value,dict) and isinstance(target[key],dict):
+                fill_missing(target[key],value)
+    fill_missing(doc,defaults)
     return path,doc
 
 def assign(document,selector,value):
