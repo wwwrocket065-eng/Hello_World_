@@ -604,7 +604,7 @@ class MainActivity : Activity() {
         headerSubtitle=TextView(this).apply {
             text="3D LAB · v${BuildConfig.VERSION_NAME}"
             textSize=9f
-            setTextColor(Color.rgb(133,197,210))
+            setTextColor(Color.rgb(158,220,225))
             letterSpacing=.18f
             setSingleLine(true)
         }
