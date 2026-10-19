@@ -309,7 +309,11 @@ class PatchManager(private val context: Context) {
             val stagedUi = File(staging, UI_PATH)
             if (stagedUi.isFile) UiLayout.parse(stagedUi.readBytes())
             // Validate a carried-forward UI, not just UI files in this new delta.
-            return Candidate(version,staging,records.map { it.first }.toSet())
+            val candidate = Candidate(version,staging,records.map { it.first }.toSet())
+            // Exercise the same complete parser used by the Activity BEFORE
+            // activation: reject incompatible combinations of signed modules.
+            PatchUiBundle.read(this, candidate)
+            return candidate
         } catch (e:Exception) { staging.deleteRecursively(); throw e }
     }
 
