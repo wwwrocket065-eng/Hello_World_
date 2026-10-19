@@ -21,5 +21,15 @@
   "diagnosticHeaderOrder": [
     "title",
     "copy"
-  ]
+  ],
+  "titles": {
+    "scene": "СЦЕНА",
+    "skyColor": "ЦВЕТ SKYBOX",
+    "diagnostics": "Диагностика",
+    "mainMenu": "GlassStudy · 3D LAB",
+    "patchInstalled": "GlassStudy",
+    "patchRejected": "Патч отклонён",
+    "patchError": "Патч не установлен",
+    "modelError": "Ошибка загрузки модели"
+  }
 }
