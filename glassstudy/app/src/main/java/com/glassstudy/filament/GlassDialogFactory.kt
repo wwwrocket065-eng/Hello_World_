@@ -44,7 +44,8 @@ object GlassDialogFactory {
         dialog.show()
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(
-            (activity.resources.displayMetrics.widthPixels * widthFraction).toInt(),
+            OrientationLayoutManager.dialogWidthPx(activity.resources.configuration,
+                activity.resources.displayMetrics.widthPixels, widthFraction),
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         return dialog
