@@ -76,6 +76,7 @@ class MainActivity : Activity() {
     private lateinit var bottomButtonHost: LinearLayout
     private val activeButtons=linkedMapOf<String,View>()
     private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
+    private var patchWindows: Map<String, DeclarativeWindow> = emptyMap()
     private var currentUiColor:Int=Color.rgb(27,56,75)
     private var currentSelectorColor=Color.rgb(109,224,222)
     private var currentTopOutlineColor=Color.rgb(109,185,203)
@@ -162,7 +163,21 @@ class MainActivity : Activity() {
         view.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),gradient,null)
         view.elevation=d(2f).toFloat()
     }
+    private fun openPatchWindow(id: String) {
+        val spec = patchWindows[id] ?: return
+        GlassDialogFactory.menu(this, spec.title, spec.buttons.map { it.title }) { index ->
+            val selected = spec.buttons.getOrNull(index) ?: return@menu
+            clickAction(selected.action)
+        }
+    }
+
     private fun clickAction(action:String) {
+        if (action.startsWith("openWindow:")) {
+            diagnosticPopup?.dismiss()
+            GlassDialogFactory.closeCurrent()
+            openPatchWindow(action.substringAfter(':'))
+            return
+        }
         if(action=="diagnostics") {
             val open=diagnosticPopup?.isShowing==true
             val mode=GlassDialogFactory.theme.windowClickModes.getValue("diagnostics")
@@ -816,6 +831,7 @@ class MainActivity : Activity() {
             val nextWindowStyle = WindowStyleConfig.parse(updater.readModuleConfig("windows", candidate))
             val nextOverlayModule = OverlayModuleConfig.parse(updater.readModuleConfig("overlay",candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
+            patchWindows=ui.windows
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
             diagnosticsModule=nextDiagnosticsModule
