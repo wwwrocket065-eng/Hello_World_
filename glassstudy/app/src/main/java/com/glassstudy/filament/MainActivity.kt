@@ -881,6 +881,7 @@ class MainActivity : Activity() {
             currentTopIconScale=ui.topIconScale
             logoMark.showUnderline=ui.showLogoUnderline
             logoMark.logoColor=ui.logoColor
+            headerSubtitle.setTextColor(ui.subtitleColor)
             val logoParams=logoMark.layoutParams as FrameLayout.LayoutParams
             logoParams.width=d(ui.logoSizeDp.toFloat())
             logoParams.height=d(ui.logoSizeDp*1.22f)
