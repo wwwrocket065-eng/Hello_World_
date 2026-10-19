@@ -116,7 +116,7 @@ data class UiLayout(
         // UI actions are strictly whitelisted. Patches can add/remove/reorder
         // button instances but cannot execute new code or start arbitrary intents.
         private val ACTIONS=setOf(
-            "diagnostics","toggleLight","resetCamera","menu",
+            "diagnostics","toggleLight","resetCamera","openScene","menu",
             "selectModel","selectQuality","toggleGrid","toggleFps")
         private val ICONS=setOf(
             "chip","sun","reset","scene","menu","objects","quality","grid","fps","info")
