@@ -89,6 +89,7 @@ class MainActivity : Activity() {
     private var renderModule = RenderModuleConfig()
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private var materialModule = MaterialModuleConfig()
+    private var sceneModule = SceneModuleConfig()
     private var floorMode = "checker"
     private var skyMode = "gray"
     private var customSkyColor = Color.rgb(110,110,110)
@@ -338,8 +339,10 @@ class MainActivity : Activity() {
         if (!::viewer.isInitialized) return
         try {
             viewer.setFloorGlb(when(floorMode) {
-                "checker" -> SceneFloorGlb.create(true, width=12f, tileWidth=.6f)
-                "white" -> SceneFloorGlb.create(false, width=12f, tileWidth=.6f)
+                "checker" -> SceneFloorGlb.create(true, sceneModule.floorWidth, sceneModule.tileWidth,
+                    sceneModule.darkLevel, sceneModule.lightLevel)
+                "white" -> SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidth,
+                    sceneModule.darkLevel, sceneModule.whiteLevel)
                 else -> null
             })
         } catch (e: Exception) {
@@ -704,11 +707,15 @@ class MainActivity : Activity() {
             val nextRenderModule = RenderModuleConfig.parse(updater.readModuleConfig("render", candidate))
             val nextDiagnosticsModule = DiagnosticsModuleConfig.parse(updater.readModuleConfig("diagnostics", candidate))
             val nextMaterialModule = MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
+            val nextSceneModule = SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
             diagnosticsModule=nextDiagnosticsModule
             materialModule=nextMaterialModule
+            val sceneChanged=sceneModule != nextSceneModule
+            sceneModule=nextSceneModule
+            if (sceneChanged) applySceneFloor()
             applyRenderModule()
             zoomPower=ui.zoomPower
             invertHorizontal=ui.invertHorizontal
