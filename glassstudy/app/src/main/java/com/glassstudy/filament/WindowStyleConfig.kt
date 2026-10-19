@@ -16,7 +16,8 @@ data class WindowStyleConfig(
     val controlCornerDp:Float=11f,
     val paddingDp:Int=18,
     val rowHeightDp:Int=43,
-    val widthFraction:Float=.91f
+    val widthFraction:Float=.91f,
+    val menuOrder:List<String> = listOf("model","camera","diagnostics")
 ) {
     companion object {
         fun parse(json:JSONObject?):WindowStyleConfig {
@@ -32,6 +33,15 @@ data class WindowStyleConfig(
                 require(v.isFinite() && v in low..high) { "Invalid window size $key" }
                 return v.toFloat()
             }
+            val menuDefaults=listOf("model","camera","diagnostics")
+            val menuOrder=if(json.has("menuOrder")) {
+                val array=json.getJSONArray("menuOrder")
+                val names=(0 until array.length()).map { array.getString(it) }
+                require(names.size==menuDefaults.size && names.toSet()==menuDefaults.toSet()) {
+                    "Invalid menu item order"
+                }
+                names
+            } else menuDefaults
             return WindowStyleConfig(
                 color("background",Color.rgb(17,35,49)),
                 color("control",Color.rgb(23,48,64)),
@@ -44,7 +54,7 @@ data class WindowStyleConfig(
                 number("controlCornerDp",11.0,0.0,28.0),
                 number("paddingDp",18.0,4.0,36.0).toInt(),
                 number("rowHeightDp",43.0,32.0,64.0).toInt(),
-                number("widthFraction",.91,.65,1.0))
+                number("widthFraction",.91,.65,1.0),menuOrder)
         }
     }
 }
