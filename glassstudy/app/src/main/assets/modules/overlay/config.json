@@ -5,5 +5,10 @@
   "showWith": "light",
   "label": "Яркость освещения",
   "bottomMarginDp": 116,
-  "widthDp": 260
+  "widthDp": 260,
+  "backgroundColor": "#112331",
+  "borderColor": "#6DB9CB",
+  "textColor": "#A3D0D3",
+  "progressColor": "#6DE0DE",
+  "thumbColor": "#A3D0D3"
 }
