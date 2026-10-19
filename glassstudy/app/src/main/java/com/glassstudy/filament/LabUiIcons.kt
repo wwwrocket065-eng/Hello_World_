@@ -65,6 +65,21 @@ class LabIconView(context:Context, val iconName:String):View(context) {
                         (15*cos(rad)).toFloat(),(15*sin(rad)).toFloat(),ink)
                 }
             }
+            "scene" -> {
+                // A small scene: isometric ground plane and a sphere, no text.
+                val plane=Path().apply {
+                    moveTo(-16f,4f);lineTo(0f,11f);lineTo(16f,4f)
+                    lineTo(0f,-3f);close()
+                }
+                canvas.drawPath(plane,ink)
+                canvas.drawLine(-16f,4f,-16f,9f,ink)
+                canvas.drawLine(-16f,9f,0f,16f,ink)
+                canvas.drawLine(0f,11f,0f,16f,ink)
+                canvas.drawLine(0f,16f,16f,9f,ink)
+                canvas.drawLine(16f,9f,16f,4f,ink)
+                canvas.drawCircle(0f,-10f,5f,ink)
+                canvas.drawArc(-3f,-13f,1f,-9f,180f,100f,false,ink)
+            }
             "reset" -> {
                 canvas.drawArc(-11f,-11f,11f,11f,-64f,292f,false,ink)
                 val arrow=Path().apply {
