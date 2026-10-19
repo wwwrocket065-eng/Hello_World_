@@ -320,6 +320,15 @@ class PatchManager(private val context: Context) {
             updateStatus="Патч ${candidate.version} не новее установленного $current"
             return false
         }
+        // Only promote the exact directory staged and verified by this manager.
+        // Never let a stale or substituted candidate become the active version.
+        val expectedPrefix = "staging_${candidate.version}_"
+        if (!candidate.staging.isDirectory ||
+            candidate.staging.parentFile?.canonicalFile != patchRoot.canonicalFile ||
+            !candidate.staging.name.startsWith(expectedPrefix)) {
+            updateStatus="Патч ${candidate.version}: недействительная временная папка"
+            return false
+        }
         val destination=File(patchRoot,"v${candidate.version}")
         if (destination.exists() || !candidate.staging.renameTo(destination)) {
             updateStatus="Патч ${candidate.version}: ошибка сохранения ресурсов"
