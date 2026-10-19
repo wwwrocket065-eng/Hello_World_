@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private lateinit var label: TextView
     private lateinit var logoMark: LabLogoView
     private var diagnosticPopup:PopupWindow?=null
+    private var diagnosticDismissedAtMs:Long=Long.MIN_VALUE
     private lateinit var logoFrame:android.widget.FrameLayout
     private lateinit var topPanel: LinearLayout
     private lateinit var bottomPanel: LinearLayout
@@ -161,9 +162,16 @@ class MainActivity : Activity() {
     }
     private fun clickAction(action:String) {
         if(action=="diagnostics") {
-            if(diagnosticPopup?.isShowing==true) {
-                diagnosticPopup?.dismiss()
-            } else showDiagnostic()
+            val open=diagnosticPopup?.isShowing==true
+            val mode=GlassDialogFactory.theme.diagnosticsClickMode
+            if(open) {
+                if(mode!="openOnly") diagnosticPopup?.dismiss()
+            } else if(mode!="closeOnly") {
+                // A non-modal popup can dismiss on the SAME tap delivered to its toolbar icon.
+                // Do not reopen when that tap was only intended to close it.
+                val sinceDismiss=SystemClock.uptimeMillis()-diagnosticDismissedAtMs
+                if(sinceDismiss !in 0L..280L) showDiagnostic()
+            }
             return
         }
         diagnosticPopup?.dismiss()
@@ -1119,6 +1127,7 @@ class MainActivity : Activity() {
         contentParams.topMargin=d(10f)
         outer.addView(scrolling,contentParams)
         val popup=GlassDialogFactory.popup(this,outer,availableWidth) {
+            diagnosticDismissedAtMs=SystemClock.uptimeMillis()
             diagnosticPopup=null
             updateButtonHighlights()
         }
