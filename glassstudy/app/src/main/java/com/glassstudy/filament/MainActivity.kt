@@ -705,10 +705,7 @@ class MainActivity : Activity() {
             onError = { reason ->
                 localPatchBusy = false
                 if (!isFinishing && !isDestroyed) {
-                    AlertDialog.Builder(this)
-                        .setTitle("Патч не установлен")
-                        .setMessage(reason)
-                        .setPositiveButton("Закрыть", null).show()
+                    GlassDialogFactory.message(this,"Патч не установлен",reason)
                 }
             }
         )
