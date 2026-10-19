@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.31' in props and 'GLASSSTUDY_VERSION_CODE=20031' in props
+assert 'GLASSSTUDY_VERSION=0.2.32' in props and 'GLASSSTUDY_VERSION_CODE=20032' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -323,11 +323,12 @@ assert 'OverlayModuleConfig.parse(stagedModule("overlay"))' in updater
 assert '"modules/overlay/config.json" -> OverlayModuleConfig.parse(config)' in updater
 assert 'private fun updateContextualOverlay()' in activity
 # Observable user changes pass through the common binding rather than a hardcoded renderer call.
-assert 'uiController.write("brightnessPercent",' in activity[activity.index('private fun updateContextualOverlay()'):activity.index('private fun showDiagnostic()')]
+assert 'showLightIndicator(LightIndicatorView.Mode.BRIGHTNESS' in activity
+assert 'showLightIndicator(LightIndicatorView.Mode.AZIMUTH' in activity
+assert 'showLightIndicator(LightIndicatorView.Mode.ELEVATION' in activity
 
-for name in ('backgroundColor','borderColor','textColor','progressColor','thumbColor'):
-    assert overlay_config.get(name, '').startswith('#')
-    assert ('cfg.'+name) in activity
+assert 'showWith' in overlay_config and 'enabled' in overlay_config
+assert 'LightIndicatorView(this)' in activity
 
 # Rich window schema is declarative and wired into the real UI, not just docs.
 window_schema=(root/'app/src/main/java/com/glassstudy/filament/DeclarativeWindows.kt').read_text()
@@ -367,7 +368,8 @@ assert 'writeBinding = uiController::write' in activity
 assert 'performAction = uiController::dispatch' in activity
 assert 'UiInteractionRegistry.acceptsAction(action)' in uic
 assert 'UiInteractionRegistry.acceptsBinding(type, binding)' in window_schema
-assert 'overlayBrightnessSlider?.progress =' in activity
+assert 'overlayBrightnessSlider?.progress =' not in activity
+assert 'onTouchEvent(event:android.view.MotionEvent?):Boolean=false' in (root/'app/src/main/java/com/glassstudy/filament/LightIndicatorView.kt').read_text()
 
 # Release signing is a separate, explicit gate, never an unsigned APK renamed
 # to a usable build or a fallback key with a different certificate.

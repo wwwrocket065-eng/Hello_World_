@@ -128,3 +128,9 @@
 - Added persisted, validated LightingIndicatorStyles selection for classic/minimal/technical. This stores presentation choice only; the future passive indicator renderer must consume it before asserting visible style changes.
 - Updated stale gesture-literal static regression to current implementation. Historical signed patch feed stays unchanged; do not publish new schema to older Android clients.
 - Required: Android Gradle CI and real-device smoke test; no signed APK has been produced by this commit.
+
+## 2026-10-19 — GlassStudy 0.2.32: lighting HUD (source, CI pending)
+- LightGestureController locks one-finger axis and provides 0–180° elevation, 360° azimuth, and additive pinch brightness 0–200%.
+- LightIndicatorView now displays real Filament lighting controls using the same shared animation renderer: brightness rail with moving rotating hollow 8-ray sun and percent, elevation arc, azimuth compass with degrees and shadow. HUD consumes no touch; it fades after release. Legacy on-screen brightness SeekBar removed.
+- Settings-only gear has classic/minimal/technical user-saved presets; selection now visibly affects the HUD renderer.
+- Source version 0.2.32. Not yet approved for release: CI build, actual original-certificate APK signing, Android 16 smoke test and separately signed patch compatibility remain necessary. Do not publish old live feed 20028 differently yet.
