@@ -107,6 +107,8 @@ class MainActivity : Activity() {
     private var currentId = "tumbler"
     private var currentLod = "medium"
     private var lightMode = false
+    private var overlayModule=OverlayModuleConfig()
+    private var contextualOverlay:LinearLayout?=null
     // Stable orbit defaults and elevation bounds adapted from GlassStudy v0.1.22.
     private var yaw = .56
     private var pitch = .34
@@ -812,6 +814,7 @@ class MainActivity : Activity() {
             val nextMaterialModule = MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
             val nextSceneModule = SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))
             val nextWindowStyle = WindowStyleConfig.parse(updater.readModuleConfig("windows", candidate))
+            val nextOverlayModule = OverlayModuleConfig.parse(updater.readModuleConfig("overlay",candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
@@ -820,6 +823,8 @@ class MainActivity : Activity() {
             val sceneChanged=sceneModule != nextSceneModule
             sceneModule=nextSceneModule
             GlassDialogFactory.applyTheme(nextWindowStyle)
+            overlayModule=nextOverlayModule
+            updateContextualOverlay()
             if (sceneChanged) applySceneFloor()
             applyRenderModule()
             zoomPower=ui.zoomPower
@@ -970,8 +975,53 @@ class MainActivity : Activity() {
             val source = if (lightMode) "СВЕТ: палец — направление, два — яркость" else "КАМЕРА: палец — вращение, два — масштаб"
             label.text=source
             updateButtonHighlights()
+            updateContextualOverlay()
         }
     }
+    /** Context controls are created from validated patch data, without dynamic code loading. */
+    private fun updateContextualOverlay() {
+        if(!::mainRoot.isInitialized || !::viewer.isInitialized) return
+        contextualOverlay?.let { mainRoot.removeView(it) }
+        contextualOverlay=null
+        val cfg=overlayModule
+        if(!cfg.enabled || cfg.showWith=="never" ||
+            (cfg.showWith=="light" && !lightMode)) return
+        val container=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(d(12f),d(9f),d(12f),d(9f))
+            background=roundedFill(GlassDialogFactory.theme.background,
+                GlassDialogFactory.theme.controlCornerDp,GlassDialogFactory.theme.border)
+        }
+        container.addView(TextView(this).apply {
+            text=cfg.label
+            textSize=12f
+            setTextColor(GlassDialogFactory.theme.accent)
+        })
+        container.addView(android.widget.SeekBar(this).apply {
+            max=1000
+            val lo=cameraModule.minBrightness
+            val hi=cameraModule.maxBrightness
+            progress=(((brightness-lo)/(hi-lo))*max).toInt().coerceIn(0,max)
+            progressTintList=ColorStateList.valueOf(GlassDialogFactory.theme.accent)
+            thumbTintList=ColorStateList.valueOf(GlassDialogFactory.theme.accent)
+            setOnSeekBarChangeListener(object:android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar:android.widget.SeekBar?,value:Int,fromUser:Boolean) {
+                    if(fromUser) {
+                        brightness=lo+(hi-lo)*value/1000.0
+                        updateCamera()
+                    }
+                }
+                override fun onStartTrackingTouch(bar:android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(bar:android.widget.SeekBar?) {}
+            })
+        })
+        val params=FrameLayout.LayoutParams(d(cfg.widthDp.toFloat()),-2,
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+        params.bottomMargin=d(cfg.bottomMarginDp.toFloat())
+        mainRoot.addView(container,params)
+        contextualOverlay=container
+    }
+
     private fun showDiagnostic() {
         // The signed UI patch controls section visibility/order and all report labels.
         // Measurements are always taken from actual Android/Filament state.
