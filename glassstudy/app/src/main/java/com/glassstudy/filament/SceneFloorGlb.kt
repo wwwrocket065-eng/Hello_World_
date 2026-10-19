@@ -7,12 +7,13 @@ import java.nio.ByteOrder
 
 /** Self-contained glTF 2.0 plane. Separate floor asset, independent of selected model. */
 object SceneFloorGlb {
-    fun create(checker: Boolean): ByteBuffer {
-        val cells = if (checker) 10 else 1
+    fun create(checker: Boolean, width: Float = 12f, tileWidth: Float = 0.6f, dark: Double = 0.006, light: Double = 0.96): ByteBuffer {
+        require(width in 3f..18f && tileWidth in 0.25f..1.5f && dark in 0.0..1.0 && light in 0.0..1.0)
+
+        val cells = if (checker) (width / tileWidth).toInt().coerceIn(2,48) else 1
         val positions = ArrayList<Float>()
         val normals = ArrayList<Float>()
         val indices = arrayOf(ArrayList<Int>(), ArrayList<Int>())
-        val width = 6f
         for (y in 0 until cells) for (x in 0 until cells) {
             val x0 = -width / 2 + width * x / cells
             val x1 = -width / 2 + width * (x + 1) / cells
@@ -59,8 +60,8 @@ object SceneFloorGlb {
             accesses.put(item)
             return id
         }
-        val p=access(pv,5126,positions.size/3,"VEC3",JSONArray(listOf(-3.0,-0.06,-3.0)),
-            JSONArray(listOf(3.0,-0.06,3.0)))
+        val p=access(pv,5126,positions.size/3,"VEC3",JSONArray(listOf(-width/2,-0.06,-width/2)),
+            JSONArray(listOf(width/2,-0.06,width/2)))
         val n=access(nv,5126,normals.size/3,"VEC3")
         val index0=access(iv0,5123,indices[0].size,"SCALAR")
         val index1=if(iv1>=0) access(iv1,5123,indices[1].size,"SCALAR") else -1
@@ -69,8 +70,8 @@ object SceneFloorGlb {
             JSONObject().put("doubleSided",true).put("pbrMetallicRoughness",JSONObject()
                 .put("baseColorFactor",JSONArray(listOf(rgb,rgb,rgb,1.0)))
                 .put("metallicFactor",0).put("roughnessFactor",0.94))
-        materials.put(material(if(checker) 0.83 else 0.96))
-        materials.put(material(0.23))
+        materials.put(material(light))
+        materials.put(material(dark))
         val primitives=JSONArray()
         fun primitive(index:Int,mat:Int) = JSONObject().put("attributes",
             JSONObject().put("POSITION",p).put("NORMAL",n))
