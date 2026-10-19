@@ -131,7 +131,13 @@ class PatchManager(private val context: Context) {
         val pending = prefs.getInt("pending",0)
         if (pending != 0) {
             val previous = prefs.getInt("previous", BASE_VERSION)
-            prefs.edit().putInt("active",previous).putInt("blockedAfterCrash",pending).remove("pending").commit()
+            val restored = prefs.edit().putInt("active",previous)
+                .putInt("blockedAfterCrash",pending).remove("pending").commit()
+            if (!restored) {
+                updateStatus="Ошибка сохранения отката патча $pending; повторим при следующем запуске"
+                Log.e(TAG,"Could not persist rollback of unconfirmed patch $pending")
+                return
+            }
             updateStatus="Откат патча $pending: запуск не был подтверждён. Активен $previous"
             Log.w(TAG,"Unconfirmed asset version $pending rolled back to $previous")
         } else {
