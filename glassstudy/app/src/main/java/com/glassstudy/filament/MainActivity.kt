@@ -112,6 +112,7 @@ class MainActivity : Activity() {
     private var lightMode = false
     private var overlayModule=OverlayModuleConfig()
     private var contextualOverlay:LinearLayout?=null
+    private var overlayBrightnessSlider:android.widget.SeekBar?=null
     // Stable orbit defaults and elevation bounds adapted from GlassStudy v0.1.22.
     private var yaw = .56
     private var pitch = .34
@@ -204,7 +205,11 @@ class MainActivity : Activity() {
                     "brightnessPercent" -> {
                         brightness = (value.toDouble() / 100.0)
                             .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
-                        updateContextualOverlay()
+                        val range = cameraModule.maxBrightness - cameraModule.minBrightness
+                        overlayBrightnessSlider?.progress =
+                            (((brightness - cameraModule.minBrightness) / range) * 1000.0)
+                                .toInt().coerceIn(0, 1000)
+                        updateCamera()
                     }
                     else -> throw IllegalArgumentException("Unsupported window binding")
                 }
@@ -1068,6 +1073,7 @@ class MainActivity : Activity() {
         if(!::mainRoot.isInitialized || !::viewer.isInitialized) return
         contextualOverlay?.let { mainRoot.removeView(it) }
         contextualOverlay=null
+        overlayBrightnessSlider=null
         val cfg=overlayModule
         if(!cfg.enabled || cfg.showWith=="never" ||
             (cfg.showWith=="light" && !lightMode)) return
@@ -1082,7 +1088,7 @@ class MainActivity : Activity() {
             textSize=12f
             setTextColor(cfg.textColor?:GlassDialogFactory.theme.accent)
         })
-        container.addView(android.widget.SeekBar(this).apply {
+        val slider=android.widget.SeekBar(this).apply {
             max=1000
             val lo=cameraModule.minBrightness
             val hi=cameraModule.maxBrightness
@@ -1099,7 +1105,9 @@ class MainActivity : Activity() {
                 override fun onStartTrackingTouch(bar:android.widget.SeekBar?) {}
                 override fun onStopTrackingTouch(bar:android.widget.SeekBar?) {}
             })
-        })
+        }
+        container.addView(slider)
+        overlayBrightnessSlider=slider
         val params=FrameLayout.LayoutParams(d(cfg.widthDp.toFloat()),-2,
             Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
         params.bottomMargin=d(cfg.bottomMarginDp.toFloat())
