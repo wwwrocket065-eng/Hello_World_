@@ -117,14 +117,16 @@ class MainActivity : Activity() {
             Choreographer.getInstance().postFrameCallback(this)
             val submitStartNs=SystemClock.elapsedRealtimeNanos()
             updateCamera()
+            val framesBefore = viewer.renderedFrames
             viewer.render(frameTimeNanos)
+            val frameWasRendered = viewer.renderedFrames > framesBefore
             val submissionMs=(SystemClock.elapsedRealtimeNanos()-submitStartNs)/1_000_000.0
             profiler.frame(frameTimeNanos,submissionMs)
             if (::fpsPill.isInitialized && viewer.renderedFrames % 40L == 0L) {
                 val f=profiler.metrics().fps
                 fpsPill.text="${if(f!=null) String.format(Locale.US,"%.0f",f) else "—"} FPS · Filament"
             }
-            if (++stableFrames == 4) updater.confirmFrameRendered()
+            if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()
         }
     }
 
