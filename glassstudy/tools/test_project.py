@@ -41,7 +41,12 @@ assert 'renderUiButtons(ui)' in activity
 assert 'topButtonHost.removeAllViews()' in activity
 assert 'bottomButtonHost.removeAllViews()' in activity
 assert 'createUiButton(spec,ui)' in activity
-assert 'UiLayout.parse(updater.readUiConfig(candidate))' in activity
+bundle=(root/'app/src/main/java/com/glassstudy/filament/PatchUiBundle.kt').read_text()
+assert 'PatchUiBundle.read(updater, candidate)' in activity
+assert 'UiLayout.parse(updater.readUiConfig(candidate))' in bundle
+assert all(('readModuleConfig("'+name+'", candidate)') in bundle for name in
+           ('camera','render','diagnostics','materials','scene','windows','overlay'))
+assert activity.index('val bundle = PatchUiBundle.read(updater, candidate)') < activity.index('patchWindows = ui.windows')
 assert 'LabIconView(this,spec.icon)' in activity
 assert 'LabLogoView(this)' in activity
 assert 'diagnosticButton' not in activity and 'quickObjects' not in activity
