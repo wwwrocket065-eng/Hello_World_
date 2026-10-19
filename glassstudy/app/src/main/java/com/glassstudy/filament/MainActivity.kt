@@ -168,7 +168,9 @@ class MainActivity : Activity() {
     private fun openPatchWindow(id: String) {
         val spec = patchWindows[id] ?: return
         GlassDialogFactory.menu(this, spec.title, spec.buttons.map { it.title },
-            uiAnimations[id], spec.widthFraction ?: GlassDialogFactory.theme.widthFraction) { index ->
+            uiAnimations[id], (if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+                spec.landscapeWidthFraction ?: spec.widthFraction else spec.widthFraction)
+                ?: GlassDialogFactory.theme.widthFraction) { index ->
             val selected = spec.buttons.getOrNull(index) ?: return@menu
             clickAction(selected.action)
         }
