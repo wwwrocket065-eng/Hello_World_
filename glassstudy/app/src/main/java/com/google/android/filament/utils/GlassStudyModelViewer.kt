@@ -64,6 +64,20 @@ class GlassStudyModelViewer(
         val engine: Engine,
         private val uiHelper: UiHelper
 ) : android.view.View.OnTouchListener {
+    private var floorAsset: FilamentAsset? = null
+
+    fun setFloorGlb(buffer: Buffer?) {
+        floorAsset?.let { scene.removeEntities(it.entities); assetLoader.destroyAsset(it) }
+        floorAsset = null
+        if (buffer != null) {
+            val next = assetLoader.createAsset(buffer)
+                ?: throw IllegalArgumentException("Could not create floor GLB")
+            floorAsset = next
+            resourceLoader.asyncBeginLoad(next)
+            next.releaseSourceData()
+        }
+    }
+
     var asset: FilamentAsset? = null
         private set
 
@@ -296,6 +310,7 @@ class GlassStudyModelViewer(
 
         // Add renderable entities to the scene as they become ready.
         asset?.let { populateScene(it) }
+        floorAsset?.let { populateScene(it) }
 
         // DO NOT overwrite the camera configured by MainActivity.updateCamera().
         // The upstream Filament v1.57.1 ModelViewer always creates a fallback
@@ -333,6 +348,7 @@ class GlassStudyModelViewer(
                 uiHelper.detach()
 
                 destroyModel()
+                setFloorGlb(null)
                 assetLoader.destroy()
                 materialProvider.destroyMaterials()
                 materialProvider.destroy()
