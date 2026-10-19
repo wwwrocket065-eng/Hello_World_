@@ -155,6 +155,9 @@ assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
 assert 'reconcileAfterCrash()' in updater and 'confirmFrameRendered()' in updater
 assert 'putInt("blockedAfterCrash",pending)' in updater
+assert 'val restored = prefs.edit().putInt("active",previous)' in updater
+assert 'if (!restored)' in updater
+assert 'Could not persist rollback of unconfirmed patch' in updater
 assert 'feed.patchVersion != blockedVersion' in updater
 assert 'remove("blockedAfterCrash")' in updater
 assert 'if (!prefs.edit().putInt("previous",current).putInt("active",candidate.version)' in updater
