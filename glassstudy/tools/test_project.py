@@ -273,3 +273,12 @@ assert 'AlertDialog.Builder(this)' not in activity
 assert 'PopupWindow(outer,availableWidth' not in activity
 assert 'GlassDialogFactory.popup(this,outer,availableWidth)' in activity
 assert 'GlassDialogFactory.message(this,"Патч не установлен",reason)' in activity
+
+# Shared window theme is signed, validated and consumed in all dialogs.
+window_theme=json.loads((root/'app/src/main/assets/modules/windows/config.json').read_text())
+assert window_theme['id']=='windows' and window_theme['schema']==1
+assert 'WindowStyleConfig.parse(stagedModule("windows"))' in updater
+assert '"modules/windows/config.json" -> WindowStyleConfig.parse(config)' in updater
+assert 'GlassDialogFactory.applyTheme(nextWindowStyle)' in activity
+assert 'GlassDialogFactory.theme.selected' in activity
+assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
