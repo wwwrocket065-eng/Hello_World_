@@ -18,7 +18,7 @@ assert 'updater.checkOnStart(' in activity
 assert 'applyButton' not in activity
 assert 'private var diagnosticPopup:PopupWindow?' in activity
 assert 'popup.showAtLocation(mainRoot' in activity
-assert 'if(action=="diagnostics")' in activity
+assert 'if (action == "diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'diagnosticPopup?.dismiss()' in activity
 assert 'setTouchModal(false)' in (root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
 assert 'theme.titles.getValue("diagnostics")' in activity
@@ -303,13 +303,13 @@ assert 'titles' in window_theme and window_theme['titles']['scene']=='СЦЕНА
 assert 'Unknown window title key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 
 assert window_theme['diagnosticsClickMode']=='toggle'
-assert 'mode=GlassDialogFactory.theme.windowClickModes.getValue("diagnostics")' in activity
+assert 'host.windowMode("diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'diagnosticDismissedAtMs=SystemClock.uptimeMillis()' in activity
-assert 'sinceDismiss !in 0L..280L' in activity
+assert 'elapsed !in 0L..280L' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'setOf("toggle","openOnly","closeOnly")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 
 assert window_theme['windowClickModes']=={'diagnostics':'toggle','openScene':'toggle','menu':'toggle'}
-assert 'GlassDialogFactory.isOpen(action)' in activity
+assert 'host.isWindowOpen(action)' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'GlassDialogFactory.closeCurrent()' in activity
 assert 'key="openScene"' in activity
 assert 'key="skyColor"' in activity
@@ -331,7 +331,7 @@ for name in ('backgroundColor','borderColor','textColor','progressColor','thumbC
 window_schema=(root/'app/src/main/java/com/glassstudy/filament/DeclarativeWindows.kt').read_text()
 rich_renderer=(root/'app/src/main/java/com/glassstudy/filament/PatchWindowRenderer.kt').read_text()
 example=json.loads((root/'PROJECT_RULES/RICH_WINDOW_EXAMPLE.json').read_text())
-assert 'PatchWindowRenderer.show(this, spec, uiAnimations[id]' in activity
+assert 'PatchWindowRenderer.show(' in activity and 'this, spec, uiAnimations[id]' in activity
 assert 'key = "patch:${window.id}"' in rich_renderer
 assert 'patchWindows.keys.firstOrNull' in activity and 'patchToRestore ->' not in activity
 assert 'patchToRestore != null -> openPatchWindow(patchToRestore)' in activity
