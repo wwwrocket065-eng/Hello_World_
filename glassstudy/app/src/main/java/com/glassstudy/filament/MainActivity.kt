@@ -1009,7 +1009,9 @@ class MainActivity : Activity() {
             if (e.pointerCount >= 2) {
                 val delta = pinch(e)
                 if (oldPinch > 0f && delta > 1f) {
-                    if (lightMode) brightness = (brightness * (delta / oldPinch).toDouble().pow(.7)).coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
+                    if (lightMode) uiController.write("brightnessPercent",
+                        ((brightness * (delta / oldPinch).toDouble().pow(.7))
+                            .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness) * 100.0).toFloat())
                     // Spread two fingers => move closer; pinch => farther. Same as v0.1.22.
                     else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(cameraModule.minDistance, cameraModule.maxDistance)
                 }
