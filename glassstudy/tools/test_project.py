@@ -303,3 +303,11 @@ assert 'GlassDialogFactory.closeCurrent()' in activity
 assert 'key="openScene"' in activity
 assert 'key="skyColor"' in activity
 assert 'Unknown window behavior key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
+
+# Signed contextual overlay with safe live bindings and controlled appearance.
+overlay_config=json.loads((root/'app/src/main/assets/modules/overlay/config.json').read_text())
+assert overlay_config['showWith']=='light'
+assert 'OverlayModuleConfig.parse(stagedModule("overlay"))' in updater
+assert '"modules/overlay/config.json" -> OverlayModuleConfig.parse(config)' in updater
+assert 'private fun updateContextualOverlay()' in activity
+assert 'updateCamera()' in activity[activity.index('private fun updateContextualOverlay()'):activity.index('private fun showDiagnostic()')]
