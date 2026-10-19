@@ -133,11 +133,12 @@ data class UiLayout(
         fun parse(bytes: ByteArray): UiLayout {
             require(bytes.size in 64..32768) { "UI patch size is invalid" }
             val j=JSONObject(String(bytes, StandardCharsets.UTF_8))
+            val theme = UiThemeEngine.parse(j)
             require(j.getString("format")=="glassstudy-ui-v1" && j.optInt("schema",0)==1) { "Unsupported UI schema" }
             fun color(key: String, fallback: String): Int {
                 val hex=j.optString(key,fallback)
                 require(Regex("^#[0-9a-fA-F]{6}$").matches(hex)) { "Bad color $key" }
-                return Color.parseColor(hex)
+                return theme.color(key, Color.parseColor(hex))
             }
             fun number(key:String, fallback:Double, low:Double, high:Double):Double {
                 val value=if(j.has(key))j.getDouble(key) else fallback
@@ -210,8 +211,10 @@ data class UiLayout(
                     }
                     if(obj.optBoolean("visible",true)) parsed.add(
                         UiButtonSpec(id,action,slot,icon,label,height,
-                            optionalColor("fill"),optionalColor("outline"),
-                            optionalColor("textColor"),obj.optBoolean("highlight",false))
+                            theme.buttonColor(id,"fill",optionalColor("fill")),
+                            theme.buttonColor(id,"outline",optionalColor("outline")),
+                            theme.buttonColor(id,"textColor",optionalColor("textColor")),
+                            obj.optBoolean("highlight",false))
                     )
                 }
                 require(parsed.map { it.id }.distinct().size==parsed.size) { "Duplicate UI buttons" }
