@@ -18,9 +18,15 @@ data class WindowStyleConfig(
     val rowHeightDp:Int=43,
     val widthFraction:Float=.91f,
     val menuOrder:List<String> = listOf("model","camera","diagnostics"),
-    val diagnosticHeaderOrder:List<String> = listOf("title","copy")
+    val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
+    val titles:Map<String,String> = defaultTitles()
 ) {
     companion object {
+        fun defaultTitles():Map<String,String> = linkedMapOf(
+            "scene" to "СЦЕНА", "skyColor" to "ЦВЕТ SKYBOX",
+            "diagnostics" to "Диагностика", "mainMenu" to "GlassStudy · 3D LAB",
+            "patchInstalled" to "GlassStudy", "patchRejected" to "Патч отклонён",
+            "patchError" to "Патч не установлен", "modelError" to "Ошибка загрузки модели")
         fun parse(json:JSONObject?):WindowStyleConfig {
             if(json==null)return WindowStyleConfig()
             fun color(key:String,default:Int):Int {
@@ -52,6 +58,19 @@ data class WindowStyleConfig(
                 }
                 names
             } else headerDefaults
+            val defaults=defaultTitles()
+            val titles=defaults.toMutableMap()
+            if(json.has("titles")) {
+                val names=json.getJSONObject("titles")
+                for(key in names.keys()) {
+                    require(key in defaults) { "Unknown window title key" }
+                    val title=names.getString(key)
+                    require(title.length in 1..64 && title.none { it.isISOControl() }) {
+                        "Invalid window title"
+                    }
+                    titles[key]=title
+                }
+            }
             return WindowStyleConfig(
                 color("background",Color.rgb(17,35,49)),
                 color("control",Color.rgb(23,48,64)),
@@ -64,7 +83,7 @@ data class WindowStyleConfig(
                 number("controlCornerDp",11.0,0.0,28.0),
                 number("paddingDp",18.0,4.0,36.0).toInt(),
                 number("rowHeightDp",43.0,32.0,64.0).toInt(),
-                number("widthFraction",.91,.65,1.0),menuOrder,headerOrder)
+                number("widthFraction",.91,.65,1.0),menuOrder,headerOrder,titles)
         }
     }
 }
