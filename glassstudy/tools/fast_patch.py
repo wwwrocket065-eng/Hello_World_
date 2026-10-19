@@ -132,7 +132,7 @@ def published_baseline():
     """
     from cryptography.hazmat.primitives.serialization import load_der_public_key
     source=(ROOT/"app/src/main/java/com/glassstudy/filament/PatchManager.kt").read_text()
-    matched=re.search(r'PUBLIC_KEY_BASE64\\s*=\\s*"([^"]+)"',source)
+    matched=re.search(r'PUBLIC_KEY_BASE64\s*=\s*"([^"]+)"',source)
     if not matched:raise ValueError("Missing Android patch public key")
     pub=serialization.load_der_public_key(base64.b64decode(matched.group(1)))
     updates=ROOT/"updates/v2"
