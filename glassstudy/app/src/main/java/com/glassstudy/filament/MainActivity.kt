@@ -491,7 +491,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Safe dynamic layout:    /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
+    /** Safe dynamic layout: add/remove/move operations use validated signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
             // All patch-controlled modules are parsed and validated before any UI mutation.
