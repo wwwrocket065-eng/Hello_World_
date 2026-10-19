@@ -55,16 +55,12 @@ import kotlin.math.sqrt
  * Exported scene contains the very same GLB that gltfio sends to Filament.
  */
 class MainActivity : Activity() {
-    companion object {
-        init { Utils.init() }
-        private val ids = arrayOf("faceted", "tumbler", "wine", "mug", "pitcher", "bowl", "vase", "sphere", "cube", "cylinder", "cone")
-        private val names = arrayOf("Гранёный стакан", "Стакан", "Бокал", "Чашка", "Кувшин", "Пиала", "Ваза", "Сфера", "Куб", "Цилиндр", "Конус")
-        private val qualities = arrayOf("low", "medium", "high")
-    }
+    companion object { init { Utils.init() } }
     private lateinit var surface: SurfaceView
     private lateinit var viewer: GlassStudyModelViewer
     private lateinit var updater: PatchManager
-    private var wireframe = false
+    private lateinit var modelAssets:ModelMaterialController
+    private var initialWireframe=false
     private lateinit var label: TextView
     private lateinit var logoMark: LabLogoView
     private val diagnosticsPopup by lazy(LazyThreadSafetyMode.NONE) {
@@ -110,7 +106,7 @@ class MainActivity : Activity() {
 
             override fun readState(binding: String): Float = when (binding) {
                 "lightMode" -> if (cameraLight.lightMode) 1f else 0f
-                "grid" -> if (wireframe) 1f else 0f
+                "grid" -> if (modelAssets.wireframe) 1f else 0f
                 "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
                 "brightnessPercent" -> (cameraLight.brightness * 100.0).toFloat()
                 else -> throw IllegalArgumentException("Unsupported binding: $binding")
@@ -123,12 +119,12 @@ class MainActivity : Activity() {
                         status()
                     }
                     "grid" -> {
-                        val enabled = value >= .5f
-                        if (enabled != wireframe) {
-                            wireframe = enabled
-                            getPreferences(MODE_PRIVATE).edit()
-                                .putBoolean("wireframe", wireframe).apply()
-                            loadSelected()
+                        val enabled=value>=.5f
+                        if(enabled!=modelAssets.wireframe) {
+                            if(loadSelected(debugOverride=enabled)) {
+                                getPreferences(MODE_PRIVATE).edit()
+                                    .putBoolean("wireframe",enabled).apply()
+                            }
                             status()
                         }
                     }
@@ -157,7 +153,6 @@ class MainActivity : Activity() {
     private lateinit var cameraLight:CameraLightController
     private lateinit var renderEnvironment:RenderEnvironmentController
     private var diagnosticsModule = DiagnosticsModuleConfig()
-    private var materialModule = MaterialModuleConfig()
     private lateinit var sceneEnvironment:SceneEnvironmentController
     private lateinit var sceneSettings:SceneSettingsPanel
     private var diagnosticLabels: Map<String,String> = emptyMap()
@@ -166,8 +161,6 @@ class MainActivity : Activity() {
     private val profiler = FrameProfiler()
     private lateinit var chooseObject: Spinner
     private lateinit var chooseLod: Spinner
-    private var currentId = "tumbler"
-    private var currentLod = "medium"
     private var overlayModule=OverlayModuleConfig()
     private var lightIndicator:LightIndicatorView?=null
     private var running = false
@@ -274,7 +267,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         updater = PatchManager(this)
         updater.reconcileAfterCrash()
-        wireframe = getPreferences(MODE_PRIVATE).getBoolean("wireframe", false)
+        initialWireframe=getPreferences(MODE_PRIVATE).getBoolean("wireframe",false)
         window.statusBarColor = Color.rgb(101,103,103)
         window.navigationBarColor = Color.rgb(101,103,103)
         surface = SurfaceView(this)
@@ -295,6 +288,7 @@ class MainActivity : Activity() {
         }
 
         viewer = GlassStudyModelViewer(surface, manipulator = null)
+        modelAssets=ModelMaterialController(viewer,updater)
         sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE))
         sceneSettings=SceneSettingsPanel(this,sceneEnvironment)
         sceneEnvironment.applySkybox()
@@ -383,7 +377,7 @@ class MainActivity : Activity() {
         }
         selectorRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         chooseObject=Spinner(this).apply {
-            adapter=selectionAdapter(names)
+            adapter=selectionAdapter(ModelCatalog.names.toTypedArray())
             background=roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
         }
         val first=LinearLayout.LayoutParams(0,d(45f),1.35f)
@@ -415,7 +409,7 @@ class MainActivity : Activity() {
                 override fun dispatch(action:String) { uiController.dispatch(action) }
                 override fun isActive(action:String):Boolean=when(action) {
                     "toggleLight" -> cameraLight.lightMode
-                    "toggleGrid" -> wireframe
+                    "toggleGrid" -> modelAssets.wireframe
                     "diagnostics" -> diagnosticsPopup.isShowing
                     else -> false
                 }
@@ -436,8 +430,8 @@ class MainActivity : Activity() {
         val onSelection=object: AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent:AdapterView<*>?, view:View?, position:Int, id:Long) {
                 if (::viewer.isInitialized && ::updater.isInitialized &&
-                    (ids[chooseObject.selectedItemPosition.coerceIn(0,ids.lastIndex)] != currentId ||
-                    qualities[chooseLod.selectedItemPosition.coerceIn(0,2)] != currentLod)) {
+                    (ModelCatalog.idAt(chooseObject.selectedItemPosition) != modelAssets.selection.modelId ||
+                    ModelCatalog.qualityAt(chooseLod.selectedItemPosition) != modelAssets.selection.lod)) {
                     loadSelected()
                 }
             }
@@ -581,7 +575,7 @@ class MainActivity : Activity() {
             cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)
             renderEnvironment.apply(bundle.render)
             diagnosticsModule = bundle.diagnostics
-            materialModule = bundle.materials
+            modelAssets.configure(bundle.materials)
             sceneEnvironment.applyConfiguration(bundle.scene)
             GlassDialogFactory.applyTheme(bundle.windows)
             overlayModule = bundle.overlay
@@ -629,35 +623,37 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun loadSelected(candidate: PatchManager.Candidate? = null): Boolean {
-        currentId = ids[chooseObject.selectedItemPosition.coerceIn(0, ids.lastIndex)]
-        currentLod = qualities[chooseLod.selectedItemPosition.coerceIn(0, 2)]
-        try {
-            viewer.loadModelGlb(modelData(candidate))
-            if (viewer.asset == null) throw IllegalStateException("Filament gltfio rejected the GLB")
-            MaterialOverrides.parse(updater.readModuleConfig("materials", candidate)).apply(viewer)
+    /**
+     * Only the controller reads signed GLB variants and touches gltfio.
+     * UI selection and grid changes are committed only on successful loading.
+     */
+    private fun loadSelected(
+        candidate:PatchManager.Candidate?=null,
+        debugOverride:Boolean?=null
+    ):Boolean {
+        val requested=ModelSelection(
+            ModelCatalog.idAt(chooseObject.selectedItemPosition),
+            ModelCatalog.qualityAt(chooseLod.selectedItemPosition))
+        val debug=debugOverride ?: if(modelAssets.hasLoaded) modelAssets.wireframe
+            else initialWireframe
+        val outcome=modelAssets.load(requested,debug,candidate)
+        if(outcome.isSuccess) {
             status()
             return true
-        } catch (e: Exception) {
-            if (candidate != null) {
-                // Reject bad background patches silently: preserve the working scene.
-                android.util.Log.w("GlassStudy", "Staged model failed to render", e)
-            } else {
-                GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("modelError"),
-                    e.stackTraceToString().take(3000))
-            }
-            return false
         }
-    }
-    private fun modelData(candidate: PatchManager.Candidate? = null): ByteBuffer {
-        val defaultName="models/${currentId}_${currentLod}${if(wireframe) "_debug" else ""}.glb"
-        val catalog = if (candidate != null)
-            MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
-            else materialModule
-        val name = catalog.resolve(currentId, currentLod, wireframe) ?: defaultName
-        val bytes = updater.readResourceOrNull(name, candidate)
-            ?: throw IllegalArgumentException("Missing material/model asset: $name")
-        return ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).apply { put(bytes); flip() }
+        val error=outcome.exceptionOrNull()
+        if(candidate!=null) {
+            android.util.Log.w("GlassStudy","Staged model failed to render",error)
+        } else {
+            if(modelAssets.hasLoaded) {
+                val saved=modelAssets.selection
+                chooseObject.setSelection(ModelCatalog.indexOfId(saved.modelId))
+                chooseLod.setSelection(ModelCatalog.indexOfQuality(saved.lod))
+            }
+            GlassDialogFactory.message(this,GlassDialogFactory.theme.titles.getValue("modelError"),
+                (error?.stackTraceToString() ?: "Ошибка загрузки модели").take(3000))
+        }
+        return false
     }
     private fun resetCameraToHome() {
         cameraLight.resetHome()
@@ -696,10 +692,10 @@ class MainActivity : Activity() {
             diagnosticsModule=diagnosticsModule,
             renderModule=renderEnvironment.configuration,
             cameraModule=cameraLight.config,
-            modelId=currentId,
-            modelName=names[ids.indexOf(currentId).coerceAtLeast(0)],
-            modelLod=currentLod,
-            wireframe=wireframe,
+            modelId=modelAssets.selection.modelId,
+            modelName=ModelCatalog.displayName(modelAssets.selection.modelId),
+            modelLod=modelAssets.selection.lod,
+            wireframe=modelAssets.wireframe,
             renderedFrames=viewer.renderedFrames.toString(),
             surfaceWidth=surface.width,
             surfaceHeight=surface.height,

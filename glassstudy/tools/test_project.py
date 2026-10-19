@@ -12,7 +12,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.35' in props and 'GLASSSTUDY_VERSION_CODE=20035' in props
+assert 'GLASSSTUDY_VERSION=0.2.36' in props and 'GLASSSTUDY_VERSION_CODE=20036' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -42,6 +42,8 @@ assert 'Применить' not in activity or 'no "Применить"' in acti
 assert 'chooseObject.onItemSelectedListener=onSelection' in activity
 assert 'chooseLod.onItemSelectedListener=onSelection' in activity
 assert 'loadSelected()' in activity
+assert 'modelAssets.load(requested,debug,candidate)' in activity
+assert 'modelAssets.configure(bundle.materials)' in activity
 assert 'headerRow.addView(topButtonHost' in activity
 assert 'bottomPanel.addView(bottomButtonHost' in activity
 toolbar=(root/'app/src/main/java/com/glassstudy/filament/UiToolbarController.kt').read_text()
@@ -224,7 +226,9 @@ for module in ('camera','render','diagnostics','materials'):
     config=json.loads((root/'app/src/main/assets/modules'/module/'config.json').read_text())
     assert config['id']==module and config['schema']==1
     assert 'readModuleConfig("'+module+'", candidate)' in bundle
-assert 'MaterialOverrides.parse(' in activity
+model_loader=(root/'app/src/main/java/com/glassstudy/filament/ModelMaterialController.kt').read_text()
+model_catalog=(root/'app/src/main/java/com/glassstudy/filament/ModelCatalog.kt').read_text()
+assert 'MaterialOverrides.parse(materialJson)' in model_loader
 assert '"openScene" -> openSceneMenu()' in activity
 assert 'sceneSettings.show()' in activity
 assert 'sceneEnvironment.applyConfiguration(bundle.scene)' in activity
@@ -451,3 +455,26 @@ assert 'viewer.view.antiAliasing=' in render_env
 assert 'KTX1Loader.createIndirectLight(viewer.engine,buf)' in render_env
 assert 'LightGestureController()' in camera_light
 assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
+
+# Model selection and material variants share one validated, rollback-aware module.
+assert 'class ModelMaterialController(' in model_loader
+assert 'object ModelCatalog' in model_catalog
+assert 'val ids=listOf("faceted","tumbler","wine","mug"' in model_catalog
+assert 'fun load(' in model_loader
+assert 'MaterialModuleConfig.parse(materialJson)' in model_loader
+assert 'MaterialOverrides.parse(materialJson)' in model_loader
+assert 'PatchResourceRegistry.validate(path,bytes)' in model_loader
+assert 'updater.readResourceOrNull(path,candidate)' in model_loader
+assert 'viewer.loadModelGlb(direct(bytes))' in model_loader
+assert 'require(viewer.asset!=null)' in model_loader
+assert 'restore(previous)' in model_loader
+assert 'updater.readModuleConfig("materials")' in model_loader
+assert 'modelAssets.hasLoaded' in activity
+assert 'if(loadSelected(debugOverride=enabled))' in activity
+assert '.putBoolean("wireframe",enabled).apply()' in activity
+assert 'chooseObject.setSelection(ModelCatalog.indexOfId(saved.modelId))' in activity
+assert 'chooseLod.setSelection(ModelCatalog.indexOfQuality(saved.lod))' in activity
+assert 'modelId=modelAssets.selection.modelId' in activity
+assert 'modelName=ModelCatalog.displayName(modelAssets.selection.modelId)' in activity
+assert 'private fun modelData(' not in activity
+assert 'MaterialOverrides.parse(' not in activity

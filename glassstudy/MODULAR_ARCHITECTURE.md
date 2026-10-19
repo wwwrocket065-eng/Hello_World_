@@ -93,3 +93,7 @@ Never claim full modularity merely because the updater accepts more file types.
 ## 0.2.35 — camera/light and render ownership
 - CameraLightController owns mutable orbit, zoom, light direction/intensity and touch gesture lock; outputs to actual Filament camera/light manager. On-screen indicators only observe callbacks.
 - RenderEnvironmentController owns IBL, FXAA, exposure, AO. SceneEnvironmentController exclusively owns Skybox/floor. MainActivity composes the modules and applies validated signed configs.
+
+## v0.2.36 — asset/model/material isolation
+- ModelCatalog defines the built-in list once, ModelSelection is validated, ModelMaterialController validates candidate GLB & material overrides before calling Filament. It keeps the active model selection separate from uncommitted picker choices and can reload the previous model from active, signed assets on failed replacement.
+- MainActivity only passes picker selection, grid preference and staged candidate to the controller; diagnostics consumes its committed state. Patch activation stays in PatchManager.

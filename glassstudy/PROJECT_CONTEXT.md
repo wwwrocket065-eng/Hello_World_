@@ -85,3 +85,8 @@
 ## Checkpoint 2026-10-19 v0.2.35
 - CameraLightController.kt: orbit and light gesture state, Filament camera/light projection. RenderEnvironmentController.kt: indirect studio IBL/exposure/FXAA/AO. Activity is composition root and uses their read-only properties for DiagnosticsReportState.
 - Requires CI and Android device checks and only original-certificate signing. Shared signed patch feed 20028 must not be changed for old APKs.
+
+
+## Checkpoint 2026-10-19 — source v0.2.36
+- ModelCatalog.kt owns identifiers/names/LOD; ModelMaterialController.kt owns validated model/material GLB resolution, candidate loading and last-good restore. MainActivity delegates loadSelected and saves grid preference only after success. Version 0.2.36/20036.
+- Published feed remains 20028. First-party signed GLB material variants remain a module, not shader code injection. CI + device smoke tests required; do not present unsigned CI APK as installable.

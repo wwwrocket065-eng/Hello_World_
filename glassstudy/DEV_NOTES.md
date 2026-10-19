@@ -157,3 +157,9 @@
 - Introduced RenderEnvironmentController for actual Filament exposure, FXAA, optional studio KTX indirect light and ambient occlusion; driven by signed validated RenderModuleConfig. Skybox/floor remain owned by SceneEnvironmentController.
 - MainActivity now delegates SurfaceView touch events, obtains typed camera/light snapshot for diagnostics and applies validated CameraModuleConfig/RenderModuleConfig. No native code added through .pupdate. Source version 0.2.35/20035, live feed 20028 unchanged.
 - CI compile and real Android 16 touch/device tests are mandatory before a signed release using the ORIGINAL certificate.
+
+## 2026-10-19 — v0.2.36 model/material subsystem consolidation
+- ModelCatalog/ModelSelection: one list of built-in identifiers, display names and levels; selectors and diagnostics now use the same catalog, not copied arrays in MainActivity.
+- ModelMaterialController: single owner of signed GLB variant resolution, patch candidate material schema, glTF material overrides, direct-buffer loading, GLB preflight and last-known-good restoration if Filament asset replacement fails. Model rendering never consumes unsigned arbitrary resources.
+- Grid preference and selectors commit only after a successful model load; failed model selections revert to the working selection. Candidate loading uses candidate catalog/overrides consistently before activation; updater's existing reject + old UI/model restore remains in control of patch rollback.
+- MainActivity delegates model loading/materials and no longer owns byte buffers, variant mapping or asset lifecycle. Source 0.2.36/20036; signed live patch feed 20028 remains unchanged. On-device Android 16 check and original-certificate apksigner still required before an installable release.
