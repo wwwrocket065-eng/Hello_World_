@@ -76,7 +76,6 @@ class MainActivity : Activity() {
     private lateinit var topButtonHost: LinearLayout
     private lateinit var bottomButtonHost: LinearLayout
     private lateinit var toolbarController:UiToolbarController
-    private var patchWindows: Map<String, DeclarativeWindow> = emptyMap()
 
     /** All controls (toolbar, windows, overlays) go through one typed action API. */
     private val uiController by lazy(LazyThreadSafetyMode.NONE) {
@@ -139,13 +138,7 @@ class MainActivity : Activity() {
         })
     }
 
-    private var uiAnimations: Map<String, UiAnimationSpec> = emptyMap()
-    private var currentUiColor:Int=Color.rgb(27,56,75)
-    private var currentSelectorColor=Color.rgb(109,224,222)
-    private var currentTopOutlineColor=Color.rgb(109,185,203)
-    private var currentTopIconColor=Color.rgb(163,208,211)
-    private var currentTopButtonSizeDp=35
-    private var currentTopIconScale=.82f
+    private val uiChrome by lazy(LazyThreadSafetyMode.NONE) { UiChromeController(this) }
     private lateinit var mainRoot:FrameLayout
     private lateinit var headerSubtitle: TextView
     private lateinit var headerRow: LinearLayout
@@ -155,13 +148,9 @@ class MainActivity : Activity() {
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private lateinit var sceneEnvironment:SceneEnvironmentController
     private lateinit var sceneSettings:SceneSettingsPanel
-    private var diagnosticLabels: Map<String,String> = emptyMap()
-    private var diagnosticSections: List<String> =
-        listOf("updates","performance","memory","scene","renderer","camera","device")
     private val profiler = FrameProfiler()
     private lateinit var chooseObject: Spinner
     private lateinit var chooseLod: Spinner
-    private var overlayModule=OverlayModuleConfig()
     private var lightIndicator:LightIndicatorView?=null
     private var running = false
     private var stableFrames = 0
@@ -186,34 +175,14 @@ class MainActivity : Activity() {
     }
 
     private fun d(v: Float): Int = (v * resources.displayMetrics.density).toInt()
-    private val cyan = Color.rgb(109, 224, 222)
-    private val paleText = Color.rgb(232, 247, 251)
-
-    // v0.1.22 glass lab palette: graphite #07111d, deep blue #10273b,
-    // cyan #6ad8db, translucent surfaces, outlined rounded buttons.
-    private fun roundedFill(color:Int, radius:Float=15f, outline:Int=cyan, stroke:Float=1f):GradientDrawable {
-        return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(color, Color.argb(Color.alpha(color),16,39,58))).apply {
-            cornerRadius=d(radius).toFloat()
-            setStroke(d(stroke).coerceAtLeast(1), outline)
-        }
-    }
-    private fun skin(view:View,selected:Boolean=false,color:Int=currentUiColor,outline:Int?=null) {
-        val alpha=Color.alpha(color)
-        val accent=if(selected) Color.argb(alpha,48,116,124) else color
-        val stroke=outline ?: if(selected)Color.rgb(166,246,233) else Color.argb(180,109,185,203)
-        val gradient=roundedFill(accent,14f,stroke)
-        view.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),gradient,null)
-        view.elevation=d(2f).toFloat()
-    }
     /**
      * All patch-defined windows, including their interactive controls, use one
      * renderer and a fixed whitelist of safe application state bindings.
      */
     private fun openPatchWindow(id: String) {
-        val spec = patchWindows[id] ?: return
+        val spec = uiChrome.windows[id] ?: return
         PatchWindowRenderer.show(
-            this, spec, uiAnimations[id],
+            this, spec, uiChrome.animations[id],
             readBinding = uiController::read,
             writeBinding = uiController::write,
             performAction = uiController::dispatch
@@ -222,30 +191,6 @@ class MainActivity : Activity() {
 
     private fun updateButtonHighlights() {
         if(::toolbarController.isInitialized)toolbarController.updateHighlights()
-    }
-    private fun selectionAdapter(values:Array<String>):ArrayAdapter<String> {
-        val adapter=object: ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values) {
-            override fun getView(position:Int, convertView:View?, parent:ViewGroup):View {
-                val label=super.getView(position,convertView,parent) as TextView
-                label.text="${values[position]}  ▾"
-                label.textSize=14f
-                label.setSingleLine(true)
-                label.setTextColor(currentSelectorColor)
-                label.setPadding(d(12f),0,d(7f),0)
-                return label
-            }
-            override fun getDropDownView(position:Int, convertView:View?,parent:ViewGroup):View {
-                val label=super.getDropDownView(position,convertView,parent) as TextView
-                label.text=values[position]
-                label.textSize=16f
-                label.setTextColor(currentSelectorColor)
-                label.setPadding(d(15f),d(10f),d(9f),d(10f))
-                label.setBackgroundColor(Color.rgb(24,48,62))
-                return label
-            }
-        }
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        return adapter
     }
     private fun openSceneMenu() {
         sceneSettings.show()
@@ -259,7 +204,7 @@ class MainActivity : Activity() {
     }
     private fun showLightingIndicatorStyles() {
         LightIndicatorSettingsPanel(this) {
-            updateContextualOverlay()
+            uiChrome.updateIndicatorVisibility(cameraLight.lightMode)
         }.show()
     }
 
@@ -295,7 +240,7 @@ class MainActivity : Activity() {
         renderEnvironment=RenderEnvironmentController(this,viewer)
         renderEnvironment.initialize()
         cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
-            {mode,value -> showLightIndicator(mode,value)},
+            {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode)},
             {lightIndicator?.hide()})
         surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
 
@@ -363,7 +308,7 @@ class MainActivity : Activity() {
             textSize=11f
             setTextColor(Color.rgb(109,224,222))
             setPadding(d(13f),d(6f),d(13f),d(6f))
-            background=roundedFill(Color.rgb(19,41,54),30f,Color.argb(130,109,185,203))
+            background=uiChrome.roundedFill(Color.rgb(19,41,54),30f,Color.argb(130,109,185,203))
         }
         val pillParams=LinearLayout.LayoutParams(-2,-2)
         pillParams.bottomMargin=d(6f)
@@ -372,20 +317,20 @@ class MainActivity : Activity() {
         bottomPanel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(d(11f),d(11f),d(11f),d(12f))
-            background=roundedFill(Color.argb(220,35,47,58),19f,Color.argb(175,177,218,225))
+            background=uiChrome.roundedFill(Color.argb(220,35,47,58),19f,Color.argb(175,177,218,225))
             elevation=d(6f).toFloat()
         }
         selectorRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         chooseObject=Spinner(this).apply {
-            adapter=selectionAdapter(ModelCatalog.names.toTypedArray())
-            background=roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
+            adapter=uiChrome.selectionAdapter(ModelCatalog.names.toTypedArray())
+            background=uiChrome.roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
         }
         val first=LinearLayout.LayoutParams(0,d(45f),1.35f)
         first.rightMargin=d(7f)
         selectorRow.addView(chooseObject,first)
         chooseLod=Spinner(this).apply {
-            adapter=selectionAdapter(arrayOf("Low","Medium","High"))
-            background=roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
+            adapter=uiChrome.selectionAdapter(arrayOf("Low","Medium","High"))
+            background=uiChrome.roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
         }
         selectorRow.addView(chooseLod,LinearLayout.LayoutParams(0,d(45f),1f))
         bottomPanel.addView(selectorRow)
@@ -400,8 +345,8 @@ class MainActivity : Activity() {
         root.addView(dock,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
         // Non-interactive HUD above the Filament SurfaceView.
         lightIndicator=LightIndicatorView(this).also { hud ->
-            root.addView(hud,FrameLayout.LayoutParams(d(overlayModule.indicatorSizeDp.toFloat()),
-                d(overlayModule.indicatorSizeDp.toFloat()),Gravity.CENTER))
+            root.addView(hud,FrameLayout.LayoutParams(d(uiChrome.overlay.indicatorSizeDp.toFloat()),
+                d(uiChrome.overlay.indicatorSizeDp.toFloat()),Gravity.CENTER))
         }
 
         toolbarController=UiToolbarController(this,topButtonHost,bottomButtonHost,topPanel,
@@ -414,13 +359,16 @@ class MainActivity : Activity() {
                     else -> false
                 }
                 override fun decorate(view:View,selected:Boolean,color:Int,outline:Int?) {
-                    skin(view,selected,color,outline)
+                    uiChrome.skin(view,selected,color,outline)
                 }
                 override fun onLightLongPress() {
                     resetCameraToHome()
                     Toast.makeText(this@MainActivity,"Камера сброшена",Toast.LENGTH_SHORT).show()
                 }
             })
+        uiChrome.bind(UiChromeViews(mainRoot,topPanel,bottomPanel,
+            logoMark,headerSubtitle,label,fpsPill,chooseObject,chooseLod,
+            toolbarController,checkNotNull(lightIndicator)))
         chooseObject.setSelection(1)
         chooseLod.setSelection(1)
         applyUiLayout()
@@ -452,7 +400,7 @@ class MainActivity : Activity() {
         super.onConfigurationChanged(newConfig)
         // Remember the active panel before Android changes its viewport. A
         // rotation must not silently throw away a window or reset the scene.
-        val patchToRestore = patchWindows.keys.firstOrNull {
+        val patchToRestore = uiChrome.windows.keys.firstOrNull {
             GlassDialogFactory.isOpen("patch:$it")
         }
         val restoreScene = GlassDialogFactory.isOpen("openScene")
@@ -464,7 +412,7 @@ class MainActivity : Activity() {
             mainRoot.post {
                 if (!isFinishing && !isDestroyed && ::updater.isInitialized) {
                     if (applyUiLayout()) {
-                        updateContextualOverlay()
+                        uiChrome.updateIndicatorVisibility(cameraLight.lightMode)
                         when {
                             patchToRestore != null -> openPatchWindow(patchToRestore)
                             restoreScene -> openSceneMenu()
@@ -543,82 +491,22 @@ class MainActivity : Activity() {
         }
     }
 
-    /** System bar appearance and immersive mode are signed patch settings. */
-    private fun setSystemBarMode(ui:UiLayout) {
-        window.statusBarColor=ui.systemBarColor
-        window.navigationBarColor=ui.systemBarColor
-        if(Build.VERSION.SDK_INT>=30) {
-            val controller=window.insetsController
-            if(ui.immersiveMode) {
-                controller?.hide(WindowInsets.Type.systemBars())
-                controller?.systemBarsBehavior=
-                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else controller?.show(WindowInsets.Type.systemBars())
-        } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility=if(ui.immersiveMode) (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) else 0
-        }
-        mainRoot.requestApplyInsets()
-    }
-
-    /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
+    /** Safe dynamic layout:    /** Safe dynamic layout: all add/remove/move operations are signed .pupdate JSON. */
     private fun applyUiLayout(candidate:PatchManager.Candidate?=null):Boolean {
         try {
+            // All patch-controlled modules are parsed and validated before any UI mutation.
             val bundle = PatchUiBundle.read(updater, candidate)
-            val ui = bundle.ui
-            // Parsing every module completed before any live state is replaced.
-            patchWindows = ui.windows
-            uiAnimations = ui.animations
+            val ui=bundle.ui
             cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)
             renderEnvironment.apply(bundle.render)
-            diagnosticsModule = bundle.diagnostics
+            diagnosticsModule=bundle.diagnostics
             modelAssets.configure(bundle.materials)
             sceneEnvironment.applyConfiguration(bundle.scene)
-            GlassDialogFactory.applyTheme(bundle.windows)
-            overlayModule = bundle.overlay
-            updateContextualOverlay()
-            currentSelectorColor=ui.selectorTextColor
-            currentTopOutlineColor=ui.topButtonOutlineColor
-            currentTopIconColor=ui.buttonTextColor
-            currentTopButtonSizeDp=ui.topButtonSizeDp
-            currentTopIconScale=ui.topIconScale
-            logoMark.showUnderline=ui.showLogoUnderline
-            logoMark.logoColor=ui.logoColor
-            headerSubtitle.setTextColor(ui.subtitleColor)
-            val logoParams=logoMark.layoutParams as FrameLayout.LayoutParams
-            logoParams.width=d(ui.logoSizeDp.toFloat())
-            logoParams.height=d(ui.logoSizeDp*1.22f)
-            logoParams.topMargin=d(ui.logoOffsetYDp.toFloat())
-            logoParams.gravity=Gravity.CENTER
-            logoMark.layoutParams=logoParams
-            fpsPill.setTextColor(ui.fpsTextColor)
-            label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE
-            (chooseObject.adapter as? android.widget.BaseAdapter)?.notifyDataSetChanged()
-            (chooseLod.adapter as? android.widget.BaseAdapter)?.notifyDataSetChanged()
-            diagnosticLabels=ui.diagnostics
-            diagnosticSections=ui.diagnosticSections
-            currentUiColor=ui.buttonColor
-            label.textSize=ui.textSizeSp.coerceIn(11f,14f)
-            label.setTextColor(ui.textColor)
-            fpsPill.visibility=if(ui.showFps)View.VISIBLE else View.GONE
-            val opacity=ui.panelOpacity
-            // Top shading independently configurable; zero removes the dark veil
-            // without changing the bottom panel opacity.
-            topPanel.background=if(ui.topOverlayOpacity==0) null else
-                GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                    intArrayOf(Color.argb(ui.topOverlayOpacity,24,34,44),
-                        Color.argb(0,24,34,44)))
-            bottomPanel.background=roundedFill(Color.argb(opacity,35,47,58),19f,
-                Color.argb(180,177,218,225))
-            toolbarController.render(ui,uiAnimations)
-            setSystemBarMode(ui)
+            uiChrome.apply(ui,bundle.windows,bundle.overlay)
             status()
             return true
-        } catch(e:Exception) {
-            android.util.Log.w("GlassStudy","Rejected UI patch",e)
+        } catch(error:Exception) {
+            android.util.Log.w("GlassStudy","Rejected UI patch",error)
             return false
         }
     }
@@ -660,35 +548,14 @@ class MainActivity : Activity() {
         status()
     }
 
-    private fun showLightIndicator(mode:LightIndicatorView.Mode,number:Float) {
-        if(!cameraLight.lightMode || !overlayModule.enabled || overlayModule.showWith=="never")return
-        lightIndicator?.show(mode,number,LightingIndicatorStyles.selected(this,mode),
-            LightingIndicatorStyles.color(this,mode,overlayModule.indicatorColor(mode)),
-            overlayModule.guideColor)
-    }
     private fun status() {
-        if (::label.isInitialized) {
-            val source = if (cameraLight.lightMode) "СВЕТ: палец — направление, два — яркость" else "КАМЕРА: палец — вращение, два — масштаб"
-            label.text=source
-            updateButtonHighlights()
-            updateContextualOverlay()
-        }
-    }
-    /** Passive indicator replaces the previous interactive brightness slider. */
-    private fun updateContextualOverlay() {
-        lightIndicator?.let { hud ->
-            val px=d(overlayModule.indicatorSizeDp.toFloat())
-            val size=hud.layoutParams as FrameLayout.LayoutParams
-            size.width=px;size.height=px;hud.layoutParams=size
-            if(!cameraLight.lightMode || !overlayModule.enabled || overlayModule.showWith=="never")
-                hud.hide()
-        }
+        uiChrome.updateStatus(cameraLight.lightMode)
     }
 
     private fun showDiagnostic() {
         val report=diagnosticsReports.create(DiagnosticsReportState(
-            diagnosticLabels=diagnosticLabels,
-            diagnosticSections=diagnosticSections,
+            diagnosticLabels=uiChrome.diagnosticLabels,
+            diagnosticSections=uiChrome.diagnosticSections,
             diagnosticsModule=diagnosticsModule,
             renderModule=renderEnvironment.configuration,
             cameraModule=cameraLight.config,
@@ -707,11 +574,7 @@ class MainActivity : Activity() {
             lightElevation=cameraLight.lightElevation,
             brightness=cameraLight.brightness
         ))
-        diagnosticsPopup.show(report,DiagnosticsPopupStyle(
-            fill=currentUiColor,border=currentTopOutlineColor,
-            iconColor=currentTopIconColor,iconScale=currentTopIconScale,
-            iconSizeDp=currentTopButtonSizeDp
-        ))
+        diagnosticsPopup.show(report,uiChrome.popupStyle())
     }
     override fun onResume() {
         super.onResume()

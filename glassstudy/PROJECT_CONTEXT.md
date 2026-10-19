@@ -90,3 +90,8 @@
 ## Checkpoint 2026-10-19 — source v0.2.36
 - ModelCatalog.kt owns identifiers/names/LOD; ModelMaterialController.kt owns validated model/material GLB resolution, candidate loading and last-good restore. MainActivity delegates loadSelected and saves grid preference only after success. Version 0.2.36/20036.
 - Published feed remains 20028. First-party signed GLB material variants remain a module, not shader code injection. CI + device smoke tests required; do not present unsigned CI APK as installable.
+
+
+## Checkpoint 2026-10-19 — source v0.2.37
+- UiChromeController.kt + typed UiChromeViews now own visual application of validated signed UI/window/overlay settings, including toolbar/selector colors, diagnostic popup style, system bars and shared passive indicator. MainActivity builds views once, binds them to UiChromeController and delegates state/status/skin. Gradle version 0.2.37/20037.
+- Preserve old patch feed 20028 for pre-native clients, do not distribute CI unsigned APK. Run Android CI and original-cert Android 16 device smoke tests.

@@ -5,6 +5,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 root=Path(__file__).resolve().parents[1]
 activity=(root/'app/src/main/java/com/glassstudy/filament/MainActivity.kt').read_text()
+chrome_src=(root/'app/src/main/java/com/glassstudy/filament/UiChromeController.kt').read_text()
 camera_light=(root/'app/src/main/java/com/glassstudy/filament/CameraLightController.kt').read_text()
 render_env=(root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
 updater=(root/'app/src/main/java/com/glassstudy/filament/PatchManager.kt').read_text()
@@ -12,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.36' in props and 'GLASSSTUDY_VERSION_CODE=20036' in props
+assert 'GLASSSTUDY_VERSION=0.2.37' in props and 'GLASSSTUDY_VERSION_CODE=20037' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -33,7 +34,7 @@ assert 'LabIconView(activity,"copy")' in popup_src
 assert '"diagnostics" -> diagnosticsPopup.isShowing' in activity
 assert 'DiagnosticsPopupController(this,mainRoot) { updateButtonHighlights() }' in activity
 assert 'windowBackground(activity,style.fill,style.border' in popup_src
-assert 'iconColor=currentTopIconColor' in activity
+assert 'iconColor=iconColor' in chrome_src
 assert 'val size=dp(style.iconSizeDp.toFloat())' in popup_src
 assert 'setTextIsSelectable(true)' in popup_src
 assert 'AlertDialog.Builder(this).setTitle(tr("title"))' not in activity
@@ -56,7 +57,9 @@ assert 'PatchUiBundle.read(updater, candidate)' in activity
 assert 'UiLayout.parse(updater.readUiConfig(candidate))' in bundle
 assert all(('readModuleConfig("'+name+'", candidate)') in bundle for name in
            ('camera','render','diagnostics','materials','scene','windows','overlay'))
-assert activity.index('val bundle = PatchUiBundle.read(updater, candidate)') < activity.index('patchWindows = ui.windows')
+assert 'val bundle = PatchUiBundle.read(updater, candidate)' in activity
+assert 'uiChrome.apply(ui,bundle.windows,bundle.overlay)' in activity
+assert 'windows=ui.windows' in chrome_src
 assert 'LabIconView(activity,spec.icon)' in toolbar
 assert 'LabLogoView(this)' in activity
 assert 'diagnosticButton' not in activity and 'quickObjects' not in activity
@@ -67,11 +70,11 @@ assert 'canvas.drawRect(-4f,-4f,4f,4f,ink)' in icons
 assert 'if(showUnderline) canvas.drawLine' in icons
 assert 'if(chipCenterFilled)Paint.Style.FILL' in icons
 assert 'glyphScale=ui.topIconScale' in toolbar
-assert 'setSystemBarMode(ui)' in activity
-assert 'View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY' in activity
-assert 'label.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in activity
-assert 'logoMark.showUnderline=ui.showLogoUnderline' in activity
-assert 'logoParams.width=d(ui.logoSizeDp.toFloat())' in activity
+assert 'setSystemBarMode(ui,v.root)' in chrome_src
+assert 'View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY' in chrome_src
+assert 'v.hint.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in chrome_src
+assert 'v.logo.showUnderline=ui.showLogoUnderline' in chrome_src
+assert 'params.width=dp(ui.logoSizeDp.toFloat())' in chrome_src
 assert 'logoSizeDp' in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 
 assert 'exportButton' not in activity
@@ -88,7 +91,8 @@ assert 'renderedFrames++' in custom
 assert 'cameraManipulator.getLookAt(eyePos, target, upward)' not in custom
 assert 'viewer = GlassStudyModelViewer(surface, manipulator = null)' in activity
 assert 'Реально нарисованных кадров Filament:' in report_src
-assert 'diagnosticLabels' in activity and 'ui.diagnostics' in activity
+assert 'diagnosticLabels=ui.diagnostics' in chrome_src
+assert 'diagnosticLabels=uiChrome.diagnosticLabels' in activity
 assert 'updater.lastConfirmedVersion()' in report_src and 'updater.serverPatchVersion' in report_src
 assert 'tr("pathTracing")' in report_src and 'tr(if(hasIbl)' in report_src
 uic=(root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
@@ -122,9 +126,9 @@ assert layout['logoSizeDp']==31
 assert layout['logoOffsetYDp']==5
 assert layout['topOverlayOpacity']==0
 assert layout['topButtonOutlineColor']=="#6DB9CB"
-assert 'logoParams.topMargin=d(ui.logoOffsetYDp.toFloat())' in activity
-assert 'if(ui.topOverlayOpacity==0) null' in activity
-assert 'currentTopOutlineColor=ui.topButtonOutlineColor' in activity
+assert 'params.topMargin=dp(ui.logoOffsetYDp.toFloat())' in chrome_src
+assert 'if(ui.topOverlayOpacity==0)null' in chrome_src
+assert 'topOutlineColor=ui.topButtonOutlineColor' in chrome_src
 assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
@@ -311,7 +315,7 @@ window_theme=json.loads((root/'app/src/main/assets/modules/windows/config.json')
 assert window_theme['id']=='windows' and window_theme['schema']==1
 assert 'WindowStyleConfig.parse(stagedModule("windows"))' in updater
 assert '"modules/windows/config.json" -> WindowStyleConfig.parse(config)' in updater
-assert 'GlassDialogFactory.applyTheme(bundle.windows)' in activity
+assert 'GlassDialogFactory.applyTheme(windowConfig)' in chrome_src
 assert 'theme.selected' in dialog_factory
 assert 'GlassDialogFactory.option(activity,label,selected)' in panel
 assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
@@ -342,7 +346,7 @@ overlay_config=json.loads((root/'app/src/main/assets/modules/overlay/config.json
 assert overlay_config['showWith']=='light'
 assert 'OverlayModuleConfig.parse(stagedModule("overlay"))' in updater
 assert '"modules/overlay/config.json" -> OverlayModuleConfig.parse(config)' in updater
-assert 'private fun updateContextualOverlay()' in activity
+assert 'fun updateIndicatorVisibility(lightMode:Boolean)' in chrome_src
 # Observable user changes pass through the common binding rather than a hardcoded renderer call.
 assert 'showIndicator(LightIndicatorView.Mode.BRIGHTNESS' in camera_light
 assert 'showIndicator(LightIndicatorView.Mode.AZIMUTH' in camera_light
@@ -350,6 +354,7 @@ assert 'showIndicator(LightIndicatorView.Mode.ELEVATION' in camera_light
 
 assert 'showWith' in overlay_config and 'enabled' in overlay_config
 assert 'LightIndicatorView(this)' in activity
+assert 'uiChrome.showIndicator(mode,value,cameraLight.lightMode)' in activity
 
 # Rich window schema is declarative and wired into the real UI, not just docs.
 window_schema=(root/'app/src/main/java/com/glassstudy/filament/DeclarativeWindows.kt').read_text()
@@ -427,7 +432,7 @@ assert 'host.decorate(' in toolbar
 
 # Modular diagnostics: report data, popup and action lifecycle are separate.
 assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
-assert 'diagnosticsPopup.show(report,DiagnosticsPopupStyle(' in activity
+assert 'diagnosticsPopup.show(report,uiChrome.popupStyle())' in activity
 assert 'fun create(state:DiagnosticsReportState):String' in report_src
 assert 'GlbMetrics.inspect(updater.readModel(path))' in report_src
 assert 'MemoryMetrics.capture(context)' in report_src
@@ -478,3 +483,23 @@ assert 'modelId=modelAssets.selection.modelId' in activity
 assert 'modelName=ModelCatalog.displayName(modelAssets.selection.modelId)' in activity
 assert 'private fun modelData(' not in activity
 assert 'MaterialOverrides.parse(' not in activity
+
+# One signed UI chrome renderer owns the toolbar colors, status, controls and orientation.
+assert 'class UiChromeController(' in chrome_src
+assert 'data class UiChromeViews(' in chrome_src
+assert 'uiChrome.bind(UiChromeViews(' in activity
+assert 'uiChrome.apply(ui,bundle.windows,bundle.overlay)' in activity
+assert 'GlassDialogFactory.applyTheme(windowConfig)' in chrome_src
+assert 'v.toolbar.render(ui,animations)' in chrome_src
+assert 'selectorColor=ui.selectorTextColor' in chrome_src
+assert 'topOutlineColor=ui.topButtonOutlineColor' in chrome_src
+assert 'v.hint.text=if(lightMode)' in chrome_src
+assert 'uiChrome.popupStyle()' in activity
+assert 'uiChrome.updateStatus(cameraLight.lightMode)' in activity
+assert 'uiChrome.updateIndicatorVisibility(cameraLight.lightMode)' in activity
+assert 'v.indicator.hide()' in chrome_src
+assert 'LightingIndicatorStyles.selected(activity,mode)' in chrome_src
+assert 'private fun selectionAdapter(' not in activity
+assert 'private fun setSystemBarMode(' not in activity
+assert 'private fun skin(' not in activity
+assert 'uiChrome.selectionAdapter(' in activity

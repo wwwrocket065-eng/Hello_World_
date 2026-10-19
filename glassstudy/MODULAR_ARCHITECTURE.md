@@ -97,3 +97,7 @@ Never claim full modularity merely because the updater accepts more file types.
 ## v0.2.36 — asset/model/material isolation
 - ModelCatalog defines the built-in list once, ModelSelection is validated, ModelMaterialController validates candidate GLB & material overrides before calling Filament. It keeps the active model selection separate from uncommitted picker choices and can reload the previous model from active, signed assets on failed replacement.
 - MainActivity only passes picker selection, grid preference and staged candidate to the controller; diagnostics consumes its committed state. Patch activation stays in PatchManager.
+
+## v0.2.37 — Single UI chrome presentation owner
+- UiChromeController receives signed, fully parsed UiLayout plus WindowStyleConfig/OverlayModuleConfig; it is the only owner of view colors, selector appearance, logo metrics, FPS/hint visibility, toolbar rendering, status indicators and Android immersive system bar flags. UiThemeEngine continues to resolve signed palette tokens, GlassDialogFactory handles popup lifecycle.
+- UiChromeViews binds existing Android View references after onCreate setup. MainActivity retains lifecycle/feature module composition and delegates UI patch projection to uiChrome.apply; it no longer contains duplicated style rules.
