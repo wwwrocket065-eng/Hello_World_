@@ -239,7 +239,7 @@ class MainActivity : Activity() {
             activeButtons[spec.id]?.let {
                 skin(it,spec.highlight || isActionActive(spec.action),
                     spec.fill?:currentUiColor,
-                    if(spec.slot=="top")currentTopOutlineColor else spec.outline)
+                    spec.outline ?: if(spec.slot=="top") currentTopOutlineColor else null)
             }
         }
     }
@@ -295,7 +295,7 @@ class MainActivity : Activity() {
             }
         }
         skin(target,spec.highlight || isActionActive(spec.action),spec.fill?:ui.buttonColor,
-            if(spec.slot=="top")ui.topButtonOutlineColor else spec.outline)
+            spec.outline ?: if(spec.slot=="top") ui.topButtonOutlineColor else null)
         return target
     }
     private fun renderUiButtons(ui:UiLayout) {
