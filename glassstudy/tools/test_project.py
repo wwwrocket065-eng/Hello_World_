@@ -21,7 +21,7 @@ assert 'popup.showAtLocation(mainRoot' in activity
 assert 'if(action=="diagnostics")' in activity
 assert 'diagnosticPopup?.dismiss()' in activity
 assert 'setTouchModal(false)' in (root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
-assert 'text="Диагностика"' in activity
+assert 'theme.titles.getValue("diagnostics")' in activity
 assert 'LabIconView(this,"copy")' in activity
 assert '"diagnostics" -> diagnosticPopup?.isShowing == true' in activity
 assert 'updateButtonHighlights()' in activity[activity.index('GlassDialogFactory.popup(this,outer,availableWidth)'):activity.index('copy.setOnClickListener')]
@@ -252,7 +252,7 @@ assert 'SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidt
 assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' in activity
 assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updater
 assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
-assert 'panel.addView(text("СЦЕНА"' in activity
+assert 'theme.titles.getValue("scene")' in activity
 assert '"white" to "Белая платформа"' in activity and 'heading("SKYBOX")' in activity
 
 # Shared window presentation and signed scene-order controls.
@@ -262,8 +262,8 @@ assert 'sceneModule.sectionOrder.forEach' in activity
 assert 'sceneModule.skyboxOrder.forEach' in activity
 assert 'sceneModule.floorOrder.forEach' in activity
 assert 'order("sectionOrder",listOf("skybox","floor"))' in scene_module
-assert 'GlassDialogFactory.menu(this,"GlassStudy' in activity
-assert 'GlassDialogFactory.message(this,"Патч отклонён"' in activity
+assert 'GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles' in activity
+assert 'theme.titles.getValue("patchRejected")' in activity
 assert 'fun menu(activity:Activity' in dialog_factory
 assert 'fun message(activity:Activity' in dialog_factory
 assert scene_config.get('sectionOrder')==['skybox','floor']
@@ -272,7 +272,7 @@ assert scene_config.get('sectionOrder')==['skybox','floor']
 assert 'AlertDialog.Builder(this)' not in activity
 assert 'PopupWindow(outer,availableWidth' not in activity
 assert 'GlassDialogFactory.popup(this,outer,availableWidth)' in activity
-assert 'GlassDialogFactory.message(this,"Патч не установлен",reason)' in activity
+assert 'theme.titles.getValue("patchError")' in activity
 
 # Shared window theme is signed, validated and consumed in all dialogs.
 window_theme=json.loads((root/'app/src/main/assets/modules/windows/config.json').read_text())
@@ -287,3 +287,6 @@ assert 'GlassDialogFactory.theme.diagnosticHeaderOrder.forEach' in activity
 assert 'val diagnosticHeaderOrder:List<String>' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 assert window_theme['diagnosticHeaderOrder']==['title','copy']
 assert window_theme['menuOrder']==['model','camera','diagnostics']
+
+assert 'titles' in window_theme and window_theme['titles']['scene']=='СЦЕНА'
+assert 'Unknown window title key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
