@@ -106,6 +106,7 @@ assert 'candidate.staging.parentFile?.canonicalFile != patchRoot.canonicalFile' 
 assert 'candidate.staging.name.startsWith(expectedPrefix)' in updater
 assert 'installedFiles.sumOf { it.length() } <= MAX_PATCH_BYTES' in updater
 assert 'UiLayout.parse(stagedUi.readBytes())' in updater
+assert 'PatchUiBundle.read(this, candidate)' in updater
 layout=json.loads((root/'app/src/main/assets/ui/layout.json').read_text())
 assert layout['logoSizeDp']==31
 assert layout['logoOffsetYDp']==5
