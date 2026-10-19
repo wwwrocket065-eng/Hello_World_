@@ -4,7 +4,7 @@ import org.json.JSONObject
 
 /** Data-only windows from a signed UI patch. Never evaluates scripts or arbitrary intents. */
 data class DeclarativeWindowButton(val title: String, val action: String)
-data class DeclarativeWindow(val id: String, val title: String, val buttons: List<DeclarativeWindowButton>)
+data class DeclarativeWindow(val id: String, val title: String, val buttons: List<DeclarativeWindowButton>, val widthFraction: Float? = null)
 
 object DeclarativeWindows {
     private val idPattern = Regex("^[a-z][a-zA-Z0-9_]{0,31}$")
@@ -17,7 +17,7 @@ object DeclarativeWindows {
         val result = linkedMapOf<String, DeclarativeWindow>()
         repeat(windows.length()) { i ->
             val obj = windows.getJSONObject(i)
-            require(obj.keys().asSequence().all { it in setOf("id", "title", "buttons") })
+            require(obj.keys().asSequence().all { it in setOf("id", "title", "buttons", "widthFraction") })
             val id = obj.getString("id")
             val title = obj.getString("title")
             require(idPattern.matches(id) && !result.containsKey(id)) { "Duplicate or invalid window id" }
@@ -34,7 +34,9 @@ object DeclarativeWindows {
                     idPattern.matches(action.substringAfter(':')))) { "Unknown window action" }
                 DeclarativeWindowButton(text, action)
             }
-            result[id] = DeclarativeWindow(id, title, entries)
+            val width = if (obj.has("widthFraction")) obj.getDouble("widthFraction") else null
+            require(width == null || (width.isFinite() && width in 0.65..1.0)) { "Invalid window width" }
+            result[id] = DeclarativeWindow(id, title, entries, width?.toFloat())
         }
         require(result.values.all { win -> win.buttons.all {
             !it.action.startsWith("openWindow:") || result.containsKey(it.action.substringAfter(':'))
