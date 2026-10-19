@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.28' in props and 'GLASSSTUDY_VERSION_CODE=20028' in props
+assert 'GLASSSTUDY_VERSION=0.2.29' in props and 'GLASSSTUDY_VERSION_CODE=20029' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -108,7 +108,7 @@ assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
 assert len(layout['uiButtons'])==6
-assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','resetCamera','menu']
+assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','openScene','menu']
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleLight','toggleGrid']
 assert not any(x['action']=='export' for x in layout['uiButtons'])
 assert layout['panelOpacity'] < 1.0
@@ -205,6 +205,13 @@ for module in ('camera','render','diagnostics','materials'):
     assert config['id']==module and config['schema']==1
     assert 'readModuleConfig("'+module+'", candidate)' in activity
 assert 'MaterialOverrides.parse(' in activity
+assert '"openScene" -> openSceneMenu()' in activity
+assert 'SceneFloorGlb.create(true)' in activity and 'SceneFloorGlb.create(false)' in activity
+assert 'fun setFloorGlb(buffer: Buffer?)' in custom
+assert 'floorAsset?.let { populateScene(it) }' in custom
+assert '"scene" -> {' in icons
+assert '"openScene"' in uic
+assert layout['uiButtons'][2]['icon']=='scene'
 assert 'CameraModuleConfig.parse(config)' in updater
 assert 'RenderModuleConfig.parse(config)' in updater
 assert 'DiagnosticsModuleConfig.parse(config)' in updater
