@@ -208,7 +208,7 @@ assert 'signature.verify(' in updater  # Modules must pass the old signature che
 for module in ('camera','render','diagnostics','materials'):
     config=json.loads((root/'app/src/main/assets/modules'/module/'config.json').read_text())
     assert config['id']==module and config['schema']==1
-    assert 'readModuleConfig("'+module+'", candidate)' in activity
+    assert 'readModuleConfig("'+module+'", candidate)' in bundle
 assert 'MaterialOverrides.parse(' in activity
 assert '"openScene" -> openSceneMenu()' in activity
 assert 'SceneFloorGlb.create(true, sceneModule.floorWidth' in activity and 'SceneFloorGlb.create(false, sceneModule.floorWidth' in activity
@@ -254,7 +254,7 @@ assert 'val cells = if (checker) (width / tileWidth)' in scene_src
 assert 'number("floorWidth"' in scene_module and 'number("whiteLevel"' in scene_module
 assert 'SceneFloorGlb.create(true, sceneModule.floorWidth, sceneModule.tileWidth' in activity
 assert 'SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidth' in activity
-assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' in activity
+assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' in bundle
 assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updater
 assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
 assert 'theme.titles.getValue("scene")' in activity
