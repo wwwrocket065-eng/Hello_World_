@@ -170,7 +170,7 @@ class MainActivity : Activity() {
         GlassDialogFactory.menu(this, spec.title, spec.buttons.map { it.title }, { index ->
             val selected = spec.buttons.getOrNull(index) ?: return@menu
             clickAction(selected.action)
-        }, uiAnimations[id])
+        }, uiAnimations[id], spec.widthFraction ?: GlassDialogFactory.theme.widthFraction)
     }
 
     private fun clickAction(action:String) {
