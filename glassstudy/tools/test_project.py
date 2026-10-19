@@ -20,11 +20,11 @@ assert 'private var diagnosticPopup:PopupWindow?' in activity
 assert 'popup.showAtLocation(mainRoot' in activity
 assert 'if(action=="diagnostics")' in activity
 assert 'diagnosticPopup?.dismiss()' in activity
-assert 'setTouchModal(false)' in activity
+assert 'setTouchModal(false)' in (root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
 assert 'text="Диагностика"' in activity
 assert 'LabIconView(this,"copy")' in activity
 assert '"diagnostics" -> diagnosticPopup?.isShowing == true' in activity
-assert 'updateButtonHighlights()' in activity[activity.index('setOnDismissListener {'):activity.index('copy.setOnClickListener')]
+assert 'updateButtonHighlights()' in activity[activity.index('GlassDialogFactory.popup(this,outer,availableWidth)'):activity.index('copy.setOnClickListener')]
 assert 'skin(this,false,currentUiColor,currentTopOutlineColor)' in activity
 assert 'iconColor=currentTopIconColor' in activity
 assert 'copySize=d(currentTopButtonSizeDp.toFloat())' in activity
