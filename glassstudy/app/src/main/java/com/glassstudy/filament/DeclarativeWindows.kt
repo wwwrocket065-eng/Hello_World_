@@ -35,14 +35,10 @@ data class DeclarativeWindow(
  */
 object DeclarativeWindows {
     private val idPattern = Regex("^[a-z][a-zA-Z0-9_]{0,31}$")
-    private val actions = setOf("diagnostics", "toggleLight", "resetCamera", "openScene",
-        "menu", "selectModel", "selectQuality", "toggleGrid", "toggleFps")
-    private val toggles = setOf("lightMode", "grid", "fps")
-    private val sliders = setOf("brightnessPercent")
     private val elementKinds = setOf("heading", "text", "button", "switch", "slider")
 
-    private fun validAction(action: String): Boolean = action in actions ||
-        (action.startsWith("openWindow:") && idPattern.matches(action.substringAfter(':')))
+    private fun validAction(action: String): Boolean =
+        UiInteractionRegistry.acceptsAction(action)
 
     private fun cleanText(s: String, max: Int): Boolean =
         s.length in 1..max && s.none { it.isISOControl() }
@@ -100,9 +96,9 @@ object DeclarativeWindows {
                                 !item.has("min") && !item.has("max") && !item.has("step"))
                             entries.add(DeclarativeWindowButton(label, action!!))
                         }
-                        "switch" -> require(binding in toggles && action == null &&
+                        "switch" -> require(binding != null && UiInteractionRegistry.acceptsBinding(type, binding) && action == null &&
                             !item.has("min") && !item.has("max") && !item.has("step"))
-                        "slider" -> require(binding in sliders && action == null)
+                        "slider" -> require(binding != null && UiInteractionRegistry.acceptsBinding(type, binding) && action == null)
                     }
                     val lo = if (type == "slider") item.optDouble("min", 5.0) else 5.0
                     val hi = if (type == "slider") item.optDouble("max", 200.0) else 200.0
