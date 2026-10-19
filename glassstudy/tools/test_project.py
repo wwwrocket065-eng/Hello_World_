@@ -23,6 +23,11 @@ assert 'diagnosticPopup?.dismiss()' in activity
 assert 'setTouchModal(false)' in activity
 assert 'text="Диагностика"' in activity
 assert 'LabIconView(this,"copy")' in activity
+assert '"diagnostics" -> diagnosticPopup?.isShowing == true' in activity
+assert 'updateButtonHighlights()' in activity[activity.index('setOnDismissListener {'):activity.index('copy.setOnClickListener')]
+assert 'skin(this,false,currentUiColor,currentTopOutlineColor)' in activity
+assert 'iconColor=currentTopIconColor' in activity
+assert 'copySize=d(currentTopButtonSizeDp.toFloat())' in activity
 assert 'setTextIsSelectable(true)' in activity
 assert 'AlertDialog.Builder(this).setTitle(tr("title"))' not in activity
 assert '"copy" -> {' in (root/'app/src/main/java/com/glassstudy/filament/LabUiIcons.kt').read_text()
