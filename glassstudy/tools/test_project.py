@@ -83,10 +83,10 @@ assert 'class GlassStudyModelViewer' in custom
 assert 'renderedFrames++' in custom
 assert 'cameraManipulator.getLookAt(eyePos, target, upward)' not in custom
 assert 'viewer = GlassStudyModelViewer(surface, manipulator = null)' in activity
-assert 'Реально нарисованных кадров Filament:' in activity
+assert 'Реально нарисованных кадров Filament:' in report_src
 assert 'diagnosticLabels' in activity and 'ui.diagnostics' in activity
-assert 'updater.lastConfirmedVersion()' in activity and 'updater.serverPatchVersion' in activity
-assert 'tr("pathTracing")' in activity and 'tr(if(hasIbl)' in activity
+assert 'updater.lastConfirmedVersion()' in report_src and 'updater.serverPatchVersion' in report_src
+assert 'tr("pathTracing")' in report_src and 'tr(if(hasIbl)' in report_src
 uic=(root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert 'private val DIAGNOSTIC_DEFAULTS' in uic
 assert 'data class UiButtonSpec' in uic and 'uiButtons' in uic
@@ -151,12 +151,12 @@ assert 'profiler.frame(frameTimeNanos,submissionMs)' in activity
 assert 'val framesBefore = viewer.renderedFrames' in activity
 assert 'val frameWasRendered = viewer.renderedFrames > framesBefore' in activity
 assert 'if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()' in activity
-assert 'val samePatch=server==active.toString() && confirmed==active' in activity
+assert 'val samePatch=server==active.toString() && confirmed==active' in report_src
 assert 'appendLine("${tr("compactPatches")}: $patchSummary")' in report_src
 assert 'FPS — ритм кадров' in layout['diagnostics']['measurementNote']
-assert 'FPS: ${num(perf.fps)}' in activity
-assert 'appendLine("GlassStudy ${BuildConfig.VERSION_NAME}' in activity
-assert 'appendLine("${tr("appVersion")}' not in activity
+assert 'FPS: ${num(perf.fps)}' in report_src
+assert 'appendLine("GlassStudy ${BuildConfig.VERSION_NAME}' in report_src
+assert 'appendLine("${tr("appVersion")}' not in report_src
 assert layout['diagnostics']['installedPatch']=='Установленный патч ресурсов'
 assert layout['diagnostics']['pathTracingValue']=='В этой бета-версии не реализована'
 assert set(layout['topOrder'])=={'status','selectors','actions','grid'}
