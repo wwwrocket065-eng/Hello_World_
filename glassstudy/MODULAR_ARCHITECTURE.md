@@ -84,3 +84,8 @@ Never claim full modularity merely because the updater accepts more file types.
 - SceneSettingsPanel uses a narrowly typed State interface and common GlassDialogFactory.panel/option rendering. No Filament or patch reading in view construction.
 - Existing signed SceneModuleConfig ordering and user mode preferences are retained; the main Activity is now a host, not a scene settings renderer.
 - Still to separate: diagnostic report/data collection, its popup presentation, and further application state bindings. Require Android CI + device checks before releasing.
+
+## v0.2.34 — Diagnostics interface
+- DiagnosticsReportService collects the real current patch/OS/GLB/Filament values when the report opens, renders one Russian plain-text report from an immutable DiagnosticsReportState. It owns no View or popup.
+- DiagnosticsPopupController owns only the window, style, copy button, dismissal timestamps, and visibility callback; UiInteractionController coordinates actions and reopen/toggle semantics.
+- MainActivity now only marshals a typed snapshot of current model/camera/light state. More module boundaries (camera/light/render) can be extracted without duplicating diagnostics UI.

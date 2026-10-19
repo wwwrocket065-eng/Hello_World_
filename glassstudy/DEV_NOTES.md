@@ -145,3 +145,9 @@
 - Extracted Scene and Skybox RGB window creation to SceneSettingsPanel. It consumes a typed State interface; signed SceneModuleConfig controls section and option ordering. The shared GlassDialogFactory now supplies themed panel/option controls, avoiding duplicate widget styling and window creation.
 - Activity only wires Scene controller, settings panel and applies validated bundle; scene renderer operations no longer live in MainActivity. Version 0.2.33/20033. Added structural regression assertions and retained legacy signed UI/scene patch support.
 - Release feed 20028 intentionally unchanged. GitHub Android CI compilation and real-device smoke test must succeed; only original certificate may sign installable APK.
+
+## 2026-10-19 — v0.2.34 diagnostics subsystem refactor
+- Extracted diagnostics collection, on-demand numeric formatting and real GLB/Android/frame measurements into DiagnosticsReportService; live scene snapshot is an immutable DiagnosticsReportState, rather than activity fields read asynchronously.
+- Extracted themed single-title/copy, non-modal outside-click-safe PopupWindow into DiagnosticsPopupController; preserves copy-without-dismissal, two controls in header, scrollable Russian report and exact last-dismiss timestamp used by UiInteractionController toggle debounce.
+- MainActivity passes live state, redirects user actions to independent popup controller, retains shared action registry and existing signed WindowStyleConfig ordering. GlassDialogFactory exposes one shared themed surface helper rather than a second window renderer. No new permissions or arbitrary patch execution.
+- Version 0.2.34/20034; added static regression coverage, CI build & on-device Android 16 checks required. Existing live signed patch feed 20028 untouched. Original APK certificate needed for any installable release.

@@ -116,6 +116,11 @@ object GlassDialogFactory {
         isClickable=true;isFocusable=true
     }
 
+    /** Shared style primitive for diagnostic popups and themed windows. */
+    fun windowBackground(activity:Activity,fill:Int=theme.background,
+        line:Int=theme.border,radiusDp:Float=theme.cornerDp):GradientDrawable =
+        background(fill,dp(activity,radiusDp).toFloat(),line)
+
     private fun background(fill:Int,radius:Float,line:Int):GradientDrawable =
         GradientDrawable().apply {
             shape=GradientDrawable.RECTANGLE

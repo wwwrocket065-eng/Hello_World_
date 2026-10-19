@@ -67,8 +67,12 @@ class MainActivity : Activity() {
     private var wireframe = false
     private lateinit var label: TextView
     private lateinit var logoMark: LabLogoView
-    private var diagnosticPopup:PopupWindow?=null
-    private var diagnosticDismissedAtMs:Long=Long.MIN_VALUE
+    private val diagnosticsPopup by lazy(LazyThreadSafetyMode.NONE) {
+        DiagnosticsPopupController(this,mainRoot) { updateButtonHighlights() }
+    }
+    private val diagnosticsReports by lazy(LazyThreadSafetyMode.NONE) {
+        DiagnosticsReportService(this,updater,profiler)
+    }
     private lateinit var logoFrame:android.widget.FrameLayout
     private lateinit var topPanel: LinearLayout
     private lateinit var bottomPanel: LinearLayout
@@ -81,9 +85,9 @@ class MainActivity : Activity() {
     /** All controls (toolbar, windows, overlays) go through one typed action API. */
     private val uiController by lazy(LazyThreadSafetyMode.NONE) {
         UiInteractionController(object : UiInteractionController.Host {
-            override fun isDiagnosticsOpen() = diagnosticPopup?.isShowing == true
-            override fun diagnosticsLastDismissedAtMs() = diagnosticDismissedAtMs
-            override fun closeDiagnostics() { diagnosticPopup?.dismiss() }
+            override fun isDiagnosticsOpen() = diagnosticsPopup.isShowing
+            override fun diagnosticsLastDismissedAtMs() = diagnosticsPopup.dismissedAtMs
+            override fun closeDiagnostics() { diagnosticsPopup.dismiss() }
             override fun showDiagnostics() { showDiagnostic() }
             override fun isWindowOpen(key: String) = GlassDialogFactory.isOpen(key)
             override fun closeWindow() { GlassDialogFactory.closeCurrent() }
@@ -276,7 +280,7 @@ class MainActivity : Activity() {
     }
 
     private fun openMenu() {
-        diagnosticPopup?.dismiss()
+        diagnosticsPopup.dismiss()
         // Dedicated toolbar actions never appear a second time in settings.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
             listOf("Стиль индикаторов освещения")) { showLightingIndicatorStyles() }
@@ -442,7 +446,7 @@ class MainActivity : Activity() {
                 override fun isActive(action:String):Boolean=when(action) {
                     "toggleLight" -> lightMode
                     "toggleGrid" -> wireframe
-                    "diagnostics" -> diagnosticPopup?.isShowing==true
+                    "diagnostics" -> diagnosticsPopup.isShowing
                     else -> false
                 }
                 override fun decorate(view:View,selected:Boolean,color:Int,outline:Int?) {
@@ -489,8 +493,8 @@ class MainActivity : Activity() {
         }
         val restoreScene = GlassDialogFactory.isOpen("openScene")
         val restoreMenu = GlassDialogFactory.isOpen("menu")
-        val restoreDiagnostics = diagnosticPopup?.isShowing == true
-        diagnosticPopup?.dismiss()
+        val restoreDiagnostics = diagnosticsPopup.isShowing
+        diagnosticsPopup.dismiss()
         GlassDialogFactory.closeCurrent()
         if (::mainRoot.isInitialized) {
             mainRoot.post {
@@ -832,186 +836,32 @@ class MainActivity : Activity() {
     }
 
     private fun showDiagnostic() {
-        // The signed UI patch controls section visibility/order and all report labels.
-        // Measurements are always taken from actual Android/Filament state.
-        fun tr(key:String)=diagnosticLabels[key] ?: key
-        fun num(x:Double?)=if (x==null || !x.isFinite()) "—"
-            else String.format(Locale("ru","RU"),"%.1f",x)
-        val perf=profiler.metrics()
-        val ram=try { MemoryMetrics.capture(this) } catch (_:Exception) { null }
-        val path="models/${currentId}_${currentLod}${if(wireframe) "_debug" else ""}.glb"
-        val mesh=try { GlbMetrics.inspect(updater.readModel(path)) } catch (_:Exception) { null }
-        val server=updater.serverPatchVersion.takeIf { it>0 }?.toString() ?: "—"
-        val active=updater.installedPatchVersion()
-        val confirmed=updater.lastConfirmedVersion()
-        val samePatch=server==active.toString() && confirmed==active
-        val patchSummary=if(samePatch) "$active ✓ (установлен · кадр · сервер)"
-            else "$active / $confirmed / $server ${tr("patchOrder")}"
-        val updateMessage=when {
-            samePatch && updater.updateStatus.startsWith("Патч $active установлен") ->
-                "Актуально, кадр подтверждён"
-            samePatch && updater.updateStatus.startsWith("Обновлений нет") ->
-                "Актуально"
-            else -> updater.updateStatus
-        }
-        val hasIbl=try {
-            assets.open("envs/studio_ibl.ktx").close();true
-        } catch (_:Exception) { false }
-        val stamp=SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale("ru","RU")).format(Date())
-        val report=buildString {
-            // Version appears ONCE. Patch numbers occupy ONE line.
-            appendLine("GlassStudy ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · $stamp")
-            for (section in diagnosticSections) {
-                when(section) {
-                    "updates" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionUpdates")}")
-                        appendLine("${tr("compactPatches")}: $patchSummary")
-                        appendLine("${tr("updateCheck")}: $updateMessage")
-                    }
-                    "performance" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionPerformance")}")
-                        appendLine("FPS: ${num(perf.fps)} · ${tr("frameTime")}: ${num(perf.avgFrameMs)} / ${num(perf.p95FrameMs)} ${tr("milliseconds")} (P95)")
-                        appendLine("${tr("cpuProcess")}: ${num(perf.cpuPercent)} % ${tr("oneCore")}")
-                        appendLine("${tr("frameSubmission")}: ${num(perf.submissionMs)} ${tr("milliseconds")} (${tr("cpuThread")})")
-                        appendLine("${tr("gpuTime")}: ${tr("notMeasured")}")
-                    }
-                    "memory" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionMemory")}")
-                        if(ram != null) {
-                            appendLine("${tr("appRam")}: ${num(ram.pssMb)} ${tr("megabytes")} (PSS)")
-                            appendLine("Java / native: ${num(ram.javaHeapMb)} / ${num(ram.nativeHeapMb)} ${tr("megabytes")}")
-                            appendLine("${tr("deviceRam")}: ${num(ram.freeDeviceMb)} / ${num(ram.totalDeviceMb)} ${tr("megabytes")} (${tr("freeTotal")})")
-                        } else appendLine(tr("notMeasured"))
-                    }
-                    "scene" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionScene")}")
-                        appendLine("${tr("model")}: ${names[ids.indexOf(currentId).coerceAtLeast(0)]} · $currentLod · ${tr("gridMode")}: ${if(wireframe) tr("yes") else tr("no")}")
-                        if(mesh != null) {
-                            appendLine("GLB: ${mesh.vertices} ${tr("vertices")} · ${mesh.triangles} ${tr("triangles")}${if(mesh.segments>0) " · ${mesh.segments} ${tr("segments")}" else ""}")
-                            appendLine("${mesh.primitives} ${tr("primitives")} · ${num(mesh.bytes/1024.0)} ${tr("kilobytes")} · SHA256: ${mesh.sha12}…")
-                        } else appendLine("${tr("geometry")}: ${tr("notMeasured")}")
-                    }
-                    "renderer" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionRenderer")}")
-                        appendLine("Google Filament / gltfio · OpenGL ES")
-                        appendLine("Реально нарисованных кадров Filament: ${viewer.renderedFrames}")
-                        appendLine("${tr("glass")}: ${tr("glassValue")}")
-                        appendLine("IBL: ${tr(if(hasIbl) "iblAvailable" else "iblUnavailable")}")
-                        appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
-                    }
-                    "camera" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionCamera")}")
-                        appendLine("${tr("distance")}: ${num(distance)} · ${tr("yaw")}: ${num(Math.toDegrees(yaw))}° · ${tr("pitch")}: ${num(Math.toDegrees(pitch))}°")
-                        appendLine("${tr("lightAngles")}: ${num(Math.toDegrees(lightAz))}° / ${num(Math.toDegrees(lightElevation))}° · ×${num(brightness)}")
-                    }
-                    "device" -> {
-                        appendLine()
-                        appendLine("▸ ${tr("sectionDevice")}")
-                        appendLine("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}")
-                        appendLine("${tr("screen")}: ${surface.width} × ${surface.height} · DPR ${num(resources.displayMetrics.density.toDouble())}")
-                        appendLine("${tr("gpuInfo")}: ${tr("notMeasured")}")
-                    }
-                }
-            }
-            appendLine()
-            if (diagnosticsModule.includeModuleStatus) {
-                appendLine("▸ МОДУЛИ")
-                appendLine("Камера / Рендер / Диагностика: конфигурация загружена")
-                appendLine("Активная версия ресурсов: $active")
-            }
-            if (diagnosticsModule.includeRenderParameters) {
-                appendLine("▸ НАСТРОЙКИ РЕНДЕРА")
-                appendLine("IBL: ${num(renderModule.iblIntensity.toDouble())} · FXAA: ${if(renderModule.fxaa) "ВКЛ" else "ВЫКЛ"}")
-                appendLine("Экспозиция: f/${num(renderModule.exposureAperture.toDouble())} · ISO ${num(renderModule.exposureSensitivity.toDouble())}")
-            }
-            if (diagnosticsModule.includeCameraParameters) {
-                appendLine("▸ НАСТРОЙКИ КАМЕРЫ")
-                appendLine("FOV: ${num(cameraModule.fieldOfView)}° · диапазон: ${num(cameraModule.minDistance)}–${num(cameraModule.maxDistance)}")
-            }
-            append(tr("measurementNote"))
-        }
-        // A non-modal anchored overlay rather than AlertDialog. Outside taps
-        // dismiss it; top toolbar buttons remain clickable and switch actions.
-        val density=resources.displayMetrics.density
-        val margin=d(18f)
-        val availableWidth=(resources.displayMetrics.widthPixels-margin*2).coerceAtLeast(d(220f))
-        val outer=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL
-            setPadding(d(15f),d(14f),d(15f),d(14f))
-            background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,
-                GlassDialogFactory.theme.border)
-        }
-        val header=LinearLayout(this).apply {
-            orientation=LinearLayout.HORIZONTAL
-            gravity=Gravity.CENTER_VERTICAL
-        }
-        val heading=TextView(this).apply {
-            text=GlassDialogFactory.theme.titles.getValue("diagnostics")
-            textSize=15f
-            setTextColor(GlassDialogFactory.theme.accent)
-            gravity=Gravity.CENTER_VERTICAL
-        }
-        // Header controls are inserted below in signed declarative order.
-        // The only actionable item in the header is the framed copy glyph.
-        val copy=FrameLayout(this).apply {
-            contentDescription="Копировать диагностику"
-            isFocusable=true
-            isClickable=true
-            // Same signed theme and dimensions as the four toolbar buttons.
-            skin(this,false,currentUiColor,currentTopOutlineColor)
-        }
-        val copyIcon=LabIconView(this,"copy").apply {
-            iconColor=currentTopIconColor
-            glyphScale=currentTopIconScale
-        }
-        val copySize=d(currentTopButtonSizeDp.toFloat())
-        copy.addView(copyIcon,FrameLayout.LayoutParams(copySize,copySize,Gravity.CENTER))
-        GlassDialogFactory.theme.diagnosticHeaderOrder.forEach { item ->
-            when(item) {
-                "title" -> header.addView(heading,LinearLayout.LayoutParams(0,d(40f),1f))
-                "copy" -> header.addView(copy,LinearLayout.LayoutParams(copySize,copySize))
-            }
-        }
-        outer.addView(header)
-        val reportText=TextView(this).apply {
-            text=report
-            setTextColor(GlassDialogFactory.theme.text)
-            typeface=Typeface.MONOSPACE
-            textSize=11.5f
-            setTextIsSelectable(true)
-            setPadding(d(10f),d(12f),d(10f),d(10f))
-        }
-        val scrolling=ScrollView(this).apply {
-            isFillViewport=false
-            background=roundedFill(Color.rgb(5,23,36),8f,
-                Color.argb(100,100,155,165))
-            addView(reportText)
-        }
-        val heightCap=(resources.displayMetrics.heightPixels*.63).toInt()
-        val contentParams=LinearLayout.LayoutParams(-1,heightCap)
-        contentParams.topMargin=d(10f)
-        outer.addView(scrolling,contentParams)
-        val popup=GlassDialogFactory.popup(this,outer,availableWidth) {
-            diagnosticDismissedAtMs=SystemClock.uptimeMillis()
-            diagnosticPopup=null
-            updateButtonHighlights()
-        }
-        copy.setOnClickListener {
-            val cb=getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            cb.setPrimaryClip(android.content.ClipData.newPlainText("Диагностика GlassStudy",report))
-            Toast.makeText(this,"Скопировано",Toast.LENGTH_SHORT).show()
-        }
-        diagnosticPopup=popup
-        // Lower than toolbar, so another toolbar icon remains accessible.
-        popup.showAtLocation(mainRoot,Gravity.TOP or Gravity.CENTER_HORIZONTAL,0,
-            d(69f))
-        updateButtonHighlights()
+        val report=diagnosticsReports.create(DiagnosticsReportState(
+            diagnosticLabels=diagnosticLabels,
+            diagnosticSections=diagnosticSections,
+            diagnosticsModule=diagnosticsModule,
+            renderModule=renderModule,
+            cameraModule=cameraModule,
+            modelId=currentId,
+            modelName=names[ids.indexOf(currentId).coerceAtLeast(0)],
+            modelLod=currentLod,
+            wireframe=wireframe,
+            renderedFrames=viewer.renderedFrames.toString(),
+            surfaceWidth=surface.width,
+            surfaceHeight=surface.height,
+            pixelDensity=resources.displayMetrics.density.toDouble(),
+            distance=distance,
+            yaw=yaw,
+            pitch=pitch,
+            lightAz=lightAz,
+            lightElevation=lightElevation,
+            brightness=brightness
+        ))
+        diagnosticsPopup.show(report,DiagnosticsPopupStyle(
+            fill=currentUiColor,border=currentTopOutlineColor,
+            iconColor=currentTopIconColor,iconScale=currentTopIconScale,
+            iconSizeDp=currentTopButtonSizeDp
+        ))
     }
     override fun onResume() {
         super.onResume()
@@ -1023,10 +873,10 @@ class MainActivity : Activity() {
     }
     @Deprecated("Legacy Android back callback; closes only the open report")
     override fun onBackPressed() {
-        if(diagnosticPopup?.isShowing==true) diagnosticPopup?.dismiss()
+        if(diagnosticsPopup.isShowing) diagnosticsPopup.dismiss()
         else super.onBackPressed()
     }
-    override fun onPause() { lightIndicator?.hide();diagnosticPopup?.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
+    override fun onPause() { lightIndicator?.hide();diagnosticsPopup.dismiss();running=false;profiler.resetAfterPause();Choreographer.getInstance().removeFrameCallback(frameCallback); super.onPause() }
     override fun onDestroy() {
         running=false
         Choreographer.getInstance().removeFrameCallback(frameCallback)

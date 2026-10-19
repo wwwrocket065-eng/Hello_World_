@@ -10,25 +10,30 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.33' in props and 'GLASSSTUDY_VERSION_CODE=20033' in props
+assert 'GLASSSTUDY_VERSION=0.2.34' in props and 'GLASSSTUDY_VERSION_CODE=20034' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
-assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
+assert 'BuildConfig.VERSION_NAME' in activity
+assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
+assert 'BuildConfig.VERSION_CODE' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
 assert 'updater.checkOnStart(' in activity
 assert 'applyButton' not in activity
-assert 'private var diagnosticPopup:PopupWindow?' in activity
-assert 'popup.showAtLocation(mainRoot' in activity
+popup_src=(root/'app/src/main/java/com/glassstudy/filament/DiagnosticsPopupController.kt').read_text()
+report_src=(root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
+assert 'class DiagnosticsPopupController(' in popup_src and 'class DiagnosticsReportService(' in report_src
+assert 'private val diagnosticsPopup by lazy' in activity
+assert 'shown.showAtLocation(anchor' in popup_src
 assert 'if (action == "diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
-assert 'diagnosticPopup?.dismiss()' in activity
+assert 'diagnosticsPopup.dismiss()' in activity
 assert 'setTouchModal(false)' in (root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
-assert 'theme.titles.getValue("diagnostics")' in activity
-assert 'LabIconView(this,"copy")' in activity
-assert '"diagnostics" -> diagnosticPopup?.isShowing==true' in activity
-assert 'updateButtonHighlights()' in activity[activity.index('GlassDialogFactory.popup(this,outer,availableWidth)'):activity.index('copy.setOnClickListener')]
-assert 'skin(this,false,currentUiColor,currentTopOutlineColor)' in activity
+assert 'theme.titles.getValue("diagnostics")' in popup_src
+assert 'LabIconView(activity,"copy")' in popup_src
+assert '"diagnostics" -> diagnosticsPopup.isShowing' in activity
+assert 'DiagnosticsPopupController(this,mainRoot) { updateButtonHighlights() }' in activity
+assert 'windowBackground(activity,style.fill,style.border' in popup_src
 assert 'iconColor=currentTopIconColor' in activity
-assert 'copySize=d(currentTopButtonSizeDp.toFloat())' in activity
-assert 'setTextIsSelectable(true)' in activity
+assert 'val size=dp(style.iconSizeDp.toFloat())' in popup_src
+assert 'setTextIsSelectable(true)' in popup_src
 assert 'AlertDialog.Builder(this).setTitle(tr("title"))' not in activity
 assert '"copy" -> {' in (root/'app/src/main/java/com/glassstudy/filament/LabUiIcons.kt').read_text()
 assert 'Применить' not in activity or 'no "Применить"' in activity
@@ -140,14 +145,14 @@ assert layout['diagnosticSections']==['updates','performance','memory','scene','
 instrumentation=(root/'app/src/main/java/com/glassstudy/filament/FrameProfiler.kt').read_text()
 assert 'Process.getElapsedCpuTime()' in instrumentation
 assert 'Debug.getMemoryInfo(memory)' in instrumentation
-assert 'GlbMetrics.inspect' in activity
+assert 'GlbMetrics.inspect' in report_src
 assert 'ByteBuffer.wrap(raw)' in instrumentation
 assert 'profiler.frame(frameTimeNanos,submissionMs)' in activity
 assert 'val framesBefore = viewer.renderedFrames' in activity
 assert 'val frameWasRendered = viewer.renderedFrames > framesBefore' in activity
 assert 'if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()' in activity
 assert 'val samePatch=server==active.toString() && confirmed==active' in activity
-assert 'appendLine("${tr("compactPatches")}: $patchSummary")' in activity
+assert 'appendLine("${tr("compactPatches")}: $patchSummary")' in report_src
 assert 'FPS — ритм кадров' in layout['diagnostics']['measurementNote']
 assert 'FPS: ${num(perf.fps)}' in activity
 assert 'appendLine("GlassStudy ${BuildConfig.VERSION_NAME}' in activity
@@ -291,7 +296,7 @@ assert scene_config.get('sectionOrder')==['skybox','floor']
 # All window creation uses the shared factory, including non-modal diagnostics.
 assert 'AlertDialog.Builder(this)' not in activity
 assert 'PopupWindow(outer,availableWidth' not in activity
-assert 'GlassDialogFactory.popup(this,outer,availableWidth)' in activity
+assert 'GlassDialogFactory.popup(activity,outer,width)' in popup_src
 assert 'theme.titles.getValue("patchError")' in activity
 
 # Shared window theme is signed, validated and consumed in all dialogs.
@@ -304,7 +309,7 @@ assert 'theme.selected' in dialog_factory
 assert 'GlassDialogFactory.option(activity,label,selected)' in panel
 assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
 
-assert 'GlassDialogFactory.theme.diagnosticHeaderOrder.forEach' in activity
+assert 'theme.diagnosticHeaderOrder.forEach' in popup_src
 assert 'val diagnosticHeaderOrder:List<String>' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 assert window_theme['diagnosticHeaderOrder']==['title','copy']
 assert window_theme['menuOrder']==['indicatorStyle']
@@ -314,7 +319,7 @@ assert 'Unknown window title key' in (root/'app/src/main/java/com/glassstudy/fil
 
 assert window_theme['diagnosticsClickMode']=='toggle'
 assert 'host.windowMode("diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
-assert 'diagnosticDismissedAtMs=SystemClock.uptimeMillis()' in activity
+assert 'dismissedAtMs=SystemClock.uptimeMillis()' in popup_src
 assert 'elapsed !in 0L..280L' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'setOf("toggle","openOnly","closeOnly")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 
@@ -412,3 +417,18 @@ assert 'fun render(ui:UiLayout,animations:Map<String,UiAnimationSpec>)' in toolb
 assert 'host.dispatch(spec.action)' in toolbar
 assert 'host.isActive(spec.action)' in toolbar
 assert 'host.decorate(' in toolbar
+
+# Modular diagnostics: report data, popup and action lifecycle are separate.
+assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
+assert 'diagnosticsPopup.show(report,DiagnosticsPopupStyle(' in activity
+assert 'fun create(state:DiagnosticsReportState):String' in report_src
+assert 'GlbMetrics.inspect(updater.readModel(path))' in report_src
+assert 'MemoryMetrics.capture(context)' in report_src
+assert 'profiler.metrics()' in report_src
+assert 'tr("notMeasured")' in report_src
+assert 'setTextIsSelectable(true)' in popup_src
+assert 'copy.setOnClickListener' in popup_src
+assert 'isShowing:Boolean get()=popup?.isShowing==true' in popup_src
+assert 'setTouchModal(false)' in dialog_factory
+assert 'windowBackground(activity,theme.background,theme.border)' in popup_src
+assert 'diagnosticsPopup.dismissedAtMs' in activity
