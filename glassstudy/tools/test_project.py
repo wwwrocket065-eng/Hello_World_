@@ -282,3 +282,8 @@ assert '"modules/windows/config.json" -> WindowStyleConfig.parse(config)' in upd
 assert 'GlassDialogFactory.applyTheme(nextWindowStyle)' in activity
 assert 'GlassDialogFactory.theme.selected' in activity
 assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
+
+assert 'GlassDialogFactory.theme.diagnosticHeaderOrder.forEach' in activity
+assert 'val diagnosticHeaderOrder:List<String>' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
+assert window_theme['diagnosticHeaderOrder']==['title','copy']
+assert window_theme['menuOrder']==['model','camera','diagnostics']
