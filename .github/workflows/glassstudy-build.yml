@@ -5,6 +5,10 @@ on:
     paths:
       - 'glassstudy/**'
       - '.github/workflows/glassstudy-build.yml'
+  pull_request:
+    paths:
+      - 'glassstudy/**'
+      - '.github/workflows/glassstudy-build.yml'
   workflow_dispatch:
 permissions:
   contents: read
