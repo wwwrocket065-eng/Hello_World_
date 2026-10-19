@@ -70,3 +70,11 @@
 - MainActivity consumes all title values rather than hardcoding their rendered window headings. Existing patches lacking this map get legacy defaults; no new APK for subsequent renames once the compatible base is installed.
 - Unknown keys, control chars, empty titles and titles over 64 chars are rejected.
 - Regression tests added; CI run 39199028508 pending at this note.
+
+## 2026-10-19 — Shared window-button behavior (no immediate reopen)
+- Diagnosed report reopening on outside-tap + non-touch-modal PopupWindow: dismissal may reach the underlying diagnostics button in the same gesture.
+- Added 280 ms dismissal guard for diagnostic reactivation; direct repeat press closes once. Switching to another action closes diagnostics first.
+- Created shared GlassDialogFactory active-dialog registry keyed by window action for Scene and Menu, ensuring repeat press closes the current dialog rather than reopening and button-switch closes the old dialog.
+- Versioned windows module now includes validated windowClickModes for diagnostics, openScene and menu with toggle / openOnly / closeOnly modes; default toggle. Signed patch can change these policies after installing a compatible APK.
+- Existing declarative uiButtons already allow remapping toolbar buttons to validated known actions via signed UI patch; arbitrary executable actions remain disallowed.
+- CI run 39199849807; awaiting build before any signed APK publication.
