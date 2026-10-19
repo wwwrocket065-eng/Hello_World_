@@ -48,7 +48,7 @@ assert 'modelAssets.configure(bundle.materials)' in activity
 assert 'headerRow.addView(topButtonHost' in activity
 assert 'bottomPanel.addView(bottomButtonHost' in activity
 toolbar=(root/'app/src/main/java/com/glassstudy/filament/UiToolbarController.kt').read_text()
-assert 'toolbarController.render(ui,uiAnimations)' in activity
+assert 'v.toolbar.render(ui,animations)' in chrome_src
 assert 'topHost.removeAllViews()' in toolbar
 assert 'bottomHost.removeAllViews()' in toolbar
 assert 'private fun button(spec:UiButtonSpec' in toolbar
@@ -360,9 +360,9 @@ assert 'uiChrome.showIndicator(mode,value,cameraLight.lightMode)' in activity
 window_schema=(root/'app/src/main/java/com/glassstudy/filament/DeclarativeWindows.kt').read_text()
 rich_renderer=(root/'app/src/main/java/com/glassstudy/filament/PatchWindowRenderer.kt').read_text()
 example=json.loads((root/'PROJECT_RULES/RICH_WINDOW_EXAMPLE.json').read_text())
-assert 'PatchWindowRenderer.show(' in activity and 'this, spec, uiAnimations[id]' in activity
+assert 'PatchWindowRenderer.show(' in activity and 'this, spec, uiChrome.animations[id]' in activity
 assert 'key = "patch:${window.id}"' in rich_renderer
-assert 'patchWindows.keys.firstOrNull' in activity and 'patchToRestore ->' not in activity
+assert 'uiChrome.windows.keys.firstOrNull' in activity and 'patchToRestore ->' not in activity
 assert 'patchToRestore != null -> openPatchWindow(patchToRestore)' in activity
 assert all(('"' + kind + '"') in window_schema for kind in ('heading','text','button','switch','slider'))
 assert 'Exactly one of buttons or elements is required' in window_schema
@@ -386,7 +386,7 @@ assert 'fun acceptsBinding(type: String, binding: String)' in interaction
 toolbar=(root/'app/src/main/java/com/glassstudy/filament/UiToolbarController.kt').read_text()
 assert 'class UiToolbarController(' in toolbar
 assert 'UiToolbarController(this,topButtonHost,bottomButtonHost,topPanel,' in activity
-assert 'toolbarController.render(ui,uiAnimations)' in activity
+assert 'v.toolbar.render(ui,animations)' in chrome_src
 assert 'host.dispatch(spec.action)' in toolbar
 assert 'uiController.dispatch(action)' in activity
 assert 'readBinding = uiController::read' in activity
