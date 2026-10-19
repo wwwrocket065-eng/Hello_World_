@@ -126,6 +126,9 @@ assert 'Debug.getMemoryInfo(memory)' in instrumentation
 assert 'GlbMetrics.inspect' in activity
 assert 'ByteBuffer.wrap(raw)' in instrumentation
 assert 'profiler.frame(frameTimeNanos,submissionMs)' in activity
+assert 'val framesBefore = viewer.renderedFrames' in activity
+assert 'val frameWasRendered = viewer.renderedFrames > framesBefore' in activity
+assert 'if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()' in activity
 assert 'val samePatch=server==active.toString() && confirmed==active' in activity
 assert 'appendLine("${tr("compactPatches")}: $patchSummary")' in activity
 assert 'FPS — ритм кадров' in layout['diagnostics']['measurementNote']
