@@ -48,3 +48,11 @@
 - Limitation: universal drag/reorder for controls in every type of window is NOT finished. Planned generic declarative window schema and adapter.
 - Keep published feed 20028 unchanged until user installs and confirms a new original-key signed APK. Older APKs do not contain these action handlers.
 - Regression: earlier test was brittle after declarative scene options; updated to check option map and scene ordering. GitHub Actions run 39197621546 pending at time of note.
+
+## 2026-10-19 — Common window creation refactor
+- Replaced remaining ad-hoc MainActivity AlertDialog with GlassDialogFactory.message.
+- Moved diagnostics PopupWindow construction/lifecycle and window flags into GlassDialogFactory.popup. Diagnostics content and its nonmodal behavior remain unchanged.
+- Shared menu, error messages, RGB sky customization and scene panel now use same window creation owner; avoids duplicate Android window boilerplate.
+- Added CI assertions forbidding direct MainActivity AlertDialog.Builder and PopupWindow(outer,...); updated old assumptions about setTouchModal and dismiss listener location.
+- CI run 39198244536 pending; do not release unsigned or untested APK.
+- Remaining structural goal: central patch-configurable window theme and declarative placement of interior controls across specialized windows (current scene section/item order and toolbar order already patchable).
