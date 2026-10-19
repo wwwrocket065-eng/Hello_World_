@@ -10,7 +10,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.29' in props and 'GLASSSTUDY_VERSION_CODE=20029' in props
+assert 'GLASSSTUDY_VERSION=0.2.30' in props and 'GLASSSTUDY_VERSION_CODE=20030' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity and 'BuildConfig.VERSION_CODE' in activity
 assert 'button("Обновления' not in activity and 'button("Обновить' not in activity
@@ -239,3 +239,16 @@ assert 'blockedAfterCrash' in updater and 'feed.patchVersion != blockedVersion' 
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
 print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
 print('NOTE: Android SDK/Gradle compile and device runtime must be tested separately.')
+# Scene style and module regression — standalone white/checker floors share width.
+scene_config=json.loads((root/'app/src/main/assets/modules/scene/config.json').read_text())
+scene_src=(root/'app/src/main/java/com/glassstudy/filament/SceneFloorGlb.kt').read_text()
+scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.kt').read_text()
+assert scene_config['floorWidth']==12 and scene_config['tileWidth']==0.6
+assert scene_config['darkLevel']<=0.01 and scene_config['whiteLevel']>=0.95
+assert 'val cells = if (checker) (width / tileWidth)' in scene_src
+assert 'number("floorWidth"' in scene_module and 'number("whiteLevel"' in scene_module
+assert 'SceneFloorGlb.create(true, sceneModule.floorWidth, sceneModule.tileWidth' in activity
+assert 'SceneFloorGlb.create(false, sceneModule.floorWidth, sceneModule.tileWidth' in activity
+assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' in activity
+assert 'panel.addView(text("СЦЕНА"' in activity
+assert 'choice("Белая платформа"' in activity and 'heading("SKYBOX")' in activity
