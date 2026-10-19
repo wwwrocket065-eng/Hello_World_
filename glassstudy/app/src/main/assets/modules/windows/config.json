@@ -17,5 +17,9 @@
     "model",
     "camera",
     "diagnostics"
+  ],
+  "diagnosticHeaderOrder": [
+    "title",
+    "copy"
   ]
 }
