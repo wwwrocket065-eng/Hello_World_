@@ -64,3 +64,9 @@
 - Existing SceneModuleConfig controls section/item order; UI layout json controls top/bottom toolbar order.
 - Universal arbitrary repositioning inside every diagnostic/specialized view is still not implemented; do not claim full declarative layout support.
 - CI verification run 39198584069; leave old signed feed untouched until original-key APK/device verification.
+
+## 2026-10-19 — User-requested patchable window titles
+- WindowStyleConfig now validates and parses a signed `titles` map under `modules/windows/config.json` with known keys: scene, skyColor, diagnostics, mainMenu, patchInstalled, patchRejected, patchError, modelError.
+- MainActivity consumes all title values rather than hardcoding their rendered window headings. Existing patches lacking this map get legacy defaults; no new APK for subsequent renames once the compatible base is installed.
+- Unknown keys, control chars, empty titles and titles over 64 chars are rejected.
+- Regression tests added; CI run 39199028508 pending at this note.
