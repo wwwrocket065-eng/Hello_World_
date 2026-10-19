@@ -86,3 +86,8 @@
 - Uses safe native Android widgets and a validated builtin binding; no untrusted executable code.
 - Extending to arbitrary per-feature button/slider/toggle definitions and reusable control registry remains a separate architectural phase; do not misrepresent this as universal yet.
 - CI run 39202174451 pending at note time; existing published patch feed remains unchanged.
+
+## 2026-10-19 — Independently configurable overlay colors
+- OverlayModuleConfig accepts signed optional #RRGGBB settings backgroundColor, borderColor, textColor, progressColor, thumbColor; omitted values inherit unified GlassDialogFactory theme.
+- Updated light-mode brightness SeekBar and label to consume the independent colors.
+- Regression coverage verifies config keys and consumer bindings; Android CI run 39202725868.
