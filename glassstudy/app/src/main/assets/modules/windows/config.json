@@ -32,5 +32,10 @@
     "patchError": "Патч не установлен",
     "modelError": "Ошибка загрузки модели"
   },
-  "diagnosticsClickMode": "toggle"
+  "diagnosticsClickMode": "toggle",
+  "windowClickModes": {
+    "diagnostics": "toggle",
+    "openScene": "toggle",
+    "menu": "toggle"
+  }
 }
