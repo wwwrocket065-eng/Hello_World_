@@ -491,12 +491,18 @@ class MainActivity : Activity() {
 
     private fun openMenu() {
         diagnosticPopup?.dismiss()
+        val actions=mapOf(
+            "model" to "Выбрать объект",
+            "camera" to "Сбросить камеру",
+            "diagnostics" to "Диагностика"
+        )
+        val menuOrder=GlassDialogFactory.theme.menuOrder
         GlassDialogFactory.menu(this,"GlassStudy · 3D LAB",
-            listOf("Выбрать объект","Сбросить камеру","Диагностика")) { which ->
-            when(which) {
-                0 -> chooseObject.performClick()
-                1 -> resetCameraToHome()
-                2 -> showDiagnostic()
+            menuOrder.map { actions.getValue(it) }) { which ->
+            when(menuOrder[which]) {
+                "model" -> chooseObject.performClick()
+                "camera" -> resetCameraToHome()
+                "diagnostics" -> showDiagnostic()
             }
         }
     }
