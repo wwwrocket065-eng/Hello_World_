@@ -9,10 +9,9 @@ import android.content.res.Configuration
 object OrientationLayoutManager {
     fun dialogWidthPx(configuration: Configuration, availableWidthPx: Int, fraction: Float): Int {
         require(fraction in 0.6f..1f)
-        // Use a smaller relative footprint in landscape, with safe side margins.
-        val adjusted = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
-            fraction.coerceAtMost(0.82f) else fraction
-        return (availableWidthPx * adjusted).toInt().coerceAtLeast(1)
+        // Honor the exact signed patch setting in both orientations; never
+        // silently cap landscape overrides (e.g. 0.95) to a hardcoded value.
+        return (availableWidthPx * fraction).toInt().coerceIn(1, availableWidthPx.coerceAtLeast(1))
     }
 
     fun bottomColumns(configuration: Configuration, visibleButtons: Int): Int {
