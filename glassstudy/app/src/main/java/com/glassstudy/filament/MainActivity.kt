@@ -77,6 +77,7 @@ class MainActivity : Activity() {
     private val activeButtons=linkedMapOf<String,View>()
     private var activeButtonSpecs:List<UiButtonSpec> = emptyList()
     private var patchWindows: Map<String, DeclarativeWindow> = emptyMap()
+    private var uiAnimations: Map<String, UiAnimationSpec> = emptyMap()
     private var currentUiColor:Int=Color.rgb(27,56,75)
     private var currentSelectorColor=Color.rgb(109,224,222)
     private var currentTopOutlineColor=Color.rgb(109,185,203)
@@ -278,7 +279,10 @@ class MainActivity : Activity() {
         }
         target.isClickable=true
         target.isFocusable=true
-        target.setOnClickListener { clickAction(spec.action) }
+        target.setOnClickListener {
+            UiAnimationEngine.enter(target, uiAnimations[spec.id], resources.displayMetrics.density)
+            clickAction(spec.action)
+        }
         if(spec.action=="toggleLight") {
             target.setOnLongClickListener {
                 resetCameraToHome()
@@ -832,6 +836,7 @@ class MainActivity : Activity() {
             val nextOverlayModule = OverlayModuleConfig.parse(updater.readModuleConfig("overlay",candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             patchWindows=ui.windows
+            uiAnimations=ui.animations
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
             diagnosticsModule=nextDiagnosticsModule
