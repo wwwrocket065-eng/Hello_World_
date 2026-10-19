@@ -363,7 +363,7 @@ class MainActivity : Activity() {
         val panel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(d(18f),d(16f),d(18f),d(18f))
-            background=roundedFill(Color.rgb(17,35,49),20f,currentTopOutlineColor)
+            background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,currentTopOutlineColor)
         }
         fun text(value:String, size:Float, color:Int, top:Int=0):TextView =
             TextView(this).apply {
@@ -373,7 +373,7 @@ class MainActivity : Activity() {
             }
         panel.addView(text("СЦЕНА",17f,foreground))
         panel.addView(text("Пол и окружение настраиваются отдельно",12f,
-            Color.rgb(157,184,195),5))
+            GlassDialogFactory.theme.hint,5))
         var dialog:AlertDialog?=null
         fun heading(label:String) {
             panel.addView(text(label,13f,foreground,17))
@@ -382,11 +382,11 @@ class MainActivity : Activity() {
             val item=TextView(this).apply {
                 text=(if(selected) "●  " else "○  ")+label
                 textSize=14f
-                setTextColor(if(selected)foreground else Color.rgb(216,229,234))
+                setTextColor(if(selected)foreground else GlassDialogFactory.theme.text)
                 gravity=Gravity.CENTER_VERTICAL
                 setPadding(d(14f),0,d(12f),0)
-                background=roundedFill(if(selected)Color.rgb(31,72,84)
-                    else Color.rgb(23,48,64),11f,
+                background=roundedFill(if(selected)GlassDialogFactory.theme.selected
+                    else GlassDialogFactory.theme.control,11f,
                     if(selected)currentTopOutlineColor else Color.rgb(59,94,108))
                 isClickable=true;isFocusable=true
                 setOnClickListener {
@@ -443,7 +443,7 @@ class MainActivity : Activity() {
         val panel=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(d(18f),d(16f),d(18f),d(18f))
-            background=roundedFill(Color.rgb(17,35,49),20f,currentTopOutlineColor)
+            background=roundedFill(GlassDialogFactory.theme.background,GlassDialogFactory.theme.cornerDp,currentTopOutlineColor)
         }
         panel.addView(TextView(this).apply {
             text="ЦВЕТ SKYBOX";textSize=17f;setTextColor(currentTopIconColor)
@@ -458,7 +458,7 @@ class MainActivity : Activity() {
             }
             panel.addView(TextView(this).apply {
                 text=arrayOf("Красный","Зелёный","Синий")[index]
-                textSize=13f;setTextColor(Color.rgb(216,229,234))
+                textSize=13f;setTextColor(GlassDialogFactory.theme.text)
                 setPadding(0,d(13f),0,0)
             })
             panel.addView(bar)
@@ -470,7 +470,7 @@ class MainActivity : Activity() {
             actions.addView(TextView(this).apply {
                 text=title;textSize=14f;gravity=Gravity.CENTER
                 setTextColor(currentTopIconColor)
-                background=roundedFill(Color.rgb(23,48,64),11f,currentTopOutlineColor)
+                background=roundedFill(GlassDialogFactory.theme.control,11f,currentTopOutlineColor)
                 setOnClickListener {
                     dialog?.dismiss()
                     if(commit) {
@@ -785,6 +785,7 @@ class MainActivity : Activity() {
             val nextDiagnosticsModule = DiagnosticsModuleConfig.parse(updater.readModuleConfig("diagnostics", candidate))
             val nextMaterialModule = MaterialModuleConfig.parse(updater.readModuleConfig("materials", candidate))
             val nextSceneModule = SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))
+            val nextWindowStyle = WindowStyleConfig.parse(updater.readModuleConfig("windows", candidate))
             // The signed JSON is fully validated first: no partial invalid actions.
             cameraModule=nextCameraModule
             renderModule=nextRenderModule
@@ -792,6 +793,7 @@ class MainActivity : Activity() {
             materialModule=nextMaterialModule
             val sceneChanged=sceneModule != nextSceneModule
             sceneModule=nextSceneModule
+            GlassDialogFactory.applyTheme(nextWindowStyle)
             if (sceneChanged) applySceneFloor()
             applyRenderModule()
             zoomPower=ui.zoomPower
