@@ -317,7 +317,17 @@ class MainActivity : Activity() {
             "custom" -> customSkyColor
             else -> Color.rgb(110,110,110)
         }
-        val next = Skybox.Builder().color(Color.red(rgb)/255f,Color.green(rgb)/255f,
+        val next = if (skyMode=="studio") {
+            try {
+                val raw=assets.open("envs/studio_ibl.ktx").use { it.readBytes() }
+                val data=ByteBuffer.allocateDirect(raw.size).order(ByteOrder.nativeOrder())
+                data.put(raw).flip()
+                KTX1Loader.createSkybox(viewer.engine,data)
+            } catch (e:Exception) {
+                android.util.Log.w("GlassStudy","Studio Skybox unavailable; using gray background",e)
+                Skybox.Builder().color(.43f,.43f,.43f,1f).build(viewer.engine)
+            }
+        } else Skybox.Builder().color(Color.red(rgb)/255f,Color.green(rgb)/255f,
             Color.blue(rgb)/255f,1f).build(viewer.engine)
         viewer.scene.skybox=next
         appliedSkybox?.let { viewer.engine.destroySkybox(it) }
@@ -355,8 +365,8 @@ class MainActivity : Activity() {
     }
 
     private fun openSkyChoices() {
-        val choices=arrayOf("Серый (как в Blender)","Белый","Тёмный","Свой цвет")
-        val modes=arrayOf("gray","white","dark","custom")
+        val choices=arrayOf("Серый (как в Blender)","Студийный Skybox","Белый","Тёмный","Свой цвет")
+        val modes=arrayOf("gray","studio","white","dark","custom")
         AlertDialog.Builder(this).setTitle("Skybox")
             .setSingleChoiceItems(choices,modes.indexOf(skyMode)) { dialog,index ->
                 dialog.dismiss()
