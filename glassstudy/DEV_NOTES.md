@@ -110,3 +110,9 @@
 - Rich window demo: `PROJECT_RULES/RICH_WINDOW_EXAMPLE.json`. Use its `windows` object in a complete `ui/layout.json` and a validated `uiButtons[].action="openWindow:lightControls"` to expose it.
 - CRITICAL COMPATIBILITY: Do NOT publish `windows[].elements` into the shared live .pupdate feed until a new ORIGINAL-KEY-SIGNED APK implementing the rich renderer is installed. Existing v0.2.30 builds only understand legacy `buttons` and would reject the patch.
 - Original-key signing, actual .pupdate installation/rollback and Android device smoke tests remain separate release gates, beyond successful source/CI compilation.
+
+## 2026-10-19 — Axis-locked light gestures (source milestone, not released)
+- Confirmed `UiInteractionController` was already wired to the activity; older handoff claiming it was unconnected was stale.
+- Added an independent `LightGestureController` that locks the initially dominant swipe axis until finger lift; second-finger gesture resets the lock.
+- Light elevation now spans 0–180 degrees and azimuth wraps at 360 degrees. Pinch brightness uses additive 0–200% adjustment so 0% can be increased again. Camera gestures are kept separate.
+- Regression checks updated for input arbiter. **Passive indicator rendering and replacing the contextual slider remain to do.** No release APK or live signed patch published at this stage.

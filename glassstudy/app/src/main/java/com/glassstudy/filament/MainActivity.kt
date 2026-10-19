@@ -117,6 +117,7 @@ class MainActivity : Activity() {
                 when (binding) {
                     "lightMode" -> {
                         lightMode = value >= .5f
+                        lightGesture.reset()
                         status()
                     }
                     "grid" -> {
@@ -135,7 +136,7 @@ class MainActivity : Activity() {
                     }
                     "brightnessPercent" -> {
                         brightness = (value.toDouble() / 100.0)
-                            .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness)
+                            .coerceIn(0.0, 2.0)
                         val range = cameraModule.maxBrightness - cameraModule.minBrightness
                         overlayBrightnessSlider?.progress =
                             (((brightness - cameraModule.minBrightness) / range) * 1000.0)
@@ -193,6 +194,7 @@ class MainActivity : Activity() {
     private var oldX = 0f
     private var oldY = 0f
     private var oldPinch = 0f
+    private val lightGesture = LightGestureController()
     private var running = false
     private var stableFrames = 0
     private var localPatchBusy = false
@@ -978,6 +980,7 @@ class MainActivity : Activity() {
         pitch = .34
         distance = 5.5
         lightMode = false
+        lightGesture.reset()
         status()
         if (::viewer.isInitialized) updateCamera()
     }
@@ -1000,42 +1003,69 @@ class MainActivity : Activity() {
         mgr.setIntensity(inst,(cameraModule.lightIntensity * brightness).toFloat())
     }
     private fun touch(e: MotionEvent): Boolean {
-        if (e.actionMasked == MotionEvent.ACTION_DOWN || e.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
-            oldX = e.getX(0); oldY = e.getY(0)
-            oldPinch = if (e.pointerCount >= 2) pinch(e) else 0f
-            return true
-        }
-        if (e.actionMasked == MotionEvent.ACTION_MOVE) {
-            if (e.pointerCount >= 2) {
-                val delta = pinch(e)
-                if (oldPinch > 0f && delta > 1f) {
-                    if (lightMode) uiController.write("brightnessPercent",
-                        ((brightness * (delta / oldPinch).toDouble().pow(.7))
-                            .coerceIn(cameraModule.minBrightness, cameraModule.maxBrightness) * 100.0).toFloat())
-                    // Spread two fingers => move closer; pinch => farther. Same as v0.1.22.
-                    else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(cameraModule.minDistance, cameraModule.maxDistance)
-                }
-                oldPinch = delta
-            } else {
-                // Android touch coordinates are physical pixels; the v0.1.22
-                // browser uses CSS px. Convert with density BEFORE applying
-                // the original per-CSS-pixel sensitivity coefficients.
-                val pxToCss = resources.displayMetrics.density.coerceAtLeast(.1f)
-                val dx = (e.x - oldX).toDouble() / pxToCss
-                val dy = (e.y - oldY).toDouble() / pxToCss
-                if (lightMode) {
-                    // Identical to v0.1.22: 0.009/0.006 radians per CSS pixel.
-                    lightAz += dx * cameraModule.lightYawSensitivity
-                    lightElevation = (lightElevation + dy * cameraModule.lightPitchSensitivity).coerceIn(.06,1.5)
-                } else {
-                    // Identical to v0.1.22: 0.008/0.005 radians per CSS pixel.
-                    // A signed UI patch can flip direction; default is inverted.
-                    yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)
-                    pitch = (pitch + dy * cameraModule.pitchSensitivity).coerceIn(-.05,1.23)
-                }
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                lightGesture.reset()
+                oldX=e.getX(0); oldY=e.getY(0)
+                oldPinch=if (e.pointerCount>=2) pinch(e) else 0f
+                return true
             }
-            oldX = e.getX(0); oldY = e.getY(0)
-            return true
+            MotionEvent.ACTION_POINTER_UP -> {
+                // The surviving finger begins a fresh axis decision.
+                lightGesture.reset()
+                val remaining=if (e.actionIndex==0 && e.pointerCount>1) 1 else 0
+                oldX=e.getX(remaining); oldY=e.getY(remaining)
+                oldPinch=0f
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                lightGesture.reset()
+                oldPinch=0f
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val density=resources.displayMetrics.density.coerceAtLeast(.1f)
+                if (e.pointerCount>=2) {
+                    lightGesture.reset()
+                    val span=pinch(e)
+                    if(oldPinch>0f && span>1f) {
+                        if(lightMode) {
+                            // Additive pinch can brighten again even from 0%.
+                            val next=(brightness+(span-oldPinch)/density/160.0).coerceIn(0.0,2.0)
+                            uiController.write("brightnessPercent",(next*100.0).toFloat())
+                        } else {
+                            distance=(distance*(oldPinch/span).toDouble().pow(zoomPower))
+                                .coerceIn(cameraModule.minDistance,cameraModule.maxDistance)
+                        }
+                    }
+                    oldPinch=span
+                } else {
+                    // Gesture sensitivity is defined per dp, not physical pixels.
+                    val dx=(e.x-oldX).toDouble()/density
+                    val dy=(e.y-oldY).toDouble()/density
+                    if(lightMode) {
+                        val motion=lightGesture.move(dx,dy)
+                        if(motion!=null) when(motion.axis) {
+                            LightGestureController.Axis.AZIMUTH -> {
+                                val turn=2.0*Math.PI
+                                lightAz=(lightAz+motion.deltaDp*cameraModule.lightYawSensitivity)%turn
+                                if(lightAz<0.0) lightAz+=turn
+                            }
+                            LightGestureController.Axis.ELEVATION -> {
+                                // 180-degree vertical arc: from 0 to 180 degrees.
+                                lightElevation=(lightElevation+
+                                    motion.deltaDp*cameraModule.lightPitchSensitivity)
+                                    .coerceIn(0.0,Math.PI)
+                            }
+                        }
+                    } else {
+                        yaw+=dx*(if(invertHorizontal)-cameraModule.yawSensitivity else cameraModule.yawSensitivity)
+                        pitch=(pitch+dy*cameraModule.pitchSensitivity).coerceIn(-.05,1.23)
+                    }
+                }
+                oldX=e.getX(0);oldY=e.getY(0)
+                return true
+            }
         }
         return true
     }

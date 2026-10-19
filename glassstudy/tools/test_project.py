@@ -164,8 +164,8 @@ assert 'viewer.camera.lookAt(x, y, z, 0.0, 1.0, 0.0' in activity
 assert 'else distance = (distance * (oldPinch / delta).toDouble().pow(zoomPower)).coerceIn(cameraModule.minDistance, cameraModule.maxDistance)' in activity
 assert 'pitch = (pitch + dy * cameraModule.pitchSensitivity)' in activity
 assert 'yaw += dx * (if(invertHorizontal) -cameraModule.yawSensitivity else cameraModule.yawSensitivity)' in activity
-assert 'lightAz += dx * cameraModule.lightYawSensitivity' in activity
-assert 'lightElevation = (lightElevation + dy * cameraModule.lightPitchSensitivity)' in activity
+assert 'LightGestureController.Axis.AZIMUTH' in activity and 'lightGesture.move(dx,dy)' in activity
+assert 'LightGestureController.Axis.ELEVATION' in activity and '.coerceIn(0.0,Math.PI)' in activity
 assert 'e.x - oldX' in activity and 'resources.displayMetrics.density' in activity
 assert 'Signature.getInstance("SHA256withRSA")' in updater
 assert 'signature.verify(' in updater
@@ -371,3 +371,11 @@ assert 'verify_payload_unchanged(unsigned, output)' in signer
 assert '"--v2-signing-enabled", "true"' in signer
 assert '"--v3-signing-enabled", "false"' in signer
 assert 'output.unlink(missing_ok=True)' in signer
+
+# Input arbiter is decoupled from graphics: first dominant axis stays locked.
+gesture_code=(root/'app/src/main/java/com/glassstudy/filament/LightGestureController.kt').read_text()
+assert 'class LightGestureController' in gesture_code
+assert 'if (lockedAxis == null)' in gesture_code
+assert 'Axis.ELEVATION else Axis.AZIMUTH' in gesture_code
+assert 'lightGesture.reset()' in activity
+assert 'brightness+(span-oldPinch)/density/160.0' in activity
