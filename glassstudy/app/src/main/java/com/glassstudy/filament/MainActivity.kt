@@ -768,13 +768,28 @@ class MainActivity : Activity() {
     /** Handle rotation without destroying Filament, camera state, or loaded models. */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        // Remember the active panel before Android changes its viewport. A
+        // rotation must not silently throw away a window or reset the scene.
+        val patchToRestore = patchWindows.keys.firstOrNull {
+            GlassDialogFactory.isOpen("patch:$it")
+        }
+        val restoreScene = GlassDialogFactory.isOpen("openScene")
+        val restoreMenu = GlassDialogFactory.isOpen("menu")
+        val restoreDiagnostics = diagnosticPopup?.isShowing == true
         diagnosticPopup?.dismiss()
         GlassDialogFactory.closeCurrent()
         if (::mainRoot.isInitialized) {
             mainRoot.post {
                 if (!isFinishing && !isDestroyed && ::updater.isInitialized) {
-                    applyUiLayout()
-                    updateContextualOverlay()
+                    if (applyUiLayout()) {
+                        updateContextualOverlay()
+                        when {
+                            patchToRestore != null -> openPatchWindow(patchToRestore)
+                            restoreScene -> openSceneMenu()
+                            restoreMenu -> openMenu()
+                            restoreDiagnostics -> showDiagnostic()
+                        }
+                    }
                 }
             }
         }
