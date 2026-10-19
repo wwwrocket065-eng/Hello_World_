@@ -303,7 +303,9 @@ class MainActivity : Activity() {
         activeButtonSpecs=ui.buttons
         val top=ui.buttons.filter{it.slot=="top"}
         val bottom=ui.buttons.filter{it.slot=="bottom"}
-        val totalDp=resources.displayMetrics.widthPixels/resources.displayMetrics.density
+        // Use the actual container width when available (split-screen and insets).
+        val availablePx=(topPanel.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels)
+        val totalDp=availablePx/resources.displayMetrics.density
         val windowDp=totalDp.toInt()
         val upperBound=(if(top.isEmpty())46f else ((totalDp-186f)/top.size)-4f)
         // Available space wins over scaling: header must never extend off-screen.
