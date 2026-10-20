@@ -155,6 +155,10 @@ class MainActivity : Activity() {
     private var running = false
     private var stableFrames = 0
     private var localPatchBusy = false
+    private val localPatchFolder by lazy { LocalPatchDirectory(this) }
+    private val patchFolderRequest=8124
+    private val patchFolderPromptedKey="localPatchPrompted"
+
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
@@ -200,7 +204,10 @@ class MainActivity : Activity() {
         diagnosticsPopup.dismiss()
         // Dedicated toolbar actions never appear a second time in settings.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            listOf("Стиль индикаторов освещения")) { showLightingIndicatorStyles() }
+            listOf("Стиль индикаторов освещения","Папка локальных патчей") { selection ->
+                if(selection==0) showLightingIndicatorStyles()
+                else localPatchFolder.requestFolder(patchFolderRequest)
+            }
     }
     private fun showLightingIndicatorStyles() {
         LightIndicatorSettingsPanel(this) {
@@ -387,11 +394,18 @@ class MainActivity : Activity() {
         }
         chooseObject.onItemSelectedListener=onSelection
         chooseLod.onItemSelectedListener=onSelection
-        // A user-selected file in Downloads takes priority over the background check.
-        if (!handleIncomingPatchIntent(intent)) {
-            updater.checkOnStart(onCandidate = { candidate ->
-                applyVerifiedPatch(candidate, false)
-            })
+        // Local signed files take precedence; GitHub is optional fallback.
+        if (!handleIncomingPatchIntent(intent)) checkLocalThenRemote()
+        if(!localPatchFolder.configured &&
+            !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
+            getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
+            AlertDialog.Builder(this)
+                .setTitle("Автообновление без GitHub")
+                .setMessage("Один раз выбери отдельную папку для патчей (например, Загрузки/GlassStudyUpdates). После этого достаточно помещать туда .pupdate — GlassStudy найдёт их при запуске.")
+                .setPositiveButton("Выбрать папку") { _,_ ->
+                    localPatchFolder.requestFolder(patchFolderRequest)
+                }
+                .setNegativeButton("Позже",null).show()
         }
     }
 
@@ -423,6 +437,37 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun checkLocalThenRemote() {
+        if(localPatchBusy)return
+        val candidateUri=localPatchFolder.newestAbove(updater.installedPatchVersion())
+        if(candidateUri==null) {
+            updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
+            return
+        }
+        localPatchBusy=true
+        updater.installFromUri(candidateUri,
+            onCandidate={candidate ->
+                localPatchBusy=false
+                applyVerifiedPatch(candidate,false)
+            },
+            onError={message ->
+                localPatchBusy=false
+                android.util.Log.w("GlassStudy","Local patch rejected: "+message)
+                // Do not block app startup if a stray/invalid file exists.
+                updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
+            })
+    }
+
+    @Deprecated("Activity result for persisted Storage Access Framework tree")
+    override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
+        super.onActivityResult(requestCode,resultCode,data)
+        if(requestCode!=patchFolderRequest)return
+        if(resultCode==Activity.RESULT_OK && localPatchFolder.acceptGrant(data)) {
+            Toast.makeText(this,"Папка патчей подключена",Toast.LENGTH_SHORT).show()
+            checkLocalThenRemote()
+        } else Toast.makeText(this,"Доступ к папке не предоставлен",Toast.LENGTH_LONG).show()
     }
 
     override fun onNewIntent(intent: Intent) {
