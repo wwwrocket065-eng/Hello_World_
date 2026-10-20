@@ -598,7 +598,7 @@ assert 'android.permission.MANAGE_EXTERNAL_STORAGE' in (root/'app/src/main/Andro
 assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_patch
 assert 'Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION' in local_patch
 assert 'takePersistableUriPermission' in local_patch
-assert 'GlassStudy_Patches' in activity
+assert 'Разрешить доступ к Download (один раз)' in activity
 assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
 assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
 
