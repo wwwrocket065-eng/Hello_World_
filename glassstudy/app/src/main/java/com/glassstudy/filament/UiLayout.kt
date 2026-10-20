@@ -272,7 +272,7 @@ data class UiLayout(
                 color("topButtonOutlineColor","#6DB9CB"),
                 color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows,animations,adaptive,
                 number("gearInnerRoundness",0.80,0.30,1.0).toFloat(),
-                number("topButtonGapDp",4.0,0.0,24.0).toFloat(),
+                number("topButtonGapDp",4.0,-12.0,24.0).toFloat(),
                 number("topButtonLeadingDp",4.0,0.0,32.0).toFloat(),
                 number("bottomButtonGapDp",8.0,0.0,32.0).toFloat(),
                 number("bottomRowGapDp",8.0,0.0,32.0).toFloat()

@@ -133,3 +133,5 @@
 
 ## Source milestone v0.2.41 (2026-10-20)
 - UiLayout: new patchable topButtonGapDp/topButtonLeadingDp/bottomButtonGapDp/bottomRowGapDp, validated ranges and legacy defaults. UiToolbarController no longer hardcodes 4dp/8dp margins. UI config and tests updated. One original-key signed 0.2.41 native APK needed before signed patch can control gaps; currently installed 0.2.40 cannot implement code it lacks. Live published patch feed 20030 remains unchanged pending rollout testing.
+
+- Signed topButtonGapDp accepts -12..24dp; modest negative gap enables the old reference layout spacing while leaving visual/icon size and individual button touch targets unchanged. Proposed signed test patch 20031: gap -5dp, leading 0dp. Verify all four click targets individually on device.
