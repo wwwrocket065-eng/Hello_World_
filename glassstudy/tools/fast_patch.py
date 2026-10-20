@@ -68,6 +68,11 @@ def config_resource(alias,baseline):
             elif isinstance(value,dict) and isinstance(target[key],dict):
                 fill_missing(target[key],value)
     fill_missing(doc,defaults)
+    if path=="ui/layout.json":
+        templates={b["id"]:b for b in defaults.get("uiButtons",[])}
+        for button in doc.get("uiButtons",[]):
+            for key,value in templates.get(button["id"],{}).items():
+                button.setdefault(key,value)
     return path,doc
 
 def assign(document,selector,value):
@@ -88,6 +93,27 @@ def assign(document,selector,value):
         and not (type(previous) in (int,float) and type(value) in (int,float) and type(value) is not bool)):
         raise ValueError("Property type mismatch: "+selector)
     target[key]=value
+
+BUTTON_LIMITS={
+    "widthDp":(44,260),"heightDp":(36,72),"visualSizeDp":(20,72),
+    "iconScale":(.55,1),"offsetXDp":(-80,80),"offsetYDp":(-80,80),
+    "marginStartDp":(-16,32),"marginTopDp":(-16,32)
+}
+
+def set_button(document,change):
+    if "=" not in change:raise ValueError("Use --button ID.FIELD=VALUE")
+    key,raw=change.split("=",1)
+    identifier,dot,field=key.partition(".")
+    if not dot or field not in BUTTON_LIMITS:raise ValueError("Invalid button field: "+key)
+    buttons=[b for b in document.get("uiButtons",[]) if b.get("id")==identifier]
+    if len(buttons)!=1:raise ValueError("Unknown button ID: "+identifier)
+    value=encode_value(raw)
+    low,high=BUTTON_LIMITS[field]
+    if type(value) not in (int,float) or not low<=value<=high:
+        raise ValueError("Button value outside safe bounds: "+key)
+    if field in ("widthDp","heightDp","visualSizeDp") and type(value) is not int:
+        raise ValueError("Button size must be whole dp: "+key)
+    buttons[0][field]=value
 
 def validate(name,raw):
     if not accepted(name):raise ValueError("Resource not allowed by Android: "+name)
@@ -188,6 +214,10 @@ def produce(args):
         if path is None:raise ValueError("Unknown module: "+alias)
         if path not in base:base[path]=config_resource(alias,baseline)[1]
         assign(base[path],selector,encode_value(value))
+    if args.button:
+        path="ui/layout.json"
+        if path not in base:base[path]=config_resource("ui",baseline)[1]
+        for declaration in args.button:set_button(base[path],declaration)
     for path,doc in base.items():
         raw=(json.dumps(doc,ensure_ascii=False,indent=2)+"\n").encode("utf-8")
         # No change, no need to ship it.
@@ -228,6 +258,7 @@ def main():
     parser.add_argument("--version",type=int,required=True)
     parser.add_argument("--set",action="append",default=[],metavar="MODULE.PROPERTY=VALUE")
     parser.add_argument("--file",action="append",default=[],metavar="RESOURCE=FILE")
+    parser.add_argument("--button",action="append",default=[],metavar="ID.FIELD=VALUE")
     parser.add_argument("--key-backup",type=Path)
     parser.add_argument("--output",type=Path,default=ROOT/"updates/fast-staged")
     parser.add_argument("--dry-run",action="store_true")
