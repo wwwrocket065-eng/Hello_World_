@@ -4,17 +4,30 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 
 /**
  * Scoped-storage-safe local update source. The user grants ONE folder with
  * ACTION_OPEN_DOCUMENT_TREE; a persisted read grant is reused on every launch.
- * Never requests MANAGE_EXTERNAL_STORAGE or guesses a physical Downloads path.
+ * Optional user-approved Downloads access, with persisted SAF fallback.
  */
 class LocalPatchDirectory(private val activity:Activity) {
     private val prefs=activity.getSharedPreferences("glassstudy.local.patches",0)
     private val key="tree_uri"
-    val configured:Boolean get()=prefs.getString(key,null)!=null
+    val configured:Boolean get()=hasDownloadsAccess() || prefs.getString(key,null)!=null
+    fun hasDownloadsAccess():Boolean=Build.VERSION.SDK_INT>=30 && Environment.isExternalStorageManager()
+    fun requestDownloadsAccess() {
+        if(Build.VERSION.SDK_INT<30) { requestFolder(8124); return }
+        val request=Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:"+activity.packageName))
+        try { activity.startActivity(request) }
+        catch (_:android.content.ActivityNotFoundException) {
+            activity.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
     var lastScanError:String?=null
         private set
     fun selectedFolder():String=prefs.getString("folder_label","папка патчей") ?: "папка патчей"
@@ -46,6 +59,20 @@ class LocalPatchDirectory(private val activity:Activity) {
     /** Ranked candidates. Files are untrusted until PatchManager verifies their signatures. */
     fun candidatesAbove(installed:Int):List<Uri> {
         lastScanError=null
+        if(hasDownloadsAccess()) {
+            return try {
+                val directory=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val regex=Regex("""GlassStudy_Filament_(\\d{5})\\.pupdate""",RegexOption.IGNORE_CASE)
+                directory.listFiles()?.asSequence()?.filter { it.isFile }?.mapNotNull { file ->
+                    val version=regex.matchEntire(file.name)?.groupValues?.get(1)?.toIntOrNull()
+                    if(version!=null && version>installed) version to Uri.fromFile(file) else null
+                }?.sortedByDescending { it.first }?.map { it.second }?.toList()
+                    ?: throw java.io.IOException("Не удалось прочитать Download")
+            } catch(error:Exception) {
+                lastScanError="Download: "+error.javaClass.simpleName+": "+(error.message ?: "нет доступа")
+                emptyList()
+            }
+        }
         val stored=prefs.getString(key,null) ?:return emptyList()
         return try {
             val tree=Uri.parse(stored)
