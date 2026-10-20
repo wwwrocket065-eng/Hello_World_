@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.44' in props and 'GLASSSTUDY_VERSION_CODE=20044' in props
+assert 'GLASSSTUDY_VERSION=0.2.45' in props and 'GLASSSTUDY_VERSION_CODE=20045' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -601,3 +601,8 @@ assert 'takePersistableUriPermission' in local_patch
 assert 'GlassStudy_Patches' in activity
 assert 'localPatchFolder.newestAbove(updater.installedPatchVersion())' in activity
 assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
+
+# Resume checks for locally delivered patches without a GitHub publication.
+assert 'lastPatchFolderScanUptimeMs' in activity
+assert 'localPatchFolder.configured && !localPatchBusy' in activity
+assert 'checkLocalThenRemote()' in activity[activity.index('override fun onResume()'):activity.index('override fun onBackPressed()')]

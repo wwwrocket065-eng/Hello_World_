@@ -436,8 +436,10 @@ class MainActivity : Activity() {
         }
     }
 
+    private var lastPatchFolderScanUptimeMs=0L
     private fun checkLocalThenRemote() {
         if(localPatchBusy)return
+        lastPatchFolderScanUptimeMs=android.os.SystemClock.uptimeMillis()
         val candidateUri=localPatchFolder.newestAbove(updater.installedPatchVersion())
         if(candidateUri==null) {
             updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
@@ -632,6 +634,13 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
+        // A new .pupdate may have arrived while GlassStudy was in the background.
+        // Checking the persisted SAF folder requires no GitHub or file picker.
+        if (::updater.isInitialized && localPatchFolder.configured && !localPatchBusy &&
+            lastPatchFolderScanUptimeMs > 0L &&
+            android.os.SystemClock.uptimeMillis()-lastPatchFolderScanUptimeMs >= 1200L) {
+            checkLocalThenRemote()
+        }
         if (::viewer.isInitialized && !running) {
             running = true
             Choreographer.getInstance().postFrameCallback(frameCallback)

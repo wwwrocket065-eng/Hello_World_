@@ -231,3 +231,8 @@
 - Offline update source uses ACTION_OPEN_DOCUMENT_TREE SAF, NOT MANAGE_EXTERNAL_STORAGE; Android 11+ prohibits selecting the Downloads root. User creates Downloads/GlassStudy_Patches, grants the child folder once, then .pupdate files placed there are found automatically on every cold start. Retained tree grant is saved privately; user can change folder in the Gear menu.
 - Added stage() rejection of blockedAfterCrash so local patches that crashed on boot are not reapplied forever. Existing RSA+SHA validation and four real rendered frames confirmation remain authoritative. Remote GitHub feed remains optional fallback, not a requirement for local installation.
 - If selected folder grant becomes invalid, reset stored grant and allow the user to reselect. v0.2.44/20044 is native-only; signed with ORIGINAL APK key for updates over 0.2.42/0.2.40.
+
+## 2026-10-20 — v0.2.45 local patch auto-check on foreground
+- Actual Android 16 SAF folder grant is already available in LocalPatchDirectory. Earlier implementation only checked once in onCreate or after folder grant, so placing a patch while the app remained alive would not trigger rechecking on returning from background.
+- MainActivity now re-scans the persisted user-selected patch directory whenever it resumes after 1.2s. Existing initial check remains. Signature and SHA validation unchanged; remote feed remains optional fallback, never required for local files. Version increased to 0.2.45.
+- Android 11+ cannot grant whole Downloads root with ACTION_OPEN_DOCUMENT_TREE; user must authorize a Downloads/GlassStudy_Patches subfolder ONCE. Automatic access to arbitrary Downloads without permission is unavailable. This is a platform constraint; do not claim otherwise.
