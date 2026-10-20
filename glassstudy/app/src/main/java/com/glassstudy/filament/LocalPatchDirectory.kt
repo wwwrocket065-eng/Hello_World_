@@ -15,6 +15,8 @@ class LocalPatchDirectory(private val activity:Activity) {
     private val prefs=activity.getSharedPreferences("glassstudy.local.patches",0)
     private val key="tree_uri"
     val configured:Boolean get()=prefs.getString(key,null)!=null
+    var lastScanError:String?=null
+        private set
     fun selectedFolder():String=prefs.getString("folder_label","папка патчей") ?: "папка патчей"
 
     fun requestFolder(requestCode:Int) {
@@ -41,9 +43,10 @@ class LocalPatchDirectory(private val activity:Activity) {
         }
     }
 
-    /** Return only the highest new .pupdate. Content is untrusted until RSA stage(). */
-    fun newestAbove(installed:Int):Uri? {
-        val stored=prefs.getString(key,null) ?:return null
+    /** Ranked candidates. Files are untrusted until PatchManager verifies their signatures. */
+    fun candidatesAbove(installed:Int):List<Uri> {
+        lastScanError=null
+        val stored=prefs.getString(key,null) ?:return emptyList()
         return try {
             val tree=Uri.parse(stored)
             val parent=DocumentsContract.getTreeDocumentId(tree)
@@ -51,8 +54,7 @@ class LocalPatchDirectory(private val activity:Activity) {
             val columns=arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME,
                 DocumentsContract.Document.COLUMN_MIME_TYPE)
-            var chosen:Uri?=null
-            var maxVersion=installed
+            val matches=mutableListOf<Pair<Int,Uri>>()
             activity.contentResolver.query(children,columns,null,null,null)?.use { c ->
                 val id=c.getColumnIndexOrThrow(columns[0])
                 val name=c.getColumnIndexOrThrow(columns[1])
@@ -63,16 +65,18 @@ class LocalPatchDirectory(private val activity:Activity) {
                     val match=Regex("""(?:GlassStudy_Filament_)?(\d{5})[^/]*\.pupdate""",
                         RegexOption.IGNORE_CASE).matchEntire(file) ?: continue
                     val v=match.groupValues[1].toIntOrNull() ?:continue
-                    if(v<=maxVersion)continue
-                    maxVersion=v
-                    chosen=DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(id))
+                    if(v<=installed)continue
+                    matches.add(v to DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(id)))
                 }
             }
-            chosen
+            matches.sortedByDescending { it.first }.map { it.second }
         } catch(error:Exception) {
             Log.w("GlassStudy","Patch folder unavailable; grant can be changed",error)
-            prefs.edit().remove(key).remove("folder_label").apply()
-            null
+            lastScanError="${error.javaClass.simpleName}: ${error.message ?: "нет доступа"}"
+            // Keep the grant configuration. A transient DocumentsProvider failure
+            // should never force the user to select their folder again.
+            emptyList()
         }
     }
+    fun newestAbove(installed:Int):Uri?=candidatesAbove(installed).firstOrNull()
 }
