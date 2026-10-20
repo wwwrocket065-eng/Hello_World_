@@ -51,6 +51,8 @@ class PatchManager(private val context: Context) {
 
     fun lastConfirmedVersion(): Int = prefs.getInt("lastConfirmed", installedPatchVersion())
 
+    fun reportLocalScan(message: String) { updateStatus = message }
+
     /** Read local content:// uploads with an upper bound before decoding JSON. */
     fun installFromUri(
         uri: Uri,
