@@ -13,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.40' in props and 'GLASSSTUDY_VERSION_CODE=20040' in props
+assert 'GLASSSTUDY_VERSION=0.2.41' in props and 'GLASSSTUDY_VERSION_CODE=20041' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -557,3 +557,13 @@ assert 'number("gearInnerRoundness",0.80,0.30,1.0)' in (root/'app/src/main/java/
 assert 'gear.quadTo(valley.first,valley.second,next.first,next.second)' in icons
 assert 'for(i in 0 until 8)' in icons
 assert 'gearInnerRoundness:Float=.80f' in icons
+
+# No fixed toolbar gaps: independently signed, parsed and validated controls.
+for field in ('topButtonGapDp','topButtonLeadingDp','bottomButtonGapDp','bottomRowGapDp'):
+    assert field in layout and ('val '+field+':Float') in uic
+assert 'ui.topButtonLeadingDp else ui.topButtonGapDp' in toolbar
+assert 'dp(ui.bottomButtonGapDp)' in toolbar
+assert 'dp(ui.bottomRowGapDp)' in toolbar
+assert 'leftMargin=dp(4f)' not in toolbar
+assert 'leftMargin=dp(8f)' not in toolbar
+assert 'topMargin=dp(8f)' not in toolbar

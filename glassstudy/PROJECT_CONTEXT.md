@@ -129,3 +129,7 @@
 
 ## 2026-10-20 server auto-update restored for installed v0.2.40
 - Previously server feed was 20028 while user asked to install signed appearance patch 20030 and supplied Android 16 diagnostics showing 20028/20028/20028. Published signed 20030 to the server in commit 98e1c857, no APK change. test_fast_patch.py now computes future test version from latest feed (commit 51e795ea). Fresh Activity onCreate checks the remote feed; diagnostic target after restart is 20030 installed/confirmed/server. Standalone Downloads files are only imported via ACTION_VIEW/ACTION_SEND, NOT automatically scanned under Android 16 scoped storage.
+
+
+## Source milestone v0.2.41 (2026-10-20)
+- UiLayout: new patchable topButtonGapDp/topButtonLeadingDp/bottomButtonGapDp/bottomRowGapDp, validated ranges and legacy defaults. UiToolbarController no longer hardcodes 4dp/8dp margins. UI config and tests updated. One original-key signed 0.2.41 native APK needed before signed patch can control gaps; currently installed 0.2.40 cannot implement code it lacks. Live published patch feed 20030 remains unchanged pending rollout testing.

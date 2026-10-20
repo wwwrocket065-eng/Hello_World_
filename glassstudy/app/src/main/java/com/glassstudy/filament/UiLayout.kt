@@ -53,7 +53,11 @@ data class UiLayout(
     val windows: Map<String, DeclarativeWindow>,
     val animations: Map<String, UiAnimationSpec>,
     val adaptive: AdaptiveUiConfig,
-    val gearInnerRoundness:Float
+    val gearInnerRoundness:Float,
+    val topButtonGapDp:Float,
+    val topButtonLeadingDp:Float,
+    val bottomButtonGapDp:Float,
+    val bottomRowGapDp:Float
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -267,7 +271,11 @@ data class UiLayout(
                 (number("topOverlayOpacity",0.0,0.0,1.0)*255).toInt(),
                 color("topButtonOutlineColor","#6DB9CB"),
                 color("selectorTextColor","#A3D0D3"),color("fpsTextColor","#6DE0DE"),windows,animations,adaptive,
-                number("gearInnerRoundness",0.80,0.30,1.0).toFloat()
+                number("gearInnerRoundness",0.80,0.30,1.0).toFloat(),
+                number("topButtonGapDp",4.0,0.0,24.0).toFloat(),
+                number("topButtonLeadingDp",4.0,0.0,32.0).toFloat(),
+                number("bottomButtonGapDp",8.0,0.0,32.0).toFloat(),
+                number("bottomRowGapDp",8.0,0.0,32.0).toFloat()
             )
         }
     }

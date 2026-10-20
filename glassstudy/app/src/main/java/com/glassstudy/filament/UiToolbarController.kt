@@ -100,13 +100,15 @@ class UiToolbarController(
         val availablePx=widthSource.width.takeIf{it>0}?:activity.resources.displayMetrics.widthPixels
         val totalDp=availablePx/activity.resources.displayMetrics.density
         val windowDp=totalDp.toInt()
-        val upperBound=if(top.isEmpty())46f else ((totalDp-186f)/top.size)-4f
+        // Spacing is signed-data driven. Preserve the legacy 4dp default for old patches.
+        val totalGap=ui.topButtonLeadingDp+ui.topButtonGapDp*(top.size-1).coerceAtLeast(0)
+        val upperBound=if(top.isEmpty())46f else ((totalDp-186f-totalGap)/top.size)
         val size=ui.adaptive.touchSizeDp(ui.topButtonSizeDp,windowDp).toFloat()
             .coerceAtMost(upperBound.coerceAtLeast(28f))
-        for(spec in top) {
+        top.forEachIndexed { index,spec ->
             val view=button(spec,ui,animations)
             topHost.addView(view,LinearLayout.LayoutParams(dp(size),dp(size)).apply {
-                leftMargin=dp(4f)
+                leftMargin=dp(if(index==0)ui.topButtonLeadingDp else ui.topButtonGapDp)
             })
             buttons[spec.id]=view
         }
@@ -117,12 +119,12 @@ class UiToolbarController(
                 val view=button(spec,ui,animations)
                 row.addView(view,LinearLayout.LayoutParams(0,
                     dp(ui.adaptive.touchSizeDp(spec.heightDp,windowDp).toFloat()),1f).apply {
-                    if(index>0)leftMargin=dp(8f)
+                    if(index>0)leftMargin=dp(ui.bottomButtonGapDp)
                 })
                 buttons[spec.id]=view
             }
             bottomHost.addView(row,LinearLayout.LayoutParams(-1,-2).apply {
-                topMargin=dp(8f)
+                topMargin=dp(ui.bottomRowGapDp)
             })
         }
     }

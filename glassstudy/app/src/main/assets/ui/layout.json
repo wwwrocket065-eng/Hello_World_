@@ -166,5 +166,9 @@
   "logoOffsetYDp": 5,
   "topOverlayOpacity": 0,
   "topButtonOutlineColor": "#6DB9CB",
-  "gearInnerRoundness": 0.8
+  "gearInnerRoundness": 0.8,
+  "topButtonGapDp": 4,
+  "topButtonLeadingDp": 4,
+  "bottomButtonGapDp": 8,
+  "bottomRowGapDp": 8
 }
