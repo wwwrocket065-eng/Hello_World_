@@ -211,6 +211,9 @@ class PatchManager(private val context: Context) {
         require(j.getString("format") == FORMAT) { "Patch format mismatch" }
         val version = j.getInt("version")
         require(version > installedPatchVersion()) { "Downgrade or repeat update" }
+        require(version != prefs.getInt("blockedAfterCrash",0)) {
+            "Патч $version заблокирован после сбоя предыдущего запуска"
+        }
         // Refuse to stage another candidate over an unconfirmed install.
         // This also prevents expensive copying and rendering of doomed previews.
         require(prefs.getInt("pending",0)==0) {

@@ -15,8 +15,11 @@ class LocalPatchDirectory(private val activity:Activity) {
     private val prefs=activity.getSharedPreferences("glassstudy.local.patches",0)
     private val key="tree_uri"
     val configured:Boolean get()=prefs.getString(key,null)!=null
+    fun selectedFolder():String=prefs.getString("folder_label","папка патчей") ?: "папка патчей"
 
     fun requestFolder(requestCode:Int) {
+        // Android 11+ blocks granting the Downloads ROOT. Use a user-created
+        // Downloads/GlassStudy_Patches subfolder with persistent read access.
         val request=Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
@@ -29,7 +32,8 @@ class LocalPatchDirectory(private val activity:Activity) {
         return try {
             activity.contentResolver.takePersistableUriPermission(
                 uri,Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            prefs.edit().putString(key,uri.toString()).apply()
+            prefs.edit().putString(key,uri.toString())
+                .putString("folder_label",uri.lastPathSegment ?: "GlassStudy_Patches").apply()
             true
         } catch(error:Exception) {
             Log.w("GlassStudy","Unable to retain patch folder permission",error)
@@ -67,6 +71,7 @@ class LocalPatchDirectory(private val activity:Activity) {
             chosen
         } catch(error:Exception) {
             Log.w("GlassStudy","Patch folder unavailable; grant can be changed",error)
+            prefs.edit().remove(key).remove("folder_label").apply()
             null
         }
     }

@@ -400,7 +400,7 @@ class MainActivity : Activity() {
             !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
             getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
             GlassDialogFactory.menu(this,"Автообновление без GitHub",
-                listOf("Выбрать папку для .pupdate (один раз)","Позже")) { choice ->
+                listOf("Выбрать папку Загрузки/GlassStudy_Patches (один раз)","Позже")) { choice ->
                 if(choice==0)localPatchFolder.requestFolder(patchFolderRequest)
             }
         }
@@ -462,7 +462,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode,resultCode,data)
         if(requestCode!=patchFolderRequest)return
         if(resultCode==Activity.RESULT_OK && localPatchFolder.acceptGrant(data)) {
-            Toast.makeText(this,"Папка патчей подключена",Toast.LENGTH_SHORT).show()
+            Toast.makeText(this,"Папка патчей подключена — проверка при запуске включена",Toast.LENGTH_LONG).show()
             checkLocalThenRemote()
         } else Toast.makeText(this,"Доступ к папке не предоставлен",Toast.LENGTH_LONG).show()
     }

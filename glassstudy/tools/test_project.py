@@ -5,6 +5,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 root=Path(__file__).resolve().parents[1]
 activity=(root/'app/src/main/java/com/glassstudy/filament/MainActivity.kt').read_text()
+local_patch=(root/'app/src/main/java/com/glassstudy/filament/LocalPatchDirectory.kt').read_text()
 chrome_src=(root/'app/src/main/java/com/glassstudy/filament/UiChromeController.kt').read_text()
 camera_light=(root/'app/src/main/java/com/glassstudy/filament/CameraLightController.kt').read_text()
 render_env=(root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
@@ -13,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.43' in props and 'GLASSSTUDY_VERSION_CODE=20043' in props
+assert 'GLASSSTUDY_VERSION=0.2.44' in props and 'GLASSSTUDY_VERSION_CODE=20044' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -592,3 +593,11 @@ assert 'updater.checkOnStart(' in activity
 assert 'localPatchFolder.requestFolder(patchFolderRequest)' in activity
 assert 'Папка локальных патчей' in activity
 assert 'android.permission.MANAGE_EXTERNAL_STORAGE' not in (root/'app/src/main/AndroidManifest.xml').read_text()
+
+# Android 16 offline updates require a one-time scoped folder grant; no broad file permission.
+assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_patch
+assert 'Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION' in local_patch
+assert 'takePersistableUriPermission' in local_patch
+assert 'GlassStudy_Patches' in activity
+assert 'localPatchFolder.newestAbove(updater.installedPatchVersion())' in activity
+assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
