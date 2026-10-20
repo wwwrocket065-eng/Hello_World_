@@ -62,7 +62,7 @@ class LocalPatchDirectory(private val activity:Activity) {
         if(hasDownloadsAccess()) {
             return try {
                 val directory=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val regex=Regex("""GlassStudy_Filament_(\\d{5})\\.pupdate""",RegexOption.IGNORE_CASE)
+                val regex=Regex("""GlassStudy_Filament_(\d{5})\.pupdate""",RegexOption.IGNORE_CASE)
                 directory.listFiles()?.asSequence()?.filter { it.isFile }?.mapNotNull { file ->
                     val version=regex.matchEntire(file.name)?.groupValues?.get(1)?.toIntOrNull()
                     if(version!=null && version>installed) version to Uri.fromFile(file) else null
