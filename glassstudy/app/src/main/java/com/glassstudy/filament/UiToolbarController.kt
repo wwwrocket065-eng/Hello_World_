@@ -86,8 +86,8 @@ class UiToolbarController(
             host.onLightLongPress()
             true
         }
-        target.translationX=dp(spec.offsetXDp)
-        target.translationY=dp(spec.offsetYDp)
+        target.translationX=dp(spec.offsetXDp).toFloat()
+        target.translationY=dp(spec.offsetYDp).toFloat()
         host.decorate(target,spec.highlight||host.isActive(spec.action),
             spec.fill?:ui.buttonColor,
             spec.outline?:if(spec.slot=="top")ui.topButtonOutlineColor else null)

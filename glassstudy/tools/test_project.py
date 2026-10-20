@@ -562,7 +562,7 @@ assert 'gearInnerRoundness:Float=.80f' in icons
 for field in ('topButtonGapDp','topButtonLeadingDp','bottomButtonGapDp','bottomRowGapDp'):
     assert field in layout and ('val '+field+':Float') in uic
 assert 'ui.topButtonLeadingDp else ui.topButtonGapDp' in toolbar
-assert 'dp(ui.bottomButtonGapDp)' in toolbar
+assert 'ui.bottomButtonGapDp' in toolbar
 assert 'dp(ui.bottomRowGapDp)' in toolbar
 assert 'leftMargin=dp(4f)' not in toolbar
 assert 'leftMargin=dp(8f)' not in toolbar
@@ -572,8 +572,8 @@ assert 'topMargin=dp(8f)' not in toolbar
 for field in ('widthDp','visualSizeDp','iconScale','offsetXDp','offsetYDp','marginStartDp','marginTopDp'):
     assert ('val '+field+':') in uic or ('val '+field+':') in toolbar or field in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert 'spec.visualSizeDp' in toolbar
-assert 'target.translationX=dp(spec.offsetXDp)' in toolbar
-assert 'target.translationY=dp(spec.offsetYDp)' in toolbar
+assert 'target.translationX=dp(spec.offsetXDp).toFloat()' in toolbar
+assert 'target.translationY=dp(spec.offsetYDp).toFloat()' in toolbar
 assert 'spec.widthDp?.let' in toolbar
 assert 'spec.marginStartDp ?:' in toolbar
 assert 'view.visualSizeOverrideDp ?: topVisualSizeDp' in chrome_src
