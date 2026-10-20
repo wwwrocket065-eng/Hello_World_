@@ -157,7 +157,7 @@ class MainActivity : Activity() {
     private var localPatchBusy = false
     private val localPatchFolder by lazy { LocalPatchDirectory(this) }
     private val patchFolderRequest=8124
-    private val patchFolderPromptedKey="localPatchPrompted"
+    private val patchFolderPromptedKey="localPatchPromptedV2"
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
