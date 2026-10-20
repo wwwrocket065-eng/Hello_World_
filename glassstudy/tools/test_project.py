@@ -69,7 +69,7 @@ assert 'class LabIconView' in icons and 'class LabLogoView' in icons
 assert 'canvas.drawRect(-4f,-4f,4f,4f,ink)' in icons
 assert 'if(showUnderline) canvas.drawLine' in icons
 assert 'if(chipCenterFilled)Paint.Style.FILL' in icons
-assert 'glyphScale=ui.topIconScale' in toolbar
+assert 'glyphScale=spec.iconScale ?: ui.topIconScale' in toolbar
 assert 'setSystemBarMode(ui,v.root)' in chrome_src
 assert 'View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY' in chrome_src
 assert 'v.hint.visibility=if(ui.showCameraHint)View.VISIBLE else View.GONE' in chrome_src
