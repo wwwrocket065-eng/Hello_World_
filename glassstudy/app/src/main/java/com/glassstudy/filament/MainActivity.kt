@@ -442,7 +442,9 @@ class MainActivity : Activity() {
         lastPatchFolderScanUptimeMs=android.os.SystemClock.uptimeMillis()
         val candidateUri=localPatchFolder.newestAbove(updater.installedPatchVersion())
         if(candidateUri==null) {
-            updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
+            if(localPatchFolder.configured) {
+                updater.reportLocalScan("Локальная папка проверена: новых патчей нет")
+            } else updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
             return
         }
         localPatchBusy=true
@@ -454,8 +456,7 @@ class MainActivity : Activity() {
             onError={message ->
                 localPatchBusy=false
                 android.util.Log.w("GlassStudy","Local patch rejected: "+message)
-                // Do not block app startup if a stray/invalid file exists.
-                updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
+                updater.reportLocalScan("Локальный патч отклонён: $message")
             })
     }
 
