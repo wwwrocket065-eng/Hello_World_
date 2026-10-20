@@ -23,6 +23,7 @@ class LabIconView(context:Context, val iconName:String):View(context) {
     var chipCenterFilled:Boolean=true
         set(value) { field=value;invalidate() }
     /** Signed UI styling can change rounded inner tooth valleys, not executable paths. */
+    var visualSizeOverrideDp:Int?=null
     var gearInnerRoundness:Float=.80f
         set(value) { field=value.coerceIn(.30f,1f);invalidate() }
     private val ink=Paint(Paint.ANTI_ALIAS_FLAG).apply {

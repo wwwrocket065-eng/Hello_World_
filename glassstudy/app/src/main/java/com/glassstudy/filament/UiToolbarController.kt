@@ -42,7 +42,8 @@ class UiToolbarController(
         val target:View=if(spec.slot=="top") {
             LabIconView(activity,spec.icon).apply {
                 iconColor=ink
-                glyphScale=ui.topIconScale
+                glyphScale=spec.iconScale ?: ui.topIconScale
+                visualSizeOverrideDp=spec.visualSizeDp
                 gearInnerRoundness=ui.gearInnerRoundness
                 chipCenterFilled=ui.fillChipCenter
                 contentDescription=when(spec.action) {
@@ -60,7 +61,7 @@ class UiToolbarController(
                 gravity=Gravity.CENTER
                 addView(LabIconView(activity,spec.icon).apply {
                     iconColor=ink
-                    glyphScale=.80f
+                    glyphScale=spec.iconScale ?: .80f
                     chipCenterFilled=ui.fillChipCenter
                 },LinearLayout.LayoutParams(dp(25f),dp(25f)))
                 addView(TextView(activity).apply {
@@ -85,6 +86,8 @@ class UiToolbarController(
             host.onLightLongPress()
             true
         }
+        target.translationX=dp(spec.offsetXDp)
+        target.translationY=dp(spec.offsetYDp)
         host.decorate(target,spec.highlight||host.isActive(spec.action),
             spec.fill?:ui.buttonColor,
             spec.outline?:if(spec.slot=="top")ui.topButtonOutlineColor else null)
@@ -107,8 +110,12 @@ class UiToolbarController(
             .coerceAtMost(upperBound.coerceAtLeast(28f))
         top.forEachIndexed { index,spec ->
             val view=button(spec,ui,animations)
-            topHost.addView(view,LinearLayout.LayoutParams(dp(size),dp(size)).apply {
-                leftMargin=dp(if(index==0)ui.topButtonLeadingDp else ui.topButtonGapDp)
+            topHost.addView(view,LinearLayout.LayoutParams(
+                dp((spec.widthDp?.toFloat() ?: size)),
+                dp(spec.heightDp.toFloat().coerceAtLeast(size))).apply {
+                leftMargin=dp(spec.marginStartDp ?:
+                    if(index==0)ui.topButtonLeadingDp else ui.topButtonGapDp)
+                topMargin=dp(spec.marginTopDp ?: 0f)
             })
             buttons[spec.id]=view
         }
@@ -117,9 +124,12 @@ class UiToolbarController(
             val row=LinearLayout(activity).apply { orientation=LinearLayout.HORIZONTAL }
             group.forEachIndexed { index,spec ->
                 val view=button(spec,ui,animations)
-                row.addView(view,LinearLayout.LayoutParams(0,
-                    dp(ui.adaptive.touchSizeDp(spec.heightDp,windowDp).toFloat()),1f).apply {
-                    if(index>0)leftMargin=dp(ui.bottomButtonGapDp)
+                row.addView(view,LinearLayout.LayoutParams(
+                    spec.widthDp?.let { dp(it.toFloat()) } ?: 0,
+                    dp(ui.adaptive.touchSizeDp(spec.heightDp,windowDp).toFloat()),
+                    if(spec.widthDp==null)1f else 0f).apply {
+                    leftMargin=dp(spec.marginStartDp ?: if(index>0)ui.bottomButtonGapDp else 0f)
+                    topMargin=dp(spec.marginTopDp ?: 0f)
                 })
                 buttons[spec.id]=view
             }

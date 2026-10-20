@@ -81,7 +81,7 @@ class UiChromeController(private val activity:Activity) {
         val content=if(view is LabIconView) {
             val density=activity.resources.displayMetrics.density
             val hitPx=view.layoutParams?.width?.takeIf{it>0}?.toFloat() ?: dp(44f).toFloat()
-            val visualPx=dp(topVisualSizeDp*topVisualScale).toFloat()
+            val visualPx=dp((view.visualSizeOverrideDp ?: topVisualSizeDp)*topVisualScale).toFloat()
             val inset=((hitPx-visualPx)/2f).coerceAtLeast(0f).toInt()
             InsetDrawable(surface,inset)
         } else surface

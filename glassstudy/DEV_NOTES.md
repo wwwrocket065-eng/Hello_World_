@@ -217,3 +217,7 @@
 - Old APK v0.2.40 cannot understand these new Kotlin-only layout properties; one original-key signed 0.2.41 APK required. Do not misrepresent a resource-only 20031 patch as capable of changing spacing on 0.2.40.
 
 - Screenshot geometry follow-up: old toolbar button center-to-center separation is appreciably smaller than new 44dp accessible hitboxes allow with nonnegative margins. topButtonGapDp deliberately permits -12..24dp, enabling small OVERLAP of adjacent full-size hit zones while keeping ~44dp actual targets and 32dp visual boxes. The first button's leading margin stays independently configurable. Check taps near the overlap seam on Android before calling perfect match.
+
+## 2026-10-20 — v0.2.42 all-button patchable layout
+- Signed UiButtonSpec now supports per-ID widthDp, visualSizeDp, iconScale, offsetXDp, offsetYDp, marginStartDp, marginTopDp. UiToolbarController applies per-button width/height, icon scale, XY translation and positional margins for TOP and BOTTOM controls; UiChromeController uses per-button visible square size independently of touch hitbox.
+- Validation clamps ranges and rejects NaN/Infinity/unsafe values. Optional keys keep legacy signed patches compatible. Full built-in uiButtons JSON includes default attributes for fast signed modification of any individual ID. Native v0.2.42/20042 required before these fields can be used in patch data.

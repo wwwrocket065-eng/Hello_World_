@@ -135,3 +135,7 @@
 - UiLayout: new patchable topButtonGapDp/topButtonLeadingDp/bottomButtonGapDp/bottomRowGapDp, validated ranges and legacy defaults. UiToolbarController no longer hardcodes 4dp/8dp margins. UI config and tests updated. One original-key signed 0.2.41 native APK needed before signed patch can control gaps; currently installed 0.2.40 cannot implement code it lacks. Live published patch feed 20030 remains unchanged pending rollout testing.
 
 - Signed topButtonGapDp accepts -12..24dp; modest negative gap enables the old reference layout spacing while leaving visual/icon size and individual button touch targets unchanged. Proposed signed test patch 20031: gap -5dp, leading 0dp. Verify all four click targets individually on device.
+
+
+## 2026-10-20 — v0.2.42 all-button patch architecture
+- Signed UiButtonSpec options: widthDp 44..260, visualSizeDp 20..72, iconScale .55..1.0, offsetXDp/YDp -80..80, marginStartDp/TopDp -16..32. Applied independently to top and bottom buttons. Full built-in uiButtons baseline includes each setting, with safe optional defaults for old signed patches. Next: fast_patch.py --button ID.FIELD=VALUE tool; sign original APK before user-device use. Published server patch remains 20030.

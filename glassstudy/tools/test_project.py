@@ -13,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.41' in props and 'GLASSSTUDY_VERSION_CODE=20041' in props
+assert 'GLASSSTUDY_VERSION=0.2.42' in props and 'GLASSSTUDY_VERSION_CODE=20042' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -567,3 +567,13 @@ assert 'dp(ui.bottomRowGapDp)' in toolbar
 assert 'leftMargin=dp(4f)' not in toolbar
 assert 'leftMargin=dp(8f)' not in toolbar
 assert 'topMargin=dp(8f)' not in toolbar
+
+# Per-button signed dimensions and positions for BOTH top and bottom actions.
+for field in ('widthDp','visualSizeDp','iconScale','offsetXDp','offsetYDp','marginStartDp','marginTopDp'):
+    assert ('val '+field+':') in uic or ('val '+field+':') in toolbar or field in (root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
+assert 'spec.visualSizeDp' in toolbar
+assert 'target.translationX=dp(spec.offsetXDp)' in toolbar
+assert 'target.translationY=dp(spec.offsetYDp)' in toolbar
+assert 'spec.widthDp?.let' in toolbar
+assert 'spec.marginStartDp ?:' in toolbar
+assert 'view.visualSizeOverrideDp ?: topVisualSizeDp' in chrome_src

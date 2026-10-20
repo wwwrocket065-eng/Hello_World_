@@ -14,7 +14,14 @@ data class UiButtonSpec(
     val fill:Int?,
     val outline:Int?,
     val textColor:Int?,
-    val highlight:Boolean
+    val highlight:Boolean,
+    val widthDp:Int?=null,
+    val visualSizeDp:Int?=null,
+    val iconScale:Float?=null,
+    val offsetXDp:Float=0f,
+    val offsetYDp:Float=0f,
+    val marginStartDp:Float?=null,
+    val marginTopDp:Float?=null
 )
 
 /**
@@ -215,6 +222,18 @@ data class UiLayout(
                     require(slot=="top" || label.isNotBlank()) { "Bottom buttons require labels" }
                     val height=obj.optInt("heightDp",46)
                     require(height in 36..72) { "Invalid button height" }
+                    fun dimension(key:String,min:Int,max:Int):Int? {
+                        if(!obj.has(key))return null
+                        val value=obj.getInt(key)
+                        require(value in min..max) { "Invalid $key for $id" }
+                        return value
+                    }
+                    fun offset(key:String,min:Double,max:Double):Float? {
+                        if(!obj.has(key))return null
+                        val value=obj.getDouble(key)
+                        require(value.isFinite() && value in min..max) { "Invalid $key for $id" }
+                        return value.toFloat()
+                    }
                     fun optionalColor(key:String):Int? {
                         if(!obj.has(key))return null
                         val hex=obj.getString(key)
@@ -226,7 +245,13 @@ data class UiLayout(
                             theme.buttonColor(id,"fill",optionalColor("fill")),
                             theme.buttonColor(id,"outline",optionalColor("outline")),
                             theme.buttonColor(id,"textColor",optionalColor("textColor")),
-                            obj.optBoolean("highlight",false))
+                            obj.optBoolean("highlight",false),
+                            dimension("widthDp",44,260),dimension("visualSizeDp",20,72),
+                            offset("iconScale",.55,1.0),
+                            offset("offsetXDp",-80.0,80.0) ?: 0f,
+                            offset("offsetYDp",-80.0,80.0) ?: 0f,
+                            offset("marginStartDp",-16.0,32.0),
+                            offset("marginTopDp",-16.0,32.0))
                     )
                 }
                 require(parsed.map { it.id }.distinct().size==parsed.size) { "Duplicate UI buttons" }

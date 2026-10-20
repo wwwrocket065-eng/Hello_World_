@@ -101,7 +101,14 @@
       "icon": "chip",
       "label": "",
       "heightDp": 44,
-      "textColor": "#A3D0D3"
+      "textColor": "#A3D0D3",
+      "offsetXDp": 0,
+      "offsetYDp": 0,
+      "iconScale": 0.76,
+      "marginStartDp": 4,
+      "marginTopDp": 0,
+      "widthDp": 44,
+      "visualSizeDp": 32
     },
     {
       "id": "light_top",
@@ -110,7 +117,14 @@
       "icon": "sun",
       "label": "",
       "heightDp": 44,
-      "textColor": "#A3D0D3"
+      "textColor": "#A3D0D3",
+      "offsetXDp": 0,
+      "offsetYDp": 0,
+      "iconScale": 0.76,
+      "marginStartDp": 4,
+      "marginTopDp": 0,
+      "widthDp": 44,
+      "visualSizeDp": 32
     },
     {
       "id": "reset",
@@ -119,7 +133,14 @@
       "icon": "scene",
       "label": "",
       "heightDp": 44,
-      "textColor": "#A3D0D3"
+      "textColor": "#A3D0D3",
+      "offsetXDp": 0,
+      "offsetYDp": 0,
+      "iconScale": 0.76,
+      "marginStartDp": 4,
+      "marginTopDp": 0,
+      "widthDp": 44,
+      "visualSizeDp": 32
     },
     {
       "id": "menu",
@@ -128,7 +149,14 @@
       "icon": "gear",
       "label": "",
       "heightDp": 44,
-      "textColor": "#A3D0D3"
+      "textColor": "#A3D0D3",
+      "offsetXDp": 0,
+      "offsetYDp": 0,
+      "iconScale": 0.76,
+      "marginStartDp": 4,
+      "marginTopDp": 0,
+      "widthDp": 44,
+      "visualSizeDp": 32
     },
     {
       "id": "light_bottom",
@@ -137,7 +165,13 @@
       "icon": "sun",
       "label": "Свет / Камера",
       "heightDp": 46,
-      "textColor": "#A3D0D3"
+      "textColor": "#A3D0D3",
+      "offsetXDp": 0,
+      "offsetYDp": 0,
+      "iconScale": 0.8,
+      "marginStartDp": 0,
+      "marginTopDp": 0,
+      "widthDp": 200
     },
     {
       "id": "grid",
@@ -146,7 +180,13 @@
       "icon": "grid",
       "label": "Сетка",
       "heightDp": 46,
-      "textColor": "#A3D0D3"
+      "textColor": "#A3D0D3",
+      "offsetXDp": 0,
+      "offsetYDp": 0,
+      "iconScale": 0.8,
+      "marginStartDp": 0,
+      "marginTopDp": 0,
+      "widthDp": 200
     }
   ],
   "showFps": true,
