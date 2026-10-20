@@ -629,3 +629,7 @@ assert 'Environment.DIRECTORY_DOWNLOADS' in local_patch
 assert 'Uri.fromFile(file)' in local_patch
 assert 'fun requestDownloadsAccess()' in local_patch
 assert 'fun acceptGrant(data:Intent?):Boolean' in local_patch  # SAF fallback remains
+
+# A newly installed 0.2.48 must show Android Download permission prompt even if the older SAF prompt was dismissed in 0.2.47.
+assert 'private val patchFolderPromptedKey="localPatchPromptedV3"' in activity
+assert 'if(!localPatchFolder.hasDownloadsAccess() &&' in activity
