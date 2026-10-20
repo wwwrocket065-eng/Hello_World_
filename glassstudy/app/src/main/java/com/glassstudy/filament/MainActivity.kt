@@ -438,26 +438,41 @@ class MainActivity : Activity() {
 
     private var lastPatchFolderScanUptimeMs=0L
     private fun checkLocalThenRemote() {
-        if(localPatchBusy)return
+        if (localPatchBusy) return
         lastPatchFolderScanUptimeMs=android.os.SystemClock.uptimeMillis()
-        val candidateUri=localPatchFolder.newestAbove(updater.installedPatchVersion())
-        if(candidateUri==null) {
-            if(localPatchFolder.configured) {
+        val candidates=localPatchFolder.candidatesAbove(updater.installedPatchVersion())
+        val scanError=localPatchFolder.lastScanError
+        if (scanError != null) {
+            updater.reportLocalScan("Ошибка чтения локальной папки: $scanError")
+            return
+        }
+        if (candidates.isEmpty()) {
+            if (localPatchFolder.configured) {
                 updater.reportLocalScan("Локальная папка проверена: новых патчей нет")
             } else updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
             return
         }
+        // On a corrupt or incompatible latest file, try an older *newer-than-active*
+        // candidate. Signature and SHA-256 are checked by the single PatchManager.
         localPatchBusy=true
-        updater.installFromUri(candidateUri,
-            onCandidate={candidate ->
+        fun attempt(index:Int, failures:List<String>) {
+            if (index >= candidates.size) {
                 localPatchBusy=false
-                applyVerifiedPatch(candidate,false)
-            },
-            onError={message ->
-                localPatchBusy=false
-                android.util.Log.w("GlassStudy","Local patch rejected: "+message)
-                updater.reportLocalScan("Локальный патч отклонён: $message")
-            })
+                updater.reportLocalScan("Локальные патчи отклонены: " +
+                    failures.joinToString("; ").take(400))
+                return
+            }
+            updater.installFromUri(candidates[index],
+                onCandidate={candidate ->
+                    localPatchBusy=false
+                    applyVerifiedPatch(candidate,false)
+                },
+                onError={message ->
+                    android.util.Log.w("GlassStudy","Local patch rejected: "+message)
+                    attempt(index+1,failures + "файл ${index+1}: $message")
+                })
+        }
+        attempt(0,emptyList())
     }
 
     @Deprecated("Activity result for persisted Storage Access Framework tree")
