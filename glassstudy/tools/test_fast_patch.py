@@ -31,6 +31,13 @@ for invalid in (
 ):
     run(*invalid,good=False)
 
+
+p=run("--button","menu.offsetXDp=-6","--button","menu.visualSizeDp=30")
+assert "ui/layout.json" in p.stdout
+run("--button","menu.unknown=4",good=False)
+run("--button","missing.offsetXDp=4",good=False)
+run("--button","menu.widthDp=30",good=False)
+
 assert "published_baseline()" in TOOL.read_text()
 assert "pub.verify(sig,canonical(version,entries)" in TOOL.read_text()
 print("PASS fast patch smoke, cumulative baseline, unknown-key rejection, dry-run without key")
