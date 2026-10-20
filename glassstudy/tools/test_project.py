@@ -13,7 +13,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.42' in props and 'GLASSSTUDY_VERSION_CODE=20042' in props
+assert 'GLASSSTUDY_VERSION=0.2.43' in props and 'GLASSSTUDY_VERSION_CODE=20043' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -577,3 +577,18 @@ assert 'target.translationY=dp(spec.offsetYDp).toFloat()' in toolbar
 assert 'spec.widthDp?.let' in toolbar
 assert 'spec.marginStartDp ?:' in toolbar
 assert 'view.visualSizeOverrideDp ?: topVisualSizeDp' in chrome_src
+
+# Android 16 scoped-storage offline patch folder, persistent read access and same RSA stage.
+local_folder=(root/'app/src/main/java/com/glassstudy/filament/LocalPatchDirectory.kt').read_text()
+assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_folder
+assert 'takePersistableUriPermission' in local_folder
+assert 'DocumentsContract.buildChildDocumentsUriUsingTree' in local_folder
+assert 'Regex(' in local_folder and '.pupdate' in local_folder
+assert 'fun newestAbove(installed:Int):Uri?' in local_folder
+assert 'private fun checkLocalThenRemote()' in activity
+assert 'localPatchFolder.newestAbove(updater.installedPatchVersion())' in activity
+assert 'updater.installFromUri(candidateUri' in activity
+assert 'updater.checkOnStart(' in activity
+assert 'localPatchFolder.requestFolder(patchFolderRequest)' in activity
+assert 'Папка локальных патчей' in activity
+assert 'android.permission.MANAGE_EXTERNAL_STORAGE' not in (root/'app/src/main/AndroidManifest.xml').read_text()

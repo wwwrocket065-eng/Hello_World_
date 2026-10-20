@@ -139,3 +139,6 @@
 
 ## 2026-10-20 — v0.2.42 all-button patch architecture
 - Signed UiButtonSpec options: widthDp 44..260, visualSizeDp 20..72, iconScale .55..1.0, offsetXDp/YDp -80..80, marginStartDp/TopDp -16..32. Applied independently to top and bottom buttons. Full built-in uiButtons baseline includes each setting, with safe optional defaults for old signed patches. Next: fast_patch.py --button ID.FIELD=VALUE tool; sign original APK before user-device use. Published server patch remains 20030.
+
+## 2026-10-20 checkpoint 0.2.43
+- LocalPatchDirectory.kt implements persisted ACTION_OPEN_DOCUMENT_TREE folder access to user-selected subfolder, query DocumentsContract child docs, choose latest signed .pupdate. MainActivity.checkLocalThenRemote scans on app start and uses EXISTING PatchManager.installFromUri, which checks signature and version. It falls back to GitHub only if no local candidate or local stage fails. Settings has reselectable 'Папка локальных патчей' option. APK must be rebuilt once with original key, then subsequent declarative updates need neither GitHub nor APK. Android 16 user must grant the folder one time; Download root not necessarily selectable.
