@@ -204,7 +204,7 @@ class MainActivity : Activity() {
         diagnosticsPopup.dismiss()
         // Dedicated toolbar actions never appear a second time in settings.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            listOf("Стиль индикаторов освещения","Папка локальных патчей") { selection ->
+            listOf("Стиль индикаторов освещения","Папка локальных патчей")) { selection ->
                 if(selection==0) showLightingIndicatorStyles()
                 else localPatchFolder.requestFolder(patchFolderRequest)
             }
