@@ -142,3 +142,11 @@
 
 ## 2026-10-20 checkpoint 0.2.43
 - LocalPatchDirectory.kt implements persisted ACTION_OPEN_DOCUMENT_TREE folder access to user-selected subfolder, query DocumentsContract child docs, choose latest signed .pupdate. MainActivity.checkLocalThenRemote scans on app start and uses EXISTING PatchManager.installFromUri, which checks signature and version. It falls back to GitHub only if no local candidate or local stage fails. Settings has reselectable 'Папка локальных патчей' option. APK must be rebuilt once with original key, then subsequent declarative updates need neither GitHub nor APK. Android 16 user must grant the folder one time; Download root not necessarily selectable.
+
+
+## 2026-10-20 — Offline .pupdate candidate resilience
+- Verified branch already progressed to 0.2.46 before this change (head ceec3f84b); do not reset to 0.2.42.
+- LocalPatchDirectory previously discarded the saved SAF tree URI whenever a DocumentsProvider query threw. Temporary provider failures could therefore trigger repeated folder selection. Preserve the grant and report lastScanError instead.
+- newestAbove previously returned exactly one highest-name-version candidate; an invalid/unsigned/corrupt highest file prevented installation of any other newer-than-installed patch. candidatesAbove now ranks matching files, and MainActivity tries each through existing PatchManager.installFromUri, which enforces signature/hash checks.
+- No all-files access, no new update subsystem, no remote dependency when folder configured. Report scan and rejection reasons via existing updateStatus.
+- Validation levels: GitHub Actions compile/tests still required; Android 16 real-device test not yet performed. Verify saved SAF grant across force-stop/reboot; downloaded MIME naming, malformed highest file fallback, RSA rejection, frame confirmation, and recovery on crash.
