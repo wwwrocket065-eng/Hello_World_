@@ -399,13 +399,10 @@ class MainActivity : Activity() {
         if(!localPatchFolder.configured &&
             !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
             getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
-            AlertDialog.Builder(this)
-                .setTitle("Автообновление без GitHub")
-                .setMessage("Один раз выбери отдельную папку для патчей (например, Загрузки/GlassStudyUpdates). После этого достаточно помещать туда .pupdate — GlassStudy найдёт их при запуске.")
-                .setPositiveButton("Выбрать папку") { _,_ ->
-                    localPatchFolder.requestFolder(patchFolderRequest)
-                }
-                .setNegativeButton("Позже",null).show()
+            GlassDialogFactory.menu(this,"Автообновление без GitHub",
+                listOf("Выбрать папку для .pupdate (один раз)","Позже")) { choice ->
+                if(choice==0)localPatchFolder.requestFolder(patchFolderRequest)
+            }
         }
     }
 
