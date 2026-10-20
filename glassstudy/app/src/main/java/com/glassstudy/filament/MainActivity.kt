@@ -206,7 +206,7 @@ class MainActivity : Activity() {
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
             listOf("Стиль индикаторов освещения","Папка локальных патчей")) { selection ->
                 if(selection==0) showLightingIndicatorStyles()
-                else localPatchFolder.requestFolder(patchFolderRequest)
+                else localPatchFolder.requestDownloadsAccess()
             }
     }
     private fun showLightingIndicatorStyles() {
@@ -400,8 +400,8 @@ class MainActivity : Activity() {
             !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
             getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
             GlassDialogFactory.menu(this,"Автообновление без GitHub",
-                listOf("Выбрать папку Загрузки/GlassStudy_Patches (один раз)","Позже")) { choice ->
-                if(choice==0)localPatchFolder.requestFolder(patchFolderRequest)
+                listOf("Разрешить доступ к Download (один раз)","Позже")) { choice ->
+                if(choice==0)localPatchFolder.requestDownloadsAccess()
             }
         }
     }
@@ -652,7 +652,7 @@ class MainActivity : Activity() {
         super.onResume()
         // A new .pupdate may have arrived while GlassStudy was in the background.
         // Checking the persisted SAF folder requires no GitHub or file picker.
-        if (::updater.isInitialized && localPatchFolder.configured && !localPatchBusy &&
+        if (::updater.isInitialized && !localPatchBusy &&
             lastPatchFolderScanUptimeMs > 0L &&
             android.os.SystemClock.uptimeMillis()-lastPatchFolderScanUptimeMs >= 1200L) {
             checkLocalThenRemote()
