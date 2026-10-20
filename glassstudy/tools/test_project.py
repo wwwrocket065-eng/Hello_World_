@@ -590,9 +590,9 @@ assert 'private fun checkLocalThenRemote()' in activity
 assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
 assert 'updater.installFromUri(candidates[index]' in activity
 assert 'updater.checkOnStart(' in activity
-assert 'localPatchFolder.requestFolder(patchFolderRequest)' in activity
+assert 'localPatchFolder.requestDownloadsAccess()' in activity
 assert 'Папка локальных патчей' in activity
-assert 'android.permission.MANAGE_EXTERNAL_STORAGE' not in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'android.permission.MANAGE_EXTERNAL_STORAGE' in (root/'app/src/main/AndroidManifest.xml').read_text()
 
 # Android 16 offline updates require a one-time scoped folder grant; no broad file permission.
 assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_patch
@@ -604,7 +604,7 @@ assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
 
 # Resume checks for locally delivered patches without a GitHub publication.
 assert 'lastPatchFolderScanUptimeMs' in activity
-assert 'localPatchFolder.configured && !localPatchBusy' in activity
+assert '!localPatchBusy' in activity
 assert 'checkLocalThenRemote()' in activity[activity.index('override fun onResume()'):activity.index('override fun onBackPressed()')]
 
 assert 'fun reportLocalScan(message: String)' in updater
@@ -621,3 +621,11 @@ assert 'attempt(index+1,failures +' in activity
 assert 'Ошибка чтения локальной папки:' in activity
 assert 'Локальные патчи отклонены:' in activity
 assert 'localPatchBusy=false' in activity
+
+# Optional Panspermia-style explicitly authorized root Downloads scan.
+assert 'Environment.isExternalStorageManager()' in local_patch
+assert 'Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION' in local_patch
+assert 'Environment.DIRECTORY_DOWNLOADS' in local_patch
+assert 'Uri.fromFile(file)' in local_patch
+assert 'fun requestDownloadsAccess()' in local_patch
+assert 'fun acceptGrant(data:Intent?):Boolean' in local_patch  # SAF fallback remains
