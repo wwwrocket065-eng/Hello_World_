@@ -236,3 +236,11 @@
 - Actual Android 16 SAF folder grant is already available in LocalPatchDirectory. Earlier implementation only checked once in onCreate or after folder grant, so placing a patch while the app remained alive would not trigger rechecking on returning from background.
 - MainActivity now re-scans the persisted user-selected patch directory whenever it resumes after 1.2s. Existing initial check remains. Signature and SHA validation unchanged; remote feed remains optional fallback, never required for local files. Version increased to 0.2.45.
 - Android 11+ cannot grant whole Downloads root with ACTION_OPEN_DOCUMENT_TREE; user must authorize a Downloads/GlassStudy_Patches subfolder ONCE. Automatic access to arbitrary Downloads without permission is unavailable. This is a platform constraint; do not claim otherwise.
+
+
+## 2026-10-20 — Offline .pupdate candidate resilience
+- Verified branch already progressed to 0.2.46 before this change (head ceec3f84b); do not reset to 0.2.42.
+- LocalPatchDirectory previously discarded the saved SAF tree URI whenever a DocumentsProvider query threw. Temporary provider failures could therefore trigger repeated folder selection. Preserve the grant and report lastScanError instead.
+- newestAbove previously returned exactly one highest-name-version candidate; an invalid/unsigned/corrupt highest file prevented installation of any other newer-than-installed patch. candidatesAbove now ranks matching files, and MainActivity tries each through existing PatchManager.installFromUri, which enforces signature/hash checks.
+- No all-files access, no new update subsystem, no remote dependency when folder configured. Report scan and rejection reasons via existing updateStatus.
+- Validation levels: GitHub Actions compile/tests still required; Android 16 real-device test not yet performed. Verify saved SAF grant across force-stop/reboot; downloaded MIME naming, malformed highest file fallback, RSA rejection, frame confirmation, and recovery on crash.
