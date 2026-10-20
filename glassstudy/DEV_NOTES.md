@@ -260,3 +260,11 @@
 - Android 10+ scoped storage cannot silently read arbitrary third-party Downloads through MediaStore without appropriate ownership/access. MANAGE_EXTERNAL_STORAGE is a highly restricted broad permission and not acceptable as a default patch-updater workaround, especially for Play distribution.
 - Safe current strategy: one-time SAF grant to Download/GlassStudy_Patches, or use ACTION_OPEN_DOCUMENT/ACTION_SEND to import a file. Automatic detection of arbitrary files directly in root Download requires another lawful distribution mechanism and user verification; do not claim it is implemented.
 - Installed 0.2.47 and its data must remain untouched. On-device result is still unverified.
+
+
+## 2026-10-20 — GlassStudy 0.2.48: optional root Download update source
+- User requested Panspermia-style one-time Android special all-files access, allowing direct scan of Download for signed GlassStudy_Filament_<version>.pupdate files.
+- Existing LocalPatchDirectory now supports opt-in Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION and checks Environment.isExternalStorageManager() before scanning Environment.DIRECTORY_DOWNLOADS. Retains persisted SAF as alternative. No broad permission can be silently granted.
+- MainActivity opens permission settings from existing menu/first-run prompt, and rechecks updates on resume. PatchManager remains sole RSA/SHA-256 verifier and installer; PatchActivationCoordinator retains rollback.
+- Compliance caveat: MANAGE_EXTERNAL_STORAGE is restricted by Google Play policy, so this APK approach is for deployments meeting the applicable policy requirements; publication approval is not established. Device behavior on Android 16 still needs user test.
+- CI status and APK signing must be verified separately; original APK signing key is never committed.
