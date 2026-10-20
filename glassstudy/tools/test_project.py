@@ -587,8 +587,8 @@ assert 'DocumentsContract.buildChildDocumentsUriUsingTree' in local_folder
 assert 'Regex(' in local_folder and '.pupdate' in local_folder
 assert 'fun newestAbove(installed:Int):Uri?' in local_folder
 assert 'private fun checkLocalThenRemote()' in activity
-assert 'localPatchFolder.newestAbove(updater.installedPatchVersion())' in activity
-assert 'updater.installFromUri(candidateUri' in activity
+assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
+assert 'updater.installFromUri(candidates[index]' in activity
 assert 'updater.checkOnStart(' in activity
 assert 'localPatchFolder.requestFolder(patchFolderRequest)' in activity
 assert 'Папка локальных патчей' in activity
@@ -599,7 +599,7 @@ assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_patch
 assert 'Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION' in local_patch
 assert 'takePersistableUriPermission' in local_patch
 assert 'GlassStudy_Patches' in activity
-assert 'localPatchFolder.newestAbove(updater.installedPatchVersion())' in activity
+assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
 assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
 
 # Resume checks for locally delivered patches without a GitHub publication.
@@ -609,3 +609,15 @@ assert 'checkLocalThenRemote()' in activity[activity.index('override fun onResum
 
 assert 'fun reportLocalScan(message: String)' in updater
 assert 'updater.reportLocalScan("Локальная папка проверена:' in activity
+
+# Offline scan regression: preserve grants on transient provider failures and
+# try lower-ranked (but still newer) files after signature/hash rejection.
+assert 'fun candidatesAbove(installed:Int):List<Uri>' in local_patch
+assert 'matches.sortedByDescending { it.first }' in local_patch
+assert 'lastScanError=' in local_patch
+assert 'prefs.edit().remove(key)' not in local_patch
+assert 'fun attempt(index:Int, failures:List<String>)' in activity
+assert 'attempt(index+1,failures +' in activity
+assert 'Ошибка чтения локальной папки:' in activity
+assert 'Локальные патчи отклонены:' in activity
+assert 'localPatchBusy=false' in activity
