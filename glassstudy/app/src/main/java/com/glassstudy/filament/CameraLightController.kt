@@ -44,9 +44,11 @@ class CameraLightController(
     fun configure(next:CameraModuleConfig,zoom:Double,inverted:Boolean) {
         require(zoom.isFinite() && zoom>0)
         config=next
+        lightGesture.lockThresholdDp=next.lightAxisLockThresholdDp
         zoomPower=zoom
         invertHorizontal=inverted
         distance=distance.coerceIn(config.minDistance,config.maxDistance)
+        pitch=pitch.coerceIn(config.minOrbitPitchRad,config.maxOrbitPitchRad)
         applyToFilament()
     }
 
@@ -64,7 +66,8 @@ class CameraLightController(
     }
 
     fun resetHome() {
-        yaw=.56;pitch=.34;distance=5.5
+        yaw=config.homeYawRad;pitch=config.homePitchRad;distance=config.homeDistance
+        lightAz=config.homeLightAzRad;lightElevation=config.homeLightElevationRad
         lightMode=false
         resetGesture()
         applyToFilament()
@@ -99,7 +102,7 @@ class CameraLightController(
                     if(oldPinch>0f && span>1f) {
                         if(lightMode) {
                             // Additive adjustment works even from absolute zero.
-                            val next=(brightness+(span-oldPinch)/dp/160.0).coerceIn(0.0,2.0)
+                            val next=(brightness+(span-oldPinch)/dp/config.brightnessPinchDivisorDp).coerceIn(0.0,2.0)
                             setBrightnessPercent((next*100).toFloat())
                             showIndicator(LightIndicatorView.Mode.BRIGHTNESS,(brightness*100).toFloat())
                         } else {
@@ -131,7 +134,8 @@ class CameraLightController(
                         }
                     } else {
                         yaw+=dx*(if(invertHorizontal)-config.yawSensitivity else config.yawSensitivity)
-                        pitch=(pitch+dy*config.pitchSensitivity).coerceIn(-.05,1.23)
+                        pitch=(pitch+dy*config.pitchSensitivity)
+                            .coerceIn(config.minOrbitPitchRad,config.maxOrbitPitchRad)
                     }
                 }
                 oldX=e.getX(0);oldY=e.getY(0)
