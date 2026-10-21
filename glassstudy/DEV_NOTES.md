@@ -314,3 +314,12 @@
 - Final local APK signed with original GlassStudy APK signing key, NOT committed: GlassStudy_3D_LAB_v0.2.50_ORIGINAL_KEY.apk, SHA-256 9555445234c59ced2655e5977b2185e336a370de0313d12d991646fc7355a7b6, 11,521,651 bytes. Original cert SHA-256 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc matches existing installs; APK v2/v3 signatures verified with official apksigner. Original 99 ZIP payload files hash-identical after signing; JNI payload offsets 16KiB aligned, resources.arsc 4-byte aligned. Local zipalign executable lacks its libc++.so, so pure ZIP offset/CRC verification and successful official CI preflight used; do not claim local zipalign itself ran.
 - Audit and examples: glassstudy/PATCHABLE_NUMERIC_SETTINGS.md. Known remaining literals: settings panel geometry, vector-icon stroke/dimensions, certain theme/decorative values, unconsumed legacy render.skyRed/Green/Blue. Do not claim 100% source migration. Core limits/cryptographic/format constants intentionally must remain hardcoded.
 - Runtime Android 16 install/functional smoke NOT yet user-confirmed for 0.2.50. Preserve last working 0.2.48 until installed over it and validated. Data-only patch cannot add new Kotlin consumer to the old APK; one native update required first.
+
+
+## 2026-10-21 — Offline signed brightness-only patch 20034
+- User requested a further rightward offset to test that numerical parameters can be changed via .pupdate without building a new APK.
+- Based on the previously RSA-verified signed 20033 overlay resource, prepared `GlassStudy_Filament_20034.pupdate` (3,446 bytes; SHA-256 `7bb995f1dfe46f79af8015754d04ee8e99f6f5cbd52ae4ea46d96cabf7d9e297`).
+- Exactly one value changed: `modules/overlay/config.json -> indicatorVisuals.brightness.offsetXDp` from 46 to 60 dp. All other JSON data including `rotationAtMaxDeg=90` remains equal to the 20033 config.
+- Signed with ORIGINAL protected PATCH RSA private key held only in Library, then verified using the exact public key embedded in `PatchManager.kt`. No private key uploaded, no GitHub feed change, no native APK rebuild.
+- Filename uses exact `GlassStudy_Filament_20034.pupdate` for Android 16 root Download autoscanner. Requires installed native 0.2.49 or newer; old 0.2.48 did not implement `indicatorVisuals`.
+- User Android 16 runtime positioning/frame-confirmation still awaiting test.
