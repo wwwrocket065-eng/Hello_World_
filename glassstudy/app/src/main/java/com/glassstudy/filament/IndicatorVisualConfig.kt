@@ -37,7 +37,8 @@ data class IndicatorVisualConfig(
             else IndicatorVisualConfig(rayLengthMinUnits=6f,rayLengthMaxUnits=6f)
 
         private val ranges=mapOf(
-            "offsetXDp" to (-80.0..80.0),
+            // Wider safe range: actual movement is on the parent View, no Canvas clipping.
+            "offsetXDp" to (-160.0..160.0),
             "offsetYDp" to (-80.0..80.0),
             "rotationAtMaxDeg" to (-360.0..360.0),
             "travelHalfUnits" to (10.0..90.0),
