@@ -8,5 +8,6 @@
   "exposureAperture": 16,
   "exposureShutter": 0.008,
   "exposureSensitivity": 100,
-  "fxaa": true
+  "fxaa": true,
+  "ambientOcclusionEnabled": true
 }
