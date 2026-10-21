@@ -345,3 +345,5 @@
 - Signed-data numeric threshold camera.lightTapSlopDp (default 6dp, allowed 1..36dp). Source regression checks and standalone pure Kotlin motion/session test added.
 - Native version 0.2.52 code 20052; preserves original Android package ID and signed Download .pupdate workflow. Existing brightness offset 100dp remains in signed asset patch 20036, no patch release or asset change needed.
 - CI/signed APK/device checks required; do not declare Android device behavior verified until user tests.
+
+- Extra edge-case fix: ACTION_UP checks final pointer displacement through the same signed-data tap-slop rule, so a fast swipe with no intervening ACTION_MOVE cannot be classified as a stationary tap.

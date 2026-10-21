@@ -725,3 +725,6 @@ assert 'hideIndicator()' not in pointer_up_block
 up_block=camera_light.split('MotionEvent.ACTION_UP -> {')[1].split('MotionEvent.ACTION_CANCEL -> {')[0]
 assert up_block.count('hideIndicator()')==1
 assert (root/'tools/LightTouchSessionRegression.kt').is_file()
+
+# ACTION_UP coordinates must be checked, even when a quick swipe has no MOVE event.
+assert 'lightTouch.onMove(e.x,e.y,density())' in camera_light

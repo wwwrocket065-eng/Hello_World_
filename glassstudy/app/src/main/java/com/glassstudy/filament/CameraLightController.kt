@@ -113,6 +113,8 @@ class CameraLightController(
                 oldX=e.getX(survivor);oldY=e.getY(survivor)
             }
             MotionEvent.ACTION_UP -> {
+                // A fast swipe might have no MOVE event: also check the final position.
+                lightTouch.onMove(e.x,e.y,density())
                 val wasTap=lightTouch.finish()
                 lightGesture.reset()
                 oldPinch=0f
