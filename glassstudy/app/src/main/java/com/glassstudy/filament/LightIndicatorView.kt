@@ -96,6 +96,7 @@ class LightIndicatorView(context:Context):View(context) {
                     spec.guideRadiusUnits,spec.guideRadiusUnits),180f,180f,false,pen)
                 val rad=Math.toRadians(deg.toDouble())
                 x=(spec.guideRadiusUnits*cos(rad)).toFloat();y=(-spec.guideRadiusUnits*sin(rad)).toFloat()
+                rotation=deg*spec.rotationAtMaxDeg/180f
                 canvas.drawLine(0f,0f,x*.78f,y*.78f,pen)
                 label(canvas,deg.roundToInt().toString()+"°",spec.captionYUnits)
             }
@@ -104,6 +105,7 @@ class LightIndicatorView(context:Context):View(context) {
                 canvas.drawCircle(0f,-4f,spec.guideRadiusUnits,pen)
                 val rad=Math.toRadians(deg.toDouble())
                 x=(spec.guideRadiusUnits*sin(rad)).toFloat();y=(-4-spec.guideRadiusUnits*cos(rad)).toFloat()
+                rotation=deg*spec.rotationAtMaxDeg/360f
                 canvas.drawLine(0f,-4f,x*.78f,-4f+(y+4f)*.78f,pen)
                 label(canvas,(deg.roundToInt()%360).toString()+"°",spec.captionYUnits)
             }
