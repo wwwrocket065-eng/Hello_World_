@@ -16,12 +16,12 @@ data class OverlayModuleConfig(
     val progressColor:Int?=null,
     val thumbColor:Int?=null,
     val indicatorSizeDp:Int=230,
-    val brightnessOffsetXDp:Float=40f,
-    val brightnessRotationAt200Deg:Float=90f,
     val azimuthColor:Int=Color.rgb(240,210,132),
     val elevationColor:Int=Color.rgb(236,225,194),
     val brightnessColor:Int=Color.rgb(255,220,130),
-    val guideColor:Int=Color.rgb(173,192,206)
+    val guideColor:Int=Color.rgb(173,192,206),
+    val indicatorVisuals:Map<LightIndicatorView.Mode,IndicatorVisualConfig> =
+        LightIndicatorView.Mode.values().associateWith { IndicatorVisualConfig.defaults(it) }
 ) {
     fun indicatorColor(mode:LightIndicatorView.Mode):Int=when(mode) {
         LightIndicatorView.Mode.AZIMUTH -> azimuthColor
@@ -46,23 +46,25 @@ data class OverlayModuleConfig(
             }
             val size=j.optInt("indicatorSizeDp",230)
             require(size in 160..340) { "Invalid indicator size" }
-            // Signed resource values: bounded to keep the sun, label and guides visible.
-            val brightnessOffset=j.optDouble("brightnessOffsetXDp",40.0)
-            val brightnessRotation=j.optDouble("brightnessRotationAt200Deg",90.0)
-            require(brightnessOffset.isFinite() && brightnessOffset in -60.0..60.0) {
-                "Invalid brightness indicator horizontal offset"
+            // A single generic numeric schema serves azimuth, elevation and brightness.
+            val visuals=j.optJSONObject("indicatorVisuals")
+            if(j.has("indicatorVisuals"))require(visuals!=null) { "Invalid indicatorVisuals map" }
+            val names=LightIndicatorView.Mode.values().map { it.name.lowercase() }.toSet()
+            require(visuals==null || visuals.keys().asSequence().all { it in names }) {
+                "Unknown indicator mode"
             }
-            require(brightnessRotation.isFinite() && brightnessRotation in 0.0..180.0) {
-                "Invalid brightness sun rotation"
+            val indicatorVisuals=LightIndicatorView.Mode.values().associateWith { indicator ->
+                IndicatorVisualConfig.parse(visuals?.optJSONObject(indicator.name.lowercase()),indicator)
             }
             return OverlayModuleConfig(j.optBoolean("enabled",true),mode,label,bottom,width,
                 optionalColor("backgroundColor"),optionalColor("borderColor"),
                 optionalColor("textColor"),optionalColor("progressColor"),optionalColor("thumbColor"),
-                size,brightnessOffset.toFloat(),brightnessRotation.toFloat(),
+                size,
                 optionalColor("azimuthColor")?:Color.rgb(240,210,132),
                 optionalColor("elevationColor")?:Color.rgb(236,225,194),
                 optionalColor("brightnessColor")?:Color.rgb(255,220,130),
-                optionalColor("guideColor")?:Color.rgb(173,192,206))
+                optionalColor("guideColor")?:Color.rgb(173,192,206),
+                indicatorVisuals)
         }
     }
 }
