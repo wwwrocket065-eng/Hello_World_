@@ -11,7 +11,16 @@ data class SceneModuleConfig(
     val whiteLevel: Double = .96,
     val sectionOrder: List<String> = listOf("skybox","floor"),
     val skyboxOrder: List<String> = listOf("gray","studio","white","dark","custom"),
-    val floorOrder: List<String> = listOf("checker","white","none")
+    val floorOrder: List<String> = listOf("checker","white","none"),
+    val graySkyRed:Int=110,
+    val graySkyGreen:Int=110,
+    val graySkyBlue:Int=110,
+    val whiteSkyRed:Int=240,
+    val whiteSkyGreen:Int=240,
+    val whiteSkyBlue:Int=240,
+    val darkSkyRed:Int=27,
+    val darkSkyGreen:Int=30,
+    val darkSkyBlue:Int=35
 ) {
     companion object {
         fun parse(json: JSONObject?): SceneModuleConfig {
@@ -21,6 +30,11 @@ data class SceneModuleConfig(
                 val value=json.getDouble(key)
                 require(value.isFinite() && value in min..max) { "Invalid scene property: $key" }
                 return value
+            }
+            fun channel(name:String,default:Int):Int {
+                val value=number(name,default.toDouble(),0.0,255.0)
+                require(value%1.0==0.0) { "Scene RGB channel must be integer: $name" }
+                return value.toInt()
             }
             val width=number("floorWidth",12.0,3.0,18.0)
             val tile=number("tileWidth",0.6,0.25,1.5)
@@ -40,7 +54,10 @@ data class SceneModuleConfig(
                 number("whiteLevel",.96,0.0,1.0),
                 order("sectionOrder",listOf("skybox","floor")),
                 order("skyboxOrder",listOf("gray","studio","white","dark","custom")),
-                order("floorOrder",listOf("checker","white","none")))
+                order("floorOrder",listOf("checker","white","none")),
+                channel("graySkyRed",110),channel("graySkyGreen",110),channel("graySkyBlue",110),
+                channel("whiteSkyRed",240),channel("whiteSkyGreen",240),channel("whiteSkyBlue",240),
+                channel("darkSkyRed",27),channel("darkSkyGreen",30),channel("darkSkyBlue",35))
         }
     }
 }
