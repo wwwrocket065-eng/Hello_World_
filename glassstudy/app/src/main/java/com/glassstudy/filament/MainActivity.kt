@@ -202,17 +202,12 @@ class MainActivity : Activity() {
 
     private fun openMenu() {
         diagnosticsPopup.dismiss()
-        // Dedicated toolbar actions never appear a second time in settings.
+        // There is no user-visible sun color/style editor: only the verified
+        // .pupdate asset module may change the unified technical appearance.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            listOf("Стиль индикаторов освещения","Папка локальных патчей")) { selection ->
-                if(selection==0) showLightingIndicatorStyles()
-                else localPatchFolder.requestDownloadsAccess()
+            GlassDialogFactory.theme.menuOrder.map { "Папка локальных патчей" }) {
+                localPatchFolder.requestDownloadsAccess()
             }
-    }
-    private fun showLightingIndicatorStyles() {
-        LightIndicatorSettingsPanel(this) {
-            uiChrome.updateIndicatorVisibility(cameraLight.lightMode)
-        }.show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -247,7 +242,8 @@ class MainActivity : Activity() {
         renderEnvironment=RenderEnvironmentController(this,viewer)
         renderEnvironment.initialize()
         cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
-            {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode)},
+            {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode,
+                cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz)},
             {lightIndicator?.hide()})
         surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
 

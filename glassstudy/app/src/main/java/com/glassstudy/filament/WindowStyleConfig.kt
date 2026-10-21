@@ -71,7 +71,7 @@ data class WindowStyleConfig(
     val controlTextSizeSp:Float=14f,
     val rowSpacingDp:Int=7,
     val controlHorizontalPaddingDp:Int=14,
-    val menuOrder:List<String> = listOf("indicatorStyle"),
+    val menuOrder:List<String> = listOf("localPatches"),
     val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
     val titles:Map<String,String> = defaultTitles(),
     val diagnosticsClickMode:String = "toggle",
@@ -97,14 +97,17 @@ data class WindowStyleConfig(
                 require(v.isFinite() && v in low..high) { "Invalid window size $key" }
                 return v.toFloat()
             }
-            val menuDefaults=listOf("indicatorStyle")
+            val menuDefaults=listOf("localPatches")
             val menuOrder=if(json.has("menuOrder")) {
                 val array=json.getJSONArray("menuOrder")
                 val names=(0 until array.length()).map { array.getString(it) }
                 // Legacy signed patches have the old three-item menu.
                 // Migrate this data without exposing removed items.
                 val legacy=setOf("model","camera","diagnostics")
-                if(names.size==3 && names.toSet()==legacy) menuDefaults else {
+                // Existing signed patches used a style menu; migrate them
+                // silently so removing old UI cannot reject an installed patch.
+                if((names.size==3 && names.toSet()==legacy) ||
+                    names==listOf("indicatorStyle")) menuDefaults else {
                     require(names==menuDefaults) { "Invalid menu item order" }
                     names
                 }

@@ -28,13 +28,17 @@ data class IndicatorVisualConfig(
     val smoothing:Float=.28f,
     val settleThreshold:Float=.08f,
     val fadeInMs:Long=140L,
-    val fadeOutMs:Long=160L
+    val fadeOutMs:Long=160L,
+    val guideGlowUnits:Float=2f,
+    val sunGlowUnits:Float=7f,
+    val glowOpacity:Float=.80f,
+    val guideSamples:Int=180
 ) {
     companion object {
         fun defaults(mode:LightIndicatorView.Mode):IndicatorVisualConfig =
             if(mode==LightIndicatorView.Mode.BRIGHTNESS)
                 IndicatorVisualConfig(offsetXDp=40f,rotationAtMaxDeg=90f)
-            else IndicatorVisualConfig(rayLengthMinUnits=6f,rayLengthMaxUnits=6f)
+            else IndicatorVisualConfig()
 
         private val ranges=mapOf(
             // Wider safe range: actual movement is on the parent View, no Canvas clipping.
@@ -55,7 +59,11 @@ data class IndicatorVisualConfig(
             "smoothing" to (0.05..1.0),
             "settleThreshold" to (0.005..1.0),
             "fadeInMs" to (0.0..1200.0),
-            "fadeOutMs" to (0.0..1200.0)
+            "fadeOutMs" to (0.0..1200.0),
+            "guideGlowUnits" to (0.0..16.0),
+            "sunGlowUnits" to (0.0..24.0),
+            "glowOpacity" to (0.0..1.0),
+            "guideSamples" to (72.0..360.0)
         )
 
         fun parse(j:JSONObject?,mode:LightIndicatorView.Mode):IndicatorVisualConfig {
@@ -96,7 +104,13 @@ data class IndicatorVisualConfig(
                 n("smoothing",d.smoothing),
                 n("settleThreshold",d.settleThreshold),
                 ms("fadeInMs",d.fadeInMs),
-                ms("fadeOutMs",d.fadeOutMs)
+                ms("fadeOutMs",d.fadeOutMs),
+                n("guideGlowUnits",d.guideGlowUnits),
+                n("sunGlowUnits",d.sunGlowUnits),
+                n("glowOpacity",d.glowOpacity),
+                n("guideSamples",d.guideSamples.toFloat()).also {
+                    require(it%1f==0f) { "guideSamples must be an integer" }
+                }.toInt()
             )
             require(result.rayLengthMinUnits<=result.rayLengthMaxUnits) {
                 "Ray minimum length exceeds maximum"

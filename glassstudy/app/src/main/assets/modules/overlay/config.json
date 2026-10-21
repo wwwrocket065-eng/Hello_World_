@@ -12,8 +12,8 @@
   "progressColor": "#6DE0DE",
   "thumbColor": "#A3D0D3",
   "indicatorSizeDp": 230,
-  "azimuthColor": "#F0D284",
-  "elevationColor": "#ECE1C2",
+  "azimuthColor": "#FFDC82",
+  "elevationColor": "#FFDC82",
   "brightnessColor": "#FFDC82",
   "guideColor": "#ADC0CE",
   "indicatorVisuals": {
@@ -26,8 +26,8 @@
       "guideGapUnits": 24,
       "sunRadiusUnits": 9,
       "rayStartUnits": 14,
-      "rayLengthMinUnits": 6,
-      "rayLengthMaxUnits": 6,
+      "rayLengthMinUnits": 3,
+      "rayLengthMaxUnits": 12,
       "guideStrokeUnits": 2.3,
       "sunStrokeUnits": 2.4,
       "captionYUnits": 97,
@@ -35,7 +35,11 @@
       "smoothing": 0.28,
       "settleThreshold": 0.08,
       "fadeInMs": 140,
-      "fadeOutMs": 160
+      "fadeOutMs": 160,
+      "guideGlowUnits": 2,
+      "sunGlowUnits": 7,
+      "glowOpacity": 0.8,
+      "guideSamples": 180
     },
     "elevation": {
       "offsetXDp": 0,
@@ -46,8 +50,8 @@
       "guideGapUnits": 24,
       "sunRadiusUnits": 9,
       "rayStartUnits": 14,
-      "rayLengthMinUnits": 6,
-      "rayLengthMaxUnits": 6,
+      "rayLengthMinUnits": 3,
+      "rayLengthMaxUnits": 12,
       "guideStrokeUnits": 2.3,
       "sunStrokeUnits": 2.4,
       "captionYUnits": 97,
@@ -55,7 +59,11 @@
       "smoothing": 0.28,
       "settleThreshold": 0.08,
       "fadeInMs": 140,
-      "fadeOutMs": 160
+      "fadeOutMs": 160,
+      "guideGlowUnits": 2,
+      "sunGlowUnits": 7,
+      "glowOpacity": 0.8,
+      "guideSamples": 180
     },
     "brightness": {
       "offsetXDp": 40,
@@ -75,7 +83,11 @@
       "smoothing": 0.28,
       "settleThreshold": 0.08,
       "fadeInMs": 140,
-      "fadeOutMs": 160
+      "fadeOutMs": 160,
+      "guideGlowUnits": 2,
+      "sunGlowUnits": 7,
+      "glowOpacity": 0.8,
+      "guideSamples": 180
     }
   }
 }

@@ -23,11 +23,8 @@ data class OverlayModuleConfig(
     val indicatorVisuals:Map<LightIndicatorView.Mode,IndicatorVisualConfig> =
         LightIndicatorView.Mode.values().associateWith { IndicatorVisualConfig.defaults(it) }
 ) {
-    fun indicatorColor(mode:LightIndicatorView.Mode):Int=when(mode) {
-        LightIndicatorView.Mode.AZIMUTH -> azimuthColor
-        LightIndicatorView.Mode.ELEVATION -> elevationColor
-        LightIndicatorView.Mode.BRIGHTNESS -> brightnessColor
-    }
+    /** All three technical indicator suns use a single patchable tint. */
+    fun indicatorColor(mode:LightIndicatorView.Mode):Int=brightnessColor
     companion object {
         fun parse(j:JSONObject?):OverlayModuleConfig {
             if(j==null)return OverlayModuleConfig()
