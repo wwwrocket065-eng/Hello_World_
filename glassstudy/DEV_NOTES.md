@@ -338,3 +338,10 @@
 - Verified release: GlassStudy_3D_LAB_v0.2.51_ORIGINAL_KEY.apk, SHA256 4f180ed314bda0d39d7c844b5f14b489edc98d3cf912aaac82af64d4ecb539e7, 11,521,651 bytes; original signing certificate matches past installations. Original APK app ID intact; ZIP alignment and v2 signature verified.
 - Signed offline patch: GlassStudy_Filament_20036.pupdate, SHA256 0caffe2b19d0c3ec824cf97d96ba1da94f902d7573fc7b3936ea1a76eb7e2478, 3,446 bytes. Relative to signed patch 20035, only indicatorVisuals.brightness.offsetXDp changes 74→100. Rotation 90 and all other settings unchanged. Signatures and resource hashes verified.
 - Install native APK 0.2.51 over existing app before placing patch 20036 in Download; older 0.2.50 rejects that signed value. Server feed unchanged at 20031. On-device UI positioning still needs user verification.
+
+## 2026-10-22 — Native 0.2.52 persistent light indication and tap-to-hide
+- User clarified: lifting fingers must keep the currently displayed light indicator on screen; ONLY a fresh gesture may replace the indicator (horizontal azimuth, vertical elevation, two fingers brightness). A single stationary tap dismisses it, without switching modes or adjusting light.
+- Added pure Kotlin LightTouchSession for tap classification and multi-pointer suppression. ACTION_UP no longer unconditionally calls resetGesture/hideIndicator. Pointer-up after pinch does not hide or switch to a different single-finger axis. ACTION_CANCEL is not a tap. Explicit resetGesture on mode switch/app pause still hides.
+- Signed-data numeric threshold camera.lightTapSlopDp (default 6dp, allowed 1..36dp). Source regression checks and standalone pure Kotlin motion/session test added.
+- Native version 0.2.52 code 20052; preserves original Android package ID and signed Download .pupdate workflow. Existing brightness offset 100dp remains in signed asset patch 20036, no patch release or asset change needed.
+- CI/signed APK/device checks required; do not declare Android device behavior verified until user tests.

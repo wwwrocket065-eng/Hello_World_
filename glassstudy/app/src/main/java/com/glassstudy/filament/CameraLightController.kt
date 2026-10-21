@@ -40,6 +40,9 @@ class CameraLightController(
     private var oldY=0f
     private var oldPinch=0f
     private val lightGesture=LightGestureController()
+    // Input-only tap vs gesture classification; indicator visibility is independent
+    // of pointer release and changes only on a new gesture or an intentional tap.
+    private val lightTouch=LightTouchSession()
     private var initialLightConfigurationApplied=false
 
     fun configure(next:CameraModuleConfig,zoom:Double,inverted:Boolean) {
@@ -50,6 +53,7 @@ class CameraLightController(
             initialLightConfigurationApplied=true
         }
         lightGesture.lockThresholdDp=next.lightAxisLockThresholdDp
+        lightTouch.tapSlopDp=next.lightTapSlopDp
         zoomPower=zoom
         invertHorizontal=inverted
         distance=distance.coerceIn(config.minDistance,config.maxDistance)
@@ -79,13 +83,21 @@ class CameraLightController(
 
     fun resetGesture() {
         lightGesture.reset()
+        lightTouch.cancel()
         oldPinch=0f
         hideIndicator()
     }
 
     fun onTouch(e:MotionEvent):Boolean {
         when(e.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+            MotionEvent.ACTION_DOWN -> {
+                lightGesture.reset()
+                lightTouch.begin(e.x,e.y)
+                oldX=e.getX(0);oldY=e.getY(0)
+                oldPinch=0f
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                lightTouch.onMultiplePointers()
                 lightGesture.reset()
                 oldX=e.getX(0);oldY=e.getY(0)
                 oldPinch=if(e.pointerCount>=2)pinch(e) else 0f
@@ -93,14 +105,30 @@ class CameraLightController(
                     showIndicator(LightIndicatorView.Mode.BRIGHTNESS,(brightness*100).toFloat())
             }
             MotionEvent.ACTION_POINTER_UP -> {
-                resetGesture()
+                // Finish the active pinch without hiding its indicator.
+                // Keep one-finger input locked out until ALL pointers lift.
+                lightGesture.reset()
+                oldPinch=0f
                 val survivor=if(e.actionIndex==0 && e.pointerCount>1)1 else 0
                 oldX=e.getX(survivor);oldY=e.getY(survivor)
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> resetGesture()
+            MotionEvent.ACTION_UP -> {
+                val wasTap=lightTouch.finish()
+                lightGesture.reset()
+                oldPinch=0f
+                // One stationary tap dismisses, but never cycles the indicator.
+                if(lightMode && wasTap)hideIndicator()
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                // A system cancellation is not a deliberate single tap.
+                lightTouch.cancel()
+                lightGesture.reset()
+                oldPinch=0f
+            }
             MotionEvent.ACTION_MOVE -> {
                 val dp=density().coerceAtLeast(.1f)
                 if(e.pointerCount>=2) {
+                    lightTouch.onMultiplePointers()
                     lightGesture.reset()
                     val span=pinch(e)
                     if(oldPinch>0f && span>1f) {
@@ -119,7 +147,11 @@ class CameraLightController(
                     val dx=(e.x-oldX).toDouble()/dp
                     val dy=(e.y-oldY).toDouble()/dp
                     if(lightMode) {
-                        val motion=lightGesture.move(dx,dy)
+                        lightTouch.onMove(e.x,e.y,dp)
+                        // Pinch-to-one-finger transitions do not switch axes
+                        // until a completely new ACTION_DOWN gesture starts.
+                        val motion=if(!lightTouch.hadMultiplePointers)
+                            lightGesture.move(dx,dy) else null
                         if(motion!=null)when(motion.axis) {
                             LightGestureController.Axis.AZIMUTH -> {
                                 val turn=2.0*Math.PI

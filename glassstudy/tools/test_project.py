@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.51' in props and 'GLASSSTUDY_VERSION_CODE=20051' in props
+assert 'GLASSSTUDY_VERSION=0.2.52' in props and 'GLASSSTUDY_VERSION_CODE=20052' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -701,3 +701,27 @@ for setting in visual_defaults:
     assert ('"'+setting+'"') in visual_parser
     assert ('visualNumbers.'+setting) in chrome_src
 assert 'UiVisualNumbers.parse(j.optJSONObject("visualNumbers"))' in (src/'UiLayout.kt').read_text()
+
+# Persistent lighting HUD: pointer-up must NOT hide, a stationary single tap does.
+touch_src=(src/'LightTouchSession.kt').read_text()
+assert 'class LightTouchSession' in touch_src
+assert 'fun begin(x:Float,y:Float)' in touch_src
+assert 'fun onMultiplePointers()' in touch_src
+assert 'fun onMove(x:Float,y:Float,density:Float)' in touch_src
+assert 'fun finish():Boolean' in touch_src
+assert 'fun cancel()' in touch_src
+assert 'var hadMultiplePointers=false' in touch_src
+assert 'val wasTap=lightTouch.finish()' in camera_light
+assert 'if(lightMode && wasTap)hideIndicator()' in camera_light
+assert 'if(!lightTouch.hadMultiplePointers)' in camera_light
+assert 'lightTouch.tapSlopDp=next.lightTapSlopDp' in camera_light
+assert 'lightTapSlopDp' in camera_config_code and camera_json['lightTapSlopDp']==6
+assert 'MotionEvent.ACTION_POINTER_UP -> {' in camera_light
+assert 'MotionEvent.ACTION_CANCEL -> {' in camera_light
+assert 'MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> resetGesture()' not in camera_light
+pointer_up_block=camera_light.split('MotionEvent.ACTION_POINTER_UP -> {')[1].split('MotionEvent.ACTION_UP -> {')[0]
+assert 'resetGesture()' not in pointer_up_block
+assert 'hideIndicator()' not in pointer_up_block
+up_block=camera_light.split('MotionEvent.ACTION_UP -> {')[1].split('MotionEvent.ACTION_CANCEL -> {')[0]
+assert up_block.count('hideIndicator()')==1
+assert (root/'tools/LightTouchSessionRegression.kt').is_file()
