@@ -30,11 +30,16 @@ class LightIndicatorView(context:Context):View(context) {
     private var cameraYaw=0.56
     private var cameraPitch=0.34
     private var lightAzimuth=1.3
+    private var brightnessPercent=100f
+    private var captionBoxColor=Color.rgb(17,35,49)
     private val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND
     }
     private val caption=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign=Paint.Align.CENTER;textSize=16f;style=Paint.Style.FILL
+    }
+    private val captionPlate=Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style=Paint.Style.FILL
     }
     init {
         isClickable=false;isFocusable=false
@@ -58,12 +63,16 @@ class LightIndicatorView(context:Context):View(context) {
     }
 
     fun show(next:Mode,actual:Float,color:Int,guideColor:Int,
-             cameraYawRad:Double,cameraPitchRad:Double,lightAzimuthRad:Double) {
+             cameraYawRad:Double,cameraPitchRad:Double,lightAzimuthRad:Double,
+             currentBrightnessPercent:Float,captionBackground:Int) {
         if(!actual.isFinite() || !cameraYawRad.isFinite() ||
-            !cameraPitchRad.isFinite() || !lightAzimuthRad.isFinite())return
+            !cameraPitchRad.isFinite() || !lightAzimuthRad.isFinite() ||
+            !currentBrightnessPercent.isFinite())return
         if(mode!=next)value=actual
         mode=next;target=actual;tint=color;guide=guideColor
         cameraYaw=cameraYawRad;cameraPitch=cameraPitchRad;lightAzimuth=lightAzimuthRad
+        brightnessPercent=currentBrightnessPercent.coerceIn(0f,200f)
+        captionBoxColor=captionBackground
         positionView(next)
         if(visibility!=VISIBLE) {
             animate().cancel();alpha=0f;visibility=VISIBLE
@@ -91,8 +100,12 @@ class LightIndicatorView(context:Context):View(context) {
         super.onDraw(canvas)
         val kind=mode?:return
         val spec=visual(kind)
-        val moving=abs(target-value)>spec.settleThreshold
-        value=if(moving)value+(target-value)*spec.smoothing else target
+        // Azimuth is cyclic: going 359°→1° must advance just 2°, never
+        // sweep backwards through the entire circle and jump across the model.
+        val delta=if(kind==Mode.AZIMUTH)
+            LightDirectionMath.shortestAzimuthDelta(target,value) else target-value
+        val moving=abs(delta)>spec.settleThreshold
+        value=if(moving)value+delta*spec.smoothing else target
         val saved=canvas.save()
         canvas.translate(width/2f,height/2f)
         val scale=min(width,height).toFloat()/230f
@@ -107,7 +120,9 @@ class LightIndicatorView(context:Context):View(context) {
 
         caption.color=tint;caption.textSize=spec.captionSizeUnits
         var x=0f;var y=0f;var rotation=0f
-        var rays=spec.rayLengthMaxUnits
+        // ALL three suns share the same actual lighting brightness (0–200%).
+        val rays=spec.rayLengthMinUnits+
+            brightnessPercent*(spec.rayLengthMaxUnits-spec.rayLengthMinUnits)/200f
         when(kind) {
             Mode.BRIGHTNESS -> {
                 val pct=value.coerceIn(0f,200f)
@@ -119,9 +134,7 @@ class LightIndicatorView(context:Context):View(context) {
                 if(y+gap < spec.guideRadiusUnits)
                     canvas.drawLine(0f,y+gap,0f,spec.guideRadiusUnits,pen)
                 rotation=pct*spec.rotationAtMaxDeg/200f
-                rays=spec.rayLengthMinUnits+
-                    pct*(spec.rayLengthMaxUnits-spec.rayLengthMinUnits)/200f
-                label(canvas,pct.roundToInt().toString()+"%",spec.captionYUnits)
+                label(canvas,pct.roundToInt().toString()+"%",spec)
             }
             Mode.AZIMUTH -> {
                 val deg=((value%360f)+360f)%360f
@@ -130,7 +143,7 @@ class LightIndicatorView(context:Context):View(context) {
                 x=point.x;y=point.y
                 drawOrbit(canvas,kind,spec,x,y)
                 // Do NOT rotate the azimuth/elevation suns themselves.
-                label(canvas,(deg.roundToInt()%360).toString()+"°",spec.captionYUnits)
+                label(canvas,(deg.roundToInt()%360).toString()+"°",spec)
             }
             Mode.ELEVATION -> {
                 val deg=value.coerceIn(0f,180f)
@@ -138,7 +151,7 @@ class LightIndicatorView(context:Context):View(context) {
                     spec.guideRadiusUnits,lightAzimuth,cameraYaw,cameraPitch)
                 x=point.x;y=point.y
                 drawOrbit(canvas,kind,spec,x,y)
-                label(canvas,deg.roundToInt().toString()+"°",spec.captionYUnits)
+                label(canvas,LightDirectionMath.elevationLabel(deg),spec)
             }
         }
         pen.clearShadowLayer()
@@ -197,8 +210,23 @@ class LightIndicatorView(context:Context):View(context) {
         val px=a.x+t*dx-cx;val py=a.y+t*dy-cy
         return px*px+py*py <= gap*gap
     }
-    private fun label(canvas:Canvas,v:String,y:Float) {
+    private fun label(canvas:Canvas,v:String,spec:IndicatorVisualConfig) {
         caption.clearShadowLayer()
+        // Readable dark rounded chip behind degrees and percentages. Geometry,
+        // tint and opacity are all validated signed .pupdate resources.
+        val y=spec.captionYUnits
+        val textWidth=caption.measureText(v)
+        val metrics=caption.fontMetrics
+        val left=-textWidth/2f-spec.captionBoxPaddingXUnits
+        val right=textWidth/2f+spec.captionBoxPaddingXUnits
+        val top=y+metrics.ascent-spec.captionBoxPaddingYUnits
+        val bottom=y+metrics.descent+spec.captionBoxPaddingYUnits
+        val alpha=(Color.alpha(captionBoxColor)*spec.captionBoxOpacity)
+            .roundToInt().coerceIn(0,255)
+        captionPlate.color=Color.argb(alpha,Color.red(captionBoxColor),
+            Color.green(captionBoxColor),Color.blue(captionBoxColor))
+        canvas.drawRoundRect(left,top,right,bottom,
+            spec.captionBoxCornerUnits,spec.captionBoxCornerUnits,captionPlate)
         canvas.drawText(v,0f,y,caption)
     }
 }
