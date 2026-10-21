@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.53' in props and 'GLASSSTUDY_VERSION_CODE=20053' in props
+assert 'GLASSSTUDY_VERSION=0.2.54' in props and 'GLASSSTUDY_VERSION_CODE=20054' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -762,3 +762,35 @@ assert all(visuals[name]['sunGlowUnits']==7 for name in visuals)
 assert all(visuals[name]['guideSamples']==180 for name in visuals)
 assert all(visuals[name]['rayLengthMaxUnits']==12 for name in visuals)
 assert (root/'tools/LightGuideProjectionRegression.kt').is_file()
+
+# v0.2.54 regression: the physical source, Filament rays and projected
+# indicator always agree. Test the seamless 0/360 crossing and labels.
+light_math=(src/'LightDirectionMath.kt').read_text()
+projection=(src/'LightGuideProjection.kt').read_text()
+camera=(src/'CameraLightController.kt').read_text()
+view=(src/'LightIndicatorView.kt').read_text()
+assert 'LightDirectionMath.incoming(lightAz,lightElevation)' in camera
+assert 'mgr.setDirection(instance,rays.x,rays.y,rays.z)' in camera
+assert 'LightDirectionMath.source(lightAzimuthRad,angleRad)' in projection
+assert 'LightDirectionMath.source(angleRad,0.0)' in projection
+assert 'fun shortestAzimuthDelta(' in light_math
+assert 'LightDirectionMath.shortestAzimuthDelta(target,value)' in view
+assert 'fun elevationLabel(' in light_math
+assert 'LightDirectionMath.elevationLabel(deg)' in view
+assert 'private var brightnessPercent=100f' in view
+assert 'brightnessPercent*(spec.rayLengthMaxUnits-spec.rayLengthMinUnits)/200f' in view
+assert 'currentBrightnessPercent:Float,captionBackground:Int' in view
+assert '(cameraLight.brightness*100).toFloat()' in activity
+assert 'val rays=LightDirectionMath.incoming(' in camera
+assert 'canvas.drawRoundRect(left,top,right,bottom,' in view
+assert 'captionPlate.color=Color.argb(' in view
+assert 'captionBoxPaddingXUnits' in visual_src and 'captionBoxCornerUnits' in visual_src
+assert 'captionBoxOpacity' in visual_src and 'captionBoxPaddingYUnits' in visual_src
+assert 'overlay.backgroundColor ?: Color.rgb(17,35,49)' in chrome_src
+for kind in ('azimuth','brightness','elevation'):
+    spec=visuals[kind]
+    assert 0.5 < spec['captionBoxOpacity'] <= 1
+    assert spec['captionBoxCornerUnits'] > 0
+    assert spec['captionBoxPaddingXUnits'] > 0
+    assert spec['captionBoxPaddingYUnits'] > 0
+assert (root/'tools/LightDirectionMathRegression.kt').is_file()
