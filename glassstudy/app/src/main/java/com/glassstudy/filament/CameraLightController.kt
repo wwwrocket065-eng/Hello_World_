@@ -40,10 +40,15 @@ class CameraLightController(
     private var oldY=0f
     private var oldPinch=0f
     private val lightGesture=LightGestureController()
+    private var initialLightConfigurationApplied=false
 
     fun configure(next:CameraModuleConfig,zoom:Double,inverted:Boolean) {
         require(zoom.isFinite() && zoom>0)
         config=next
+        if(!initialLightConfigurationApplied) {
+            lightAz=next.homeLightAzRad;lightElevation=next.homeLightElevationRad
+            initialLightConfigurationApplied=true
+        }
         lightGesture.lockThresholdDp=next.lightAxisLockThresholdDp
         zoomPower=zoom
         invertHorizontal=inverted
@@ -67,7 +72,6 @@ class CameraLightController(
 
     fun resetHome() {
         yaw=config.homeYawRad;pitch=config.homePitchRad;distance=config.homeDistance
-        lightAz=config.homeLightAzRad;lightElevation=config.homeLightElevationRad
         lightMode=false
         resetGesture()
         applyToFilament()
