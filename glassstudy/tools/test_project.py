@@ -758,7 +758,7 @@ assert 'guideSamples' in visual_src and 'guideGlowUnits' in visual_src
 assert 'sunGlowUnits' in visual_src and 'glowOpacity' in visual_src
 assert set(visuals['brightness'])==set(visuals['azimuth'])==set(visuals['elevation'])
 assert all(visuals[name]['rotationAtMaxDeg']==0 for name in ('azimuth','elevation'))
-assert all(visuals[name]['sunGlowUnits']==7 for name in visuals)
+assert all(visuals[name]['sunGlowUnits']==10 for name in visuals)
 assert all(visuals[name]['guideSamples']==180 for name in visuals)
 assert all(visuals[name]['rayLengthMaxUnits']==12 for name in visuals)
 assert (root/'tools/LightGuideProjectionRegression.kt').is_file()
