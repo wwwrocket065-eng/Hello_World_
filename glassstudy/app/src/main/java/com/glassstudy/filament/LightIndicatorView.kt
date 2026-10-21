@@ -38,13 +38,26 @@ class LightIndicatorView(context:Context):View(context) {
     /** Patch-defined numeric appearance shared by every indicator mode. */
     fun configureVisuals(next:Map<Mode,IndicatorVisualConfig>) {
         visuals=next.toMap()
+        mode?.let { positionView(it) }
         invalidate()
     }
     private fun visual(mode:Mode)=visuals[mode] ?: IndicatorVisualConfig.defaults(mode)
+    /**
+     * Move the entire passive HUD instead of translating its Canvas:
+     * large signed offsets must not clip the rays or the percentage label
+     * against this 230dp View's local bounds.
+     */
+    private fun positionView(next:Mode) {
+        val spec=visual(next)
+        val density=resources.displayMetrics.density
+        translationX=spec.offsetXDp*density
+        translationY=spec.offsetYDp*density
+    }
     fun show(next:Mode,actual:Float,appearance:String,color:Int,guideColor:Int) {
         if(!actual.isFinite())return
         if(mode!=next)value=actual
         mode=next;target=actual;style=appearance;tint=color;guide=guideColor
+        positionView(next)
         if(visibility!=VISIBLE) {
             animate().cancel();alpha=0f;visibility=VISIBLE
             animate().alpha(1f).setDuration(visual(next).fadeInMs).start()
@@ -70,9 +83,7 @@ class LightIndicatorView(context:Context):View(context) {
         canvas.translate(width/2f,height/2f)
         val scale=min(width,height).toFloat()/230f
         canvas.scale(scale,scale)
-        // Offsets are physical dp; the indicator drawing is otherwise in 230-unit space.
-        canvas.translate(spec.offsetXDp*resources.displayMetrics.density/scale.coerceAtLeast(.01f),
-            spec.offsetYDp*resources.displayMetrics.density/scale.coerceAtLeast(.01f))
+        // Positions are applied to the View outside Canvas to avoid local clipping.
         pen.style=Paint.Style.STROKE;pen.color=guide
         pen.strokeWidth=if(style=="minimal")spec.guideStrokeUnits*.61f else spec.guideStrokeUnits
         caption.color=tint;caption.textSize=spec.captionSizeUnits
