@@ -59,6 +59,7 @@ class UiChromeController(private val activity:Activity) {
     private var iconScale=.82f
     private var topVisualSizeDp=35
     private var topVisualScale=1f
+    private var visualNumbers=UiVisualNumbers()
 
     fun dp(v:Float):Int=(v*activity.resources.displayMetrics.density).toInt()
 
@@ -75,7 +76,7 @@ class UiChromeController(private val activity:Activity) {
         val actual=if(selected)Color.argb(alpha,48,116,124) else color
         val stroke=outline ?:
             if(selected)Color.rgb(166,246,233) else Color.argb(180,109,185,203)
-        val surface=roundedFill(actual,14f,stroke)
+        val surface=roundedFill(actual,visualNumbers.buttonCornerDp,stroke)
         // The four compact TOP glyph buttons keep their full 44dp+ touch target.
         // Only the painted square is inset, independently of adaptive hitbox sizing.
         val content=if(view is LabIconView) {
@@ -87,7 +88,7 @@ class UiChromeController(private val activity:Activity) {
         } else surface
         view.background=RippleDrawable(ColorStateList.valueOf(Color.argb(115,93,230,222)),
             content,null)
-        view.elevation=dp(2f).toFloat()
+        view.elevation=dp(visualNumbers.buttonElevationDp).toFloat()
     }
 
     /** Shared selector view factory; signed theme color is read at render time. */
@@ -98,18 +99,22 @@ class UiChromeController(private val activity:Activity) {
             override fun getView(position:Int,convertView:View?,parent:ViewGroup):View {
                 val label=super.getView(position,convertView,parent) as TextView
                 label.text=values[position]+"  ▾"
-                label.textSize=14f
+                label.textSize=visualNumbers.selectorClosedTextSp
                 label.setSingleLine(true)
                 label.setTextColor(selectorColor)
-                label.setPadding(dp(12f),0,dp(7f),0)
+                label.setPadding(dp(visualNumbers.selectorClosedPaddingStartDp),0,
+                    dp(visualNumbers.selectorClosedPaddingEndDp),0)
                 return label
             }
             override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View {
                 val label=super.getDropDownView(position,convertView,parent) as TextView
                 label.text=values[position]
-                label.textSize=16f
+                label.textSize=visualNumbers.selectorOpenTextSp
                 label.setTextColor(selectorColor)
-                label.setPadding(dp(15f),dp(10f),dp(9f),dp(10f))
+                label.setPadding(dp(visualNumbers.selectorOpenPaddingHorizontalDp),
+                    dp(visualNumbers.selectorOpenPaddingVerticalDp),
+                    dp(visualNumbers.selectorOpenPaddingHorizontalDp),
+                    dp(visualNumbers.selectorOpenPaddingVerticalDp))
                 label.setBackgroundColor(Color.rgb(24,48,62))
                 return label
             }
@@ -134,6 +139,7 @@ class UiChromeController(private val activity:Activity) {
         windows=ui.windows
         animations=ui.animations
         overlay=newOverlay
+        visualNumbers=ui.visualNumbers
         v.indicator.configureVisuals(newOverlay.indicatorVisuals)
         GlassDialogFactory.applyTheme(windowConfig)
 
@@ -153,7 +159,7 @@ class UiChromeController(private val activity:Activity) {
         v.subtitle.setTextColor(ui.subtitleColor)
         val params=v.logo.layoutParams as FrameLayout.LayoutParams
         params.width=dp(ui.logoSizeDp.toFloat())
-        params.height=dp(ui.logoSizeDp*1.22f)
+        params.height=dp(ui.logoSizeDp*visualNumbers.logoHeightFactor)
         params.topMargin=dp(ui.logoOffsetYDp.toFloat())
         params.gravity=Gravity.CENTER
         v.logo.layoutParams=params
