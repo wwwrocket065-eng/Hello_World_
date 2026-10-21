@@ -253,9 +253,24 @@ def produce(args):
     for name in sorted(files):print(" +",name)
     print("Feed is staged locally; publish only after review and compatibility check.")
 
+def numeric_catalog():
+    """List scalar numeric properties from the verified signed module baseline."""
+    _,baseline=published_baseline()
+    def walk(prefix,value):
+        if isinstance(value,dict):
+            for name in sorted(value):
+                yield from walk(prefix+"."+name,value[name])
+        elif type(value) in (int,float):
+            yield prefix,value
+    for alias in sorted(ALIASES):
+        _,data=config_resource(alias,baseline)
+        yield from walk(alias,data)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--version",type=int,required=True)
+    parser.add_argument("--version",type=int)
+    parser.add_argument("--list-numbers",action="store_true",help="List available numeric properties without signing")
     parser.add_argument("--set",action="append",default=[],metavar="MODULE.PROPERTY=VALUE")
     parser.add_argument("--file",action="append",default=[],metavar="RESOURCE=FILE")
     parser.add_argument("--button",action="append",default=[],metavar="ID.FIELD=VALUE")
@@ -263,6 +278,16 @@ def main():
     parser.add_argument("--output",type=Path,default=ROOT/"updates/fast-staged")
     parser.add_argument("--dry-run",action="store_true")
     args=parser.parse_args()
+    if args.list_numbers:
+        if args.set or args.button or args.file or args.key_backup:
+            parser.error("--list-numbers cannot be combined with patch changes")
+        try:
+            for key,value in numeric_catalog():
+                print(key+"="+json.dumps(value,ensure_ascii=False))
+        except (ValueError,KeyError,OSError,zipfile.BadZipFile) as error:
+            parser.error(str(error))
+        return
+    if args.version is None:parser.error("--version is required for patches")
     try:produce(args)
     except (ValueError,KeyError,OSError,zipfile.BadZipFile) as error:parser.error(str(error))
 
