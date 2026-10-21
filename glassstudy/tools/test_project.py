@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.52' in props and 'GLASSSTUDY_VERSION_CODE=20052' in props
+assert 'GLASSSTUDY_VERSION=0.2.53' in props and 'GLASSSTUDY_VERSION_CODE=20053' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -327,7 +327,7 @@ assert 'var theme:WindowStyleConfig=WindowStyleConfig()' in dialog_factory
 assert 'theme.diagnosticHeaderOrder.forEach' in popup_src
 assert 'val diagnosticHeaderOrder:List<String>' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 assert window_theme['diagnosticHeaderOrder']==['title','copy']
-assert window_theme['menuOrder']==['indicatorStyle']
+assert window_theme['menuOrder']==['localPatches']
 
 assert 'titles' in window_theme and window_theme['titles']['scene']=='СЦЕНА'
 assert 'Unknown window title key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
@@ -358,7 +358,7 @@ assert 'showIndicator(LightIndicatorView.Mode.ELEVATION' in camera_light
 
 assert 'showWith' in overlay_config and 'enabled' in overlay_config
 assert 'LightIndicatorView(this)' in activity
-assert 'uiChrome.showIndicator(mode,value,cameraLight.lightMode)' in activity
+assert 'uiChrome.showIndicator(mode,value,cameraLight.lightMode,' in activity
 
 # Rich window schema is declarative and wired into the real UI, not just docs.
 window_schema=(root/'app/src/main/java/com/glassstudy/filament/DeclarativeWindows.kt').read_text()
@@ -423,9 +423,13 @@ assert 'brightness+(span-oldPinch)/dp/config.brightnessPinchDivisorDp' in camera
 assert any(b['action']=='menu' and b['icon']=='gear' for b in json.loads((root/'app/src/main/assets/ui/layout.json').read_text())['uiButtons'])
 assert 'button.copy(icon = "gear", label = "")' in (root/'app/src/main/java/com/glassstudy/filament/PatchUiBundle.kt').read_text()
 assert 'val legacy=setOf("model","camera","diagnostics")' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
-assert 'LightIndicatorSettingsPanel(this)' in activity
-assert 'LightingIndicatorStyles.save(activity,mode,variants[index].id)' in (root/'app/src/main/java/com/glassstudy/filament/LightIndicatorSettingsPanel.kt').read_text()
-assert 'LightingIndicatorStyles.saveColor(activity,mode,' in (root/'app/src/main/java/com/glassstudy/filament/LightIndicatorSettingsPanel.kt').read_text()
+assert 'LightIndicatorSettingsPanel(' not in activity
+assert 'LightingIndicatorStyles' not in activity
+assert 'Стиль индикаторов освещения' not in activity
+assert 'Папка локальных патчей' in activity
+assert 'names==listOf("indicatorStyle")' in (src/'WindowStyleConfig.kt').read_text()
+assert not (src/'LightIndicatorSettingsPanel.kt').exists()
+assert not (src/'LightingIndicatorStyles.kt').exists()
 
 # Modular renderer owns actual state/interaction wiring; MainActivity remains host.
 assert 'fun updateHighlights()' in toolbar
@@ -502,7 +506,7 @@ assert 'uiChrome.popupStyle()' in activity
 assert 'uiChrome.updateStatus(cameraLight.lightMode)' in activity
 assert 'uiChrome.updateIndicatorVisibility(cameraLight.lightMode)' in activity
 assert 'v.indicator.hide()' in chrome_src
-assert 'LightingIndicatorStyles.selected(activity,mode)' in chrome_src
+assert 'LightingIndicatorStyles.selected(activity,mode)' not in chrome_src
 assert 'private fun selectionAdapter(' not in activity
 assert 'private fun setSystemBarMode(' not in activity
 assert 'private fun skin(' not in activity
@@ -728,3 +732,33 @@ assert (root/'tools/LightTouchSessionRegression.kt').is_file()
 
 # ACTION_UP coordinates must be checked, even when a quick swipe has no MOVE event.
 assert 'lightTouch.onMove(e.x,e.y,density())' in camera_light
+
+# Technical light visuals share one sun tint/glow, with no in-app style or RGB editor.
+projection=(src/'LightGuideProjection.kt').read_text()
+indicator=(src/'LightIndicatorView.kt').read_text()
+overlay_module=(src/'OverlayModuleConfig.kt').read_text()
+assert 'val options=listOf(' not in indicator
+assert 'private var style=' not in indicator
+assert 'setShadowLayer(spec.sunGlowUnits' in indicator
+assert 'setShadowLayer(spec.guideGlowUnits' in indicator
+assert 'canvas.drawOval(' not in indicator
+assert 'canvas.drawLine(0f,0f,x' not in indicator
+assert 'canvas.drawLine(0f,-4f,x' not in indicator
+assert 'canvas.drawCircle(0f,0f,spec.sunRadiusUnits,pen)' in indicator
+assert 'if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)' in indicator
+assert 'drawOrbit(canvas,kind,spec,x,y)' in indicator
+assert 'private fun nearSun(' in indicator
+assert 'LightGuideProjection.azimuth(' in indicator
+assert 'LightGuideProjection.elevation(' in indicator
+assert 'fun azimuth(' in projection and 'fun elevation(' in projection
+assert 'return Point(' in projection
+assert 'fun indicatorColor(mode:LightIndicatorView.Mode):Int=brightnessColor' in overlay_module
+assert 'RotationAtMaxDeg' not in projection
+assert 'guideSamples' in visual_src and 'guideGlowUnits' in visual_src
+assert 'sunGlowUnits' in visual_src and 'glowOpacity' in visual_src
+assert set(visuals['brightness'])==set(visuals['azimuth'])==set(visuals['elevation'])
+assert all(visuals[name]['rotationAtMaxDeg']==0 for name in ('azimuth','elevation'))
+assert all(visuals[name]['sunGlowUnits']==7 for name in visuals)
+assert all(visuals[name]['guideSamples']==180 for name in visuals)
+assert all(visuals[name]['rayLengthMaxUnits']==12 for name in visuals)
+assert (root/'tools/LightGuideProjectionRegression.kt').is_file()
