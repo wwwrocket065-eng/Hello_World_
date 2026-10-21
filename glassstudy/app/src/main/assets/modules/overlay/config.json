@@ -43,7 +43,7 @@
       "captionBoxPaddingXUnits": 10,
       "captionBoxPaddingYUnits": 6,
       "captionBoxCornerUnits": 8,
-      "captionBoxOpacity": 0.9
+      "captionBoxOpacity": 0.45
     },
     "elevation": {
       "offsetXDp": 0,
@@ -71,7 +71,7 @@
       "captionBoxPaddingXUnits": 10,
       "captionBoxPaddingYUnits": 6,
       "captionBoxCornerUnits": 8,
-      "captionBoxOpacity": 0.9
+      "captionBoxOpacity": 0.45
     },
     "brightness": {
       "offsetXDp": 40,
@@ -99,7 +99,7 @@
       "captionBoxPaddingXUnits": 10,
       "captionBoxPaddingYUnits": 6,
       "captionBoxCornerUnits": 8,
-      "captionBoxOpacity": 0.9
+      "captionBoxOpacity": 0.45
     }
   }
 }

@@ -36,7 +36,7 @@ data class IndicatorVisualConfig(
     val captionBoxPaddingXUnits:Float=10f,
     val captionBoxPaddingYUnits:Float=6f,
     val captionBoxCornerUnits:Float=8f,
-    val captionBoxOpacity:Float=.90f
+    val captionBoxOpacity:Float=.45f
 ) {
     companion object {
         fun defaults(mode:LightIndicatorView.Mode):IndicatorVisualConfig =

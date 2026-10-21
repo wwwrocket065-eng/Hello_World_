@@ -373,3 +373,5 @@
 - Caption backgrounds: four new validated patchable numbers per mode (captionBoxPaddingXUnits, captionBoxPaddingYUnits, captionBoxCornerUnits, captionBoxOpacity), using patch-controlled overlay.backgroundColor with independent caption text and real Android Canvas round rect.
 - Version bump to 0.2.54 (20054); all original signed patches remain loadable, previously working 20037 offset 100dp and rotation 90° preserved. Existing updater untouched.
 - CI/build/signing/user device checks pending. Regression source and pure Kotlin tests added.
+
+- Follow-up UI correction: user wants *translucent* dark rounded caption plates. Set validated captionBoxOpacity default and bundled overlay for all modes to **0.45** (45% opacity / 55% transparency), still patchable individually. Regression checks opacity remains below 0.55.

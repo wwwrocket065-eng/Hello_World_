@@ -789,8 +789,12 @@ assert 'captionBoxOpacity' in visual_src and 'captionBoxPaddingYUnits' in visual
 assert 'overlay.backgroundColor ?: Color.rgb(17,35,49)' in chrome_src
 for kind in ('azimuth','brightness','elevation'):
     spec=visuals[kind]
-    assert 0.5 < spec['captionBoxOpacity'] <= 1
+    assert 0.15 < spec['captionBoxOpacity'] <= 0.55
     assert spec['captionBoxCornerUnits'] > 0
     assert spec['captionBoxPaddingXUnits'] > 0
     assert spec['captionBoxPaddingYUnits'] > 0
 assert (root/'tools/LightDirectionMathRegression.kt').is_file()
+
+# Translucent caption plates reveal the scene beneath; never cover it opaquely.
+assert 'val captionBoxOpacity:Float=.45f' in visual_src
+assert all(abs(visuals[m]['captionBoxOpacity']-0.45)<0.001 for m in visuals)
