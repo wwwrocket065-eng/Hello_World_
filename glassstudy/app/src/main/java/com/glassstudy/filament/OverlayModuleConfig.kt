@@ -16,6 +16,8 @@ data class OverlayModuleConfig(
     val progressColor:Int?=null,
     val thumbColor:Int?=null,
     val indicatorSizeDp:Int=230,
+    val brightnessOffsetXDp:Float=40f,
+    val brightnessRotationAt200Deg:Float=90f,
     val azimuthColor:Int=Color.rgb(240,210,132),
     val elevationColor:Int=Color.rgb(236,225,194),
     val brightnessColor:Int=Color.rgb(255,220,130),
@@ -44,10 +46,20 @@ data class OverlayModuleConfig(
             }
             val size=j.optInt("indicatorSizeDp",230)
             require(size in 160..340) { "Invalid indicator size" }
+            // Signed resource values: bounded to keep the sun, label and guides visible.
+            val brightnessOffset=j.optDouble("brightnessOffsetXDp",40.0)
+            val brightnessRotation=j.optDouble("brightnessRotationAt200Deg",90.0)
+            require(brightnessOffset.isFinite() && brightnessOffset in -60.0..60.0) {
+                "Invalid brightness indicator horizontal offset"
+            }
+            require(brightnessRotation.isFinite() && brightnessRotation in 0.0..180.0) {
+                "Invalid brightness sun rotation"
+            }
             return OverlayModuleConfig(j.optBoolean("enabled",true),mode,label,bottom,width,
                 optionalColor("backgroundColor"),optionalColor("borderColor"),
                 optionalColor("textColor"),optionalColor("progressColor"),optionalColor("thumbColor"),
-                size,optionalColor("azimuthColor")?:Color.rgb(240,210,132),
+                size,brightnessOffset.toFloat(),brightnessRotation.toFloat(),
+                optionalColor("azimuthColor")?:Color.rgb(240,210,132),
                 optionalColor("elevationColor")?:Color.rgb(236,225,194),
                 optionalColor("brightnessColor")?:Color.rgb(255,220,130),
                 optionalColor("guideColor")?:Color.rgb(173,192,206))
