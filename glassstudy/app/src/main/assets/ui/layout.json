@@ -210,5 +210,7 @@
   "topButtonGapDp": 4,
   "topButtonLeadingDp": 4,
   "bottomButtonGapDp": 8,
-  "bottomRowGapDp": 8
+  "bottomRowGapDp": 8,
+  "topReservedWidthDp": 186,
+  "topMinButtonWidthDp": 28
 }
