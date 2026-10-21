@@ -9,7 +9,7 @@ import kotlin.math.hypot
  * release or a transition to a two-finger pinch. It never draws or changes
  * the render engine, so passive indicator views can observe its Axis.
  */
-class LightGestureController(private val lockThresholdDp: Double = 6.0) {
+class LightGestureController(var lockThresholdDp: Double = 6.0) {
     enum class Axis { AZIMUTH, ELEVATION }
     data class Motion(val axis: Axis, val deltaDp: Double)
 
