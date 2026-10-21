@@ -146,6 +146,9 @@ data class WindowStyleConfig(
                     windowModes[key]=mode
                 }
             }
+            require(!json.has("diagnosticsPopup") || json.optJSONObject("diagnosticsPopup")!=null) {
+                "Invalid diagnostic numeric configuration"
+            }
             return WindowStyleConfig(
                 color("background",Color.rgb(17,35,49)),
                 color("control",Color.rgb(23,48,64)),
