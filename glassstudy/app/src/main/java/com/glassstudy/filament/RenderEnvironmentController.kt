@@ -26,13 +26,13 @@ class RenderEnvironmentController(
         } catch(e:Exception) {
             Log.w("GlassStudy","Optional IBL could not load",e)
         }
-        viewer.view.ambientOcclusionOptions=viewer.view.ambientOcclusionOptions.apply{
-            enabled=true
-        }
         apply(configuration)
     }
     fun apply(next:RenderModuleConfig) {
         configuration=next
+        viewer.view.ambientOcclusionOptions=viewer.view.ambientOcclusionOptions.apply {
+            enabled=next.ambientOcclusionEnabled
+        }
         viewer.camera.setExposure(next.exposureAperture,next.exposureShutter,
             next.exposureSensitivity)
         viewer.view.antiAliasing=if(next.fxaa)View.AntiAliasing.FXAA
