@@ -212,5 +212,16 @@
   "bottomButtonGapDp": 8,
   "bottomRowGapDp": 8,
   "topReservedWidthDp": 186,
-  "topMinButtonWidthDp": 28
+  "topMinButtonWidthDp": 28,
+  "visualNumbers": {
+    "buttonCornerDp": 14,
+    "buttonElevationDp": 2,
+    "logoHeightFactor": 1.22,
+    "selectorClosedTextSp": 14,
+    "selectorOpenTextSp": 16,
+    "selectorClosedPaddingStartDp": 12,
+    "selectorClosedPaddingEndDp": 7,
+    "selectorOpenPaddingHorizontalDp": 15,
+    "selectorOpenPaddingVerticalDp": 10
+  }
 }
