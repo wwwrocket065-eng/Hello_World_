@@ -4,16 +4,20 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.view.View
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** One passive, touch-transparent HUD for all three Filament light parameters. */
+/**
+ * One passive, touch-transparent technical HUD for all three light controls.
+ * The orbit GUIDE is a camera-aware 3D projection; the eight-rayed sun remains
+ * a round 2D icon, regardless of camera viewpoint.
+ */
 class LightIndicatorView(context:Context):View(context) {
     enum class Mode { AZIMUTH,ELEVATION,BRIGHTNESS }
     private var mode:Mode?=null
@@ -21,11 +25,13 @@ class LightIndicatorView(context:Context):View(context) {
     private var target=0f
     private var visuals:Map<Mode,IndicatorVisualConfig> =
         Mode.values().associateWith { IndicatorVisualConfig.defaults(it) }
-    private var style="classic"
-    private var tint=Color.rgb(242,214,158)
+    private var tint=Color.rgb(255,220,130)
     private var guide=Color.rgb(173,192,206)
+    private var cameraYaw=0.56
+    private var cameraPitch=0.34
+    private var lightAzimuth=1.3
     private val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND
+        style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND
     }
     private val caption=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign=Paint.Align.CENTER;textSize=16f;style=Paint.Style.FILL
@@ -35,28 +41,29 @@ class LightIndicatorView(context:Context):View(context) {
         importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
         visibility=GONE;alpha=0f;setLayerType(LAYER_TYPE_SOFTWARE,null)
     }
-    /** Patch-defined numeric appearance shared by every indicator mode. */
+    /** A single validated overlay schema controls every indicator appearance. */
     fun configureVisuals(next:Map<Mode,IndicatorVisualConfig>) {
         visuals=next.toMap()
         mode?.let { positionView(it) }
         invalidate()
     }
     private fun visual(mode:Mode)=visuals[mode] ?: IndicatorVisualConfig.defaults(mode)
-    /**
-     * Move the entire passive HUD instead of translating its Canvas:
-     * large signed offsets must not clip the rays or the percentage label
-     * against this 230dp View's local bounds.
-     */
+
     private fun positionView(next:Mode) {
         val spec=visual(next)
         val density=resources.displayMetrics.density
+        // Translate the whole HUD so the 100dp brightness offset cannot clip it.
         translationX=spec.offsetXDp*density
         translationY=spec.offsetYDp*density
     }
-    fun show(next:Mode,actual:Float,appearance:String,color:Int,guideColor:Int) {
-        if(!actual.isFinite())return
+
+    fun show(next:Mode,actual:Float,color:Int,guideColor:Int,
+             cameraYawRad:Double,cameraPitchRad:Double,lightAzimuthRad:Double) {
+        if(!actual.isFinite() || !cameraYawRad.isFinite() ||
+            !cameraPitchRad.isFinite() || !lightAzimuthRad.isFinite())return
         if(mode!=next)value=actual
-        mode=next;target=actual;style=appearance;tint=color;guide=guideColor
+        mode=next;target=actual;tint=color;guide=guideColor
+        cameraYaw=cameraYawRad;cameraPitch=cameraPitchRad;lightAzimuth=lightAzimuthRad
         positionView(next)
         if(visibility!=VISIBLE) {
             animate().cancel();alpha=0f;visibility=VISIBLE
@@ -64,6 +71,7 @@ class LightIndicatorView(context:Context):View(context) {
         }
         invalidate()
     }
+
     fun hide() {
         if(visibility==GONE)return
         val duration=mode?.let { visual(it).fadeOutMs } ?: 160L
@@ -73,63 +81,74 @@ class LightIndicatorView(context:Context):View(context) {
         }.start()
     }
     override fun onTouchEvent(event:android.view.MotionEvent?):Boolean=false
+
+    private fun glowColor(color:Int,intensity:Float):Int=Color.argb(
+        (255f*intensity).roundToInt().coerceIn(0,255),
+        Color.red(color),Color.green(color),Color.blue(color))
+
+    /** The sun stays a perfect screen-facing circle; only orbit points project. */
     override fun onDraw(canvas:Canvas) {
         super.onDraw(canvas)
         val kind=mode?:return
         val spec=visual(kind)
         val moving=abs(target-value)>spec.settleThreshold
         value=if(moving)value+(target-value)*spec.smoothing else target
-        val save=canvas.save()
+        val saved=canvas.save()
         canvas.translate(width/2f,height/2f)
         val scale=min(width,height).toFloat()/230f
         canvas.scale(scale,scale)
-        // Positions are applied to the View outside Canvas to avoid local clipping.
-        pen.style=Paint.Style.STROKE;pen.color=guide
-        pen.strokeWidth=if(style=="minimal")spec.guideStrokeUnits*.61f else spec.guideStrokeUnits
+
+        pen.style=Paint.Style.STROKE
+        pen.color=guide
+        pen.strokeWidth=spec.guideStrokeUnits
+        if(spec.guideGlowUnits>0f && spec.glowOpacity>0f)
+            pen.setShadowLayer(spec.guideGlowUnits,0f,0f,glowColor(guide,spec.glowOpacity))
+        else pen.clearShadowLayer()
+
         caption.color=tint;caption.textSize=spec.captionSizeUnits
-        var x=0f;var y=0f;var rotation=0f;var rays=spec.rayLengthMinUnits
+        var x=0f;var y=0f;var rotation=0f
+        var rays=spec.rayLengthMaxUnits
         when(kind) {
             Mode.BRIGHTNESS -> {
                 val pct=value.coerceIn(0f,200f)
                 y=spec.travelHalfUnits*(1f-2f*pct/200f)
-                if(y-spec.guideGapUnits > -spec.guideRadiusUnits)
-                    canvas.drawLine(0f,-spec.guideRadiusUnits,0f,y-spec.guideGapUnits,pen)
-                if(y+spec.guideGapUnits < spec.guideRadiusUnits)
-                    canvas.drawLine(0f,y+spec.guideGapUnits,0f,spec.guideRadiusUnits,pen)
+                // Guide stays world-vertical; nothing is drawn through the sun ring.
+                val gap=max(spec.guideGapUnits,spec.sunRadiusUnits+spec.guideStrokeUnits)
+                if(y-gap > -spec.guideRadiusUnits)
+                    canvas.drawLine(0f,-spec.guideRadiusUnits,0f,y-gap,pen)
+                if(y+gap < spec.guideRadiusUnits)
+                    canvas.drawLine(0f,y+gap,0f,spec.guideRadiusUnits,pen)
                 rotation=pct*spec.rotationAtMaxDeg/200f
                 rays=spec.rayLengthMinUnits+
                     pct*(spec.rayLengthMaxUnits-spec.rayLengthMinUnits)/200f
                 label(canvas,pct.roundToInt().toString()+"%",spec.captionYUnits)
             }
-            Mode.ELEVATION -> {
-                val deg=value.coerceIn(0f,180f)
-                canvas.drawArc(RectF(-spec.guideRadiusUnits,-spec.guideRadiusUnits,
-                    spec.guideRadiusUnits,spec.guideRadiusUnits),180f,180f,false,pen)
-                val rad=Math.toRadians(deg.toDouble())
-                x=(spec.guideRadiusUnits*cos(rad)).toFloat();y=(-spec.guideRadiusUnits*sin(rad)).toFloat()
-                rotation=deg*spec.rotationAtMaxDeg/180f
-                canvas.drawLine(0f,0f,x*.78f,y*.78f,pen)
-                label(canvas,deg.roundToInt().toString()+"°",spec.captionYUnits)
-            }
             Mode.AZIMUTH -> {
                 val deg=((value%360f)+360f)%360f
-                canvas.drawCircle(0f,-4f,spec.guideRadiusUnits,pen)
-                val rad=Math.toRadians(deg.toDouble())
-                x=(spec.guideRadiusUnits*sin(rad)).toFloat();y=(-4-spec.guideRadiusUnits*cos(rad)).toFloat()
-                rotation=deg*spec.rotationAtMaxDeg/360f
-                canvas.drawLine(0f,-4f,x*.78f,-4f+(y+4f)*.78f,pen)
+                val point=LightGuideProjection.azimuth(Math.toRadians(deg.toDouble()),
+                    spec.guideRadiusUnits,cameraYaw,cameraPitch)
+                x=point.x;y=point.y
+                drawOrbit(canvas,kind,spec,x,y)
+                // Do NOT rotate the azimuth/elevation suns themselves.
                 label(canvas,(deg.roundToInt()%360).toString()+"°",spec.captionYUnits)
             }
+            Mode.ELEVATION -> {
+                val deg=value.coerceIn(0f,180f)
+                val point=LightGuideProjection.elevation(Math.toRadians(deg.toDouble()),
+                    spec.guideRadiusUnits,lightAzimuth,cameraYaw,cameraPitch)
+                x=point.x;y=point.y
+                drawOrbit(canvas,kind,spec,x,y)
+                label(canvas,deg.roundToInt().toString()+"°",spec.captionYUnits)
+            }
         }
-        if(style!="minimal") {
-            pen.style=Paint.Style.FILL;pen.color=Color.argb(80,0,0,0)
-            canvas.drawOval(x-16f,y+12f,x+16f,y+18f,pen)
-        }
+        pen.clearShadowLayer()
+
         val sun=canvas.save()
-        canvas.translate(x,y);canvas.rotate(rotation)
-        pen.style=Paint.Style.STROKE;pen.color=tint
-        pen.strokeWidth=if(style=="minimal")spec.sunStrokeUnits*.5833f else spec.sunStrokeUnits
-        if(style=="technical")pen.setShadowLayer(7f,0f,0f,tint)
+        canvas.translate(x,y)
+        if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)
+        pen.style=Paint.Style.STROKE;pen.color=tint;pen.strokeWidth=spec.sunStrokeUnits
+        if(spec.sunGlowUnits>0f && spec.glowOpacity>0f)
+            pen.setShadowLayer(spec.sunGlowUnits,0f,0f,glowColor(tint,spec.glowOpacity))
         canvas.drawCircle(0f,0f,spec.sunRadiusUnits,pen)
         for(i in 0 until 8) {
             val rad=PI*i/4.0
@@ -139,12 +158,47 @@ class LightIndicatorView(context:Context):View(context) {
                 ((spec.rayStartUnits+rays)*sin(rad)).toFloat(),pen)
         }
         pen.clearShadowLayer()
-        canvas.restoreToCount(sun);canvas.restoreToCount(save)
+        canvas.restoreToCount(sun)
+        canvas.restoreToCount(saved)
         if(moving)postInvalidateOnAnimation()
     }
+
+    /**
+     * Sample the projected 3D orbit, rather than stretching the whole canvas.
+     * A projected gap around the sun removes BOTH front/back track strokes
+     * that would otherwise cross the sun near an edge-on view.
+     * No radial spokes or center-reaching lines are rendered.
+     */
+    private fun drawOrbit(canvas:Canvas,kind:Mode,spec:IndicatorVisualConfig,
+                          sunX:Float,sunY:Float) {
+        val steps=spec.guideSamples
+        val endAngle=if(kind==Mode.AZIMUTH)2*PI else PI
+        val gap=max(spec.guideGapUnits,spec.sunRadiusUnits+spec.guideStrokeUnits)
+        var previous:LightGuideProjection.Point?=null
+        for(i in 0..steps) {
+            val theta=endAngle*i.toDouble()/steps
+            val point=if(kind==Mode.AZIMUTH)
+                LightGuideProjection.azimuth(theta,spec.guideRadiusUnits,cameraYaw,cameraPitch)
+            else LightGuideProjection.elevation(theta,spec.guideRadiusUnits,
+                lightAzimuth,cameraYaw,cameraPitch)
+            val prior=previous
+            if(prior!=null && !nearSun(prior,point,sunX,sunY,gap)) {
+                canvas.drawLine(prior.x,prior.y,point.x,point.y,pen)
+            }
+            previous=point
+        }
+    }
+    private fun nearSun(a:LightGuideProjection.Point,b:LightGuideProjection.Point,
+                        cx:Float,cy:Float,gap:Float):Boolean {
+        val dx=b.x-a.x;val dy=b.y-a.y
+        val lengthSquared=dx*dx+dy*dy
+        val t=if(lengthSquared<=.00001f)0f else
+            (((cx-a.x)*dx+(cy-a.y)*dy)/lengthSquared).coerceIn(0f,1f)
+        val px=a.x+t*dx-cx;val py=a.y+t*dy-cy
+        return px*px+py*py <= gap*gap
+    }
     private fun label(canvas:Canvas,v:String,y:Float) {
-        caption.setShadowLayer(2f,0f,2f,Color.BLACK)
-        canvas.drawText(v,0f,y,caption)
         caption.clearShadowLayer()
+        canvas.drawText(v,0f,y,caption)
     }
 }
