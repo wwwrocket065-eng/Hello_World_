@@ -49,3 +49,25 @@ run("--set","overlay.indicatorVisuals.brightness.offsetXDp=\"bad\"",good=False)
 assert "published_baseline()" in TOOL.read_text()
 assert "pub.verify(sig,canonical(version,entries)" in TOOL.read_text()
 print("PASS fast patch smoke, cumulative baseline, unknown-key rejection, dry-run without key")
+
+# Single signed patch can modify numeric values ACROSS domains, not just lighting.
+multiple=run("--set","ui.topReservedWidthDp=190",
+             "--set","camera.homeDistance=6.0",
+             "--set","camera.brightnessPinchDivisorDp=150",
+             "--set","render.iblIntensity=31000",
+             "--set","scene.graySkyRed=105",
+             "--set","windows.diagnosticsPopup.reportTextSizeSp=12",
+             "--set","overlay.indicatorVisuals.brightness.rotationAtMaxDeg=90")
+for resource in ("ui/layout.json","modules/camera/config.json",
+                 "modules/render/config.json","modules/scene/config.json",
+                 "modules/windows/config.json","modules/overlay/config.json"):
+    assert resource in multiple.stdout, resource
+
+list_result=subprocess.run([sys.executable,str(TOOL),"--list-numbers"],
+                           capture_output=True,text=True,cwd=ROOT,check=True)
+for key in ("camera.homeDistance=","render.exposureSensitivity=",
+            "scene.graySkyRed=","ui.topReservedWidthDp=",
+            "windows.diagnosticsPopup.heightFraction=",
+            "overlay.indicatorVisuals.brightness.offsetXDp="):
+    assert key in list_result.stdout,key
+assert "render.ambientOcclusionEnabled=" not in list_result.stdout
