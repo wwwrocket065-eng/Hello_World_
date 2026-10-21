@@ -36,12 +36,14 @@ class DiagnosticsPopupController(
     fun show(report:String,style:DiagnosticsPopupStyle) {
         if(isShowing)return
         val theme=GlassDialogFactory.theme
-        val margin=dp(18f)
+        val nums=theme.diagnosticsPopup
+        val margin=dp(nums.horizontalMarginDp)
         val width=(activity.resources.displayMetrics.widthPixels-margin*2)
-            .coerceAtLeast(dp(220f))
+            .coerceAtLeast(dp(nums.minimumWidthDp))
         val outer=LinearLayout(activity).apply {
             orientation=LinearLayout.VERTICAL
-            setPadding(dp(15f),dp(14f),dp(15f),dp(14f))
+            setPadding(dp(nums.panelHorizontalPaddingDp),dp(nums.panelVerticalPaddingDp),
+                dp(nums.panelHorizontalPaddingDp),dp(nums.panelVerticalPaddingDp))
             background=GlassDialogFactory.windowBackground(activity,theme.background,theme.border)
         }
         val header=LinearLayout(activity).apply {
@@ -50,7 +52,7 @@ class DiagnosticsPopupController(
         }
         val heading=TextView(activity).apply {
             text=theme.titles.getValue("diagnostics")
-            textSize=15f
+            textSize=nums.titleTextSizeSp
             setTextColor(theme.accent)
             gravity=Gravity.CENTER_VERTICAL
         }
@@ -68,7 +70,7 @@ class DiagnosticsPopupController(
         copy.addView(icon,FrameLayout.LayoutParams(size,size,Gravity.CENTER))
         theme.diagnosticHeaderOrder.forEach { item ->
             when(item) {
-                "title" -> header.addView(heading,LinearLayout.LayoutParams(0,dp(40f),1f))
+                "title" -> header.addView(heading,LinearLayout.LayoutParams(0,dp(nums.headerHeightDp),1f))
                 "copy" -> header.addView(copy,LinearLayout.LayoutParams(size,size))
             }
         }
@@ -77,9 +79,10 @@ class DiagnosticsPopupController(
             text=report
             setTextColor(theme.text)
             typeface=Typeface.MONOSPACE
-            textSize=11.5f
+            textSize=nums.reportTextSizeSp
             setTextIsSelectable(true)
-            setPadding(dp(10f),dp(12f),dp(10f),dp(10f))
+            setPadding(dp(nums.reportPaddingDp),dp(nums.reportTopPaddingDp),
+                dp(nums.reportPaddingDp),dp(nums.reportPaddingDp))
         }
         val scrolling=ScrollView(activity).apply {
             isFillViewport=false
@@ -88,8 +91,8 @@ class DiagnosticsPopupController(
             addView(reportView)
         }
         outer.addView(scrolling,LinearLayout.LayoutParams(-1,
-            (activity.resources.displayMetrics.heightPixels*.63).toInt()).apply {
-            topMargin=dp(10f)
+            (activity.resources.displayMetrics.heightPixels*nums.heightFraction).toInt()).apply {
+            topMargin=dp(nums.reportTopMarginDp)
         })
         val shown=GlassDialogFactory.popup(activity,outer,width) {
             dismissedAtMs=SystemClock.uptimeMillis()
@@ -104,7 +107,7 @@ class DiagnosticsPopupController(
         }
         popup=shown
         // The four top toolbar icons remain accessible.
-        shown.showAtLocation(anchor,Gravity.TOP or Gravity.CENTER_HORIZONTAL,0,dp(69f))
+        shown.showAtLocation(anchor,Gravity.TOP or Gravity.CENTER_HORIZONTAL,0,dp(nums.verticalOffsetDp))
         onVisibilityChanged()
     }
 }
