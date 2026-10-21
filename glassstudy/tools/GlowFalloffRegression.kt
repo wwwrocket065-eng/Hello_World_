@@ -7,7 +7,7 @@ fun main() {
     fun close(a:Float,b:Float,tol:Float=.00005f)=check(abs(a-b)<tol) {
         "Expected $b, actual $a"
     }
-    for(gamma in listOf(.5f,1f,1.75f,2f,4f,6f)) {
+    for(gamma in listOf(1f,1.25f,1.75f,2f,4f,6f)) {
         close(GlowFalloffMath.alphaAt(0f,.65f,gamma),.65f)
         close(GlowFalloffMath.alphaAt(1f,.65f,gamma),0f)
         close(GlowFalloffMath.alphaAt(1.001f,.65f,gamma),0f)

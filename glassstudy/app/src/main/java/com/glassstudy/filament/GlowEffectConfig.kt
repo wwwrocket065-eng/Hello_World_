@@ -34,7 +34,7 @@ data class GlowLayerConfig(
             return GlowLayerConfig(
                 value("radiusUnits",fallback.radiusUnits,0f,96f),
                 value("opacity",fallback.opacity,0f,1f),
-                value("falloff",fallback.falloff,.5f,6f),
+                value("falloff",fallback.falloff,1f,6f),
                 count.toInt()
             )
         }
@@ -55,7 +55,7 @@ data class GlowEffectConfig(
     companion object {
         fun defaults(legacyRadius:Float=10f,legacyOpacity:Float=.42f):GlowEffectConfig {
             val spread=legacyRadius.coerceIn(0f,24f)
-            val opacity=legacyOpacity.coerceIn(0f,1f)
+            val opacity=if(legacyRadius<=0f)0f else legacyOpacity.coerceIn(0f,1f)
             return GlowEffectConfig(
                 GlowLayerConfig(spread+2f,(opacity*1.8f).coerceIn(0f,1f),1.75f,16),
                 GlowLayerConfig(spread*.60f,(opacity*.65f).coerceIn(0f,1f),2.0f,14),

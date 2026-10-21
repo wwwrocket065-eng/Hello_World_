@@ -4,8 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RadialGradient
-import android.graphics.Shader
+import android.graphics.Path
 import android.view.View
 import kotlin.math.PI
 import kotlin.math.abs
@@ -43,9 +42,9 @@ class LightIndicatorView(context:Context):View(context) {
     private val captionPlate=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style=Paint.Style.FILL
     }
-    private val sunAura=Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style=Paint.Style.FILL
-    }
+    private val glowEngine=CanvasGlowEngine()
+    private val ringPath=Path()
+    private val rayPath=Path()
     init {
         isClickable=false;isFocusable=false
         importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -172,55 +171,40 @@ class LightIndicatorView(context:Context):View(context) {
 
 
     /**
-     * Visible, softly feathered SUN glow, independent of Android Paint shadows.
-     * A legacy setShadowLayer alone was nearly invisible on the glass/floor
-     * background even at 10 units, as confirmed by user screenshots.
-     *
-     * The aura is explicitly rasterized beneath the 8-ray glyph. The guide
-     * has its own separate glow parameter and stays completely unlit at zero.
-     * All colors, size and strength still come from signed overlay resources.
+     * One glow engine and three independently patchable layers.
+     * The ring gets the strongest feathered stroke, the rays a milder stroke,
+     * and the outside a smooth radial haze. No hard edge or opaque glow disk.
+     * The actual sun circle and rays remain crisp, round and independent
+     * of perspective projection; only brightness mode rotates the glyph.
      */
     private fun drawSun(canvas:Canvas,spec:IndicatorVisualConfig,rays:Float) {
-        val activeGlow=spec.sunGlowUnits>0f && spec.glowOpacity>0f
-        if(activeGlow) {
-            val radius=spec.rayStartUnits+rays+spec.sunGlowUnits
-            val strength=spec.glowOpacity
-            sunAura.shader=RadialGradient(0f,0f,radius,
-                intArrayOf(
-                    glowColor(tint,strength*.82f),
-                    glowColor(tint,strength*.56f),
-                    glowColor(tint,strength*.19f),
-                    glowColor(tint,0f)
-                ),
-                floatArrayOf(0f,.26f,.66f,1f),
-                Shader.TileMode.CLAMP)
-            canvas.drawCircle(0f,0f,radius,sunAura)
-            sunAura.shader=null
-
-            // Gentle blurred silhouette along every sun ray (not the ring).
-            pen.clearShadowLayer()
-            pen.style=Paint.Style.STROKE
-            pen.strokeWidth=spec.sunStrokeUnits+spec.sunGlowUnits*.70f
-            pen.color=glowColor(tint,strength*.27f)
-            drawSunGlyph(canvas,spec,rays)
+        ringPath.rewind()
+        ringPath.addCircle(0f,0f,spec.sunRadiusUnits,Path.Direction.CW)
+        rayPath.rewind()
+        for(i in 0 until 8) {
+            val rad=PI*i/4.0
+            rayPath.moveTo((spec.rayStartUnits*cos(rad)).toFloat(),
+                (spec.rayStartUnits*sin(rad)).toFloat())
+            rayPath.lineTo(((spec.rayStartUnits+rays)*cos(rad)).toFloat(),
+                ((spec.rayStartUnits+rays)*sin(rad)).toFloat())
         }
+
+        val glow=spec.glowEffect
+        glowEngine.drawRadial(canvas,0f,0f,tint,glow.ambient)
+        glowEngine.drawStroke(canvas,rayPath,tint,spec.sunStrokeUnits,glow.secondaryStroke)
+        glowEngine.drawStroke(canvas,ringPath,tint,spec.sunStrokeUnits,glow.primaryStroke)
+
         pen.clearShadowLayer()
         pen.style=Paint.Style.STROKE
         pen.strokeWidth=spec.sunStrokeUnits
         pen.color=tint
-        drawSunGlyph(canvas,spec,rays)
+        drawSunGlyph(canvas)
     }
 
-    /** One sun geometry implementation for azimuth, elevation and brightness. */
-    private fun drawSunGlyph(canvas:Canvas,spec:IndicatorVisualConfig,rays:Float) {
-        canvas.drawCircle(0f,0f,spec.sunRadiusUnits,pen)
-        for(i in 0 until 8) {
-            val rad=PI*i/4.0
-            canvas.drawLine((spec.rayStartUnits*cos(rad)).toFloat(),
-                (spec.rayStartUnits*sin(rad)).toFloat(),
-                ((spec.rayStartUnits+rays)*cos(rad)).toFloat(),
-                ((spec.rayStartUnits+rays)*sin(rad)).toFloat(),pen)
-        }
+    /** Shared eight-ray geometry for the three indicator modes. */
+    private fun drawSunGlyph(canvas:Canvas) {
+        canvas.drawPath(ringPath,pen)
+        canvas.drawPath(rayPath,pen)
     }
 
     /**

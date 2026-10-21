@@ -43,7 +43,27 @@
       "captionBoxPaddingXUnits": 10,
       "captionBoxPaddingYUnits": 6,
       "captionBoxCornerUnits": 8,
-      "captionBoxOpacity": 0.45
+      "captionBoxOpacity": 0.45,
+      "glowEffect": {
+        "primaryStroke": {
+          "radiusUnits": 13,
+          "opacity": 0.77,
+          "falloff": 1.75,
+          "samples": 16
+        },
+        "secondaryStroke": {
+          "radiusUnits": 6,
+          "opacity": 0.27,
+          "falloff": 2,
+          "samples": 14
+        },
+        "ambient": {
+          "radiusUnits": 53,
+          "opacity": 0.14,
+          "falloff": 1.6,
+          "samples": 24
+        }
+      }
     },
     "elevation": {
       "offsetXDp": 0,
@@ -71,7 +91,27 @@
       "captionBoxPaddingXUnits": 10,
       "captionBoxPaddingYUnits": 6,
       "captionBoxCornerUnits": 8,
-      "captionBoxOpacity": 0.45
+      "captionBoxOpacity": 0.45,
+      "glowEffect": {
+        "primaryStroke": {
+          "radiusUnits": 13,
+          "opacity": 0.77,
+          "falloff": 1.75,
+          "samples": 16
+        },
+        "secondaryStroke": {
+          "radiusUnits": 6,
+          "opacity": 0.27,
+          "falloff": 2,
+          "samples": 14
+        },
+        "ambient": {
+          "radiusUnits": 53,
+          "opacity": 0.14,
+          "falloff": 1.6,
+          "samples": 24
+        }
+      }
     },
     "brightness": {
       "offsetXDp": 100,
@@ -99,7 +139,27 @@
       "captionBoxPaddingXUnits": 10,
       "captionBoxPaddingYUnits": 6,
       "captionBoxCornerUnits": 8,
-      "captionBoxOpacity": 0.45
+      "captionBoxOpacity": 0.45,
+      "glowEffect": {
+        "primaryStroke": {
+          "radiusUnits": 13,
+          "opacity": 0.77,
+          "falloff": 1.75,
+          "samples": 16
+        },
+        "secondaryStroke": {
+          "radiusUnits": 6,
+          "opacity": 0.27,
+          "falloff": 2,
+          "samples": 14
+        },
+        "ambient": {
+          "radiusUnits": 53,
+          "opacity": 0.14,
+          "falloff": 1.6,
+          "samples": 24
+        }
+      }
     }
   }
 }

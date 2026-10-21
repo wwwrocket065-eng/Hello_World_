@@ -36,7 +36,8 @@ data class IndicatorVisualConfig(
     val captionBoxPaddingXUnits:Float=10f,
     val captionBoxPaddingYUnits:Float=6f,
     val captionBoxCornerUnits:Float=8f,
-    val captionBoxOpacity:Float=.45f
+    val captionBoxOpacity:Float=.45f,
+    val glowEffect:GlowEffectConfig=GlowEffectConfig.defaults(sunGlowUnits,glowOpacity)
 ) {
     companion object {
         fun defaults(mode:LightIndicatorView.Mode):IndicatorVisualConfig =
@@ -77,7 +78,7 @@ data class IndicatorVisualConfig(
         fun parse(j:JSONObject?,mode:LightIndicatorView.Mode):IndicatorVisualConfig {
             val d=defaults(mode)
             if(j==null)return d
-            require(j.keys().asSequence().all { it in ranges }) {
+            require(j.keys().asSequence().all { it in ranges || it=="glowEffect" }) {
                 "Unknown light indicator numeric property"
             }
             fun n(key:String, fallback:Float):Float {
@@ -94,6 +95,13 @@ data class IndicatorVisualConfig(
                 require(v%1f==0f) { "Duration must be a whole number: $key" }
                 return v.toLong()
             }
+            val legacyGlowRadius=n("sunGlowUnits",d.sunGlowUnits)
+            val legacyGlowOpacity=n("glowOpacity",d.glowOpacity)
+            require(!j.has("glowEffect") || j.optJSONObject("glowEffect")!=null) {
+                "glowEffect must be a JSON object"
+            }
+            val effect=GlowEffectConfig.parse(j.optJSONObject("glowEffect"),
+                GlowEffectConfig.defaults(legacyGlowRadius,legacyGlowOpacity))
             val result=IndicatorVisualConfig(
                 n("offsetXDp",d.offsetXDp),
                 n("offsetYDp",d.offsetYDp),
@@ -114,15 +122,16 @@ data class IndicatorVisualConfig(
                 ms("fadeInMs",d.fadeInMs),
                 ms("fadeOutMs",d.fadeOutMs),
                 n("guideGlowUnits",d.guideGlowUnits),
-                n("sunGlowUnits",d.sunGlowUnits),
-                n("glowOpacity",d.glowOpacity),
+                legacyGlowRadius,
+                legacyGlowOpacity,
                 n("guideSamples",d.guideSamples.toFloat()).also {
                     require(it%1f==0f) { "guideSamples must be an integer" }
                 }.toInt(),
                 n("captionBoxPaddingXUnits",d.captionBoxPaddingXUnits),
                 n("captionBoxPaddingYUnits",d.captionBoxPaddingYUnits),
                 n("captionBoxCornerUnits",d.captionBoxCornerUnits),
-                n("captionBoxOpacity",d.captionBoxOpacity)
+                n("captionBoxOpacity",d.captionBoxOpacity),
+                effect
             )
             require(result.rayLengthMinUnits<=result.rayLengthMaxUnits) {
                 "Ray minimum length exceeds maximum"
