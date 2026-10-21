@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.49' in props and 'GLASSSTUDY_VERSION_CODE=20049' in props
+assert 'GLASSSTUDY_VERSION=0.2.50' in props and 'GLASSSTUDY_VERSION_CODE=20050' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -652,3 +652,40 @@ assert 'IndicatorVisualConfig.parse(visuals?.optJSONObject' in overlay_src
 assert 'v.indicator.configureVisuals(newOverlay.indicatorVisuals)' in chrome_src
 assert 'require(value.isFinite() && value in requireNotNull(ranges[key]))' in visual_src
 assert 'Unknown light indicator numeric property' in visual_src
+
+# Cross-module one-number signed-patch coverage (source and real consumer wiring).
+camera_json=json.loads((root/'app/src/main/assets/modules/camera/config.json').read_text())
+camera_config_code=(src/'CameraModuleConfig.kt').read_text()
+for key in ('homeYawRad','homePitchRad','homeDistance','homeLightAzRad',
+            'homeLightElevationRad','minOrbitPitchRad','maxOrbitPitchRad',
+            'brightnessPinchDivisorDp','lightAxisLockThresholdDp'):
+    assert key in camera_json and ('"'+key+'"') in camera_config_code
+assert 'config.brightnessPinchDivisorDp' in camera_light
+assert 'config.minOrbitPitchRad,config.maxOrbitPitchRad' in camera_light
+assert 'lightGesture.lockThresholdDp=next.lightAxisLockThresholdDp' in camera_light
+
+render_module=(src/'RenderModuleConfig.kt').read_text()
+render_consumer=(src/'RenderEnvironmentController.kt').read_text()
+render_json=json.loads((root/'app/src/main/assets/modules/render/config.json').read_text())
+assert render_json['ambientOcclusionEnabled'] is True
+assert '"ambientOcclusionEnabled"' in render_module and 'enabled=next.ambientOcclusionEnabled' in render_consumer
+
+sky_json=json.loads((root/'app/src/main/assets/modules/scene/config.json').read_text())
+scene_module_code=(src/'SceneModuleConfig.kt').read_text()
+for name in ('gray','white','dark'):
+    for channel in ('Red','Green','Blue'):
+        field=name+'Sky'+channel
+        assert type(sky_json[field])==int and ('"'+field+'"') in scene_module_code
+        assert ('module.'+field) in environment
+
+popup_numeric=window_theme.get('diagnosticsPopup')
+assert popup_numeric and len(popup_numeric)==12
+window_style_code=(src/'WindowStyleConfig.kt').read_text()
+for key in popup_numeric:
+    assert ('"'+key+'"') in window_style_code
+    assert ('nums.'+key) in popup_src
+for key in ('topReservedWidthDp','topMinButtonWidthDp'):
+    assert key in layout and ('"'+key+'"') in (src/'UiLayout.kt').read_text()
+    assert ('ui.'+key) in toolbar
+
+assert 'def numeric_catalog():' in (root/'tools/fast_patch.py').read_text()
