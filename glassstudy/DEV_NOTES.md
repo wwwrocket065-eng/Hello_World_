@@ -279,3 +279,9 @@
 - Local test `GlassStudy_Filament_20032.pupdate` (8,641 bytes) RSA/SHA-256 verified against exact public key compiled in PatchManager; contains ui/layout.json (5,947 bytes), designed to be visually unchanged from prior UI configuration.
 - DEVICE VERIFICATION STILL REQUIRED: user currently has 0.2.47 installed. Install signed 0.2.48 OVER existing (do not uninstall); open app; grant all-files special access once in Android system settings; leave `GlassStudy_Filament_20032.pupdate` in ordinary root Download, reopen app, and check diagnostics installed patch 20032 confirmed frame. If permission UI inaccessible or patch fails, collect short diagnostic report rather than disabling updater.
 - WARNING: broad all-files special permission is Android/Google Play policy restricted; release suitability for Play has NOT been established. Do not assume Google Play will accept this manifest without qualifying core use and declaration.
+
+
+## 2026-10-21 — Android 16 confirmation from user
+- User confirmed: «Работает, спасибо» after testing GlassStudy 0.2.48 with the one-time all-files permission and automatic local Download .pupdate workflow.
+- Treat this as user-confirmed working behavior, not as an independently captured diagnostics report; exact active patch version/frame confirmation numbers were not supplied in this message.
+- Keep the established Android 16 Download permission flow and original-key signing; do not replace it or regress it in future UI/refactoring changes.
