@@ -689,3 +689,12 @@ for key in ('topReservedWidthDp','topMinButtonWidthDp'):
     assert ('ui.'+key) in toolbar
 
 assert 'def numeric_catalog():' in (root/'tools/fast_patch.py').read_text()
+
+# Shared UI chrome geometry also flows through the same signed numeric API.
+visual_defaults=layout['visualNumbers']
+assert len(visual_defaults)==9
+visual_parser=(src/'UiVisualNumbers.kt').read_text()
+for setting in visual_defaults:
+    assert ('"'+setting+'"') in visual_parser
+    assert ('visualNumbers.'+setting) in chrome_src
+assert 'UiVisualNumbers.parse(j.optJSONObject("visualNumbers"))' in (src/'UiLayout.kt').read_text()
