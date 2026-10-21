@@ -197,12 +197,12 @@ class CameraLightController(
         val aspect=max(.2,surface.width.toDouble()/max(1,surface.height))
         viewer.camera.setProjection(config.fieldOfView,aspect,config.nearClip,
             config.farClip,Camera.Fov.VERTICAL)
-        val dx=cos(lightElevation)*sin(lightAz)
-        val dy=sin(lightElevation)
-        val dz=cos(lightElevation)*cos(lightAz)
+        val rays=LightDirectionMath.incoming(lightAz,lightElevation)
         val mgr=viewer.engine.lightManager
         val instance=mgr.getInstance(viewer.light)
-        mgr.setDirection(instance,(-dx).toFloat(),(-dy).toFloat(),(-dz).toFloat())
+        // Filament's light ray direction MUST oppose the actual sun source,
+        // including the return hemisphere (elevation 90..180 degrees).
+        mgr.setDirection(instance,rays.x,rays.y,rays.z)
         mgr.setIntensity(instance,(config.lightIntensity*brightness).toFloat())
     }
 }

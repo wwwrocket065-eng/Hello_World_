@@ -17,11 +17,8 @@ object LightGuideProjection {
     fun azimuth(
         angleRad:Double,radius:Float,cameraYawRad:Double,cameraPitchRad:Double
     ):Point {
-        val relative=angleRad-cameraYawRad
-        return Point(
-            (radius*sin(relative)).toFloat(),
-            (radius*sin(cameraPitchRad)*cos(relative)).toFloat()
-        )
+        return project(LightDirectionMath.source(angleRad,0.0),radius,
+            cameraYawRad,cameraPitchRad)
     }
 
     /**
@@ -32,13 +29,16 @@ object LightGuideProjection {
         angleRad:Double,radius:Float,lightAzimuthRad:Double,
         cameraYawRad:Double,cameraPitchRad:Double
     ):Point {
-        val relative=lightAzimuthRad-cameraYawRad
-        val planar=cos(angleRad)
-        val up=sin(angleRad)
-        return Point(
-            (radius*planar*sin(relative)).toFloat(),
-            (radius*(sin(cameraPitchRad)*planar*cos(relative)-
-                cos(cameraPitchRad)*up)).toFloat()
-        )
+        return project(LightDirectionMath.source(lightAzimuthRad,angleRad),radius,
+            cameraYawRad,cameraPitchRad)
+    }
+    /** The same 3D light-source vector drives both HUD and Filament shading. */
+    private fun project(source:LightDirectionMath.Vector,radius:Float,
+                        cameraYawRad:Double,cameraPitchRad:Double):Point {
+        val right=source.x*cos(cameraYawRad)-source.z*sin(cameraYawRad)
+        val forward=source.x*sin(cameraYawRad)+source.z*cos(cameraYawRad)
+        return Point((radius*right).toFloat(),
+            (radius*(sin(cameraPitchRad)*forward-
+                cos(cameraPitchRad)*source.y)).toFloat())
     }
 }
