@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.48' in props and 'GLASSSTUDY_VERSION_CODE=20048' in props
+assert 'GLASSSTUDY_VERSION=0.2.49' in props and 'GLASSSTUDY_VERSION_CODE=20049' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -633,3 +633,22 @@ assert 'fun acceptGrant(data:Intent?):Boolean' in local_patch  # SAF fallback re
 # A newly installed 0.2.48 must show Android Download permission prompt even if the older SAF prompt was dismissed in 0.2.47.
 assert 'private val patchFolderPromptedKey="localPatchPromptedV3"' in activity
 assert 'if(!localPatchFolder.hasDownloadsAccess() &&' in activity
+
+# One signed numeric system for all lighting indicators, not one-off Kotlin constants.
+visuals=overlay_config['indicatorVisuals']
+assert set(visuals)=={'brightness','azimuth','elevation'}
+assert visuals['brightness']['rotationAtMaxDeg']==90
+assert visuals['brightness']['offsetXDp']>0
+assert len(visuals['brightness'])>=18
+assert all(set(v)==set(visuals['brightness']) for v in visuals.values())
+view_src=(root/'app/src/main/java/com/glassstudy/filament/LightIndicatorView.kt').read_text()
+visual_src=(root/'app/src/main/java/com/glassstudy/filament/IndicatorVisualConfig.kt').read_text()
+overlay_src=(root/'app/src/main/java/com/glassstudy/filament/OverlayModuleConfig.kt').read_text()
+assert 'fun configureVisuals(next:Map<Mode,IndicatorVisualConfig>)' in view_src
+assert 'rotation=pct*spec.rotationAtMaxDeg/200f' in view_src
+assert 'spec.offsetXDp*resources.displayMetrics.density' in view_src
+assert 'val visuals=j.optJSONObject("indicatorVisuals")' in overlay_src
+assert 'IndicatorVisualConfig.parse(visuals?.optJSONObject' in overlay_src
+assert 'v.indicator.configureVisuals(newOverlay.indicatorVisuals)' in chrome_src
+assert 'require(value.isFinite() && value in requireNotNull(ranges[key]))' in visual_src
+assert 'Unknown light indicator numeric property' in visual_src
