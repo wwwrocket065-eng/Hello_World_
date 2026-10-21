@@ -323,3 +323,9 @@
 - Signed with ORIGINAL protected PATCH RSA private key held only in Library, then verified using the exact public key embedded in `PatchManager.kt`. No private key uploaded, no GitHub feed change, no native APK rebuild.
 - Filename uses exact `GlassStudy_Filament_20034.pupdate` for Android 16 root Download autoscanner. Requires installed native 0.2.49 or newer; old 0.2.48 did not implement `indicatorVisuals`.
 - User Android 16 runtime positioning/frame-confirmation still awaiting test.
+
+
+## 2026-10-21 — Small signed brightness position patch 20035
+- Following user feedback after patch 20034 (brightness offset 60dp), prepared offline signed `GlassStudy_Filament_20035.pupdate`. Changes only `modules/overlay/config.json -> indicatorVisuals.brightness.offsetXDp` from 60 to 74dp. Original brightness rotation-at-200-percent stays 90 degrees; other configuration values preserved exactly.
+- Patch 20035 is 3,446 bytes, SHA-256 `92e7d7729663e9abc5c039e18930cc00487ad24041dbd39f18f3f207dbb0e460`. Verified RSA signature with the original protected PATCH signing key, source patch 20034 RSA signature, each entry SHA256 and expected JSON delta. Key never uploaded or committed.
+- Distributed as a local Download-folder .pupdate for GlassStudy native 0.2.49+; server feed unchanged at 20031. Actual on-device position and confirmation pending user.
