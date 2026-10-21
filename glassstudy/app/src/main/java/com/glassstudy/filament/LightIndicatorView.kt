@@ -19,6 +19,8 @@ class LightIndicatorView(context:Context):View(context) {
     private var mode:Mode?=null
     private var value=0f
     private var target=0f
+    private var brightnessOffsetXDp=40f
+    private var brightnessRotationAt200Deg=90f
     private var style="classic"
     private var tint=Color.rgb(242,214,158)
     private var guide=Color.rgb(173,192,206)
@@ -32,6 +34,12 @@ class LightIndicatorView(context:Context):View(context) {
         isClickable=false;isFocusable=false
         importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
         visibility=GONE;alpha=0f;setLayerType(LAYER_TYPE_SOFTWARE,null)
+    }
+    /** Called with a validated signed overlay configuration; only BRIGHTNESS moves right. */
+    fun configureBrightness(offsetXDp:Float,rotationAt200Deg:Float) {
+        brightnessOffsetXDp=offsetXDp
+        brightnessRotationAt200Deg=rotationAt200Deg
+        invalidate()
     }
     fun show(next:Mode,actual:Float,appearance:String,color:Int,guideColor:Int) {
         if(!actual.isFinite())return
@@ -60,6 +68,11 @@ class LightIndicatorView(context:Context):View(context) {
         canvas.translate(width/2f,height/2f)
         val scale=min(width,height).toFloat()/230f
         canvas.scale(scale,scale)
+        if(kind==Mode.BRIGHTNESS) {
+            // Measure displacement in physical dp even when indicatorSizeDp changes.
+            canvas.translate(brightnessOffsetXDp*resources.displayMetrics.density/
+                scale.coerceAtLeast(.01f),0f)
+        }
         pen.style=Paint.Style.STROKE;pen.color=guide
         pen.strokeWidth=if(style=="minimal")1.4f else 2.3f
         caption.color=tint
@@ -70,7 +83,7 @@ class LightIndicatorView(context:Context):View(context) {
                 y=63f-126f*pct/200f
                 if(y-24f> -69f)canvas.drawLine(0f,-69f,0f,y-24f,pen)
                 if(y+24f<69f)canvas.drawLine(0f,y+24f,0f,69f,pen)
-                rotation=pct*.4f;rays=3f+pct*9f/200f
+                rotation=pct*brightnessRotationAt200Deg/200f;rays=3f+pct*9f/200f
                 label(canvas,pct.roundToInt().toString()+"%")
             }
             Mode.ELEVATION -> {
