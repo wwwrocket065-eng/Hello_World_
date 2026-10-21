@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.view.View
 import kotlin.math.PI
 import kotlin.math.abs
@@ -39,6 +41,9 @@ class LightIndicatorView(context:Context):View(context) {
         textAlign=Paint.Align.CENTER;textSize=16f;style=Paint.Style.FILL
     }
     private val captionPlate=Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style=Paint.Style.FILL
+    }
+    private val sunAura=Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style=Paint.Style.FILL
     }
     init {
@@ -159,9 +164,55 @@ class LightIndicatorView(context:Context):View(context) {
         val sun=canvas.save()
         canvas.translate(x,y)
         if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)
-        pen.style=Paint.Style.STROKE;pen.color=tint;pen.strokeWidth=spec.sunStrokeUnits
-        if(spec.sunGlowUnits>0f && spec.glowOpacity>0f)
-            pen.setShadowLayer(spec.sunGlowUnits,0f,0f,glowColor(tint,spec.glowOpacity))
+        drawSun(canvas,spec,rays)
+        canvas.restoreToCount(sun)
+        canvas.restoreToCount(saved)
+        if(moving)postInvalidateOnAnimation()
+    }
+
+
+    /**
+     * Visible, softly feathered SUN glow, independent of Android Paint shadows.
+     * A legacy setShadowLayer alone was nearly invisible on the glass/floor
+     * background even at 10 units, as confirmed by user screenshots.
+     *
+     * The aura is explicitly rasterized beneath the 8-ray glyph. The guide
+     * has its own separate glow parameter and stays completely unlit at zero.
+     * All colors, size and strength still come from signed overlay resources.
+     */
+    private fun drawSun(canvas:Canvas,spec:IndicatorVisualConfig,rays:Float) {
+        val activeGlow=spec.sunGlowUnits>0f && spec.glowOpacity>0f
+        if(activeGlow) {
+            val radius=spec.rayStartUnits+rays+spec.sunGlowUnits
+            val strength=spec.glowOpacity
+            sunAura.shader=RadialGradient(0f,0f,radius,
+                intArrayOf(
+                    glowColor(tint,strength*.82f),
+                    glowColor(tint,strength*.56f),
+                    glowColor(tint,strength*.19f),
+                    glowColor(tint,0f)
+                ),
+                floatArrayOf(0f,.26f,.66f,1f),
+                Shader.TileMode.CLAMP)
+            canvas.drawCircle(0f,0f,radius,sunAura)
+            sunAura.shader=null
+
+            // Gentle blurred silhouette along every sun ray (not the ring).
+            pen.clearShadowLayer()
+            pen.style=Paint.Style.STROKE
+            pen.strokeWidth=spec.sunStrokeUnits+spec.sunGlowUnits*.70f
+            pen.color=glowColor(tint,strength*.27f)
+            drawSunGlyph(canvas,spec,rays)
+        }
+        pen.clearShadowLayer()
+        pen.style=Paint.Style.STROKE
+        pen.strokeWidth=spec.sunStrokeUnits
+        pen.color=tint
+        drawSunGlyph(canvas,spec,rays)
+    }
+
+    /** One sun geometry implementation for azimuth, elevation and brightness. */
+    private fun drawSunGlyph(canvas:Canvas,spec:IndicatorVisualConfig,rays:Float) {
         canvas.drawCircle(0f,0f,spec.sunRadiusUnits,pen)
         for(i in 0 until 8) {
             val rad=PI*i/4.0
@@ -170,10 +221,6 @@ class LightIndicatorView(context:Context):View(context) {
                 ((spec.rayStartUnits+rays)*cos(rad)).toFloat(),
                 ((spec.rayStartUnits+rays)*sin(rad)).toFloat(),pen)
         }
-        pen.clearShadowLayer()
-        canvas.restoreToCount(sun)
-        canvas.restoreToCount(saved)
-        if(moving)postInvalidateOnAnimation()
     }
 
     /**

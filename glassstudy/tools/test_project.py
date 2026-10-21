@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.54' in props and 'GLASSSTUDY_VERSION_CODE=20054' in props
+assert 'GLASSSTUDY_VERSION=0.2.55' in props and 'GLASSSTUDY_VERSION_CODE=20055' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -739,11 +739,17 @@ indicator=(src/'LightIndicatorView.kt').read_text()
 overlay_module=(src/'OverlayModuleConfig.kt').read_text()
 assert 'val options=listOf(' not in indicator
 assert 'private var style=' not in indicator
-assert 'setShadowLayer(spec.sunGlowUnits' in indicator
+assert 'RadialGradient(0f,0f,radius,' in indicator
+assert 'canvas.drawCircle(0f,0f,radius,sunAura)' in indicator
+assert 'sunAura.shader=null' in indicator
+assert 'sunStrokeUnits+spec.sunGlowUnits*.70f' in indicator
+assert 'drawSunGlyph(canvas,spec,rays)' in indicator
+assert 'pen.setShadowLayer(spec.sunGlowUnits' not in indicator
 assert 'setShadowLayer(spec.guideGlowUnits' in indicator
 assert 'canvas.drawOval(' not in indicator
 assert 'canvas.drawLine(0f,0f,x' not in indicator
 assert 'canvas.drawLine(0f,-4f,x' not in indicator
+assert 'private fun drawSunGlyph(' in indicator
 assert 'canvas.drawCircle(0f,0f,spec.sunRadiusUnits,pen)' in indicator
 assert 'if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)' in indicator
 assert 'drawOrbit(canvas,kind,spec,x,y)' in indicator
@@ -817,4 +823,5 @@ for kind in ('azimuth','elevation','brightness'):
     assert abs(glow['glowOpacity']-0.42)<.0001
     assert abs(glow['captionBoxOpacity']-0.45)<.0001
 assert 'if(spec.guideGlowUnits>0f && spec.glowOpacity>0f)' in view_src
-assert 'if(spec.sunGlowUnits>0f && spec.glowOpacity>0f)' in view_src
+assert 'val activeGlow=spec.sunGlowUnits>0f && spec.glowOpacity>0f' in view_src
+assert 'if(activeGlow)' in view_src

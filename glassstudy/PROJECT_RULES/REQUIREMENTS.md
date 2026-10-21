@@ -78,3 +78,9 @@
 - Do not render duplicate bottom button "Свет / Камера"; maintain the working top sun button with the safe toggleLight binding. Declarative UI button removal must remain possible with one signed ui/layout.json patch.
 - All 3 lighting indicator guide tracks have **no glow** (guideGlowUnits=0). The 8-ray sun glyph has a **soft**, low-alpha, broad warm halo (sunGlowUnits=10, glowOpacity=0.42); no harsh neon bloom.
 - These numeric values are signed overlay parameters. Preserve brightness offset=100dp, rotationAtMaxDeg=90 degrees and rounded value chip opacity=0.45, while numeric glyphs remain 100% opaque.
+
+## 2026-10-22 — Sun aura must be visibly soft, not a barely perceptible Paint shadow
+- A screenshot of signed 20039 showed that simply changing native Paint.setShadowLayer(glowRadius=10, alpha=0.42) is NOT enough for visible sun illumination on the glass/floor background.
+- Reusable 3-mode LightIndicatorView draws explicit alpha-blended RadialGradient BEHIND the eight-ray sun, with additional soft wide stroke along eight rays, then sharp opaque glyph strokes. This is a clear halo, not a hard neon outline or a cast shadow.
+- Sun-only signed inputs: sunGlowUnits, glowOpacity. Guide glow stays entirely separate; all three guideGlowUnits=0. Never draw halo on guides. Text chip remains translucent backplate and fully opaque digits.
+- An Android APK update is necessary ONCE for the new native shader drawing (v0.2.55), but numerical opacity/radius changes afterward remain signed .pupdate values. Keep bottom light/camera button absent and top sun button present.
