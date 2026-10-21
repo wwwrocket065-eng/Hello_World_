@@ -417,7 +417,7 @@ assert 'class LightGestureController' in gesture_code
 assert 'if (lockedAxis == null)' in gesture_code
 assert 'Axis.ELEVATION else Axis.AZIMUTH' in gesture_code
 assert 'lightGesture.reset()' in camera_light
-assert 'brightness+(span-oldPinch)/dp/160.0' in camera_light
+assert 'brightness+(span-oldPinch)/dp/config.brightnessPinchDivisorDp' in camera_light
 
 # Modular toolbar and settings-only gear. Old signed menu is migrated safely.
 assert any(b['action']=='menu' and b['icon']=='gear' for b in json.loads((root/'app/src/main/assets/ui/layout.json').read_text())['uiButtons'])
