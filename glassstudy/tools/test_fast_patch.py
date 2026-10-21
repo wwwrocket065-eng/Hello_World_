@@ -57,7 +57,7 @@ multiple=run("--set","ui.topReservedWidthDp=190",
              "--set","render.iblIntensity=31000",
              "--set","scene.graySkyRed=105",
              "--set","windows.diagnosticsPopup.reportTextSizeSp=12",
-             "--set","overlay.indicatorVisuals.brightness.rotationAtMaxDeg=90")
+             "--set","overlay.indicatorVisuals.brightness.rotationAtMaxDeg=87")
 for resource in ("ui/layout.json","modules/camera/config.json",
                  "modules/render/config.json","modules/scene/config.json",
                  "modules/windows/config.json","modules/overlay/config.json"):
