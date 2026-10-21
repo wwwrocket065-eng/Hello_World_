@@ -34,7 +34,7 @@ data class IndicatorVisualConfig(
         fun defaults(mode:LightIndicatorView.Mode):IndicatorVisualConfig =
             if(mode==LightIndicatorView.Mode.BRIGHTNESS)
                 IndicatorVisualConfig(offsetXDp=40f,rotationAtMaxDeg=90f)
-            else IndicatorVisualConfig()
+            else IndicatorVisualConfig(rayLengthMinUnits=6f,rayLengthMaxUnits=6f)
 
         private val ranges=mapOf(
             "offsetXDp" to (-80.0..80.0),
