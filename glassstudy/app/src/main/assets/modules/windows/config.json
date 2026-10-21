@@ -35,5 +35,19 @@
     "diagnostics": "toggle",
     "openScene": "toggle",
     "menu": "toggle"
+  },
+  "diagnosticsPopup": {
+    "horizontalMarginDp": 18,
+    "minimumWidthDp": 220,
+    "verticalOffsetDp": 69,
+    "heightFraction": 0.63,
+    "panelHorizontalPaddingDp": 15,
+    "panelVerticalPaddingDp": 14,
+    "headerHeightDp": 40,
+    "titleTextSizeSp": 15,
+    "reportTextSizeSp": 11.5,
+    "reportPaddingDp": 10,
+    "reportTopPaddingDp": 12,
+    "reportTopMarginDp": 10
   }
 }
