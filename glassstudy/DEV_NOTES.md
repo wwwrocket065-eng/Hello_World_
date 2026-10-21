@@ -329,3 +329,12 @@
 - Following user feedback after patch 20034 (brightness offset 60dp), prepared offline signed `GlassStudy_Filament_20035.pupdate`. Changes only `modules/overlay/config.json -> indicatorVisuals.brightness.offsetXDp` from 60 to 74dp. Original brightness rotation-at-200-percent stays 90 degrees; other configuration values preserved exactly.
 - Patch 20035 is 3,446 bytes, SHA-256 `92e7d7729663e9abc5c039e18930cc00487ad24041dbd39f18f3f207dbb0e460`. Verified RSA signature with the original protected PATCH signing key, source patch 20034 RSA signature, each entry SHA256 and expected JSON delta. Key never uploaded or committed.
 - Distributed as a local Download-folder .pupdate for GlassStudy native 0.2.49+; server feed unchanged at 20031. Actual on-device position and confirmation pending user.
+
+## 2026-10-22 — Brightness HUD offset 100dp (v0.2.51 + patch 20036)
+- Request: move only brightness indicator from 74dp to 100dp right, keep rotationAtMaxDeg=90.
+- Bug: older v0.2.50 rejected >80dp and drew offset inside a fixed 230dp Canvas, risking clipped drawing.
+- Native fix in 0.2.51: validated horizontal offset range ±160dp and moved whole indicator View instead of Canvas content; all modes retained.
+- Source commit ed88025f9e061038602530cd7f8183376e0614e2, three CI workflows successful: Android 39676333488 / 39676341176, Filament 39676333489.
+- Verified release: GlassStudy_3D_LAB_v0.2.51_ORIGINAL_KEY.apk, SHA256 4f180ed314bda0d39d7c844b5f14b489edc98d3cf912aaac82af64d4ecb539e7, 11,521,651 bytes; original signing certificate matches past installations. Original APK app ID intact; ZIP alignment and v2 signature verified.
+- Signed offline patch: GlassStudy_Filament_20036.pupdate, SHA256 0caffe2b19d0c3ec824cf97d96ba1da94f902d7573fc7b3936ea1a76eb7e2478, 3,446 bytes. Relative to signed patch 20035, only indicatorVisuals.brightness.offsetXDp changes 74→100. Rotation 90 and all other settings unchanged. Signatures and resource hashes verified.
+- Install native APK 0.2.51 over existing app before placing patch 20036 in Download; older 0.2.50 rejects that signed value. Server feed unchanged at 20031. On-device UI positioning still needs user verification.
