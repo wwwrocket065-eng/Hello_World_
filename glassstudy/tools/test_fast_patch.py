@@ -38,6 +38,14 @@ run("--button","menu.unknown=4",good=False)
 run("--button","missing.offsetXDp=4",good=False)
 run("--button","menu.widthDp=30",good=False)
 
+# One signed overlay .pupdate can change independent visual numbers simultaneously.
+p=run("--set","overlay.indicatorVisuals.brightness.offsetXDp=46",
+      "--set","overlay.indicatorVisuals.brightness.rotationAtMaxDeg=90",
+      "--set","overlay.indicatorVisuals.elevation.guideRadiusUnits=68")
+assert "modules/overlay/config.json" in p.stdout
+run("--set","overlay.indicatorVisuals.brightness.nonexistent=42",good=False)
+run("--set","overlay.indicatorVisuals.brightness.offsetXDp=\"bad\"",good=False)
+
 assert "published_baseline()" in TOOL.read_text()
 assert "pub.verify(sig,canonical(version,entries)" in TOOL.read_text()
 print("PASS fast patch smoke, cumulative baseline, unknown-key rejection, dry-run without key")
