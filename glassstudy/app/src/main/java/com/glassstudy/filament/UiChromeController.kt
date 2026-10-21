@@ -203,10 +203,12 @@ class UiChromeController(private val activity:Activity) {
     }
 
     fun showIndicator(mode:LightIndicatorView.Mode,value:Float,lightMode:Boolean,
-                      cameraYaw:Double,cameraPitch:Double,lightAzimuth:Double) {
+                      cameraYaw:Double,cameraPitch:Double,lightAzimuth:Double,
+                      brightnessPercent:Float) {
         if(!lightMode || !overlay.enabled || overlay.showWith=="never")return
         attached?.indicator?.show(mode,value,overlay.indicatorColor(mode),overlay.guideColor,
-            cameraYaw,cameraPitch,lightAzimuth)
+            cameraYaw,cameraPitch,lightAzimuth,brightnessPercent,
+            overlay.backgroundColor ?: Color.rgb(17,35,49))
     }
 
     private fun setSystemBarMode(ui:UiLayout,root:FrameLayout) {

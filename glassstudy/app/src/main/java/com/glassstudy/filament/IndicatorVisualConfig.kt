@@ -32,7 +32,11 @@ data class IndicatorVisualConfig(
     val guideGlowUnits:Float=2f,
     val sunGlowUnits:Float=7f,
     val glowOpacity:Float=.80f,
-    val guideSamples:Int=180
+    val guideSamples:Int=180,
+    val captionBoxPaddingXUnits:Float=10f,
+    val captionBoxPaddingYUnits:Float=6f,
+    val captionBoxCornerUnits:Float=8f,
+    val captionBoxOpacity:Float=.90f
 ) {
     companion object {
         fun defaults(mode:LightIndicatorView.Mode):IndicatorVisualConfig =
@@ -63,7 +67,11 @@ data class IndicatorVisualConfig(
             "guideGlowUnits" to (0.0..16.0),
             "sunGlowUnits" to (0.0..24.0),
             "glowOpacity" to (0.0..1.0),
-            "guideSamples" to (72.0..360.0)
+            "guideSamples" to (72.0..360.0),
+            "captionBoxPaddingXUnits" to (2.0..28.0),
+            "captionBoxPaddingYUnits" to (1.0..20.0),
+            "captionBoxCornerUnits" to (0.0..25.0),
+            "captionBoxOpacity" to (0.0..1.0)
         )
 
         fun parse(j:JSONObject?,mode:LightIndicatorView.Mode):IndicatorVisualConfig {
@@ -110,7 +118,11 @@ data class IndicatorVisualConfig(
                 n("glowOpacity",d.glowOpacity),
                 n("guideSamples",d.guideSamples.toFloat()).also {
                     require(it%1f==0f) { "guideSamples must be an integer" }
-                }.toInt()
+                }.toInt(),
+                n("captionBoxPaddingXUnits",d.captionBoxPaddingXUnits),
+                n("captionBoxPaddingYUnits",d.captionBoxPaddingYUnits),
+                n("captionBoxCornerUnits",d.captionBoxCornerUnits),
+                n("captionBoxOpacity",d.captionBoxOpacity)
             )
             require(result.rayLengthMinUnits<=result.rayLengthMaxUnits) {
                 "Ray minimum length exceeds maximum"

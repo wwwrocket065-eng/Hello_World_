@@ -243,7 +243,8 @@ class MainActivity : Activity() {
         renderEnvironment.initialize()
         cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
             {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode,
-                cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz)},
+                cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz,
+                (cameraLight.brightness*100).toFloat()},
             {lightIndicator?.hide()})
         surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
 

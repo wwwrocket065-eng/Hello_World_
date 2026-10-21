@@ -39,7 +39,11 @@
       "guideGlowUnits": 2,
       "sunGlowUnits": 7,
       "glowOpacity": 0.8,
-      "guideSamples": 180
+      "guideSamples": 180,
+      "captionBoxPaddingXUnits": 10,
+      "captionBoxPaddingYUnits": 6,
+      "captionBoxCornerUnits": 8,
+      "captionBoxOpacity": 0.9
     },
     "elevation": {
       "offsetXDp": 0,
@@ -63,7 +67,11 @@
       "guideGlowUnits": 2,
       "sunGlowUnits": 7,
       "glowOpacity": 0.8,
-      "guideSamples": 180
+      "guideSamples": 180,
+      "captionBoxPaddingXUnits": 10,
+      "captionBoxPaddingYUnits": 6,
+      "captionBoxCornerUnits": 8,
+      "captionBoxOpacity": 0.9
     },
     "brightness": {
       "offsetXDp": 40,
@@ -87,7 +95,11 @@
       "guideGlowUnits": 2,
       "sunGlowUnits": 7,
       "glowOpacity": 0.8,
-      "guideSamples": 180
+      "guideSamples": 180,
+      "captionBoxPaddingXUnits": 10,
+      "captionBoxPaddingYUnits": 6,
+      "captionBoxCornerUnits": 8,
+      "captionBoxOpacity": 0.9
     }
   }
 }
