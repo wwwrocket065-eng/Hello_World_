@@ -133,9 +133,9 @@ assert 'topOutlineColor=ui.topButtonOutlineColor' in chrome_src
 assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
-assert len(layout['uiButtons'])==6
+assert len(layout['uiButtons'])==5
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','openScene','menu']
-assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleLight','toggleGrid']
+assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleGrid']
 assert not any(x['action']=='export' for x in layout['uiButtons'])
 assert layout['panelOpacity'] < 1.0
 assert layout['buttonTextColor']=="#A3D0D3"
@@ -803,3 +803,18 @@ assert all(abs(visuals[m]['captionBoxOpacity']-0.45)<0.001 for m in visuals)
 assert 'caption.alpha=255' in view
 assert 'caption.color=Color.rgb(Color.red(tint),Color.green(tint),Color.blue(tint))' in view
 assert view.index('captionPlate.color=Color.argb(') < view.index('caption.alpha=255')
+
+# 20039 patch-only: no duplicated bottom light/camera control; original top sun
+# remains functional and one shared soft halo applies to all three indicator suns.
+assert not any(x['id']=='light_bottom' for x in layout['uiButtons'])
+assert any(x['slot']=='top' and x['action']=='toggleLight' for x in layout['uiButtons'])
+assert [x['id'] for x in layout['uiButtons'] if x['slot']=='bottom']==['grid']
+assert overlay_config['indicatorVisuals']['brightness']['offsetXDp']==100
+for kind in ('azimuth','elevation','brightness'):
+    glow=overlay_config['indicatorVisuals'][kind]
+    assert glow['guideGlowUnits']==0
+    assert glow['sunGlowUnits']==10
+    assert abs(glow['glowOpacity']-0.42)<.0001
+    assert abs(glow['captionBoxOpacity']-0.45)<.0001
+assert 'if(spec.guideGlowUnits>0f && spec.glowOpacity>0f)' in view_src
+assert 'if(spec.sunGlowUnits>0f && spec.glowOpacity>0f)' in view_src

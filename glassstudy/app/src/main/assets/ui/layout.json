@@ -159,21 +159,6 @@
       "visualSizeDp": 32
     },
     {
-      "id": "light_bottom",
-      "action": "toggleLight",
-      "slot": "bottom",
-      "icon": "sun",
-      "label": "Свет / Камера",
-      "heightDp": 46,
-      "textColor": "#A3D0D3",
-      "offsetXDp": 0,
-      "offsetYDp": 0,
-      "iconScale": 0.8,
-      "marginStartDp": 0,
-      "marginTopDp": 0,
-      "widthDp": 200
-    },
-    {
       "id": "grid",
       "action": "toggleGrid",
       "slot": "bottom",

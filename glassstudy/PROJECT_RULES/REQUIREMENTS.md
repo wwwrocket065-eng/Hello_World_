@@ -73,3 +73,8 @@
 - Шкала высоты визуально 0° → 90° → −0°, где −0° на противоположном горизонте, но физический угол остаётся непрерывным в диапазоне 0..180°; никогда не менять знаки лучей отдельно по UI-ярлыку.
 - Единая математическая модель мирового направления НА солнце и противоположных ему лучей Filament обеспечивает тень на противоположной стороне от светила при высоте 0..180°, включая >90°. При zenith=90° горизонтальная тень должна исчезать, после пересечения менять направление плавно.
 - Числа градусов и процентов показывать на тёмной полупрозрачной плашке со скруглением; цвет, отступы, скругление и непрозрачность должны быть числовыми параметрами подписанного overlay config (не Kotlin литералами).
+
+## 2026-10-22 — Bottom controls and subtle halo
+- Do not render duplicate bottom button "Свет / Камера"; maintain the working top sun button with the safe toggleLight binding. Declarative UI button removal must remain possible with one signed ui/layout.json patch.
+- All 3 lighting indicator guide tracks have **no glow** (guideGlowUnits=0). The 8-ray sun glyph has a **soft**, low-alpha, broad warm halo (sunGlowUnits=10, glowOpacity=0.42); no harsh neon bloom.
+- These numeric values are signed overlay parameters. Preserve brightness offset=100dp, rotationAtMaxDeg=90 degrees and rounded value chip opacity=0.45, while numeric glyphs remain 100% opaque.
