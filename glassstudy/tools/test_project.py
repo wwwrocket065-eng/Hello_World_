@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.50' in props and 'GLASSSTUDY_VERSION_CODE=20050' in props
+assert 'GLASSSTUDY_VERSION=0.2.51' in props and 'GLASSSTUDY_VERSION_CODE=20051' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -646,7 +646,10 @@ visual_src=(root/'app/src/main/java/com/glassstudy/filament/IndicatorVisualConfi
 overlay_src=(root/'app/src/main/java/com/glassstudy/filament/OverlayModuleConfig.kt').read_text()
 assert 'fun configureVisuals(next:Map<Mode,IndicatorVisualConfig>)' in view_src
 assert 'rotation=pct*spec.rotationAtMaxDeg/200f' in view_src
-assert 'spec.offsetXDp*resources.displayMetrics.density' in view_src
+assert 'translationX=spec.offsetXDp*density' in view_src
+assert 'translationY=spec.offsetYDp*density' in view_src
+assert 'canvas.translate(spec.offsetXDp' not in view_src
+assert '"offsetXDp" to (-160.0..160.0)' in (src/'IndicatorVisualConfig.kt').read_text()
 assert 'val visuals=j.optJSONObject("indicatorVisuals")' in overlay_src
 assert 'IndicatorVisualConfig.parse(visuals?.optJSONObject' in overlay_src
 assert 'v.indicator.configureVisuals(newOverlay.indicatorVisuals)' in chrome_src
