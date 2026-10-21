@@ -35,6 +35,8 @@ class SceneEnvironmentController(
         if(module==next)return
         module=next
         applyFloor()
+        // Reapply only after a skybox has been created; preserve the user's skyMode.
+        if(activeSkybox!=null)applySkybox()
     }
 
     override fun chooseSky(mode:String) {
@@ -64,10 +66,10 @@ class SceneEnvironmentController(
     /** The exact previous IBL and skybox handling stays in the render owner. */
     fun applySkybox() {
         val rgb=when(skyMode) {
-            "white" -> Color.rgb(240,240,240)
-            "dark" -> Color.rgb(27,30,35)
+            "white" -> Color.rgb(module.whiteSkyRed,module.whiteSkyGreen,module.whiteSkyBlue)
+            "dark" -> Color.rgb(module.darkSkyRed,module.darkSkyGreen,module.darkSkyBlue)
             "custom" -> customSkyColor
-            else -> Color.rgb(110,110,110)
+            else -> Color.rgb(module.graySkyRed,module.graySkyGreen,module.graySkyBlue)
         }
         val next=if(skyMode=="studio") {
             try {
@@ -77,7 +79,8 @@ class SceneEnvironmentController(
                 KTX1Loader.createSkybox(viewer.engine,data)
             } catch(e:Exception) {
                 Log.w("GlassStudy","Studio Skybox unavailable; using gray background",e)
-                Skybox.Builder().color(.43f,.43f,.43f,1f).build(viewer.engine)
+                Skybox.Builder().color(module.graySkyRed/255f,module.graySkyGreen/255f,
+                    module.graySkyBlue/255f,1f).build(viewer.engine)
             }
         } else Skybox.Builder()
             .color(Color.red(rgb)/255f,Color.green(rgb)/255f,Color.blue(rgb)/255f,1f)
