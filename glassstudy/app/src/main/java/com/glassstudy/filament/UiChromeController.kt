@@ -134,8 +134,7 @@ class UiChromeController(private val activity:Activity) {
         windows=ui.windows
         animations=ui.animations
         overlay=newOverlay
-        v.indicator.configureBrightness(newOverlay.brightnessOffsetXDp,
-            newOverlay.brightnessRotationAt200Deg)
+        v.indicator.configureVisuals(newOverlay.indicatorVisuals)
         GlassDialogFactory.applyTheme(windowConfig)
 
         selectorColor=ui.selectorTextColor
