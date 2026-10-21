@@ -20,5 +20,14 @@
     "checker",
     "white",
     "none"
-  ]
+  ],
+  "graySkyRed": 110,
+  "graySkyGreen": 110,
+  "graySkyBlue": 110,
+  "whiteSkyRed": 240,
+  "whiteSkyGreen": 240,
+  "whiteSkyBlue": 240,
+  "darkSkyRed": 27,
+  "darkSkyGreen": 30,
+  "darkSkyBlue": 35
 }
