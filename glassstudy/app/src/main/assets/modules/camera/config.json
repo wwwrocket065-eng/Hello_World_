@@ -12,5 +12,14 @@
   "lightPitchSensitivity": 0.006,
   "lightIntensity": 100000,
   "minBrightness": 0.05,
-  "maxBrightness": 3
+  "maxBrightness": 3,
+  "homeYawRad": 0.56,
+  "homePitchRad": 0.34,
+  "homeDistance": 5.5,
+  "homeLightAzRad": 1.3,
+  "homeLightElevationRad": 0.9,
+  "minOrbitPitchRad": -0.05,
+  "maxOrbitPitchRad": 1.23,
+  "brightnessPinchDivisorDp": 160,
+  "lightAxisLockThresholdDp": 6
 }
