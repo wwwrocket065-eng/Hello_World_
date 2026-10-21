@@ -375,3 +375,5 @@
 - CI/build/signing/user device checks pending. Regression source and pure Kotlin tests added.
 
 - Follow-up UI correction: user wants *translucent* dark rounded caption plates. Set validated captionBoxOpacity default and bundled overlay for all modes to **0.45** (45% opacity / 55% transparency), still patchable individually. Regression checks opacity remains below 0.55.
+
+- 2026-10-22: User clarified caption digits, percent and degree marks must be fully opaque although rounded dark plate remains 45% opacity. `LightIndicatorView.label` explicitly normalizes tint to opaque RGB and sets `caption.alpha=255` immediately before drawing text; source regression added.

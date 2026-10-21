@@ -798,3 +798,8 @@ assert (root/'tools/LightDirectionMathRegression.kt').is_file()
 # Translucent caption plates reveal the scene beneath; never cover it opaquely.
 assert 'val captionBoxOpacity:Float=.45f' in visual_src
 assert all(abs(visuals[m]['captionBoxOpacity']-0.45)<0.001 for m in visuals)
+
+# The dark caption PLATE is translucent, but the number and %/° glyphs stay opaque.
+assert 'caption.alpha=255' in view
+assert 'caption.color=Color.rgb(Color.red(tint),Color.green(tint),Color.blue(tint))' in view
+assert view.index('captionPlate.color=Color.argb(') < view.index('caption.alpha=255')

@@ -227,6 +227,10 @@ class LightIndicatorView(context:Context):View(context) {
             Color.green(captionBoxColor),Color.blue(captionBoxColor))
         canvas.drawRoundRect(left,top,right,bottom,
             spec.captionBoxCornerUnits,spec.captionBoxCornerUnits,captionPlate)
+        // Label color is always fully opaque; captionBoxOpacity affects the
+        // plate ONLY, never the degrees, percent sign or numeric glyphs.
+        caption.color=Color.rgb(Color.red(tint),Color.green(tint),Color.blue(tint))
+        caption.alpha=255
         canvas.drawText(v,0f,y,caption)
     }
 }
