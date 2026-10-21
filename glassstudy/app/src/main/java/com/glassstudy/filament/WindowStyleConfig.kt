@@ -3,6 +3,56 @@ package com.glassstudy.filament
 import android.graphics.Color
 import org.json.JSONObject
 
+/** Unified validated geometry for the diagnostics popup; data-only signed settings. */
+data class DiagnosticsPopupNumbers(
+    val horizontalMarginDp:Float=18f,
+    val minimumWidthDp:Float=220f,
+    val verticalOffsetDp:Float=69f,
+    val heightFraction:Float=.63f,
+    val panelHorizontalPaddingDp:Float=15f,
+    val panelVerticalPaddingDp:Float=14f,
+    val headerHeightDp:Float=40f,
+    val titleTextSizeSp:Float=15f,
+    val reportTextSizeSp:Float=11.5f,
+    val reportPaddingDp:Float=10f,
+    val reportTopPaddingDp:Float=12f,
+    val reportTopMarginDp:Float=10f
+) {
+    companion object {
+        fun parse(json:JSONObject?):DiagnosticsPopupNumbers {
+            if(json==null)return DiagnosticsPopupNumbers()
+            val valid=setOf("horizontalMarginDp","minimumWidthDp","verticalOffsetDp",
+                "heightFraction","panelHorizontalPaddingDp","panelVerticalPaddingDp",
+                "headerHeightDp","titleTextSizeSp","reportTextSizeSp","reportPaddingDp",
+                "reportTopPaddingDp","reportTopMarginDp")
+            require(json.keys().asSequence().all { it in valid }) {
+                "Unknown diagnostics popup numeric setting"
+            }
+            fun n(key:String,default:Double,min:Double,max:Double):Float {
+                val value=if(json.has(key))json.getDouble(key) else default
+                require(value.isFinite() && value in min..max) {
+                    "Invalid diagnostics popup numeric setting: $key"
+                }
+                return value.toFloat()
+            }
+            return DiagnosticsPopupNumbers(
+                n("horizontalMarginDp",18.0,0.0,64.0),
+                n("minimumWidthDp",220.0,120.0,500.0),
+                n("verticalOffsetDp",69.0,0.0,220.0),
+                n("heightFraction",.63,.2,.85),
+                n("panelHorizontalPaddingDp",15.0,0.0,36.0),
+                n("panelVerticalPaddingDp",14.0,0.0,36.0),
+                n("headerHeightDp",40.0,24.0,80.0),
+                n("titleTextSizeSp",15.0,10.0,28.0),
+                n("reportTextSizeSp",11.5,8.0,24.0),
+                n("reportPaddingDp",10.0,0.0,32.0),
+                n("reportTopPaddingDp",12.0,0.0,32.0),
+                n("reportTopMarginDp",10.0,0.0,32.0)
+            )
+        }
+    }
+}
+
 /** Versioned and validated window theme used by all dialog types. */
 data class WindowStyleConfig(
     val background:Int=Color.rgb(17,35,49),
@@ -25,7 +75,8 @@ data class WindowStyleConfig(
     val diagnosticHeaderOrder:List<String> = listOf("title","copy"),
     val titles:Map<String,String> = defaultTitles(),
     val diagnosticsClickMode:String = "toggle",
-    val windowClickModes:Map<String,String> = mapOf("diagnostics" to "toggle","openScene" to "toggle","menu" to "toggle")
+    val windowClickModes:Map<String,String> = mapOf("diagnostics" to "toggle","openScene" to "toggle","menu" to "toggle"),
+    val diagnosticsPopup:DiagnosticsPopupNumbers=DiagnosticsPopupNumbers()
 ) {
     companion object {
         fun defaultTitles():Map<String,String> = linkedMapOf(
@@ -112,7 +163,8 @@ data class WindowStyleConfig(
                 number("controlTextSizeSp",14.0,10.0,22.0),
                 number("rowSpacingDp",7.0,0.0,24.0).toInt(),
                 number("controlHorizontalPaddingDp",14.0,0.0,32.0).toInt(),
-                menuOrder,headerOrder,titles,diagnosticsClickMode,windowModes)
+                menuOrder,headerOrder,titles,diagnosticsClickMode,windowModes,
+                DiagnosticsPopupNumbers.parse(json.optJSONObject("diagnosticsPopup")))
         }
     }
 }
