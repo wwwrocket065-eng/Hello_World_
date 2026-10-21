@@ -66,7 +66,8 @@ data class UiLayout(
     val bottomButtonGapDp:Float,
     val bottomRowGapDp:Float,
     val topReservedWidthDp:Float,
-    val topMinButtonWidthDp:Float
+    val topMinButtonWidthDp:Float,
+    val visualNumbers:UiVisualNumbers
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -275,6 +276,9 @@ data class UiLayout(
             val underline=if(j.has("showLogoUnderline"))j.getBoolean("showLogoUnderline") else false
             val fillChip=if(j.has("fillChipCenter"))j.getBoolean("fillChipCenter") else true
             val immersive=if(j.has("immersiveMode"))j.getBoolean("immersiveMode") else true
+            require(!j.has("visualNumbers") || j.optJSONObject("visualNumbers")!=null) {
+                "Invalid UI visual numeric configuration"
+            }
             return UiLayout(
                 color("topColor","#20313D"),color("bottomColor","#20313D"),
                 color("buttonColor","#203E4F"),color("buttonTextColor","#6DE0DE"),
@@ -304,7 +308,8 @@ data class UiLayout(
                 number("bottomButtonGapDp",8.0,0.0,32.0).toFloat(),
                 number("bottomRowGapDp",8.0,0.0,32.0).toFloat(),
                 number("topReservedWidthDp",186.0,80.0,280.0).toFloat(),
-                number("topMinButtonWidthDp",28.0,24.0,46.0).toFloat()
+                number("topMinButtonWidthDp",28.0,24.0,46.0).toFloat(),
+                UiVisualNumbers.parse(j.optJSONObject("visualNumbers"))
             )
         }
     }
