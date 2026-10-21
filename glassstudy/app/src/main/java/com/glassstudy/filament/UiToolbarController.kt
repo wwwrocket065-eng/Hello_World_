@@ -105,9 +105,9 @@ class UiToolbarController(
         val windowDp=totalDp.toInt()
         // Spacing is signed-data driven. Preserve the legacy 4dp default for old patches.
         val totalGap=ui.topButtonLeadingDp+ui.topButtonGapDp*(top.size-1).coerceAtLeast(0)
-        val upperBound=if(top.isEmpty())46f else ((totalDp-186f-totalGap)/top.size)
+        val upperBound=if(top.isEmpty())46f else ((totalDp-ui.topReservedWidthDp-totalGap)/top.size)
         val size=ui.adaptive.touchSizeDp(ui.topButtonSizeDp,windowDp).toFloat()
-            .coerceAtMost(upperBound.coerceAtLeast(28f))
+            .coerceAtMost(upperBound.coerceAtLeast(ui.topMinButtonWidthDp))
         top.forEachIndexed { index,spec ->
             val view=button(spec,ui,animations)
             topHost.addView(view,LinearLayout.LayoutParams(
