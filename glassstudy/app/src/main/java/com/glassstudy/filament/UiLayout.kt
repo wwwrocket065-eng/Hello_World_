@@ -64,7 +64,9 @@ data class UiLayout(
     val topButtonGapDp:Float,
     val topButtonLeadingDp:Float,
     val bottomButtonGapDp:Float,
-    val bottomRowGapDp:Float
+    val bottomRowGapDp:Float,
+    val topReservedWidthDp:Float,
+    val topMinButtonWidthDp:Float
 ) {
     companion object {
         private val DIAGNOSTIC_DEFAULTS = linkedMapOf(
@@ -300,7 +302,9 @@ data class UiLayout(
                 number("topButtonGapDp",4.0,-12.0,24.0).toFloat(),
                 number("topButtonLeadingDp",4.0,0.0,32.0).toFloat(),
                 number("bottomButtonGapDp",8.0,0.0,32.0).toFloat(),
-                number("bottomRowGapDp",8.0,0.0,32.0).toFloat()
+                number("bottomRowGapDp",8.0,0.0,32.0).toFloat(),
+                number("topReservedWidthDp",186.0,80.0,280.0).toFloat(),
+                number("topMinButtonWidthDp",28.0,24.0,46.0).toFloat()
             )
         }
     }
