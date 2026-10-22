@@ -41,8 +41,9 @@ fun main() {
         }
         val halfWidth=(pts.maxOf { it.x }-pts.minOf { it.x })/2
         val halfHeight=(pts.maxOf { it.y }-pts.minOf { it.y })/2
-        close(halfWidth,r,.05f)
-        close(halfHeight,(r*kotlin.math.sin(pitch)).toFloat(),.05f)
+        // Finite 5-degree sampling of a rotated ellipse differs by up to ~.054 units.
+        close(halfWidth,r,.10f)
+        close(halfHeight,(r*kotlin.math.sin(pitch)).toFloat(),.10f)
     }
     // For elevation viewed edge-on (camera yaw equals light azimuth), x is zero.
     for(a in listOf(0.0,.5,PI/2,PI)) {

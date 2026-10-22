@@ -752,6 +752,9 @@ assert 'if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)' in indicator
 assert 'drawOrbit(canvas,kind,spec,x,y)' in indicator
 assert 'private fun nearSun(' in indicator
 assert 'LightGuideProjection.azimuth(' in indicator
+assert 'LightGuideProjection.azimuthOrbit(theta,spec.guideRadiusUnits,' in indicator
+assert 'fun azimuthOrbit(' in projection
+assert 'LightDirectionMath.source(angleRad,0.0)' in projection
 assert 'LightGuideProjection.elevation(' in indicator
 assert 'fun azimuth(' in projection and 'fun elevation(' in projection
 assert 'return Point(' in projection
