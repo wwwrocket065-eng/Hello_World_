@@ -949,7 +949,7 @@ assert 'mgr.setColor(instance,sunRgb[0],sunRgb[1],sunRgb[2])' in camera_light
 assert 'renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,' in activity
 assert 'sceneEnvironment.setLightState(factor,elevation)' in activity
 assert 'studioBackgroundDimmer' not in activity
-assert 'LightDirectionMath.source(angleRad,sunElevationRad)' in proj
+assert 'LightDirectionMath.azimuthMarkerOnHorizon(' in proj
 assert 'sunElevationRad:Double=0.0' in proj
 assert 'lightElevationRad:Double' in view
 assert 'lightElevation)' in view
