@@ -84,3 +84,8 @@
 - Reusable 3-mode LightIndicatorView draws explicit alpha-blended RadialGradient BEHIND the eight-ray sun, with additional soft wide stroke along eight rays, then sharp opaque glyph strokes. This is a clear halo, not a hard neon outline or a cast shadow.
 - Sun-only signed inputs: sunGlowUnits, glowOpacity. Guide glow stays entirely separate; all three guideGlowUnits=0. Never draw halo on guides. Text chip remains translucent backplate and fully opaque digits.
 - An Android APK update is necessary ONCE for the new native shader drawing (v0.2.55), but numerical opacity/radius changes afterward remain signed .pupdate values. Keep bottom light/camera button absent and top sun button present.
+
+## 2026-10-22 — Shared numeric visual glow system
+- One GlowEffectConfig and CanvasGlowEngine shared by Canvas UI paths (circles, rays, icons, outlines, buttons) and configurable via signed .pupdate; do NOT add per-indicator duplicated shadow/gradient code.
+- Three independently tunable layers primaryStroke (ring), secondaryStroke (rays), ambient (outer haze). Each layer has bounded radiusUnits, opacity, falloff, integer samples. Smoothly fade to alpha=0 at edge; no obvious abrupt circle boundary.
+- Keep the primary ring more visibly illuminated than the rays while preserving sharp round glyph shape, separate unlit orbital guide tracks, and old 20039 patch fallback. Any Filament-based 3D glow would use a separate native rendering adapter; don't imply Canvas shader has updated Filament.
