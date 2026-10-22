@@ -778,7 +778,7 @@ assert 'fun elevationLabel(' in light_math
 assert 'LightDirectionMath.elevationLabel(deg)' in view
 assert 'private var brightnessPercent=100f' in view
 assert 'brightnessPercent*(spec.rayLengthMaxUnits-spec.rayLengthMinUnits)/200f' in view
-assert 'currentBrightnessPercent:Float,captionBackground:Int' in view
+assert 'lightElevationRad:Double,currentBrightnessPercent:Float' in view
 assert '(cameraLight.brightness*100).toFloat()' in activity
 assert 'val rays=LightDirectionMath.incoming(' in camera
 assert 'canvas.drawRoundRect(left,top,right,bottom,' in view
