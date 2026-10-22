@@ -212,7 +212,7 @@ for f in models:
     assert mesh['buffers'][0]['byteLength']==bin_len,f
     assert all(0<=prim.get('material',0)<len(mesh['materials'])
                for group in mesh['meshes'] for prim in group['primitives']),f
-assert (root/'app/src/main/assets/envs/studio_ibl.ktx').stat().st_size>2_000_000
+# The old studio environment/color picker is intentionally not a lighting option.
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))
 import publish_patch
@@ -274,7 +274,7 @@ assert 'runCatching { applyUiLayout() }' in activity
 assert 'runCatching { loadSelected() }' in activity
 assert 'blockedAfterCrash' in updater and 'feed.patchVersion != blockedVersion' in updater
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
-print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, IBL')
+print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, physical lighting')
 print('NOTE: Android SDK/Gradle compile and device runtime must be tested separately.')
 # Scene style and module regression — standalone white/checker floors share width.
 scene_config=json.loads((root/'app/src/main/assets/modules/scene/config.json').read_text())
@@ -338,7 +338,7 @@ assert window_theme['windowClickModes']=={'diagnostics':'toggle','openScene':'to
 assert 'host.isWindowOpen(action)' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'GlassDialogFactory.closeCurrent()' in activity
 assert 'key="openScene"' in panel
-assert 'key="skyColor"' in panel
+# The old studio environment/color picker is intentionally not a lighting option.
 assert 'Unknown window behavior key' in (root/'app/src/main/java/com/glassstudy/filament/WindowStyleConfig.kt').read_text()
 
 # Signed contextual overlay with safe live bindings and controlled appearance.
