@@ -150,3 +150,9 @@
 - newestAbove previously returned exactly one highest-name-version candidate; an invalid/unsigned/corrupt highest file prevented installation of any other newer-than-installed patch. candidatesAbove now ranks matching files, and MainActivity tries each through existing PatchManager.installFromUri, which enforces signature/hash checks.
 - No all-files access, no new update subsystem, no remote dependency when folder configured. Report scan and rejection reasons via existing updateStatus.
 - Validation levels: GitHub Actions compile/tests still required; Android 16 real-device test not yet performed. Verify saved SAF grant across force-stop/reboot; downloaded MIME naming, malformed highest file fallback, RSA rejection, frame confirmation, and recovery on crash.
+
+## 2026-10-22 current release checkpoint
+- Verified original-key Android v0.2.57 source bde260bad847e75cbaa7fb4dd3efa514fa683479, CI pass Android 39700245728/39700239252 and Filament 39700239384.
+- Signed APK original cert fingerprint 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc, APK SHA256 52af57b50263445807dbc86e374b46322865ea8746df5ce5be4b61678c31e88c.
+- Signed local patch 20041 SHA256 ab26f2d8998353aefe0385c1052fef813982e896f88f902893e640d6aefbd9d0; uniform lit sun cores for three indicators. Physical lighting brightness 0% now extinguishes direct and IBL and shows a cached black 3D skybox, but leaves user controls visible. Still awaiting user phone verification.
+- Preserve all 0.2.56 technical-only visuals, 100dp brightness offset, 90deg bright rotation, zero glow guides, no bottom light/camera button, fully opaque digits on dark 45% alpha chips, original APK and patch signing keys.

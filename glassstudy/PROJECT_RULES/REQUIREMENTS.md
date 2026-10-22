@@ -89,3 +89,8 @@
 - One GlowEffectConfig and CanvasGlowEngine shared by Canvas UI paths (circles, rays, icons, outlines, buttons) and configurable via signed .pupdate; do NOT add per-indicator duplicated shadow/gradient code.
 - Three independently tunable layers primaryStroke (ring), secondaryStroke (rays), ambient (outer haze). Each layer has bounded radiusUnits, opacity, falloff, integer samples. Smoothly fade to alpha=0 at edge; no obvious abrupt circle boundary.
 - Keep the primary ring more visibly illuminated than the rays while preserving sharp round glyph shape, separate unlit orbital guide tracks, and old 20039 patch fallback. Any Filament-based 3D glow would use a separate native rendering adapter; don't imply Canvas shader has updated Filament.
+
+## 2026-10-22 mandatory 0% scene darkness and uniform core glow
+- 0% physical lighting must extinguish BOTH the directional sun and indirect IBL. The skybox becomes cached black for exact zero only; restore user-selected skybox above zero. UI remains visible so user can brighten again. Keep scene resource release safe and avoid per-frame allocations.
+- Render ambient responsiveness can be tuned by validated signed render.globalBrightnessExponent (0.25 to 4.0), with exact zero preserved. Do not silently floor brightness above 0%.
+- CanvasGlowEngine.drawCoreFill is a reusable flat-brightness inner disk, separate from primary ring stroke, secondary rays and ambient haze, all using validated signed GlowEffectConfig. All three indicators share this implementation, with no distorted circles or glowing guides.
