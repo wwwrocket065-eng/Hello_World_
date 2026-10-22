@@ -645,6 +645,7 @@ class MainActivity : Activity() {
             diagnosticsModule=diagnosticsModule,
             renderModule=renderEnvironment.configuration,
             cameraModule=cameraLight.config,
+            lightingMode=sceneEnvironment.lightingMode,
             modelId=modelAssets.selection.modelId,
             modelName=ModelCatalog.displayName(modelAssets.selection.modelId),
             modelLod=modelAssets.selection.lod,

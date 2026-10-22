@@ -12,6 +12,7 @@ data class DiagnosticsReportState(
     val diagnosticsModule:DiagnosticsModuleConfig,
     val renderModule:RenderModuleConfig,
     val cameraModule:CameraModuleConfig,
+    val lightingMode:LightEnvironmentMode,
     val modelId:String,
     val modelName:String,
     val modelLod:String,
@@ -55,9 +56,18 @@ class DiagnosticsReportService(
                 "Актуально"
             else -> updater.updateStatus
         }
-        val hasIbl=try {
-            context.assets.open("envs/studio_ibl.ktx").close();true
-        } catch (_:Exception) { false }
+        // Computed from the exact same physical model as the renderer.
+        // These are modeled values, NOT measured sensor/GPU readings.
+        val physicalSkyLux=PhysicalAtmosphereModel.skyIlluminance(state.lightingMode,
+            state.lightElevation,state.renderModule.atmosphereSkyIlluminance.toDouble(),
+            state.renderModule.atmosphereHorizonFraction.toDouble())*
+            LightingResponseCurve.intensity(state.brightness,
+                state.renderModule.globalBrightnessExponent.toDouble())
+        val physicalSunLux=state.cameraModule.lightIntensity*
+            LightingResponseCurve.intensity(state.brightness,
+                state.cameraModule.directBrightnessExponent)*
+            PhysicalAtmosphereModel.solarTransmission(state.lightingMode,
+                state.lightElevation,state.renderModule.atmosphereExtinction.toDouble())
         val stamp=SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale("ru","RU")).format(Date())
         val report=buildString {
             // Version appears ONCE. Patch numbers occupy ONE line.
@@ -102,7 +112,10 @@ class DiagnosticsReportService(
                         appendLine("Google Filament / gltfio · OpenGL ES")
                         appendLine("Реально нарисованных кадров Filament: ${state.renderedFrames}")
                         appendLine("${tr("glass")}: ${tr("glassValue")}")
-                        appendLine("IBL: ${tr(if(hasIbl) "iblAvailable" else "iblUnavailable")}")
+                        appendLine("Режим света: ${if(state.lightingMode==LightEnvironmentMode.VACUUM) "Вакуум" else "Атмосфера"}")
+                        appendLine("IBL: ${if(state.lightingMode==LightEnvironmentMode.VACUUM) "выключен" else "аналитическое рассеяние неба (SH, приближение)"}")
+                        appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
+                        appendLine("Студийные HDRI: отключены · физические каустики: не реализованы")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                     }
                     "camera" -> {
@@ -128,7 +141,7 @@ class DiagnosticsReportService(
             }
             if (state.diagnosticsModule.includeRenderParameters) {
                 appendLine("▸ НАСТРОЙКИ РЕНДЕРА")
-                appendLine("IBL: ${num(state.renderModule.iblIntensity.toDouble())} · FXAA: ${if(state.renderModule.fxaa) "ВКЛ" else "ВЫКЛ"}")
+                appendLine("Атмосферный небесный свет при зените: ${num(state.renderModule.atmosphereSkyIlluminance.toDouble())} лк · FXAA: ${if(state.renderModule.fxaa) "ВКЛ" else "ВЫКЛ"}")
                 appendLine("Экспозиция: f/${num(state.renderModule.exposureAperture.toDouble())} · ISO ${num(state.renderModule.exposureSensitivity.toDouble())}")
             }
             if (state.diagnosticsModule.includeCameraParameters) {
