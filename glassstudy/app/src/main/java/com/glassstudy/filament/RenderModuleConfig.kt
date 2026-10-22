@@ -13,7 +13,12 @@ data class RenderModuleConfig(
     val exposureSensitivity: Float = 100f,
     val fxaa: Boolean = true,
     val ambientOcclusionEnabled: Boolean = true,
-    val globalBrightnessExponent:Float=1.5f
+    val globalBrightnessExponent:Float=1.5f,
+    val atmosphereExtinction:Float=.14f,
+    val atmosphereHaze:Float=.30f,
+    val atmosphereSkyIlluminance:Float=14000f,
+    val atmosphereHorizonFraction:Float=.08f,
+    val atmosphereShUpdateDegrees:Float=3f
 ) {
     companion object {
         fun parse(json: JSONObject?): RenderModuleConfig {
@@ -34,7 +39,12 @@ data class RenderModuleConfig(
                 exposureSensitivity = number("exposureSensitivity", 100f, 1f, 12800f),
                 fxaa = json.optBoolean("fxaa", true),
                 ambientOcclusionEnabled = json.optBoolean("ambientOcclusionEnabled", true),
-                globalBrightnessExponent = number("globalBrightnessExponent",1.5f,.25f,4f)
+                globalBrightnessExponent = number("globalBrightnessExponent",1.5f,.25f,4f),
+                atmosphereExtinction = number("atmosphereExtinction",.14f,.001f,.6f),
+                atmosphereHaze = number("atmosphereHaze",.30f,0f,1f),
+                atmosphereSkyIlluminance = number("atmosphereSkyIlluminance",14000f,0f,80000f),
+                atmosphereHorizonFraction = number("atmosphereHorizonFraction",.08f,0f,.30f),
+                atmosphereShUpdateDegrees = number("atmosphereShUpdateDegrees",3f,.5f,12f)
             )
         }
     }

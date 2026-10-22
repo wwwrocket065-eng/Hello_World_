@@ -82,6 +82,18 @@ object PhysicalAtmosphereModel {
         }
     }
 
+    /** Sun color changes with optical air mass. Vacuum sunlight is white. */
+    fun sunlightRgb(mode:LightEnvironmentMode,elevation:Double,extinction:Double):FloatArray {
+        if(mode==LightEnvironmentMode.VACUUM)return floatArrayOf(1f,1f,1f)
+        val mass=airMass(elevation)
+        val red=exp(-extinction*.70*mass)
+        val green=exp(-extinction*mass)
+        val blue=exp(-extinction*1.45*mass)
+        val norm=red.coerceAtLeast(1.0e-12)
+        return floatArrayOf(1f,(green/norm).coerceIn(0.0,1.0).toFloat(),
+            (blue/norm).coerceIn(0.0,1.0).toFloat())
+    }
+
     /** Separate background color approximation, derived from the same sky. */
     fun backgroundRgb(mode:LightEnvironmentMode,elevation:Double,
                       haze:Double,brightness:Double):FloatArray {
