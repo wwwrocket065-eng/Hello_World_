@@ -75,8 +75,22 @@ def config_resource(alias,baseline):
                 button.setdefault(key,value)
     return path,doc
 
-def assign(document,selector,value):
+# Enforce the native lighting validators BEFORE issuing an irreversible RSA
+# signed patch. Other module validators still run atomically on Android.
+LIGHTING_PATCH_LIMITS={
+    "camera.directBrightnessExponent":(.25,4.0),
+    "render.globalBrightnessExponent":(.25,4.0),
+    "scene.skyBrightnessExponent":(.25,4.0),
+    "scene.skyBrightnessCeiling":(1.0,2.0)
+}
+
+def assign(document,selector,value,alias=None):
     """Existing JSON object keys only. No guessed API or unknown properties."""
+    bounded=LIGHTING_PATCH_LIMITS.get((alias or "")+"."+selector)
+    if bounded is not None:
+        import math
+        if type(value) not in (int,float) or not math.isfinite(value) or not bounded[0]<=value<=bounded[1]:
+            raise ValueError("Lighting value outside signed safe bounds: "+selector)
     keys=selector.split(".")
     if not keys or any(not key for key in keys):raise ValueError("Invalid property path")
     target=document
@@ -213,7 +227,7 @@ def produce(args):
         path=ALIASES.get(alias)
         if path is None:raise ValueError("Unknown module: "+alias)
         if path not in base:base[path]=config_resource(alias,baseline)[1]
-        assign(base[path],selector,encode_value(value))
+        assign(base[path],selector,encode_value(value),alias=alias)
     if args.button:
         path="ui/layout.json"
         if path not in base:base[path]=config_resource("ui",baseline)[1]
