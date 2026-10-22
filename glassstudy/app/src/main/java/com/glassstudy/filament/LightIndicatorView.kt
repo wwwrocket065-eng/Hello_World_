@@ -228,8 +228,8 @@ class LightIndicatorView(context:Context):View(context) {
         for(i in 0..steps) {
             val theta=endAngle*i.toDouble()/steps
             val point=if(kind==Mode.AZIMUTH)
-                // The track is the fixed 0° world-horizontal reference circle.
-                // The sun glyph above uses the actual lightElevation instead.
+                // Fixed guide and marker share the same XZ orbit; the marker
+                // flips hemisphere after 90° without leaving the circle.
                 LightGuideProjection.azimuthOrbit(theta,spec.guideRadiusUnits,
                     cameraYaw,cameraPitch)
             else LightGuideProjection.elevation(theta,spec.guideRadiusUnits,

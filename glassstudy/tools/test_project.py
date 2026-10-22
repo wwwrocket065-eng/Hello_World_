@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.60' in props and 'GLASSSTUDY_VERSION_CODE=20060' in props
+assert 'GLASSSTUDY_VERSION=0.2.61' in props and 'GLASSSTUDY_VERSION_CODE=20061' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -754,6 +754,8 @@ assert 'private fun nearSun(' in indicator
 assert 'LightGuideProjection.azimuth(' in indicator
 assert 'LightGuideProjection.azimuthOrbit(theta,spec.guideRadiusUnits,' in indicator
 assert 'fun azimuthOrbit(' in projection
+assert 'LightDirectionMath.azimuthMarkerOnHorizon(' in projection
+assert 'fun azimuthMarkerOnHorizon(' in (root/'app/src/main/java/com/glassstudy/filament/LightDirectionMath.kt').read_text()
 assert 'LightDirectionMath.source(angleRad,0.0)' in projection
 assert 'LightGuideProjection.elevation(' in indicator
 assert 'fun azimuth(' in projection and 'fun elevation(' in projection
@@ -912,7 +914,7 @@ assert 'val direct=LightingResponseCurve.intensity(' in camera_light
 assert 'canvas.drawPath(ringPath,pen)' in view_src  # SUN marker stays unchanged
 assert (root/'tools/LightingResponseRegression.kt').is_file()
 
-# GlassStudy 0.2.60 preserves 0.2.59 physical light and fixes the azimuth orbit.
+# GlassStudy 0.2.61 keeps the sun attached to the fixed azimuth orbit.
 assert 'heading("РЕЖИМ ОСВЕЩЕНИЯ")' in panel
 assert 'heading("SKYBOX")' not in panel
 assert '"Вакуум · только солнечные лучи"' in panel

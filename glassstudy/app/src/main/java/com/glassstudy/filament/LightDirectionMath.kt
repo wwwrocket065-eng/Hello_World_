@@ -1,5 +1,6 @@
 package com.glassstudy.filament
 
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -17,6 +18,23 @@ object LightDirectionMath {
         val h=cos(elevationRad)
         return Vector((h*sin(azimuthRad)).toFloat(),sin(elevationRad).toFloat(),
             (h*cos(azimuthRad)).toFloat())
+    }
+
+    /**
+     * Unit horizontal projection of the physically correct solar direction.
+     * This places the technical AZIMUTH marker on the fixed 0-degree guide
+     * circle, without using the true sun's elevation as the circle radius.
+     * The sign of cos(elevation) keeps the marker on the physically correct
+     * side of the model after crossing the zenith. Exactly at the zenith the
+     * horizontal direction is undefined: retain the approaching azimuth.
+     *
+     * THIS IS AN INDICATOR PROJECTION, not a second physical light vector.
+     */
+    fun azimuthMarkerOnHorizon(azimuthRad:Double,elevationRad:Double):Vector {
+        val horizon=source(azimuthRad,0.0)
+        require(elevationRad.isFinite() && elevationRad in 0.0..PI)
+        val side=if(elevationRad>PI/2) -1f else 1f
+        return Vector(horizon.x*side,0f,horizon.z*side)
     }
 
     /** Filament directional LightManager expects direction of incoming rays. */

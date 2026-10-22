@@ -24,15 +24,18 @@ object LightGuideProjection {
         project(LightDirectionMath.source(angleRad,0.0),radius,
             cameraYawRad,cameraPitchRad)
 
-    /** True projected sun location; follows real 3D sunlight past zenith. */
+    /**
+     * AZIMUTH indicator marker stays attached to the fixed reference circle.
+     * It visualizes the solar horizontal *bearing*, not the solar altitude.
+     * After 90° the actual sun is on the opposite horizontal hemisphere,
+     * so the marker switches sides together with the shadow direction.
+     */
     fun azimuth(
         angleRad:Double,radius:Float,cameraYawRad:Double,cameraPitchRad:Double,
         sunElevationRad:Double=0.0
     ):Point {
-        // Do not use this for the guide TRACK: the sun changes altitude while
-        // the reference circle must remain fixed. The glyph follows Filament.
-        return project(LightDirectionMath.source(angleRad,sunElevationRad),radius,
-            cameraYawRad,cameraPitchRad)
+        return project(LightDirectionMath.azimuthMarkerOnHorizon(
+            angleRad,sunElevationRad),radius,cameraYawRad,cameraPitchRad)
     }
 
     /**

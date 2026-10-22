@@ -25,15 +25,32 @@ fun main() {
     // The azimuth TRACK is frozen to elevation=0°, regardless of the physical
     // solar altitude that drives the glyph and directional shadows.
     close(LightGuideProjection.azimuthOrbit(0.0,r,0.0,PI/6).x,0f)
-    val elevations=listOf(0.0,45.0,90.0,135.0,180.0)
+    val elevations=listOf(0.0,45.0,89.999,90.0,90.001,135.0,180.0)
     for(deg in elevations) {
-        val sun=LightGuideProjection.azimuth(PI/2,r,0.0,PI/6,
-            Math.toRadians(deg))
-        val fixed=LightGuideProjection.azimuthOrbit(PI/2,r,0.0,PI/6)
-        close(fixed.x,r)
-        close(fixed.y,0f)
-        close(sun.x,(r*kotlin.math.cos(Math.toRadians(deg))).toFloat())
+        val elevation=Math.toRadians(deg)
+        for(az in listOf(0.0,0.37,PI/2,PI,5.2)) {
+            val expectedBearing=az+(if(deg>90.0) PI else 0.0)
+            val physicalSun=LightDirectionMath.source(az,elevation)
+            val rays=LightDirectionMath.incoming(az,elevation)
+            val marker=LightDirectionMath.azimuthMarkerOnHorizon(az,elevation)
+            // The marker's XZ bearing must agree with physical sunlight
+            // whenever its horizontal projection is nonzero.
+            if(kotlin.math.abs(deg-90.0)>.00001) {
+                check(marker.x*physicalSun.x+marker.z*physicalSun.z>0f)
+                check(marker.x*rays.x+marker.z*rays.z<0f)
+            }
+            for(yaw in listOf(0.0,.45,PI/2)) for(pitch in listOf(.2,PI/6,PI/2)) {
+                val sunGlyph=LightGuideProjection.azimuth(az,r,yaw,pitch,elevation)
+                val fixedRing=LightGuideProjection.azimuthOrbit(
+                    expectedBearing,r,yaw,pitch)
+                close(sunGlyph.x,fixedRing.x)
+                close(sunGlyph.y,fixedRing.y)
+            }
+        }
     }
+    // At zenith, the true horizontal solar projection is zero: the marker
+    // keeps the 90° approaching bearing as a UI convention, not a light.
+    check(LightDirectionMath.azimuthMarkerOnHorizon(PI/2,PI/2).x>0f)
     // Full orbit's diameter and projected height are always those at 0°.
     for(yaw in listOf(0.0,.65,PI)) for(pitch in listOf(.2,PI/6,PI/2)) {
         val pts=(0..72).map {
@@ -56,7 +73,7 @@ fun main() {
     close(apex.x,0f);close(apex.y,-r)
     val low=LightGuideProjection.azimuth(PI/2,r,0.0,.35,PI/3)
     val high=LightGuideProjection.azimuth(PI/2,r,0.0,.35,2*PI/3)
-    check(low.x>0f && high.x<0f) { "Azimuth orbit must flip past 90deg" }
-    close(LightGuideProjection.azimuth(PI/2,r,0.0,.35,PI/2).x,0f)
-    println("PASS: azimuth orbit size/height fixed at 0deg, physical sun flips past zenith")
+    check(low.x>0f && high.x<0f) { "Marker must flip past 90deg" }
+    close(LightGuideProjection.azimuth(PI/2,r,0.0,.35,PI/2).x,r)
+    println("PASS: fixed orbit, sun always on ring, correct hemisphere past zenith")
 }
