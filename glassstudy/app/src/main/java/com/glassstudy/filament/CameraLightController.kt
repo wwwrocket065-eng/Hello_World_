@@ -17,7 +17,9 @@ class CameraLightController(
     private val density:()->Float,
     private val showIndicator:(LightIndicatorView.Mode,Float)->Unit,
     private val hideIndicator:()->Unit,
-    private val onGlobalBrightnessChanged:(Double)->Unit={}
+    private val onGlobalBrightnessChanged:(Double,Double,Double)->Unit={ _,_,_ -> },
+    private val directTransmission:(Double)->Double={ 1.0 },
+    private val directSunColor:(Double)->FloatArray={ floatArrayOf(1f,1f,1f) }
 ) {
     var config=CameraModuleConfig()
         private set
@@ -46,6 +48,8 @@ class CameraLightController(
     private val lightTouch=LightTouchSession()
     private var initialLightConfigurationApplied=false
     private var brightnessDispatched:Double=Double.NaN
+    private var elevationDispatched=Double.NaN
+    private var azimuthDispatched=Double.NaN
 
     fun configure(next:CameraModuleConfig,zoom:Double,inverted:Boolean) {
         require(zoom.isFinite() && zoom>0)
@@ -206,12 +210,20 @@ class CameraLightController(
         // including the return hemisphere (elevation 90..180 degrees).
         mgr.setDirection(instance,rays.x,rays.y,rays.z)
         val direct=LightingResponseCurve.intensity(brightness,config.directBrightnessExponent)
-        mgr.setIntensity(instance,(config.lightIntensity*direct).toFloat())
+        // Direct vacuum sunlight is unattenuated. Atmosphere uses real
+        // optical-depth extinction; the diffuse sky is owned separately.
+        val transmitted=direct*directTransmission(lightElevation)
+        mgr.setIntensity(instance,(config.lightIntensity*transmitted).toFloat())
+        val sunRgb=directSunColor(lightElevation)
+        mgr.setColor(instance,sunRgb[0],sunRgb[1],sunRgb[2])
         // A single lighting gesture drives direct rays AND the ambient IBL.
         // Avoid expensive scene work in the 60/120 FPS camera frame callback.
-        if(brightnessDispatched!=brightness) {
-            onGlobalBrightnessChanged(brightness)
+        if(brightnessDispatched!=brightness ||
+            elevationDispatched!=lightElevation || azimuthDispatched!=lightAz) {
+            onGlobalBrightnessChanged(brightness,lightElevation,lightAz)
             brightnessDispatched=brightness
+            elevationDispatched=lightElevation
+            azimuthDispatched=lightAz
         }
     }
 }

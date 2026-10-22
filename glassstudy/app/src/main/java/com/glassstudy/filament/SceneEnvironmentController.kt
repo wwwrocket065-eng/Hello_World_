@@ -61,6 +61,13 @@ class SceneEnvironmentController(
         if(module==next)return
         module=next
         applyFloor()
+        if(!preferences.contains("physicalLightingMode")) {
+            val preferred=LightEnvironmentMode.from(next.defaultLightingMode)
+            if(preferred!=lightingMode) {
+                lightingMode=preferred
+                onLightingModeChanged(lightingMode)
+            }
+        }
         updatePhysicalSky()
     }
 

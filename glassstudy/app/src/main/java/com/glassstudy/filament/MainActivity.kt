@@ -144,7 +144,6 @@ class MainActivity : Activity() {
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
     private lateinit var cameraLight:CameraLightController
-    private lateinit var studioBackgroundDimmer:View
     private lateinit var renderEnvironment:RenderEnvironmentController
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private lateinit var sceneEnvironment:SceneEnvironmentController
@@ -222,17 +221,6 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         mainRoot=root
         root.addView(surface, FrameLayout.LayoutParams(-1, -1))
-        // Scene-only studio skybox fade; this passive view stays BELOW
-        // buttons, labels, indicators and all dialogs. Never intercept touches.
-        studioBackgroundDimmer=View(this).apply {
-            setBackgroundColor(Color.BLACK)
-            alpha=0f
-            visibility=View.GONE
-            isClickable=false
-            isFocusable=false
-            importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        }
-        root.addView(studioBackgroundDimmer,FrameLayout.LayoutParams(-1,-1))
         setContentView(root)
         // Android 15+ edge-to-edge: keep controls out of the status and navigation bars.
         if (Build.VERSION.SDK_INT >= 30) {
@@ -249,9 +237,11 @@ class MainActivity : Activity() {
         viewer = GlassStudyModelViewer(surface, manipulator = null)
         modelAssets=ModelMaterialController(viewer,updater)
         sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE)) {
-            amount ->
-            studioBackgroundDimmer.alpha=amount.coerceIn(0f,1f)
-            studioBackgroundDimmer.visibility=if(amount>0f)View.VISIBLE else View.GONE
+            mode ->
+            // A mode change must update *both* physical IBL and direct sunlight.
+            renderEnvironment.setLightingEnvironment(mode,cameraLight.brightness,
+                cameraLight.lightElevation,cameraLight.lightAz)
+            cameraLight.applyToFilament()
         }
         sceneSettings=SceneSettingsPanel(this,sceneEnvironment)
         sceneEnvironment.applySkybox()
@@ -260,12 +250,15 @@ class MainActivity : Activity() {
         cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
             {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode,
                 cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz,
-                (cameraLight.brightness*100).toFloat())},
+                cameraLight.lightElevation,(cameraLight.brightness*100).toFloat())},
             {lightIndicator?.hide()},
-            {factor ->
-                renderEnvironment.setGlobalBrightness(factor)
-                sceneEnvironment.setGlobalBrightness(factor)
-            })
+            {factor,elevation,azimuth ->
+                renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,
+                    factor,elevation,azimuth)
+                sceneEnvironment.setLightState(factor,elevation)
+            },
+            {elevation -> renderEnvironment.directTransmission(elevation)},
+            {elevation -> renderEnvironment.directColor(elevation)})
         surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
 
         // Floating header, modeled on GlassStudy 3D LAB v0.1.22.
@@ -588,9 +581,13 @@ class MainActivity : Activity() {
             val ui=bundle.ui
             cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)
             renderEnvironment.apply(bundle.render)
+            sceneEnvironment.configureAtmosphereHaze(bundle.render.atmosphereHaze.toDouble())
             diagnosticsModule=bundle.diagnostics
             modelAssets.configure(bundle.materials)
             sceneEnvironment.applyConfiguration(bundle.scene)
+            renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,
+                cameraLight.brightness,cameraLight.lightElevation,cameraLight.lightAz)
+            cameraLight.applyToFilament()
             uiChrome.apply(ui,bundle.windows,bundle.overlay)
             status()
             return true
