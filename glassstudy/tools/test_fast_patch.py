@@ -89,3 +89,13 @@ assert "modules/overlay/config.json" in p.stdout
 assert "modules/render/config.json" in p.stdout
 run("--set","overlay.indicatorVisuals.azimuth.glowEffect.coreFill.nonexistent=1",good=False)
 run("--set","overlay.indicatorVisuals.brightness.glowEffect.coreFill.opacity=\"bad\"",good=False)
+
+# v0.2.58: independently signed lighting curves and sky maximum.
+p=run("--set","camera.directBrightnessExponent=1.7",
+      "--set","render.globalBrightnessExponent=1.6",
+      "--set","scene.skyBrightnessExponent=1.35",
+      "--set","scene.skyBrightnessCeiling=1.2")
+for resource in ("modules/camera/config.json","modules/render/config.json","modules/scene/config.json"):
+    assert resource in p.stdout
+run("--set","scene.skyBrightnessExponent=-1",good=False)
+run("--set","camera.directBrightnessExponent=9",good=False)

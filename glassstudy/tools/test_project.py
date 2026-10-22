@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.57' in props and 'GLASSSTUDY_VERSION_CODE=20057' in props
+assert 'GLASSSTUDY_VERSION=0.2.58' in props and 'GLASSSTUDY_VERSION_CODE=20058' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -462,7 +462,8 @@ assert 'renderEnvironment.apply(bundle.render)' in activity
 assert 'cameraLight.applyToFilament()' in activity
 assert 'cameraLight.setBrightnessPercent(value)' in activity
 assert 'cameraLight.resetHome()' in activity
-assert 'mgr.setIntensity(instance,(config.lightIntensity*brightness).toFloat())' in camera_light
+assert 'val direct=LightingResponseCurve.intensity(brightness,config.directBrightnessExponent)' in camera_light
+assert 'mgr.setIntensity(instance,(config.lightIntensity*direct).toFloat())' in camera_light
 assert 'onGlobalBrightnessChanged(brightness)' in camera_light
 assert 'renderEnvironment.setGlobalBrightness(factor)' in activity
 assert 'sceneEnvironment.setGlobalBrightness(factor)' in activity
@@ -866,15 +867,23 @@ render_env=(src/'RenderEnvironmentController.kt').read_text()
 scene_env=(src/'SceneEnvironmentController.kt').read_text()
 render_module=(src/'RenderModuleConfig.kt').read_text()
 render_json=__import__('json').loads((root/'app/src/main/assets/modules/render/config.json').read_text())
-assert render_json['globalBrightnessExponent']==1
+assert render_json['globalBrightnessExponent']==1.5
 assert 'globalBrightnessExponent' in render_module
 assert 'viewer.scene.indirectLight?.intensity=(configuration.iblIntensity*exposure).toFloat()' in render_env
-assert 'globalBrightness.pow(configuration.globalBrightnessExponent.toDouble())' in render_env
+assert 'LightingResponseCurve.intensity(globalBrightness,' in render_env
+assert 'configuration.globalBrightnessExponent.toDouble()' in render_env
 assert 'fun setGlobalBrightness(value:Double)' in render_env
 assert 'fun setGlobalBrightness(value:Double)' in scene_env
-assert 'Skybox.Builder().color(0f,0f,0f,1f)' in scene_env
-assert 'viewer.scene.skybox=if(globalBrightness==0.0)blackSkybox() else next' in scene_env
-assert 'viewer.scene.skybox=if(value==0.0) blackSkybox() else activeSkybox' in scene_env
+assert 'activeSkybox?.setColor(' in scene_env
+assert 'viewer.scene.skybox=next' in scene_env
+assert 'updateBackgroundBrightness()' in scene_env
+assert 'private var texturedBackground=false' in scene_env
+assert 'dimTexturedBackground(1f-multiplier.coerceAtMost(1f))' in scene_env
+assert 'Skybox.Builder().color(0f,0f,0f,1f)' not in scene_env
+assert 'blackSkybox()' not in scene_env
+assert 'studioBackgroundDimmer=View(this).apply {' in activity
+assert 'root.addView(studioBackgroundDimmer,FrameLayout.LayoutParams(-1,-1))' in activity
+assert 'isClickable=false' in activity
 assert 'onGlobalBrightnessChanged(brightness)' in camera_light
 assert 'brightnessDispatched!=brightness' in camera_light
 # Uniform INNER glow fills the disk, not merely its outline.
@@ -900,3 +909,28 @@ for mode in ('azimuth','elevation','brightness'):
     assert .1<=fill['opacity']<=1 and .03<=fill['edgeSoftness']<=.95
     assert 6<=fill['samples']<=64
 assert (root/'tools/GlowCoreFillRegression.kt').is_file()
+
+# v0.2.58: continuous perceived lighting (including at 0%) and background.
+response=(src/'LightingResponseCurve.kt').read_text()
+camera_cfg=(src/'CameraModuleConfig.kt').read_text()
+scene_cfg=(src/'SceneModuleConfig.kt').read_text()
+scene_json=__import__('json').loads((root/'app/src/main/assets/modules/scene/config.json').read_text())
+camera_json=__import__('json').loads((root/'app/src/main/assets/modules/camera/config.json').read_text())
+assert 'object LightingResponseCurve' in response
+assert 'fun intensity(factor:Double,exponent:Double):Double' in response
+assert 'fun sky(factor:Double,exponent:Double,ceiling:Double):Double' in response
+assert camera_json['directBrightnessExponent']==1.5
+assert scene_json['skyBrightnessExponent']==1.4
+assert scene_json['skyBrightnessCeiling']==1.25
+assert 'directBrightnessExponent' in camera_cfg and 'skyBrightnessExponent' in scene_cfg
+assert 'skyBrightnessCeiling' in scene_cfg
+assert 'LightingResponseCurve.sky(globalBrightness,' in scene_env
+assert 'viewer.scene.skybox=next' in scene_env
+assert 'if(globalBrightness==0.0)' not in scene_env
+assert 'setColor(' in scene_env
+assert 'studioBackgroundDimmer.visibility=if(amount>0f)View.VISIBLE else View.GONE' in activity
+assert 'studioBackgroundDimmer.isClickable=true' not in activity
+assert 'val direct=LightingResponseCurve.intensity(' in camera_light
+assert 'val exposure=LightingResponseCurve.intensity(' in render_env
+assert 'canvas.drawPath(ringPath,pen)' in view_src  # SUN marker stays unchanged
+assert (root/'tools/LightingResponseRegression.kt').is_file()
