@@ -22,7 +22,8 @@ data class SceneModuleConfig(
     val darkSkyGreen:Int=30,
     val darkSkyBlue:Int=35,
     val skyBrightnessExponent:Double=1.4,
-    val skyBrightnessCeiling:Double=1.25
+    val skyBrightnessCeiling:Double=1.25,
+    val defaultLightingMode:String="atmosphere"
 ) {
     companion object {
         fun parse(json: JSONObject?): SceneModuleConfig {
@@ -61,7 +62,10 @@ data class SceneModuleConfig(
                 channel("whiteSkyRed",240),channel("whiteSkyGreen",240),channel("whiteSkyBlue",240),
                 channel("darkSkyRed",27),channel("darkSkyGreen",30),channel("darkSkyBlue",35),
                 number("skyBrightnessExponent",1.4,.25,4.0),
-                number("skyBrightnessCeiling",1.25,1.0,2.0))
+                number("skyBrightnessCeiling",1.25,1.0,2.0),
+                json.optString("defaultLightingMode","atmosphere").also {
+                    require(it=="vacuum" || it=="atmosphere") { "Invalid lighting environment mode" }
+                })
         }
     }
 }

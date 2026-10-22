@@ -2,137 +2,88 @@ package com.glassstudy.filament
 
 import android.app.Activity
 import android.content.SharedPreferences
-import android.graphics.Color
 import android.util.Log
 import com.google.android.filament.Skybox
 import com.google.android.filament.utils.GlassStudyModelViewer
-import com.google.android.filament.utils.KTX1Loader
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
-/** Single owner of skybox, floor and user choices. The panel never accesses Filament. */
+/**
+ * Owns ONLY the physical sky backdrop and floor geometry.
+ * The visible sky is derived from the current sun, never from a studio HDRI,
+ * artificial white fill, arbitrary old "sky RGB", or a special zero-only swap.
+ * No sky/environment reflection lighting is generated here; that is the
+ * RenderEnvironmentController's job.
+ */
 class SceneEnvironmentController(
     private val activity:Activity,
     private val viewer:GlassStudyModelViewer,
     private val preferences:SharedPreferences,
-    private val dimTexturedBackground:(Float)->Unit
+    private val onLightingModeChanged:(LightEnvironmentMode)->Unit
 ):SceneSettingsPanel.State {
-
     override var module:SceneModuleConfig=SceneModuleConfig()
         private set
     override var floorMode:String=preferences.getString("floorMode","checker")
         ?.takeIf { it in setOf("checker","white","none") } ?: "checker"
         private set
-    override var skyMode:String=preferences.getString("skyMode","gray")
-        ?.takeIf { it in setOf("gray","studio","white","dark","custom") } ?: "gray"
-        private set
-    override var customSkyColor:Int=preferences.getInt("customSkyColor",Color.rgb(110,110,110))
+    override var lightingMode:LightEnvironmentMode=LightEnvironmentMode.from(
+        preferences.getString("physicalLightingMode","atmosphere") ?: "atmosphere")
         private set
 
     private var activeSkybox:Skybox?=null
     private var globalBrightness=1.0
-    private var solidBackgroundRgb:Int=Color.rgb(110,110,110)
-    private var texturedBackground=false
+    private var currentElevation=.9
+    private var atmosphereHaze=.3
 
-    /**
-     * Continuous background dimming for EVERY brightness change, including
-     * 1%→0% with no exact-zero Skybox swap. Flat skyboxes use native
-     * Skybox.setColor() without allocating any Filament resources.
-     *
-     * Filament ignores setColor() for texture-backed skyboxes, so ONLY the
-     * studio texture uses a lightweight black screen overlay behind Android UI.
-     * Direct and indirect lighting are always scaled physically separately.
-     */
-    fun setGlobalBrightness(value:Double) {
-        require(value.isFinite() && value in 0.0..2.0)
-        if(globalBrightness==value)return
-        globalBrightness=value
-        updateBackgroundBrightness()
+    fun setLightState(brightness:Double,elevation:Double) {
+        require(brightness.isFinite() && brightness in 0.0..2.0)
+        require(elevation.isFinite() && elevation in 0.0..Math.PI)
+        if(brightness==globalBrightness && elevation==currentElevation)return
+        globalBrightness=brightness
+        currentElevation=elevation
+        updatePhysicalSky()
     }
 
-    private fun updateBackgroundBrightness() {
-        val multiplier=LightingResponseCurve.sky(globalBrightness,
-            module.skyBrightnessExponent,module.skyBrightnessCeiling).toFloat()
-        if(texturedBackground) {
-            // 0%: fully black; 1%: nearly black, not a hard 0/1 switch.
-            // Studio image is untouched when 100% or brighter.
-            dimTexturedBackground(1f-multiplier.coerceAtMost(1f))
-        } else {
-            dimTexturedBackground(0f)
-            val rgb=solidBackgroundRgb
-            activeSkybox?.setColor(
-                (Color.red(rgb)/255f*multiplier).coerceIn(0f,1f),
-                (Color.green(rgb)/255f*multiplier).coerceIn(0f,1f),
-                (Color.blue(rgb)/255f*multiplier).coerceIn(0f,1f),1f)
-        }
+    fun configureAtmosphereHaze(value:Double) {
+        require(value.isFinite() && value in 0.0..1.0)
+        atmosphereHaze=value
+        updatePhysicalSky()
     }
 
-    /** Validated config snapshot; geometry is refreshed only when effective values change. */
+    override fun chooseLightingMode(mode:LightEnvironmentMode) {
+        if(mode==lightingMode)return
+        lightingMode=mode
+        preferences.edit().putString("physicalLightingMode",mode.key).apply()
+        updatePhysicalSky()
+        onLightingModeChanged(mode)
+    }
+
+    /** Legacy scene signed settings remain parsable; physical modes ignore them. */
     fun applyConfiguration(next:SceneModuleConfig) {
         if(module==next)return
         module=next
         applyFloor()
-        // Reapply only after a skybox has been created; preserve the user's skyMode.
-        if(activeSkybox!=null)applySkybox()
+        updatePhysicalSky()
     }
 
-    override fun chooseSky(mode:String) {
-        require(mode in module.skyboxOrder && mode!="custom") { "Unknown skybox mode" }
-        skyMode=mode
-        persist()
-        applySkybox()
-    }
     override fun chooseFloor(mode:String) {
         require(mode in module.floorOrder) { "Unknown floor mode" }
         floorMode=mode
-        persist()
+        preferences.edit().putString("floorMode",mode).apply()
         applyFloor()
     }
-    override fun chooseCustomSky(color:Int) {
-        customSkyColor=color or -0x1000000
-        skyMode="custom"
-        persist()
-        applySkybox()
-    }
 
-    private fun persist() {
-        preferences.edit().putString("floorMode",floorMode)
-            .putString("skyMode",skyMode).putInt("customSkyColor",customSkyColor).apply()
-    }
-
-    /** The exact previous IBL and skybox handling stays in the render owner. */
+    /** A single allocated native Skybox with a physically derived background. */
     fun applySkybox() {
-        val rgb=when(skyMode) {
-            "white" -> Color.rgb(module.whiteSkyRed,module.whiteSkyGreen,module.whiteSkyBlue)
-            "dark" -> Color.rgb(module.darkSkyRed,module.darkSkyGreen,module.darkSkyBlue)
-            "custom" -> customSkyColor
-            else -> Color.rgb(module.graySkyRed,module.graySkyGreen,module.graySkyBlue)
+        if(activeSkybox==null) {
+            activeSkybox=Skybox.Builder().color(0f,0f,0f,1f).build(viewer.engine)
+            viewer.scene.skybox=activeSkybox
         }
-        var nextIsTextured=false
-        val next=if(skyMode=="studio") {
-            try {
-                val raw=activity.assets.open("envs/studio_ibl.ktx").use{it.readBytes()}
-                val data=ByteBuffer.allocateDirect(raw.size).order(ByteOrder.nativeOrder())
-                data.put(raw).flip()
-                KTX1Loader.createSkybox(viewer.engine,data).also {
-                    nextIsTextured=true
-                }
-            } catch(e:Exception) {
-                Log.w("GlassStudy","Studio Skybox unavailable; using gray background",e)
-                Skybox.Builder().color(module.graySkyRed/255f,module.graySkyGreen/255f,
-                    module.graySkyBlue/255f,1f).build(viewer.engine)
-            }
-        } else Skybox.Builder()
-            .color(Color.red(rgb)/255f,Color.green(rgb)/255f,Color.blue(rgb)/255f,1f)
-            .build(viewer.engine)
-        // Keep the selected Skybox object stable while changing its brightness.
-        // Unlike the old exact-zero swap, there is NO jump when crossing 1→0%.
-        viewer.scene.skybox=next
-        activeSkybox?.let{viewer.engine.destroySkybox(it)}
-        activeSkybox=next
-        solidBackgroundRgb=rgb
-        texturedBackground=nextIsTextured
-        updateBackgroundBrightness()
+        updatePhysicalSky()
+    }
+
+    private fun updatePhysicalSky() {
+        val rgb=PhysicalAtmosphereModel.backgroundRgb(lightingMode,
+            currentElevation,atmosphereHaze,globalBrightness)
+        activeSkybox?.setColor(rgb[0],rgb[1],rgb[2],1f)
     }
 
     fun applyFloor() {
@@ -145,21 +96,18 @@ class SceneEnvironmentController(
                 else -> null
             })
         } catch(e:Exception) {
-            Log.e("GlassStudy","Floor GLB rejected; keeping the main model running",e)
+            Log.e("GlassStudy","Floor GLB rejected; keeping main model running",e)
             floorMode="none"
-            persist()
-            try{viewer.setFloorGlb(null)}catch(_:Exception){}
+            preferences.edit().putString("floorMode","none").apply()
+            try { viewer.setFloorGlb(null) } catch(_:Exception) {}
         }
     }
 
     fun release() {
-        // Leave Filament resources in a consistent state on Activity destruction.
-        activeSkybox?.let{
+        activeSkybox?.let {
             if(viewer.scene.skybox===it)viewer.scene.skybox=null
             viewer.engine.destroySkybox(it)
         }
         activeSkybox=null
-        dimTexturedBackground(0f)
-        texturedBackground=false
     }
 }

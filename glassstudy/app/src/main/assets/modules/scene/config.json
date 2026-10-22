@@ -31,5 +31,6 @@
   "darkSkyGreen": 30,
   "darkSkyBlue": 35,
   "skyBrightnessExponent": 1.4,
-  "skyBrightnessCeiling": 1.25
+  "skyBrightnessCeiling": 1.25,
+  "defaultLightingMode": "atmosphere"
 }
