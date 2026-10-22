@@ -81,11 +81,18 @@ LIGHTING_PATCH_LIMITS={
     "camera.directBrightnessExponent":(.25,4.0),
     "render.globalBrightnessExponent":(.25,4.0),
     "scene.skyBrightnessExponent":(.25,4.0),
-    "scene.skyBrightnessCeiling":(1.0,2.0)
+    "scene.skyBrightnessCeiling":(1.0,2.0),
+    "render.atmosphereExtinction":(.001,.6),
+    "render.atmosphereHaze":(0.0,1.0),
+    "render.atmosphereSkyIlluminance":(0.0,80000.0),
+    "render.atmosphereHorizonFraction":(0.0,.3),
+    "render.atmosphereShUpdateDegrees":(.5,12.0)
 }
 
 def assign(document,selector,value,alias=None):
     """Existing JSON object keys only. No guessed API or unknown properties."""
+    if alias=="scene" and selector=="defaultLightingMode" and value not in ("vacuum","atmosphere"):
+        raise ValueError("Only physically defined vacuum/atmosphere lighting modes are valid")
     bounded=LIGHTING_PATCH_LIMITS.get((alias or "")+"."+selector)
     if bounded is not None:
         import math
