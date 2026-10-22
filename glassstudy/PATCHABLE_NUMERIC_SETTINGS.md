@@ -87,3 +87,12 @@ python glassstudy/tools/fast_patch.py --version <NEXT_PATCH_VERSION> \
 
 Дата аудита: 2026-10-21. Текущий этап: расширенная кросс-модульная
 патчируемость, не заявление о 100% охвате.
+
+## 0.2.59 — Physical atmospheric parameter paths
+- render.atmosphereExtinction = 0.14 (validated .001..0.6), optical atmospheric attenuation of directional sun
+- render.atmosphereHaze = 0.30 (validated 0..1), directional aerosol sky contribution
+- render.atmosphereSkyIlluminance = 14000 (validated 0..80000), approximate zenith-sun sky illuminance lux
+- render.atmosphereHorizonFraction = .08 (validated 0..0.30), low-sun diffuse fraction
+- render.atmosphereShUpdateDegrees = 3 (validated 0.5..12), SH irradiance rebuild cadence on lighting gesture
+- scene.defaultLightingMode = atmosphere (allowed vacuum | atmosphere), signed default; user mode preference persists independent of patches
+- Vacuum mode uses neither environment IBL nor artificial fill; atmosphere mode analytically rebuilds SH from sun and scales it with brightness. Older studio RGB values are retained as ignored legacy parse fields only.
