@@ -15,9 +15,12 @@ object LightGuideProjection {
 
     /** Horizontal world XZ circle; a top-down view is round, horizon is a line. */
     fun azimuth(
-        angleRad:Double,radius:Float,cameraYawRad:Double,cameraPitchRad:Double
+        angleRad:Double,radius:Float,cameraYawRad:Double,cameraPitchRad:Double,
+        sunElevationRad:Double=0.0
     ):Point {
-        return project(LightDirectionMath.source(angleRad,0.0),radius,
+        // The azimuth orbit and glyph must use the SAME PHYSICAL solar altitude
+        // as Filament. A return-side sun (>90deg) reverses horizontal location.
+        return project(LightDirectionMath.source(angleRad,sunElevationRad),radius,
             cameraYawRad,cameraPitchRad)
     }
 

@@ -33,5 +33,9 @@ fun main() {
     close(side.x,r);close(side.y,0f)
     val apex=LightGuideProjection.elevation(PI/2,r,PI/2,0.0,0.0)
     close(apex.x,0f);close(apex.y,-r)
+    val low=LightGuideProjection.azimuth(PI/2,r,0.0,.35,PI/3)
+    val high=LightGuideProjection.azimuth(PI/2,r,0.0,.35,2*PI/3)
+    check(low.x>0f && high.x<0f) { "Azimuth orbit must flip past 90deg" }
+    close(LightGuideProjection.azimuth(PI/2,r,0.0,.35,PI/2).x,0f)
     println("PASS: 3D-projected lighting guides, fixed circular glyph")
 }

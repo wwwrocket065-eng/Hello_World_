@@ -31,6 +31,7 @@ class LightIndicatorView(context:Context):View(context) {
     private var cameraYaw=0.56
     private var cameraPitch=0.34
     private var lightAzimuth=1.3
+    private var lightElevation=.9
     private var brightnessPercent=100f
     private var captionBoxColor=Color.rgb(17,35,49)
     private val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -68,13 +69,15 @@ class LightIndicatorView(context:Context):View(context) {
 
     fun show(next:Mode,actual:Float,color:Int,guideColor:Int,
              cameraYawRad:Double,cameraPitchRad:Double,lightAzimuthRad:Double,
-             currentBrightnessPercent:Float,captionBackground:Int) {
+             lightElevationRad:Double,currentBrightnessPercent:Float,
+             captionBackground:Int) {
         if(!actual.isFinite() || !cameraYawRad.isFinite() ||
             !cameraPitchRad.isFinite() || !lightAzimuthRad.isFinite() ||
-            !currentBrightnessPercent.isFinite())return
+            !lightElevationRad.isFinite() || !currentBrightnessPercent.isFinite())return
         if(mode!=next)value=actual
         mode=next;target=actual;tint=color;guide=guideColor
         cameraYaw=cameraYawRad;cameraPitch=cameraPitchRad;lightAzimuth=lightAzimuthRad
+        lightElevation=lightElevationRad
         brightnessPercent=currentBrightnessPercent.coerceIn(0f,200f)
         captionBoxColor=captionBackground
         positionView(next)
@@ -143,7 +146,7 @@ class LightIndicatorView(context:Context):View(context) {
             Mode.AZIMUTH -> {
                 val deg=((value%360f)+360f)%360f
                 val point=LightGuideProjection.azimuth(Math.toRadians(deg.toDouble()),
-                    spec.guideRadiusUnits,cameraYaw,cameraPitch)
+                    spec.guideRadiusUnits,cameraYaw,cameraPitch,lightElevation)
                 x=point.x;y=point.y
                 drawOrbit(canvas,kind,spec,x,y)
                 // Do NOT rotate the azimuth/elevation suns themselves.
@@ -225,7 +228,8 @@ class LightIndicatorView(context:Context):View(context) {
         for(i in 0..steps) {
             val theta=endAngle*i.toDouble()/steps
             val point=if(kind==Mode.AZIMUTH)
-                LightGuideProjection.azimuth(theta,spec.guideRadiusUnits,cameraYaw,cameraPitch)
+                LightGuideProjection.azimuth(theta,spec.guideRadiusUnits,cameraYaw,cameraPitch,
+                    lightElevation)
             else LightGuideProjection.elevation(theta,spec.guideRadiusUnits,
                 lightAzimuth,cameraYaw,cameraPitch)
             val prior=previous

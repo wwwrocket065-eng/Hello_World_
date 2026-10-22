@@ -204,10 +204,10 @@ class UiChromeController(private val activity:Activity) {
 
     fun showIndicator(mode:LightIndicatorView.Mode,value:Float,lightMode:Boolean,
                       cameraYaw:Double,cameraPitch:Double,lightAzimuth:Double,
-                      brightnessPercent:Float) {
+                      lightElevation:Double,brightnessPercent:Float) {
         if(!lightMode || !overlay.enabled || overlay.showWith=="never")return
         attached?.indicator?.show(mode,value,overlay.indicatorColor(mode),overlay.guideColor,
-            cameraYaw,cameraPitch,lightAzimuth,brightnessPercent,
+            cameraYaw,cameraPitch,lightAzimuth,lightElevation,brightnessPercent,
             overlay.backgroundColor ?: Color.rgb(17,35,49))
     }
 
