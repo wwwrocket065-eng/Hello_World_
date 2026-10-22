@@ -99,3 +99,13 @@ for resource in ("modules/camera/config.json","modules/render/config.json","modu
     assert resource in p.stdout
 run("--set","scene.skyBrightnessExponent=-1",good=False)
 run("--set","camera.directBrightnessExponent=9",good=False)
+
+# Lighting calibration is signed; atmosphere vs vacuum stored per user.
+p=run("--set","render.atmosphereExtinction=0.13",
+      "--set","render.atmosphereHaze=0.25",
+      "--set","render.atmosphereSkyIlluminance=18000",
+      "--set","render.atmosphereHorizonFraction=0.06",
+      "--set","render.atmosphereShUpdateDegrees=3",
+      "--set","scene.defaultLightingMode=\"vacuum\"")
+assert "modules/render/config.json" in p.stdout
+assert "modules/scene/config.json" in p.stdout

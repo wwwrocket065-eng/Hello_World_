@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.58' in props and 'GLASSSTUDY_VERSION_CODE=20058' in props
+assert 'GLASSSTUDY_VERSION=0.2.59' in props and 'GLASSSTUDY_VERSION_CODE=20059' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -263,7 +263,6 @@ diagnostics=json.loads((root/'app/src/main/assets/modules/diagnostics/config.jso
 materials=json.loads((root/'app/src/main/assets/modules/materials/config.json').read_text())
 assert camera['fieldOfView']==45 and camera['minDistance']==2.7 and camera['maxDistance']==60
 assert camera['yawSensitivity']==0.008 and camera['pitchSensitivity']==0.005
-assert render['iblIntensity']==30000 and render['fxaa'] is True
 assert render['exposureAperture']==16 and render['exposureSensitivity']==100
 assert diagnostics['includeModuleStatus'] is False and diagnostics['includeRenderParameters'] is False
 assert diagnostics['includeCameraParameters'] is False
@@ -291,13 +290,10 @@ assert 'SceneModuleConfig.parse(updater.readModuleConfig("scene", candidate))' i
 assert '"modules/scene/config.json" -> SceneModuleConfig.parse(config)' in updater
 assert 'SceneModuleConfig.parse(stagedModule("scene"))' in updater
 assert 'theme.titles.getValue("scene")' in panel
-assert '"white" to "Белая платформа"' in panel and 'heading("SKYBOX")' in panel
 
 # Shared window presentation and signed scene-order controls.
 scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.kt').read_text()
 dialog_factory=(root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
-assert 'state.module.sectionOrder.forEach' in panel
-assert 'state.module.skyboxOrder.forEach' in panel
 assert 'state.module.floorOrder.forEach' in panel
 assert 'order("sectionOrder",listOf("skybox","floor"))' in scene_module
 assert 'GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles' in activity
@@ -463,13 +459,8 @@ assert 'cameraLight.applyToFilament()' in activity
 assert 'cameraLight.setBrightnessPercent(value)' in activity
 assert 'cameraLight.resetHome()' in activity
 assert 'val direct=LightingResponseCurve.intensity(brightness,config.directBrightnessExponent)' in camera_light
-assert 'mgr.setIntensity(instance,(config.lightIntensity*direct).toFloat())' in camera_light
-assert 'onGlobalBrightnessChanged(brightness)' in camera_light
-assert 'renderEnvironment.setGlobalBrightness(factor)' in activity
-assert 'sceneEnvironment.setGlobalBrightness(factor)' in activity
 assert 'viewer.camera.setExposure(' in render_env
 assert 'viewer.view.antiAliasing=' in render_env
-assert 'KTX1Loader.createIndirectLight(viewer.engine,buf)' in render_env
 assert 'LightGestureController()' in camera_light
 assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
 
@@ -687,7 +678,6 @@ for name in ('gray','white','dark'):
     for channel in ('Red','Green','Blue'):
         field=name+'Sky'+channel
         assert type(sky_json[field])==int and ('"'+field+'"') in scene_module_code
-        assert ('module.'+field) in environment
 
 popup_numeric=window_theme.get('diagnosticsPopup')
 assert popup_numeric and len(popup_numeric)==12
@@ -782,7 +772,6 @@ view=(src/'LightIndicatorView.kt').read_text()
 assert 'LightDirectionMath.incoming(lightAz,lightElevation)' in camera
 assert 'mgr.setDirection(instance,rays.x,rays.y,rays.z)' in camera
 assert 'LightDirectionMath.source(lightAzimuthRad,angleRad)' in projection
-assert 'LightDirectionMath.source(angleRad,0.0)' in projection
 assert 'fun shortestAzimuthDelta(' in light_math
 assert 'LightDirectionMath.shortestAzimuthDelta(target,value)' in view
 assert 'fun elevationLabel(' in light_math
@@ -869,22 +858,9 @@ render_module=(src/'RenderModuleConfig.kt').read_text()
 render_json=__import__('json').loads((root/'app/src/main/assets/modules/render/config.json').read_text())
 assert render_json['globalBrightnessExponent']==1.5
 assert 'globalBrightnessExponent' in render_module
-assert 'viewer.scene.indirectLight?.intensity=(configuration.iblIntensity*exposure).toFloat()' in render_env
 assert 'LightingResponseCurve.intensity(globalBrightness,' in render_env
 assert 'configuration.globalBrightnessExponent.toDouble()' in render_env
-assert 'fun setGlobalBrightness(value:Double)' in render_env
-assert 'fun setGlobalBrightness(value:Double)' in scene_env
-assert 'activeSkybox?.setColor(' in scene_env
-assert 'viewer.scene.skybox=next' in scene_env
-assert 'updateBackgroundBrightness()' in scene_env
-assert 'private var texturedBackground=false' in scene_env
-assert 'dimTexturedBackground(1f-multiplier.coerceAtMost(1f))' in scene_env
-assert 'Skybox.Builder().color(0f,0f,0f,1f)' not in scene_env
 assert 'blackSkybox()' not in scene_env
-assert 'studioBackgroundDimmer=View(this).apply {' in activity
-assert 'root.addView(studioBackgroundDimmer,FrameLayout.LayoutParams(-1,-1))' in activity
-assert 'isClickable=false' in activity
-assert 'onGlobalBrightnessChanged(brightness)' in camera_light
 assert 'brightnessDispatched!=brightness' in camera_light
 # Uniform INNER glow fills the disk, not merely its outline.
 core=(src/'GlowCoreFillConfig.kt').read_text()
@@ -924,13 +900,52 @@ assert scene_json['skyBrightnessExponent']==1.4
 assert scene_json['skyBrightnessCeiling']==1.25
 assert 'directBrightnessExponent' in camera_cfg and 'skyBrightnessExponent' in scene_cfg
 assert 'skyBrightnessCeiling' in scene_cfg
-assert 'LightingResponseCurve.sky(globalBrightness,' in scene_env
-assert 'viewer.scene.skybox=next' in scene_env
 assert 'if(globalBrightness==0.0)' not in scene_env
-assert 'setColor(' in scene_env
-assert 'studioBackgroundDimmer.visibility=if(amount>0f)View.VISIBLE else View.GONE' in activity
 assert 'studioBackgroundDimmer.isClickable=true' not in activity
 assert 'val direct=LightingResponseCurve.intensity(' in camera_light
-assert 'val exposure=LightingResponseCurve.intensity(' in render_env
 assert 'canvas.drawPath(ringPath,pen)' in view_src  # SUN marker stays unchanged
 assert (root/'tools/LightingResponseRegression.kt').is_file()
+
+# GlassStudy 0.2.59 physical light-mode and sun-direction invariants.
+assert 'heading("РЕЖИМ ОСВЕЩЕНИЯ")' in panel
+assert 'heading("SKYBOX")' not in panel
+assert '"Вакуум · только солнечные лучи"' in panel
+assert '"Атмосфера · солнце и рассеянный свет неба"' in panel
+physics=(src/'PhysicalAtmosphereModel.kt').read_text()
+renderer=(src/'RenderEnvironmentController.kt').read_text()
+scene=(src/'SceneEnvironmentController.kt').read_text()
+proj=(src/'LightGuideProjection.kt').read_text()
+view=(src/'LightIndicatorView.kt').read_text()
+assert 'enum class LightEnvironmentMode' in physics
+assert 'VACUUM("vacuum")' in physics and 'ATMOSPHERE("atmosphere")' in physics
+assert 'fun skyRadianceSh(' in physics
+assert 'fun skyIlluminance(' in physics
+assert 'fun solarTransmission(' in physics
+assert 'fun sunlightRgb(' in physics
+assert 'context.assets.open("envs/studio_ibl.ktx")' not in renderer
+assert 'viewer.scene.indirectLight=null' in renderer
+assert 'IndirectLight.Builder().radiance(3,sh)' in renderer
+assert 'PhysicalAtmosphereModel.skyIlluminance(' in renderer
+assert 'fun chooseLightingMode(mode:LightEnvironmentMode)' in scene
+assert 'preferences.edit().putString("physicalLightingMode",mode.key).apply()' in scene
+assert 'studio_ibl.ktx' not in scene
+assert 'SceneSettingsPanel(this,sceneEnvironment)' in activity
+assert 'state.chooseLightingMode(LightEnvironmentMode.VACUUM)' in panel
+assert 'state.chooseLightingMode(LightEnvironmentMode.ATMOSPHERE)' in panel
+assert 'PhysicalAtmosphereModel.backgroundRgb(lightingMode,' in scene
+assert 'Skybox.Builder().color(0f,0f,0f,1f)' in scene
+assert 'onGlobalBrightnessChanged(brightness,lightElevation,lightAz)' in camera_light
+assert 'mgr.setIntensity(instance,(config.lightIntensity*transmitted).toFloat())' in camera_light
+assert 'val transmitted=direct*directTransmission(lightElevation)' in camera_light
+assert 'mgr.setColor(instance,sunRgb[0],sunRgb[1],sunRgb[2])' in camera_light
+assert 'renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,' in activity
+assert 'sceneEnvironment.setLightState(factor,elevation)' in activity
+assert 'studioBackgroundDimmer' not in activity
+assert 'LightDirectionMath.source(angleRad,sunElevationRad)' in proj
+assert 'sunElevationRad:Double=0.0' in proj
+assert 'lightElevationRad:Double' in view
+assert 'lightElevation)' in view
+assert 'cameraLight.lightElevation,(cameraLight.brightness*100).toFloat()' in activity
+assert (root/'tools/PhysicalAtmosphereRegression.kt').is_file()
+assert render['atmosphereExtinction']>0 and render['atmosphereSkyIlluminance']>0
+assert scene_config['defaultLightingMode'] in ('vacuum','atmosphere')
