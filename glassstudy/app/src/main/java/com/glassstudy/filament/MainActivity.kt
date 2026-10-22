@@ -144,6 +144,7 @@ class MainActivity : Activity() {
     private lateinit var headerRow: LinearLayout
     private lateinit var fpsPill: TextView
     private lateinit var cameraLight:CameraLightController
+    private lateinit var studioBackgroundDimmer:View
     private lateinit var renderEnvironment:RenderEnvironmentController
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private lateinit var sceneEnvironment:SceneEnvironmentController
@@ -221,6 +222,17 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         mainRoot=root
         root.addView(surface, FrameLayout.LayoutParams(-1, -1))
+        // Scene-only studio skybox fade; this passive view stays BELOW
+        // buttons, labels, indicators and all dialogs. Never intercept touches.
+        studioBackgroundDimmer=View(this).apply {
+            setBackgroundColor(Color.BLACK)
+            alpha=0f
+            visibility=View.GONE
+            isClickable=false
+            isFocusable=false
+            importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        root.addView(studioBackgroundDimmer,FrameLayout.LayoutParams(-1,-1))
         setContentView(root)
         // Android 15+ edge-to-edge: keep controls out of the status and navigation bars.
         if (Build.VERSION.SDK_INT >= 30) {
@@ -236,7 +248,11 @@ class MainActivity : Activity() {
 
         viewer = GlassStudyModelViewer(surface, manipulator = null)
         modelAssets=ModelMaterialController(viewer,updater)
-        sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE))
+        sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE)) {
+            amount ->
+            studioBackgroundDimmer.alpha=amount.coerceIn(0f,1f)
+            studioBackgroundDimmer.visibility=if(amount>0f)View.VISIBLE else View.GONE
+        }
         sceneSettings=SceneSettingsPanel(this,sceneEnvironment)
         sceneEnvironment.applySkybox()
         renderEnvironment=RenderEnvironmentController(this,viewer)

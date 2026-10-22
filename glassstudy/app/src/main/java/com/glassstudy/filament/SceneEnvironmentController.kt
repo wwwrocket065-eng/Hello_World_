@@ -14,7 +14,8 @@ import java.nio.ByteOrder
 class SceneEnvironmentController(
     private val activity:Activity,
     private val viewer:GlassStudyModelViewer,
-    private val preferences:SharedPreferences
+    private val preferences:SharedPreferences,
+    private val dimTexturedBackground:(Float)->Unit
 ):SceneSettingsPanel.State {
 
     override var module:SceneModuleConfig=SceneModuleConfig()
@@ -29,26 +30,41 @@ class SceneEnvironmentController(
         private set
 
     private var activeSkybox:Skybox?=null
-    private var blackoutSkybox:Skybox?=null
     private var globalBrightness=1.0
+    private var solidBackgroundRgb:Int=Color.rgb(110,110,110)
+    private var texturedBackground=false
 
     /**
-     * At exactly 0% the 3D background must not look like ambient illumination.
-     * Reuse a cached black Skybox to avoid allocating GL resources per pinch
-     * frame; the selected user skybox remains allocated and restores at >0%.
+     * Continuous background dimming for EVERY brightness change, including
+     * 1%→0% with no exact-zero Skybox swap. Flat skyboxes use native
+     * Skybox.setColor() without allocating any Filament resources.
+     *
+     * Filament ignores setColor() for texture-backed skyboxes, so ONLY the
+     * studio texture uses a lightweight black screen overlay behind Android UI.
+     * Direct and indirect lighting are always scaled physically separately.
      */
     fun setGlobalBrightness(value:Double) {
         require(value.isFinite() && value in 0.0..2.0)
-        val wasBlack=globalBrightness==0.0
+        if(globalBrightness==value)return
         globalBrightness=value
-        if(wasBlack!=(value==0.0)) {
-            viewer.scene.skybox=if(value==0.0) blackSkybox() else activeSkybox
-        }
+        updateBackgroundBrightness()
     }
-    private fun blackSkybox():Skybox {
-        blackoutSkybox?.let{return it}
-        return Skybox.Builder().color(0f,0f,0f,1f)
-            .build(viewer.engine).also { blackoutSkybox=it }
+
+    private fun updateBackgroundBrightness() {
+        val multiplier=LightingResponseCurve.sky(globalBrightness,
+            module.skyBrightnessExponent,module.skyBrightnessCeiling).toFloat()
+        if(texturedBackground) {
+            // 0%: fully black; 1%: nearly black, not a hard 0/1 switch.
+            // Studio image is untouched when 100% or brighter.
+            dimTexturedBackground(1f-multiplier.coerceAtMost(1f))
+        } else {
+            dimTexturedBackground(0f)
+            val rgb=solidBackgroundRgb
+            activeSkybox?.setColor(
+                (Color.red(rgb)/255f*multiplier).coerceIn(0f,1f),
+                (Color.green(rgb)/255f*multiplier).coerceIn(0f,1f),
+                (Color.blue(rgb)/255f*multiplier).coerceIn(0f,1f),1f)
+        }
     }
 
     /** Validated config snapshot; geometry is refreshed only when effective values change. */
@@ -92,12 +108,15 @@ class SceneEnvironmentController(
             "custom" -> customSkyColor
             else -> Color.rgb(module.graySkyRed,module.graySkyGreen,module.graySkyBlue)
         }
+        var nextIsTextured=false
         val next=if(skyMode=="studio") {
             try {
                 val raw=activity.assets.open("envs/studio_ibl.ktx").use{it.readBytes()}
                 val data=ByteBuffer.allocateDirect(raw.size).order(ByteOrder.nativeOrder())
                 data.put(raw).flip()
-                KTX1Loader.createSkybox(viewer.engine,data)
+                KTX1Loader.createSkybox(viewer.engine,data).also {
+                    nextIsTextured=true
+                }
             } catch(e:Exception) {
                 Log.w("GlassStudy","Studio Skybox unavailable; using gray background",e)
                 Skybox.Builder().color(module.graySkyRed/255f,module.graySkyGreen/255f,
@@ -106,11 +125,14 @@ class SceneEnvironmentController(
         } else Skybox.Builder()
             .color(Color.red(rgb)/255f,Color.green(rgb)/255f,Color.blue(rgb)/255f,1f)
             .build(viewer.engine)
-        // Keep a genuinely black 3D viewport at 0% without losing the
-        // saved skybox choice when illumination resumes.
-        viewer.scene.skybox=if(globalBrightness==0.0)blackSkybox() else next
+        // Keep the selected Skybox object stable while changing its brightness.
+        // Unlike the old exact-zero swap, there is NO jump when crossing 1→0%.
+        viewer.scene.skybox=next
         activeSkybox?.let{viewer.engine.destroySkybox(it)}
         activeSkybox=next
+        solidBackgroundRgb=rgb
+        texturedBackground=nextIsTextured
+        updateBackgroundBrightness()
     }
 
     fun applyFloor() {
@@ -137,10 +159,7 @@ class SceneEnvironmentController(
             viewer.engine.destroySkybox(it)
         }
         activeSkybox=null
-        blackoutSkybox?.let {
-            if(viewer.scene.skybox===it)viewer.scene.skybox=null
-            viewer.engine.destroySkybox(it)
-        }
-        blackoutSkybox=null
+        dimTexturedBackground(0f)
+        texturedBackground=false
     }
 }
