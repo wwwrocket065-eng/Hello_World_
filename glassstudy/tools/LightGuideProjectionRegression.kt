@@ -22,8 +22,28 @@ fun main() {
     // An oblique camera makes the ring an ellipse, not a shrunken circle.
     close(LightGuideProjection.azimuth(0.0,r,0.0,PI/6).y,r*.5f)
     close(LightGuideProjection.azimuth(PI/2,r,0.0,PI/6).x,r)
-    // Both guides are fixed relative to the camera view, not driven by glyph rotation.
-    close(LightGuideProjection.azimuth(0.0,r,0.0,PI/6).x,0f)
+    // The azimuth TRACK is frozen to elevation=0°, regardless of the physical
+    // solar altitude that drives the glyph and directional shadows.
+    close(LightGuideProjection.azimuthOrbit(0.0,r,0.0,PI/6).x,0f)
+    val elevations=listOf(0.0,45.0,90.0,135.0,180.0)
+    for(deg in elevations) {
+        val sun=LightGuideProjection.azimuth(PI/2,r,0.0,PI/6,
+            Math.toRadians(deg))
+        val fixed=LightGuideProjection.azimuthOrbit(PI/2,r,0.0,PI/6)
+        close(fixed.x,r)
+        close(fixed.y,0f)
+        close(sun.x,(r*kotlin.math.cos(Math.toRadians(deg))).toFloat())
+    }
+    // Full orbit's diameter and projected height are always those at 0°.
+    for(yaw in listOf(0.0,.65,PI)) for(pitch in listOf(.2,PI/6,PI/2)) {
+        val pts=(0..72).map {
+            LightGuideProjection.azimuthOrbit(it*2*PI/72,r,yaw,pitch)
+        }
+        val halfWidth=(pts.maxOf { it.x }-pts.minOf { it.x })/2
+        val halfHeight=(pts.maxOf { it.y }-pts.minOf { it.y })/2
+        close(halfWidth,r,.05f)
+        close(halfHeight,(r*kotlin.math.sin(pitch)).toFloat(),.05f)
+    }
     // For elevation viewed edge-on (camera yaw equals light azimuth), x is zero.
     for(a in listOf(0.0,.5,PI/2,PI)) {
         close(LightGuideProjection.elevation(a,r,.4,.4,.3).x,0f)
@@ -37,5 +57,5 @@ fun main() {
     val high=LightGuideProjection.azimuth(PI/2,r,0.0,.35,2*PI/3)
     check(low.x>0f && high.x<0f) { "Azimuth orbit must flip past 90deg" }
     close(LightGuideProjection.azimuth(PI/2,r,0.0,.35,PI/2).x,0f)
-    println("PASS: 3D-projected lighting guides, fixed circular glyph")
+    println("PASS: azimuth orbit size/height fixed at 0deg, physical sun flips past zenith")
 }

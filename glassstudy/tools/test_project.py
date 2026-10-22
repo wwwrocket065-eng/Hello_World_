@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.59' in props and 'GLASSSTUDY_VERSION_CODE=20059' in props
+assert 'GLASSSTUDY_VERSION=0.2.60' in props and 'GLASSSTUDY_VERSION_CODE=20060' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -909,7 +909,7 @@ assert 'val direct=LightingResponseCurve.intensity(' in camera_light
 assert 'canvas.drawPath(ringPath,pen)' in view_src  # SUN marker stays unchanged
 assert (root/'tools/LightingResponseRegression.kt').is_file()
 
-# GlassStudy 0.2.59 physical light-mode and sun-direction invariants.
+# GlassStudy 0.2.60 preserves 0.2.59 physical light and fixes the azimuth orbit.
 assert 'heading("РЕЖИМ ОСВЕЩЕНИЯ")' in panel
 assert 'heading("SKYBOX")' not in panel
 assert '"Вакуум · только солнечные лучи"' in panel

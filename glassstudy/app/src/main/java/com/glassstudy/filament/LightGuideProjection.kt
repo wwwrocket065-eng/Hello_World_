@@ -13,13 +13,24 @@ import kotlin.math.sin
 object LightGuideProjection {
     data class Point(val x:Float,val y:Float)
 
-    /** Horizontal world XZ circle; a top-down view is round, horizon is a line. */
+    /**
+     * Fixed azimuth guide at PHYSICAL elevation 0° (world horizontal XZ).
+     * Its radius and projected height depend only on the camera orientation
+     * and the signed guide radius, never on the solar altitude. A varying
+     * solar elevation must move only the glyph, not shrink the track.
+     */
+    fun azimuthOrbit(angleRad:Double,radius:Float,
+                     cameraYawRad:Double,cameraPitchRad:Double):Point =
+        project(LightDirectionMath.source(angleRad,0.0),radius,
+            cameraYawRad,cameraPitchRad)
+
+    /** True projected sun location; follows real 3D sunlight past zenith. */
     fun azimuth(
         angleRad:Double,radius:Float,cameraYawRad:Double,cameraPitchRad:Double,
         sunElevationRad:Double=0.0
     ):Point {
-        // The azimuth orbit and glyph must use the SAME PHYSICAL solar altitude
-        // as Filament. A return-side sun (>90deg) reverses horizontal location.
+        // Do not use this for the guide TRACK: the sun changes altitude while
+        // the reference circle must remain fixed. The glyph follows Filament.
         return project(LightDirectionMath.source(angleRad,sunElevationRad),radius,
             cameraYawRad,cameraPitchRad)
     }
