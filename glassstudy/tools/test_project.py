@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.55' in props and 'GLASSSTUDY_VERSION_CODE=20055' in props
+assert 'GLASSSTUDY_VERSION=0.2.56' in props and 'GLASSSTUDY_VERSION_CODE=20056' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -739,18 +739,18 @@ indicator=(src/'LightIndicatorView.kt').read_text()
 overlay_module=(src/'OverlayModuleConfig.kt').read_text()
 assert 'val options=listOf(' not in indicator
 assert 'private var style=' not in indicator
-assert 'RadialGradient(0f,0f,radius,' in indicator
-assert 'canvas.drawCircle(0f,0f,radius,sunAura)' in indicator
-assert 'sunAura.shader=null' in indicator
-assert 'sunStrokeUnits+spec.sunGlowUnits*.70f' in indicator
-assert 'drawSunGlyph(canvas,spec,rays)' in indicator
+assert 'glowEngine.drawRadial(canvas,0f,0f,tint,glow.ambient)' in indicator
+assert 'glowEngine.drawStroke(canvas,rayPath,tint,spec.sunStrokeUnits,glow.secondaryStroke)' in indicator
+assert 'glowEngine.drawStroke(canvas,ringPath,tint,spec.sunStrokeUnits,glow.primaryStroke)' in indicator
+assert 'drawSunGlyph(canvas)' in indicator
 assert 'pen.setShadowLayer(spec.sunGlowUnits' not in indicator
 assert 'setShadowLayer(spec.guideGlowUnits' in indicator
 assert 'canvas.drawOval(' not in indicator
 assert 'canvas.drawLine(0f,0f,x' not in indicator
 assert 'canvas.drawLine(0f,-4f,x' not in indicator
 assert 'private fun drawSunGlyph(' in indicator
-assert 'canvas.drawCircle(0f,0f,spec.sunRadiusUnits,pen)' in indicator
+assert 'ringPath.addCircle(0f,0f,spec.sunRadiusUnits,Path.Direction.CW)' in indicator
+assert 'canvas.drawPath(ringPath,pen)' in indicator
 assert 'if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)' in indicator
 assert 'drawOrbit(canvas,kind,spec,x,y)' in indicator
 assert 'private fun nearSun(' in indicator
@@ -823,5 +823,37 @@ for kind in ('azimuth','elevation','brightness'):
     assert abs(glow['glowOpacity']-0.42)<.0001
     assert abs(glow['captionBoxOpacity']-0.45)<.0001
 assert 'if(spec.guideGlowUnits>0f && spec.glowOpacity>0f)' in view_src
-assert 'val activeGlow=spec.sunGlowUnits>0f && spec.glowOpacity>0f' in view_src
-assert 'if(activeGlow)' in view_src
+assert 'val glow=spec.glowEffect' in view_src
+assert 'GlowEffectConfig.parse(j.optJSONObject("glowEffect")' in visual_src
+assert 'legacyGlowRadius=n("sunGlowUnits",d.sunGlowUnits)' in visual_src
+assert 'legacyGlowOpacity=n("glowOpacity",d.glowOpacity)' in visual_src
+
+# 0.2.56: one generic Canvas effect engine rather than per-widget glow code.
+engine=(src/'CanvasGlowEngine.kt').read_text()
+glow_cfg=(src/'GlowEffectConfig.kt').read_text()
+glow_math=(src/'GlowFalloffMath.kt').read_text()
+assert 'class CanvasGlowEngine' in engine
+assert 'fun drawStroke(canvas:Canvas,path:Path,' in engine
+assert 'fun drawRadial(canvas:Canvas,cx:Float,cy:Float,' in engine
+assert 'GlowFalloffMath.alphaAt(' in engine
+assert 'floatArrayOf(0f,.26f,.66f,1f)' not in view_src
+assert 'sunAura.shader' not in view_src
+assert 'setShadowLayer(spec.sunGlowUnits' not in view_src
+assert 'data class GlowLayerConfig(' in glow_cfg
+assert 'data class GlowEffectConfig(' in glow_cfg
+assert 'fun parse(json:JSONObject?,fallback:GlowEffectConfig)' in glow_cfg
+assert 'Unknown visual glow layer property' in glow_cfg
+assert 'Glow sample count must be integer' in glow_cfg
+assert 'fun alphaAt(' in glow_math
+for mode in ('azimuth','brightness','elevation'):
+    profile=visuals[mode]['glowEffect']
+    assert set(profile)=={'primaryStroke','secondaryStroke','ambient'}
+    for key in profile:
+        layer=profile[key]
+        assert set(layer)=={'radiusUnits','opacity','falloff','samples'}
+        assert 0<=layer['opacity']<=1 and 0<=layer['radiusUnits']<=96
+        assert 6<=layer['samples']<=48
+    assert profile['primaryStroke']['opacity']>profile['secondaryStroke']['opacity']
+    assert profile['ambient']['radiusUnits']>profile['primaryStroke']['radiusUnits']
+assert 'canvas.drawPath(ringPath,pen)' in view_src
+assert (root/'tools/GlowFalloffRegression.kt').is_file()

@@ -71,3 +71,11 @@ for key in ("camera.homeDistance=","render.exposureSensitivity=",
             "overlay.indicatorVisuals.brightness.offsetXDp="):
     assert key in list_result.stdout,key
 assert "render.ambientOcclusionEnabled=" not in list_result.stdout
+
+# Generic 0.2.56 numeric paths for the same common renderer on all modes.
+p=run("--set","overlay.indicatorVisuals.brightness.glowEffect.primaryStroke.radiusUnits=16",
+      "--set","overlay.indicatorVisuals.azimuth.glowEffect.secondaryStroke.opacity=0.21",
+      "--set","overlay.indicatorVisuals.elevation.glowEffect.ambient.falloff=2.5")
+assert "modules/overlay/config.json" in p.stdout
+run("--set","overlay.indicatorVisuals.brightness.glowEffect.primaryStroke.unknown=2",good=False)
+run("--set","overlay.indicatorVisuals.brightness.glowEffect.primaryStroke.opacity=\"bad\"",good=False)
