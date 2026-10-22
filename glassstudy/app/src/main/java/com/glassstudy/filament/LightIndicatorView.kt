@@ -191,6 +191,9 @@ class LightIndicatorView(context:Context):View(context) {
 
         val glow=spec.glowEffect
         glowEngine.drawRadial(canvas,0f,0f,tint,glow.ambient)
+        // Draw the uniform illuminated INNER DISK under the opaque ring.
+        // Its brightness is independent of both the ring and eight ray glows.
+        glowEngine.drawCoreFill(canvas,0f,0f,tint,glow.coreFill)
         glowEngine.drawStroke(canvas,rayPath,tint,spec.sunStrokeUnits,glow.secondaryStroke)
         glowEngine.drawStroke(canvas,ringPath,tint,spec.sunStrokeUnits,glow.primaryStroke)
 

@@ -52,6 +52,28 @@ class CanvasGlowEngine {
     }
 
     /**
+     * Draw a glow disk with a FLAT interior and only a soft outer edge.
+     * This is separate from both outline and exterior halo; its center
+     * remains uniformly illuminated instead of ring-shaped or hollow.
+     * Works for arbitrary circular icon cores using the same Canvas engine.
+     */
+    fun drawCoreFill(canvas:Canvas,cx:Float,cy:Float,color:Int,fill:GlowCoreFillConfig) {
+        if(fill.radiusUnits<=0f || fill.opacity<=0f || Color.alpha(color)==0)return
+        val stops=FloatArray(fill.samples+1)
+        val colors=IntArray(fill.samples+1)
+        for(i in 0..fill.samples) {
+            val fraction=i.toFloat()/fill.samples
+            stops[i]=fraction
+            colors[i]=withAlpha(color,
+                GlowCoreFillMath.alphaAt(fraction,fill.opacity,fill.edgeSoftness))
+        }
+        areaPaint.shader=RadialGradient(cx,cy,fill.radiusUnits,colors,stops,
+            Shader.TileMode.CLAMP)
+        canvas.drawCircle(cx,cy,fill.radiusUnits,areaPaint)
+        areaPaint.shader=null
+    }
+
+    /**
      * A smooth radial haze: sampled alpha curve has zero derivative at t=1,
      * and the LAST sample is exactly transparent. No clipped glowing disk.
      */

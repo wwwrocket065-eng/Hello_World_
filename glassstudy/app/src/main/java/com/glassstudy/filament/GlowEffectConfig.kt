@@ -50,7 +50,8 @@ data class GlowLayerConfig(
 data class GlowEffectConfig(
     val primaryStroke:GlowLayerConfig,
     val secondaryStroke:GlowLayerConfig,
-    val ambient:GlowLayerConfig
+    val ambient:GlowLayerConfig,
+    val coreFill:GlowCoreFillConfig=GlowCoreFillConfig()
 ) {
     companion object {
         fun defaults(legacyRadius:Float=10f,legacyOpacity:Float=.42f):GlowEffectConfig {
@@ -59,13 +60,14 @@ data class GlowEffectConfig(
             return GlowEffectConfig(
                 GlowLayerConfig(spread+2f,(opacity*1.8f).coerceIn(0f,1f),1.75f,16),
                 GlowLayerConfig(spread*.60f,(opacity*.65f).coerceIn(0f,1f),2.0f,14),
-                GlowLayerConfig(36f+spread*1.6f,(opacity*.35f).coerceIn(0f,1f),1.6f,24)
+                GlowLayerConfig(36f+spread*1.6f,(opacity*.35f).coerceIn(0f,1f),1.6f,24),
+                GlowCoreFillConfig()
             )
         }
 
         fun parse(json:JSONObject?,fallback:GlowEffectConfig):GlowEffectConfig {
             if(json==null)return fallback
-            val keys=setOf("primaryStroke","secondaryStroke","ambient")
+            val keys=setOf("primaryStroke","secondaryStroke","ambient","coreFill")
             require(json.keys().asSequence().all { it in keys }) {
                 "Unknown glow effect component"
             }
@@ -78,7 +80,8 @@ data class GlowEffectConfig(
             return GlowEffectConfig(
                 GlowLayerConfig.parse(child("primaryStroke"),fallback.primaryStroke),
                 GlowLayerConfig.parse(child("secondaryStroke"),fallback.secondaryStroke),
-                GlowLayerConfig.parse(child("ambient"),fallback.ambient)
+                GlowLayerConfig.parse(child("ambient"),fallback.ambient),
+                GlowCoreFillConfig.parse(child("coreFill"),fallback.coreFill)
             )
         }
     }

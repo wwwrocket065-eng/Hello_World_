@@ -7,7 +7,7 @@ package com.glassstudy.filament
 object GlowCoreFillMath {
     fun alphaAt(fraction:Float,opacity:Float,edgeSoftness:Float):Float {
         require(fraction.isFinite() && opacity.isFinite() && edgeSoftness.isFinite())
-        require(opacity in 0f..1f && edgeSoftness in .03f.. .95f)
+        require(opacity in 0f..1f && edgeSoftness>=.03f && edgeSoftness<=.95f)
         val t=fraction.coerceIn(0f,1f)
         val start=1f-edgeSoftness
         if(t<=start)return opacity
