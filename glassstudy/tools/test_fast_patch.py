@@ -79,3 +79,13 @@ p=run("--set","overlay.indicatorVisuals.brightness.glowEffect.primaryStroke.radi
 assert "modules/overlay/config.json" in p.stdout
 run("--set","overlay.indicatorVisuals.brightness.glowEffect.primaryStroke.unknown=2",good=False)
 run("--set","overlay.indicatorVisuals.brightness.glowEffect.primaryStroke.opacity=\"bad\"",good=False)
+
+# v0.2.57 nested uniform core and global lighting curve are signed numbers.
+p=run("--set","overlay.indicatorVisuals.brightness.glowEffect.coreFill.opacity=0.66",
+      "--set","overlay.indicatorVisuals.azimuth.glowEffect.coreFill.edgeSoftness=0.28",
+      "--set","overlay.indicatorVisuals.elevation.glowEffect.coreFill.radiusUnits=11",
+      "--set","render.globalBrightnessExponent=1.25")
+assert "modules/overlay/config.json" in p.stdout
+assert "modules/render/config.json" in p.stdout
+run("--set","overlay.indicatorVisuals.azimuth.glowEffect.coreFill.nonexistent=1",good=False)
+run("--set","overlay.indicatorVisuals.brightness.glowEffect.coreFill.opacity=\"bad\"",good=False)

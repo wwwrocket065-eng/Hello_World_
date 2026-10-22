@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.56' in props and 'GLASSSTUDY_VERSION_CODE=20056' in props
+assert 'GLASSSTUDY_VERSION=0.2.57' in props and 'GLASSSTUDY_VERSION_CODE=20057' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -463,6 +463,9 @@ assert 'cameraLight.applyToFilament()' in activity
 assert 'cameraLight.setBrightnessPercent(value)' in activity
 assert 'cameraLight.resetHome()' in activity
 assert 'mgr.setIntensity(instance,(config.lightIntensity*brightness).toFloat())' in camera_light
+assert 'onGlobalBrightnessChanged(brightness)' in camera_light
+assert 'renderEnvironment.setGlobalBrightness(factor)' in activity
+assert 'sceneEnvironment.setGlobalBrightness(factor)' in activity
 assert 'viewer.camera.setExposure(' in render_env
 assert 'viewer.view.antiAliasing=' in render_env
 assert 'KTX1Loader.createIndirectLight(viewer.engine,buf)' in render_env
@@ -847,8 +850,8 @@ assert 'Glow sample count must be integer' in glow_cfg
 assert 'fun alphaAt(' in glow_math
 for mode in ('azimuth','brightness','elevation'):
     profile=visuals[mode]['glowEffect']
-    assert set(profile)=={'primaryStroke','secondaryStroke','ambient'}
-    for key in profile:
+    assert set(profile)=={'primaryStroke','secondaryStroke','ambient','coreFill'}
+    for key in ('primaryStroke','secondaryStroke','ambient'):
         layer=profile[key]
         assert set(layer)=={'radiusUnits','opacity','falloff','samples'}
         assert 0<=layer['opacity']<=1 and 0<=layer['radiusUnits']<=96
@@ -857,3 +860,43 @@ for mode in ('azimuth','brightness','elevation'):
     assert profile['ambient']['radiusUnits']>profile['primaryStroke']['radiusUnits']
 assert 'canvas.drawPath(ringPath,pen)' in view_src
 assert (root/'tools/GlowFalloffRegression.kt').is_file()
+
+# v0.2.57 GLOBAL illumination: zero both direct and indirect IBL, not one.
+render_env=(src/'RenderEnvironmentController.kt').read_text()
+scene_env=(src/'SceneEnvironmentController.kt').read_text()
+render_module=(src/'RenderModuleConfig.kt').read_text()
+render_json=__import__('json').loads((root/'app/src/main/assets/modules/render/config.json').read_text())
+assert render_json['globalBrightnessExponent']==1
+assert 'globalBrightnessExponent' in render_module
+assert 'viewer.scene.indirectLight?.intensity=(configuration.iblIntensity*exposure).toFloat()' in render_env
+assert 'globalBrightness.pow(configuration.globalBrightnessExponent.toDouble())' in render_env
+assert 'fun setGlobalBrightness(value:Double)' in render_env
+assert 'fun setGlobalBrightness(value:Double)' in scene_env
+assert 'Skybox.Builder().color(0f,0f,0f,1f)' in scene_env
+assert 'viewer.scene.skybox=if(globalBrightness==0.0)blackSkybox() else next' in scene_env
+assert 'viewer.scene.skybox=if(value==0.0) blackSkybox() else activeSkybox' in scene_env
+assert 'onGlobalBrightnessChanged(brightness)' in camera_light
+assert 'brightnessDispatched!=brightness' in camera_light
+# Uniform INNER glow fills the disk, not merely its outline.
+core=(src/'GlowCoreFillConfig.kt').read_text()
+core_math=(src/'GlowCoreFillMath.kt').read_text()
+engine=(src/'CanvasGlowEngine.kt').read_text()
+view=(src/'LightIndicatorView.kt').read_text()
+glow_cfg=(src/'GlowEffectConfig.kt').read_text()
+assert 'data class GlowCoreFillConfig(' in core
+assert 'Unknown glow core fill property' in core
+assert 'Core fill samples must be integer' in core
+assert 'fun alphaAt(fraction:Float,opacity:Float,edgeSoftness:Float)' in core_math
+assert 'if(t<=start)return opacity' in core_math
+assert 'fun drawCoreFill(canvas:Canvas,cx:Float,cy:Float,' in engine
+assert 'GlowCoreFillMath.alphaAt(fraction,fill.opacity,fill.edgeSoftness)' in engine
+assert 'glowEngine.drawCoreFill(canvas,0f,0f,tint,glow.coreFill)' in view
+assert 'GlowCoreFillConfig.parse(child("coreFill"),fallback.coreFill)' in glow_cfg
+for mode in ('azimuth','elevation','brightness'):
+    profile=visuals[mode]['glowEffect']
+    assert set(profile)=={'primaryStroke','secondaryStroke','ambient','coreFill'}
+    fill=profile['coreFill']
+    assert set(fill)=={'radiusUnits','opacity','edgeSoftness','samples'}
+    assert .1<=fill['opacity']<=1 and .03<=fill['edgeSoftness']<=.95
+    assert 6<=fill['samples']<=64
+assert (root/'tools/GlowCoreFillRegression.kt').is_file()
