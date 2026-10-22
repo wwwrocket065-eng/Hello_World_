@@ -137,7 +137,10 @@ class SceneEnvironmentController(
             viewer.engine.destroySkybox(it)
         }
         activeSkybox=null
-        blackoutSkybox?.let { viewer.engine.destroySkybox(it) }
+        blackoutSkybox?.let {
+            if(viewer.scene.skybox===it)viewer.scene.skybox=null
+            viewer.engine.destroySkybox(it)
+        }
         blackoutSkybox=null
     }
 }
