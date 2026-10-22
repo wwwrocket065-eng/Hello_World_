@@ -27,6 +27,7 @@ class RenderEnvironmentController(
     private var globalBrightness=1.0
     private var sunElevation=.9
     private var sunAzimuth=1.3
+    private var noonSunLux=100000.0
     var lightingMode=LightEnvironmentMode.ATMOSPHERE
         private set
 
@@ -52,6 +53,26 @@ class RenderEnvironmentController(
         updateAtmosphere()
     }
 
+    /** Reads the same signed camera-module solar power as the direct light. */
+    fun configureNoonSunLux(lux:Double) {
+        require(lux.isFinite() && lux in 100.0..1000000.0)
+        noonSunLux=lux
+        updateExposure()
+    }
+
+    private fun updateExposure() {
+        val iso=PhysicalExposureModel.sensitivity(
+            lightingMode,sunElevation,noonSunLux,
+            configuration.atmosphereExtinction.toDouble(),
+            configuration.atmosphereSkyIlluminance.toDouble(),
+            configuration.atmosphereHorizonFraction.toDouble(),
+            configuration.exposureSensitivity.toDouble(),
+            configuration.atmosphereExposureReferenceLux.toDouble(),
+            configuration.atmosphereExposureMaxGain.toDouble())
+        viewer.camera.setExposure(configuration.exposureAperture,
+            configuration.exposureShutter,iso)
+    }
+
     fun directTransmission(elevation:Double):Double=
         PhysicalAtmosphereModel.solarTransmission(lightingMode,elevation,
             configuration.atmosphereExtinction.toDouble())
@@ -61,6 +82,8 @@ class RenderEnvironmentController(
             configuration.atmosphereExtinction.toDouble())
 
     private fun updateAtmosphere() {
+        // Change camera sensitivity only; do not inject any fake light.
+        updateExposure()
         if(lightingMode==LightEnvironmentMode.VACUUM) {
             if(skyLight!=null) {
                 viewer.scene.indirectLight=null
@@ -121,8 +144,7 @@ class RenderEnvironmentController(
         viewer.view.ambientOcclusionOptions=viewer.view.ambientOcclusionOptions.apply {
             enabled=next.ambientOcclusionEnabled
         }
-        viewer.camera.setExposure(next.exposureAperture,next.exposureShutter,
-            next.exposureSensitivity)
+        // updateAtmosphere() applies the current physical auto-exposure.
         viewer.view.antiAliasing=if(next.fxaa)View.AntiAliasing.FXAA
             else View.AntiAliasing.NONE
         updateAtmosphere()

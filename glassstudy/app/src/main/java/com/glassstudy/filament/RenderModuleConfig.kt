@@ -18,7 +18,9 @@ data class RenderModuleConfig(
     val atmosphereHaze:Float=.30f,
     val atmosphereSkyIlluminance:Float=14000f,
     val atmosphereHorizonFraction:Float=.08f,
-    val atmosphereShUpdateDegrees:Float=3f
+    val atmosphereShUpdateDegrees:Float=3f,
+    val atmosphereExposureReferenceLux:Float=50000f,
+    val atmosphereExposureMaxGain:Float=32f
 ) {
     companion object {
         fun parse(json: JSONObject?): RenderModuleConfig {
@@ -44,7 +46,9 @@ data class RenderModuleConfig(
                 atmosphereHaze = number("atmosphereHaze",.30f,0f,1f),
                 atmosphereSkyIlluminance = number("atmosphereSkyIlluminance",14000f,0f,80000f),
                 atmosphereHorizonFraction = number("atmosphereHorizonFraction",.08f,0f,.30f),
-                atmosphereShUpdateDegrees = number("atmosphereShUpdateDegrees",3f,.5f,12f)
+                atmosphereShUpdateDegrees = number("atmosphereShUpdateDegrees",3f,.5f,12f),
+                atmosphereExposureReferenceLux = number("atmosphereExposureReferenceLux",50000f,1000f,250000f),
+                atmosphereExposureMaxGain = number("atmosphereExposureMaxGain",32f,1f,64f)
             )
         }
     }

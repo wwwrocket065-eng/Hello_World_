@@ -15,5 +15,7 @@
   "atmosphereHaze": 0.3,
   "atmosphereSkyIlluminance": 14000,
   "atmosphereHorizonFraction": 0.08,
-  "atmosphereShUpdateDegrees": 3
+  "atmosphereShUpdateDegrees": 3,
+  "atmosphereExposureReferenceLux": 50000,
+  "atmosphereExposureMaxGain": 32
 }
