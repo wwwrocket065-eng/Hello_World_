@@ -95,7 +95,10 @@ assert 'Реально нарисованных кадров Filament:' in repor
 assert 'diagnosticLabels=ui.diagnostics' in chrome_src
 assert 'diagnosticLabels=uiChrome.diagnosticLabels' in activity
 assert 'updater.lastConfirmedVersion()' in report_src and 'updater.serverPatchVersion' in report_src
-assert 'tr("pathTracing")' in report_src and 'tr(if(hasIbl)' in report_src
+assert 'tr("pathTracing")' in report_src
+assert 'lightingMode:LightEnvironmentMode' in report_src
+assert 'PhysicalAtmosphereModel.skyIlluminance(' in report_src
+assert 'Студийные HDRI: отключены' in report_src
 uic=(root/'app/src/main/java/com/glassstudy/filament/UiLayout.kt').read_text()
 assert 'private val DIAGNOSTIC_DEFAULTS' in uic
 assert 'data class UiButtonSpec' in uic and 'uiButtons' in uic
