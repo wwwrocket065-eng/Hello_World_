@@ -29,6 +29,27 @@ class SceneEnvironmentController(
         private set
 
     private var activeSkybox:Skybox?=null
+    private var blackoutSkybox:Skybox?=null
+    private var globalBrightness=1.0
+
+    /**
+     * At exactly 0% the 3D background must not look like ambient illumination.
+     * Reuse a cached black Skybox to avoid allocating GL resources per pinch
+     * frame; the selected user skybox remains allocated and restores at >0%.
+     */
+    fun setGlobalBrightness(value:Double) {
+        require(value.isFinite() && value in 0.0..2.0)
+        val wasBlack=globalBrightness==0.0
+        globalBrightness=value
+        if(wasBlack!=(value==0.0)) {
+            viewer.scene.skybox=if(value==0.0) blackSkybox() else activeSkybox
+        }
+    }
+    private fun blackSkybox():Skybox {
+        blackoutSkybox?.let{return it}
+        return Skybox.Builder().color(0f,0f,0f,1f)
+            .build(viewer.engine).also { blackoutSkybox=it }
+    }
 
     /** Validated config snapshot; geometry is refreshed only when effective values change. */
     fun applyConfiguration(next:SceneModuleConfig) {
@@ -85,7 +106,9 @@ class SceneEnvironmentController(
         } else Skybox.Builder()
             .color(Color.red(rgb)/255f,Color.green(rgb)/255f,Color.blue(rgb)/255f,1f)
             .build(viewer.engine)
-        viewer.scene.skybox=next
+        // Keep a genuinely black 3D viewport at 0% without losing the
+        // saved skybox choice when illumination resumes.
+        viewer.scene.skybox=if(globalBrightness==0.0)blackSkybox() else next
         activeSkybox?.let{viewer.engine.destroySkybox(it)}
         activeSkybox=next
     }
@@ -114,5 +137,7 @@ class SceneEnvironmentController(
             viewer.engine.destroySkybox(it)
         }
         activeSkybox=null
+        blackoutSkybox?.let { viewer.engine.destroySkybox(it) }
+        blackoutSkybox=null
     }
 }

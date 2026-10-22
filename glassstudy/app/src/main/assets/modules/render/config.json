@@ -9,5 +9,6 @@
   "exposureShutter": 0.008,
   "exposureSensitivity": 100,
   "fxaa": true,
-  "ambientOcclusionEnabled": true
+  "ambientOcclusionEnabled": true,
+  "globalBrightnessExponent": 1
 }

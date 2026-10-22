@@ -16,7 +16,8 @@ class CameraLightController(
     private val surface:SurfaceView,
     private val density:()->Float,
     private val showIndicator:(LightIndicatorView.Mode,Float)->Unit,
-    private val hideIndicator:()->Unit
+    private val hideIndicator:()->Unit,
+    private val onGlobalBrightnessChanged:(Double)->Unit={}
 ) {
     var config=CameraModuleConfig()
         private set
@@ -44,6 +45,7 @@ class CameraLightController(
     // of pointer release and changes only on a new gesture or an intentional tap.
     private val lightTouch=LightTouchSession()
     private var initialLightConfigurationApplied=false
+    private var brightnessDispatched:Double=Double.NaN
 
     fun configure(next:CameraModuleConfig,zoom:Double,inverted:Boolean) {
         require(zoom.isFinite() && zoom>0)
@@ -204,5 +206,11 @@ class CameraLightController(
         // including the return hemisphere (elevation 90..180 degrees).
         mgr.setDirection(instance,rays.x,rays.y,rays.z)
         mgr.setIntensity(instance,(config.lightIntensity*brightness).toFloat())
+        // A single lighting gesture drives direct rays AND the ambient IBL.
+        // Avoid expensive scene work in the 60/120 FPS camera frame callback.
+        if(brightnessDispatched!=brightness) {
+            onGlobalBrightnessChanged(brightness)
+            brightnessDispatched=brightness
+        }
     }
 }

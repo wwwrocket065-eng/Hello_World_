@@ -245,7 +245,11 @@ class MainActivity : Activity() {
             {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode,
                 cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz,
                 (cameraLight.brightness*100).toFloat())},
-            {lightIndicator?.hide()})
+            {lightIndicator?.hide()},
+            {factor ->
+                renderEnvironment.setGlobalBrightness(factor)
+                sceneEnvironment.setGlobalBrightness(factor)
+            })
         surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
 
         // Floating header, modeled on GlassStudy 3D LAB v0.1.22.

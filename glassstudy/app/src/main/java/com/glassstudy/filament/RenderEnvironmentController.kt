@@ -7,6 +7,7 @@ import com.google.android.filament.utils.GlassStudyModelViewer
 import com.google.android.filament.utils.KTX1Loader
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.pow
 
 /** Renderer parameters and studio indirect lighting. No UI or gesture ownership. */
 class RenderEnvironmentController(
@@ -15,6 +16,23 @@ class RenderEnvironmentController(
 ) {
     var configuration=RenderModuleConfig()
         private set
+    private var globalBrightness=1.0
+
+    /**
+     * Global scene illumination, not just direct sunlight. 0 means BOTH
+     * directional light and reflected image-based illumination are off.
+     * Preserve the current brightness when patches update render settings.
+     */
+    fun setGlobalBrightness(value:Double) {
+        require(value.isFinite() && value in 0.0..2.0)
+        if(globalBrightness==value)return
+        globalBrightness=value
+        applyIndirectIllumination()
+    }
+    private fun applyIndirectIllumination() {
+        val exposure=globalBrightness.pow(configuration.globalBrightnessExponent.toDouble())
+        viewer.scene.indirectLight?.intensity=(configuration.iblIntensity*exposure).toFloat()
+    }
     fun initialize() {
         try {
             val bytes=context.assets.open("envs/studio_ibl.ktx").use{it.readBytes()}
@@ -37,6 +55,6 @@ class RenderEnvironmentController(
             next.exposureSensitivity)
         viewer.view.antiAliasing=if(next.fxaa)View.AntiAliasing.FXAA
             else View.AntiAliasing.NONE
-        viewer.scene.indirectLight?.intensity=next.iblIntensity
+        applyIndirectIllumination()
     }
 }

@@ -12,7 +12,8 @@ data class RenderModuleConfig(
     val exposureShutter: Float = 1f / 125f,
     val exposureSensitivity: Float = 100f,
     val fxaa: Boolean = true,
-    val ambientOcclusionEnabled: Boolean = true
+    val ambientOcclusionEnabled: Boolean = true,
+    val globalBrightnessExponent:Float=1f
 ) {
     companion object {
         fun parse(json: JSONObject?): RenderModuleConfig {
@@ -32,7 +33,8 @@ data class RenderModuleConfig(
                 exposureShutter = number("exposureShutter", 1f / 125f, 0.00001f, 10f),
                 exposureSensitivity = number("exposureSensitivity", 100f, 1f, 12800f),
                 fxaa = json.optBoolean("fxaa", true),
-                ambientOcclusionEnabled = json.optBoolean("ambientOcclusionEnabled", true)
+                ambientOcclusionEnabled = json.optBoolean("ambientOcclusionEnabled", true),
+                globalBrightnessExponent = number("globalBrightnessExponent",1f,.25f,4f)
             )
         }
     }
