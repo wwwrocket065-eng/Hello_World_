@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.62' in props and 'GLASSSTUDY_VERSION_CODE=20062' in props
+assert 'GLASSSTUDY_VERSION=0.2.63' in props and 'GLASSSTUDY_VERSION_CODE=20063' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -961,3 +961,15 @@ assert 'cameraLight.lightElevation,(cameraLight.brightness*100).toFloat()' in ac
 assert (root/'tools/PhysicalAtmosphereRegression.kt').is_file()
 assert render['atmosphereExtinction']>0 and render['atmosphereSkyIlluminance']>0
 assert scene_config['defaultLightingMode'] in ('vacuum','atmosphere')
+
+# 0.2.63 physical camera adaptation: sky + ground-facing sunlight, no fill.
+exposure_src=(root/'app/src/main/java/com/glassstudy/filament/PhysicalExposureModel.kt').read_text()
+assert 'fun sensitivity(' in exposure_src
+assert 'if(mode==LightEnvironmentMode.VACUUM)return baseIso.toFloat()' in exposure_src
+assert 'PhysicalAtmosphereModel.skyIlluminance(' in exposure_src
+assert 'PhysicalAtmosphereModel.solarTransmission(' in exposure_src
+assert 'private fun updateExposure()' in render_env
+assert 'renderEnvironment.configureNoonSunLux(bundle.camera.lightIntensity)' in activity
+assert 'configuration.exposureShutter,iso' in render_env
+assert 'PhysicalExposureModel.sensitivity(' in report_src
+assert (root/'tools/PhysicalExposureRegression.kt').is_file()

@@ -580,6 +580,7 @@ class MainActivity : Activity() {
             val bundle = PatchUiBundle.read(updater, candidate)
             val ui=bundle.ui
             cameraLight.configure(bundle.camera,ui.zoomPower,ui.invertHorizontal)
+            renderEnvironment.configureNoonSunLux(bundle.camera.lightIntensity)
             renderEnvironment.apply(bundle.render)
             sceneEnvironment.configureAtmosphereHaze(bundle.render.atmosphereHaze.toDouble())
             diagnosticsModule=bundle.diagnostics

@@ -68,6 +68,14 @@ class DiagnosticsReportService(
                 state.cameraModule.directBrightnessExponent)*
             PhysicalAtmosphereModel.solarTransmission(state.lightingMode,
                 state.lightElevation,state.renderModule.atmosphereExtinction.toDouble())
+        val effectiveIso=PhysicalExposureModel.sensitivity(state.lightingMode,
+            state.lightElevation,state.cameraModule.lightIntensity,
+            state.renderModule.atmosphereExtinction.toDouble(),
+            state.renderModule.atmosphereSkyIlluminance.toDouble(),
+            state.renderModule.atmosphereHorizonFraction.toDouble(),
+            state.renderModule.exposureSensitivity.toDouble(),
+            state.renderModule.atmosphereExposureReferenceLux.toDouble(),
+            state.renderModule.atmosphereExposureMaxGain.toDouble())
         val stamp=SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale("ru","RU")).format(Date())
         val report=buildString {
             // Version appears ONCE. Patch numbers occupy ONE line.
@@ -115,6 +123,7 @@ class DiagnosticsReportService(
                         appendLine("Режим света: ${if(state.lightingMode==LightEnvironmentMode.VACUUM) "Вакуум" else "Атмосфера"}")
                         appendLine("IBL: ${if(state.lightingMode==LightEnvironmentMode.VACUUM) "выключен" else "аналитическое рассеяние неба (SH, приближение)"}")
                         appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
+                        appendLine("Экспозиция камеры: ISO ${num(effectiveIso.toDouble())} · адаптация ${if(state.lightingMode==LightEnvironmentMode.ATMOSPHERE) "по небу и солнцу" else "отключена"}")
                         appendLine("Студийные HDRI: отключены · физические каустики: не реализованы")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                     }

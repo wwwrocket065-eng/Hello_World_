@@ -96,3 +96,8 @@ python glassstudy/tools/fast_patch.py --version <NEXT_PATCH_VERSION> \
 - render.atmosphereShUpdateDegrees = 3 (validated 0.5..12), SH irradiance rebuild cadence on lighting gesture
 - scene.defaultLightingMode = atmosphere (allowed vacuum | atmosphere), signed default; user mode preference persists independent of patches
 - Vacuum mode uses neither environment IBL nor artificial fill; atmosphere mode analytically rebuilds SH from sun and scales it with brightness. Older studio RGB values are retained as ignored legacy parse fields only.
+
+## 0.2.63 — Horizon atmosphere photographic exposure
+- `render.atmosphereExposureReferenceLux`: default 50000, validation 1000..250000, camera photometric reference in lux. This changes exposure, NOT scene lighting.
+- `render.atmosphereExposureMaxGain`: default 32, validation 1..64. Values are bound to the existing signed `render` module and consumed by `PhysicalExposureModel`; set 1 to disable exposure adaptation via signed .pupdate.
+- Applies in ATMOSPHERE only. VACUUM retains base ISO. 0% global brightness still makes both direct and diffuse lights zero, even when effective ISO is high.
