@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -46,6 +47,10 @@ class LightIndicatorView(context:Context):View(context) {
     private val glowEngine=CanvasGlowEngine()
     private val ringPath=Path()
     private val rayPath=Path()
+    /** Reused buffers: avoid allocating ~180 temporary clipped segments per frame. */
+    private val visibleLineParts=FloatArray(8)
+    private val fadeInterpolator=DecelerateInterpolator()
+    private var fadeOutPending=false
     init {
         isClickable=false;isFocusable=false
         importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -81,20 +86,42 @@ class LightIndicatorView(context:Context):View(context) {
         brightnessPercent=currentBrightnessPercent.coerceIn(0f,200f)
         captionBoxColor=captionBackground
         positionView(next)
-        if(visibility!=VISIBLE) {
-            animate().cancel();alpha=0f;visibility=VISIBLE
-            animate().alpha(1f).setDuration(visual(next).fadeInMs).start()
+        // Reversing a fade must start from the CURRENT alpha. Resetting alpha
+        // to zero here produced a flash on rapid alternating gestures.
+        if(visibility!=VISIBLE || fadeOutPending) {
+            fadeOutPending=false
+            animate().cancel()
+            visibility=VISIBLE
+            val remaining=(1f-alpha).coerceIn(0f,1f)
+            if(remaining<=.001f) alpha=1f
+            else animate().alpha(1f)
+                .setDuration((visual(next).fadeInMs*remaining).toLong().coerceAtLeast(1))
+                .setInterpolator(fadeInterpolator).start()
         }
         invalidate()
     }
 
     fun hide() {
-        if(visibility==GONE)return
-        val duration=mode?.let { visual(it).fadeOutMs } ?: 160L
-        mode=null;animate().cancel()
-        animate().alpha(0f).setDuration(duration).withEndAction {
-            if(mode==null)visibility=GONE
-        }.start()
+        if(visibility!=VISIBLE || fadeOutPending || mode==null)return
+        val duration=visual(requireNotNull(mode)).fadeOutMs
+        fadeOutPending=true
+        animate().cancel()
+        // KEEP mode during fade-out: onDraw previously returned immediately
+        // when mode=null, making the whole orbital guide vanish in one frame.
+        if(alpha<=.001f || duration==0L) {
+            mode=null;alpha=0f;visibility=GONE;fadeOutPending=false
+            return
+        }
+        animate().alpha(0f)
+            .setDuration((duration*alpha.coerceIn(0f,1f)).toLong().coerceAtLeast(1))
+            .setInterpolator(fadeInterpolator)
+            .withEndAction {
+                if(fadeOutPending) {
+                    mode=null
+                    visibility=GONE
+                    fadeOutPending=false
+                }
+            }.start()
     }
     override fun onTouchEvent(event:android.view.MotionEvent?):Boolean=false
 
@@ -235,20 +262,21 @@ class LightIndicatorView(context:Context):View(context) {
             else LightGuideProjection.elevation(theta,spec.guideRadiusUnits,
                 lightAzimuth,cameraYaw,cameraPitch)
             val prior=previous
-            if(prior!=null && !nearSun(prior,point,sunX,sunY,gap)) {
-                canvas.drawLine(prior.x,prior.y,point.x,point.y,pen)
+            if(prior!=null) {
+                // Exact continuous intersection instead of dropping entire
+                // sampled segments. This makes lines emerge smoothly from
+                // behind the sun as the user drags, like the brightness bar.
+                val count=GuideGapClipMath.visibleSegments(
+                    prior.x,prior.y,point.x,point.y,
+                    sunX,sunY,gap,visibleLineParts)
+                for(segment in 0 until count) {
+                    val offset=segment*4
+                    canvas.drawLine(visibleLineParts[offset],visibleLineParts[offset+1],
+                        visibleLineParts[offset+2],visibleLineParts[offset+3],pen)
+                }
             }
             previous=point
         }
-    }
-    private fun nearSun(a:LightGuideProjection.Point,b:LightGuideProjection.Point,
-                        cx:Float,cy:Float,gap:Float):Boolean {
-        val dx=b.x-a.x;val dy=b.y-a.y
-        val lengthSquared=dx*dx+dy*dy
-        val t=if(lengthSquared<=.00001f)0f else
-            (((cx-a.x)*dx+(cy-a.y)*dy)/lengthSquared).coerceIn(0f,1f)
-        val px=a.x+t*dx-cx;val py=a.y+t*dy-cy
-        return px*px+py*py <= gap*gap
     }
     private fun label(canvas:Canvas,v:String,spec:IndicatorVisualConfig) {
         caption.clearShadowLayer()

@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.61' in props and 'GLASSSTUDY_VERSION_CODE=20061' in props
+assert 'GLASSSTUDY_VERSION=0.2.62' in props and 'GLASSSTUDY_VERSION_CODE=20062' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -750,7 +750,11 @@ assert 'ringPath.addCircle(0f,0f,spec.sunRadiusUnits,Path.Direction.CW)' in indi
 assert 'canvas.drawPath(ringPath,pen)' in indicator
 assert 'if(kind==Mode.BRIGHTNESS)canvas.rotate(rotation)' in indicator
 assert 'drawOrbit(canvas,kind,spec,x,y)' in indicator
-assert 'private fun nearSun(' in indicator
+assert 'GuideGapClipMath.visibleSegments(' in indicator
+assert 'private fun nearSun(' not in indicator
+assert 'private var fadeOutPending=false' in indicator
+assert 'mode=null;animate().cancel()' not in indicator
+assert (root/'tools/GuideGapClipRegression.kt').is_file()
 assert 'LightGuideProjection.azimuth(' in indicator
 assert 'LightGuideProjection.azimuthOrbit(theta,spec.guideRadiusUnits,' in indicator
 assert 'fun azimuthOrbit(' in projection
