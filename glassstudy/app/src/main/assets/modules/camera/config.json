@@ -22,5 +22,6 @@
   "maxOrbitPitchRad": 1.23,
   "brightnessPinchDivisorDp": 160,
   "lightAxisLockThresholdDp": 6,
-  "lightTapSlopDp": 6
+  "lightTapSlopDp": 6,
+  "directBrightnessExponent": 1.5
 }

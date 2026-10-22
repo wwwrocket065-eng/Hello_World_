@@ -7,7 +7,6 @@ import com.google.android.filament.utils.GlassStudyModelViewer
 import com.google.android.filament.utils.KTX1Loader
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.pow
 
 /** Renderer parameters and studio indirect lighting. No UI or gesture ownership. */
 class RenderEnvironmentController(
@@ -30,7 +29,8 @@ class RenderEnvironmentController(
         applyIndirectIllumination()
     }
     private fun applyIndirectIllumination() {
-        val exposure=globalBrightness.pow(configuration.globalBrightnessExponent.toDouble())
+        val exposure=LightingResponseCurve.intensity(globalBrightness,
+            configuration.globalBrightnessExponent.toDouble())
         viewer.scene.indirectLight?.intensity=(configuration.iblIntensity*exposure).toFloat()
     }
     fun initialize() {

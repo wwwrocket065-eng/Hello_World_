@@ -10,5 +10,5 @@
   "exposureSensitivity": 100,
   "fxaa": true,
   "ambientOcclusionEnabled": true,
-  "globalBrightnessExponent": 1
+  "globalBrightnessExponent": 1.5
 }

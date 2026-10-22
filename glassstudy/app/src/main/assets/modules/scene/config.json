@@ -29,5 +29,7 @@
   "whiteSkyBlue": 240,
   "darkSkyRed": 27,
   "darkSkyGreen": 30,
-  "darkSkyBlue": 35
+  "darkSkyBlue": 35,
+  "skyBrightnessExponent": 1.4,
+  "skyBrightnessCeiling": 1.25
 }

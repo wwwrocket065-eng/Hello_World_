@@ -205,7 +205,8 @@ class CameraLightController(
         // Filament's light ray direction MUST oppose the actual sun source,
         // including the return hemisphere (elevation 90..180 degrees).
         mgr.setDirection(instance,rays.x,rays.y,rays.z)
-        mgr.setIntensity(instance,(config.lightIntensity*brightness).toFloat())
+        val direct=LightingResponseCurve.intensity(brightness,config.directBrightnessExponent)
+        mgr.setIntensity(instance,(config.lightIntensity*direct).toFloat())
         // A single lighting gesture drives direct rays AND the ambient IBL.
         // Avoid expensive scene work in the 60/120 FPS camera frame callback.
         if(brightnessDispatched!=brightness) {

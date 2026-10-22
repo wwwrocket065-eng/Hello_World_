@@ -25,7 +25,8 @@ data class CameraModuleConfig(
     val maxOrbitPitchRad: Double = 1.23,
     val brightnessPinchDivisorDp: Double = 160.0,
     val lightAxisLockThresholdDp: Double = 6.0,
-    val lightTapSlopDp: Double = 6.0
+    val lightTapSlopDp: Double = 6.0,
+    val directBrightnessExponent: Double = 1.5
 ) {
     companion object {
         fun parse(json: JSONObject?): CameraModuleConfig {
@@ -58,7 +59,8 @@ data class CameraModuleConfig(
                 maxOrbitPitchRad = v("maxOrbitPitchRad", 1.23, 0.3, 1.5),
                 brightnessPinchDivisorDp = v("brightnessPinchDivisorDp", 160.0, 20.0, 1000.0),
                 lightAxisLockThresholdDp = v("lightAxisLockThresholdDp", 6.0, 0.5, 60.0),
-                lightTapSlopDp = v("lightTapSlopDp", 6.0, 1.0, 36.0)
+                lightTapSlopDp = v("lightTapSlopDp", 6.0, 1.0, 36.0),
+                directBrightnessExponent = v("directBrightnessExponent",1.5,0.25,4.0)
             )
             require(config.nearClip < config.farClip && config.minDistance < config.maxDistance &&
                 config.minBrightness < config.maxBrightness) { "Camera module range inverted" }

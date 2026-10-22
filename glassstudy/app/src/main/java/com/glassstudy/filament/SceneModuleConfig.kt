@@ -20,7 +20,9 @@ data class SceneModuleConfig(
     val whiteSkyBlue:Int=240,
     val darkSkyRed:Int=27,
     val darkSkyGreen:Int=30,
-    val darkSkyBlue:Int=35
+    val darkSkyBlue:Int=35,
+    val skyBrightnessExponent:Double=1.4,
+    val skyBrightnessCeiling:Double=1.25
 ) {
     companion object {
         fun parse(json: JSONObject?): SceneModuleConfig {
@@ -57,7 +59,9 @@ data class SceneModuleConfig(
                 order("floorOrder",listOf("checker","white","none")),
                 channel("graySkyRed",110),channel("graySkyGreen",110),channel("graySkyBlue",110),
                 channel("whiteSkyRed",240),channel("whiteSkyGreen",240),channel("whiteSkyBlue",240),
-                channel("darkSkyRed",27),channel("darkSkyGreen",30),channel("darkSkyBlue",35))
+                channel("darkSkyRed",27),channel("darkSkyGreen",30),channel("darkSkyBlue",35),
+                number("skyBrightnessExponent",1.4,.25,4.0),
+                number("skyBrightnessCeiling",1.25,1.0,2.0))
         }
     }
 }
