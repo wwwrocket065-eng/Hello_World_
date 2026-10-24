@@ -1,0 +1,73 @@
+name: GlassStudy Android Build
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths:
+      - 'glassstudy/**'
+      - '.github/workflows/glassstudy-build.yml'
+  pull_request:
+    paths:
+      - 'glassstudy/**'
+      - '.github/workflows/glassstudy-build.yml'
+  workflow_dispatch:
+# Keep only the newest branch/PR build when multiple commits arrive quickly.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Verify installed Android platform
+        run: |
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar" || "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Generate the 66 GLB model assets
+        run: python3 glassstudy/tools/make_models.py
+      - name: Verify source / camera / updater / assets
+        run: python3 glassstudy/tools/test_project.py
+      - name: Verify published RSA patch and reject tampered updates
+        run: python3 glassstudy/tools/test_patch_integrity.py
+      - name: Verify fast-patch workflow without Gradle
+        run: python3 glassstudy/tools/test_fast_patch.py
+      - name: Build unsigned APK for original-key signing
+        working-directory: glassstudy
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleCiUnsigned --stacktrace 2>&1 | tee ../glassstudy-gradle-build.log
+      - name: Validate unsigned APK identity and 16 KiB ZIP alignment
+        run: python3 glassstudy/tools/test_apk_preflight.py
+      - name: Upload build log (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glassstudy-build-log
+          path: glassstudy-gradle-build.log
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: GlassStudy-CI-unsigned-SIGN-BEFORE-INSTALL
+          path: glassstudy/app/build/outputs/apk/ciUnsigned/*.apk
+      - name: Export official APK validation tools (no signing keys)
+        if: success()
+        run: |
+          set -euo pipefail
+          mkdir -p glassstudy-apk-validation-tools
+          TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          test -f "$TOOLS/apksigner" || TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          cp "$TOOLS/apksigner" "$TOOLS/zipalign" "$TOOLS/lib/apksigner.jar" glassstudy-apk-validation-tools/
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: GlassStudy-official-APK-verification-tools
+          path: glassstudy-apk-validation-tools/

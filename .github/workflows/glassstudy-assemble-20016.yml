@@ -1,0 +1,51 @@
+name: Assemble GlassStudy 20016 model patch
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths:
+      - '.github/workflows/glassstudy-assemble-20016.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: glassstudy-filament-ci
+          persist-credentials: true
+      - name: Assemble signed patch and independently validate all models
+        run: |
+          python3 - <<'PY'
+          import pathlib,hashlib,json,base64,struct
+          folder=pathlib.Path("glassstudy/updates/v2/staging_20016")
+          pieces=sorted(folder.glob("part_*.txt"))
+          assert len(pieces)==11, "Incomplete patch chunks"
+          for i,p in enumerate(pieces):
+              assert p.name == f"part_{i:02d}.txt", "Unexpected chunk name"
+          data=b"".join(p.read_bytes() for p in pieces)
+          target=pathlib.Path("glassstudy/updates/v2/GlassStudy_Filament_20016.pupdate")
+          assert len(data)==9933569
+          digest=hashlib.sha256(data).hexdigest()
+          assert digest=="a71ecde4f8044caa24ab88bcd81d757953d2a622c93d9ee1adad2c6fb9eb2702", "Full patch SHA mismatch"
+          patch=json.loads(data)
+          assert patch["format"]=="glassstudy-filament-assets-v2" and patch["version"]==20016
+          entries=patch["entries"]
+          assert len(entries)==66 and len(set(x["path"] for x in entries))==66
+          for entry in entries:
+              assert entry["path"].startswith("models/") and entry["path"].endswith(".glb")
+              b=base64.b64decode(entry["data"],validate=True)
+              assert hashlib.sha256(b).hexdigest()==entry["sha256"]
+              assert b[:4]==b"glTF" and len(b)==struct.unpack_from("<I",b,8)[0]
+          target.write_bytes(data)
+          print("VERIFIED",digest,"models",len(entries),"bytes",len(data))
+          PY
+      - name: Publish assembled .pupdate and remove temporary chunks
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add glassstudy/updates/v2/GlassStudy_Filament_20016.pupdate
+          git rm -r glassstudy/updates/v2/staging_20016
+          git commit -m 'Assemble verified signed patch 20016 correcting all 66 GLBs'
+          git push origin HEAD:glassstudy-filament-ci

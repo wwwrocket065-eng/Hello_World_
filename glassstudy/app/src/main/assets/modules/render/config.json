@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "id": "render",
+  "skyRed": 0.43,
+  "skyGreen": 0.43,
+  "skyBlue": 0.43,
+  "iblIntensity": 30000,
+  "exposureAperture": 16,
+  "exposureShutter": 0.008,
+  "exposureSensitivity": 100,
+  "fxaa": true,
+  "ambientOcclusionEnabled": true,
+  "globalBrightnessExponent": 1.5,
+  "atmosphereExtinction": 0.14,
+  "atmosphereHaze": 0.3,
+  "atmosphereSkyIlluminance": 14000,
+  "atmosphereHorizonFraction": 0.08,
+  "atmosphereShUpdateDegrees": 3,
+  "atmosphereExposureReferenceLux": 50000,
+  "atmosphereExposureMaxGain": 32
+}

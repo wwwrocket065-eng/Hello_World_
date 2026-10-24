@@ -1,0 +1,31 @@
+name: GlassStudy Export Fixed GLBs
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths: ['.github/workflows/glassstudy-export-models.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate and validate corrected tumbler models
+        run: |
+          python3 glassstudy/tools/make_models.py
+          python3 - <<'PY'
+          import json,struct,pathlib
+          d=pathlib.Path('glassstudy/app/src/main/assets/models')
+          for f in sorted(d.glob('tumbler_*.glb')):
+              b=f.read_bytes(); assert b[:4]==b'glTF' and struct.unpack_from('<I',b,8)[0]==len(b)
+              l=struct.unpack_from('<I',b,12)[0]; j=json.loads(b[20:20+l])
+              assert j['buffers'][0]['byteLength']==struct.unpack_from('<I',b,20+l)[0]
+              assert all(0<=p.get('material',0)<len(j['materials']) for m in j['meshes'] for p in m['primitives'])
+              print(f.name,len(b),len(j['materials']),'materials')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GlassStudy-corrected-tumbler-GLBs
+          path: glassstudy/app/src/main/assets/models/tumbler_*.glb
+          retention-days: 2

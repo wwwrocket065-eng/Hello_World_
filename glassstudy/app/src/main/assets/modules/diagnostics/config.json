@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "id": "diagnostics",
+  "includeModuleStatus": false,
+  "includeRenderParameters": false,
+  "includeCameraParameters": false
+}

@@ -1,0 +1,52 @@
+{
+  "windows": [
+    {
+      "id": "lightControls",
+      "title": "Свет и отображение",
+      "widthFraction": 0.9,
+      "landscapeWidthFraction": 0.72,
+      "elements": [
+        {
+          "type": "heading",
+          "label": "Освещение"
+        },
+        {
+          "type": "text",
+          "label": "Элементы окна можно добавлять и менять через подписанный патч."
+        },
+        {
+          "type": "switch",
+          "label": "Режим управления светом",
+          "binding": "lightMode"
+        },
+        {
+          "type": "slider",
+          "label": "Яркость, %",
+          "binding": "brightnessPercent",
+          "min": 5,
+          "max": 200,
+          "step": 5
+        },
+        {
+          "type": "heading",
+          "label": "Отображение"
+        },
+        {
+          "type": "switch",
+          "label": "Сетка",
+          "binding": "grid"
+        },
+        {
+          "type": "switch",
+          "label": "Показывать FPS",
+          "binding": "fps"
+        },
+        {
+          "type": "button",
+          "label": "Сбросить камеру",
+          "action": "resetCamera"
+        }
+      ]
+    }
+  ]
+}

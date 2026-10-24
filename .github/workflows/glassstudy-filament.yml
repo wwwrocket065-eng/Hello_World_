@@ -1,0 +1,52 @@
+name: GlassStudy Filament Android
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+  workflow_dispatch:
+# Keep only the newest branch/PR build when multiple commits arrive quickly.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify bundled Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/platforms/android-35" || "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+      - name: Generate shared GLB models
+        run: python3 glassstudy/tools/make_models.py
+      - name: Verify published signed patch with actual RSA key and attack vectors
+        run: python3 glassstudy/tools/test_patch_integrity.py
+      - name: Build native Android APK
+        working-directory: glassstudy
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GlassStudy-Filament-0.2.06-UnsignedForResign
+          path: glassstudy/app/build/outputs/apk/debug/*.apk
+
+      - name: Provide official Android APK signing verifier
+        if: always()
+        run: |
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p signingtools
+          cp "$SDK/lib/apksigner.jar" signingtools/apksigner.jar
+          cp "$SDK/zipalign" signingtools/zipalign
+          echo "Official apksigner and zipalign staged"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Official-Android-Signing-Tools
+          path: signingtools/
