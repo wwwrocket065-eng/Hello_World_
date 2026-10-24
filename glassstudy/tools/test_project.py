@@ -217,7 +217,7 @@ for f in models:
                for group in mesh['meshes'] for prim in group['primitives']),f
 # Assert genuine quad-only wireframe with no colored/shaded fill primitive.
 generator=(root/'tools/make_models.py').read_text()
-assert 'for model_id in ("wine",)' in generator
+assert 'for model_id in ("goblet",)' in generator
 assert '("low","medium","high","ultra")' in generator
 assert 'KHR_materials_unlit' in generator and 'wireframe_primitive' in generator
 assert 'quad_edge_pairs' in generator
@@ -488,7 +488,7 @@ assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
 # Model selection and material variants share one validated, rollback-aware module.
 assert 'class ModelMaterialController(' in model_loader
 assert 'object ModelCatalog' in model_catalog
-assert 'val ids=listOf("wine")' in model_catalog
+assert 'val ids=listOf("goblet")' in model_catalog
 assert 'val names=listOf("Бокал")' in model_catalog
 assert 'val qualities=listOf("low","medium","high","ultra")' in model_catalog
 assert 'ModelCatalog.qualityNames.toTypedArray()' in activity

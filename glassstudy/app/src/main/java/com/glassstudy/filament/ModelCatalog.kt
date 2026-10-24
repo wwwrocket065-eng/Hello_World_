@@ -8,11 +8,11 @@ data class ModelSelection(val modelId:String,val lod:String) {
     }
 }
 object ModelCatalog {
-    val ids=listOf("wine")
+    val ids=listOf("goblet")
     val names=listOf("Бокал")
     val qualities=listOf("low","medium","high","ultra")
     val qualityNames=listOf("Low","Medium","High","Ultra")
-    val defaultSelection=ModelSelection("wine","medium")
+    val defaultSelection=ModelSelection("goblet","medium")
     fun idAt(index:Int)=ids[index.coerceIn(0,ids.lastIndex)]
     fun qualityAt(index:Int)=qualities[index.coerceIn(0,qualities.lastIndex)]
     fun displayName(modelId:String)=names[ids.indexOf(modelId).coerceAtLeast(0)]

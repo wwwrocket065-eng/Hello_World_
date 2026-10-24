@@ -8,7 +8,7 @@ import org.json.JSONObject
  */
 data class MaterialModuleConfig(val variants: Map<String, String> = emptyMap()) {
     companion object {
-        private val keyPattern = Regex("(faceted|tumbler|wine|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high|ultra)(_debug)?")
+        private val keyPattern = Regex("(faceted|tumbler|wine|goblet|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high|ultra)(_debug)?")
         private val modelPattern = Regex("models/[a-z][a-z0-9_-]{0,63}(_(low|medium|high|ultra))?(_debug)?\\.glb")
 
         fun parse(json: JSONObject?): MaterialModuleConfig {

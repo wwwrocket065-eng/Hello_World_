@@ -213,7 +213,7 @@ def main():
     ROOT.mkdir(parents=True,exist_ok=True)
     for old in ROOT.glob("*.glb"):
         old.unlink()
-    for model_id in ("wine",):
+    for model_id in ("goblet",):
         for quality in ("low","medium","high","ultra"):
             sides,rings=QUALITY[quality]
             for debug in (False,True):
