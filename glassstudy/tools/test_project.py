@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.63' in props and 'GLASSSTUDY_VERSION_CODE=20063' in props
+assert 'GLASSSTUDY_VERSION=0.2.64' in props and 'GLASSSTUDY_VERSION_CODE=20064' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -204,7 +204,7 @@ assert 'GLASSSTUDY_KEYSTORE' in build and 'GLASSSTUDY_STORE_PASSWORD' in build
 assert not any(p.suffix.lower() in ('.p12','.jks','.pem','.der') for p in root.rglob('*') if p.is_file())
 model_dir=root/'app/src/main/assets/models'
 models=list(model_dir.glob('*.glb'))
-assert len(models)==66,len(models)
+assert len(models)==8,len(models)
 for f in models:
     b=f.read_bytes()
     assert b[:4]==b'glTF', f
@@ -215,6 +215,24 @@ for f in models:
     assert mesh['buffers'][0]['byteLength']==bin_len,f
     assert all(0<=prim.get('material',0)<len(mesh['materials'])
                for group in mesh['meshes'] for prim in group['primitives']),f
+# Assert genuine quad-only wireframe with no colored/shaded fill primitive.
+generator=(root/'tools/make_models.py').read_text()
+assert 'for model_id in ("wine",)' in generator
+assert '("low","medium","high","ultra")' in generator
+assert 'KHR_materials_unlit' in generator and 'wireframe_primitive' in generator
+assert 'quad_edge_pairs' in generator
+for model_file in models:
+    data=model_file.read_bytes()
+    gltf=json.loads(data[20:20+struct.unpack_from('<I',data,12)[0]])
+    extras=gltf['extras']['quadGrid']
+    assert extras['quads']>0
+    if model_file.stem.endswith('_debug'):
+        assert len(gltf['meshes'][0]['primitives'])==1
+        assert 'KHR_materials_unlit' in gltf['materials'][0]['extensions']
+        assert extras['filled'] is False
+        assert 'KHR_materials_transmission' not in gltf['materials'][0]['extensions']
+    else:
+        assert 'KHR_materials_transmission' in gltf['materials'][0]['extensions']
 # The old studio environment/color picker is intentionally not a lighting option.
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))
@@ -277,7 +295,7 @@ assert 'runCatching { applyUiLayout() }' in activity
 assert 'runCatching { loadSelected() }' in activity
 assert 'blockedAfterCrash' in updater and 'feed.patchVersion != blockedVersion' in updater
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
-print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 66 GLBs, physical lighting')
+print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 8 new GLBs, physical lighting')
 print('NOTE: Android SDK/Gradle compile and device runtime must be tested separately.')
 # Scene style and module regression — standalone white/checker floors share width.
 scene_config=json.loads((root/'app/src/main/assets/modules/scene/config.json').read_text())
@@ -470,7 +488,10 @@ assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
 # Model selection and material variants share one validated, rollback-aware module.
 assert 'class ModelMaterialController(' in model_loader
 assert 'object ModelCatalog' in model_catalog
-assert 'val ids=listOf("faceted","tumbler","wine","mug"' in model_catalog
+assert 'val ids=listOf("wine")' in model_catalog
+assert 'val names=listOf("Бокал")' in model_catalog
+assert 'val qualities=listOf("low","medium","high","ultra")' in model_catalog
+assert 'ModelCatalog.qualityNames.toTypedArray()' in activity
 assert 'fun load(' in model_loader
 assert 'MaterialModuleConfig.parse(materialJson)' in model_loader
 assert 'MaterialOverrides.parse(materialJson)' in model_loader
