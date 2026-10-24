@@ -346,7 +346,7 @@ class MainActivity : Activity() {
         first.rightMargin=d(7f)
         selectorRow.addView(chooseObject,first)
         chooseLod=Spinner(this).apply {
-            adapter=uiChrome.selectionAdapter(arrayOf("Low","Medium","High"))
+            adapter=uiChrome.selectionAdapter(ModelCatalog.qualityNames.toTypedArray())
             background=uiChrome.roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
         }
         selectorRow.addView(chooseLod,LinearLayout.LayoutParams(0,d(45f),1f))
@@ -386,8 +386,8 @@ class MainActivity : Activity() {
         uiChrome.bind(UiChromeViews(mainRoot,topPanel,bottomPanel,
             logoMark,headerSubtitle,label,fpsPill,chooseObject,chooseLod,
             toolbarController,checkNotNull(lightIndicator)))
-        chooseObject.setSelection(1)
-        chooseLod.setSelection(1)
+        chooseObject.setSelection(ModelCatalog.indexOfId(ModelCatalog.defaultSelection.modelId))
+        chooseLod.setSelection(ModelCatalog.indexOfQuality(ModelCatalog.defaultSelection.lod))
         applyUiLayout()
         loadSelected()
         sceneEnvironment.applyFloor()
