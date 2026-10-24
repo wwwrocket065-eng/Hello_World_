@@ -11,7 +11,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-PATTERN = re.compile(r"(faceted|tumbler|wine|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high)(_debug)?\.glb")
+PATTERN = re.compile(r"(faceted|tumbler|wine|mug|pitcher|bowl|vase|sphere|cube|cylinder|cone)_(low|medium|high|ultra)(_debug)?\.glb")
 FORMAT = "glassstudy-filament-assets-v2"
 FEED = "glassstudy-filament-feed-v2"
 

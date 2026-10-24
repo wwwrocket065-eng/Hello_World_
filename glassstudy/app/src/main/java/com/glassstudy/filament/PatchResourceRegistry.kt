@@ -15,7 +15,7 @@ object PatchResourceRegistry {
     private val texture = Regex("textures/[a-z][a-z0-9_-]{0,63}/[a-z][a-z0-9_-]{0,63}\\.(png|jpg|ktx|ktx2)")
     private val scene = Regex("scenes/[a-z][a-z0-9_-]{0,63}\\.json")
     private val ui = Regex("ui/[a-z][a-z0-9_-]{0,63}\\.json")
-    private val model = Regex("models/[a-z][a-z0-9_-]{0,63}(_(low|medium|high))?(_debug)?\\.glb")
+    private val model = Regex("models/[a-z][a-z0-9_-]{0,63}(_(low|medium|high|ultra))?(_debug)?\\.glb")
     private val jsonFormats = setOf("config", "manifest")
 
     fun accepts(path: String): Boolean {

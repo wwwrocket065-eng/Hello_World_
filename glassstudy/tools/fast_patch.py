@@ -33,7 +33,7 @@ PATHS=(
     r"modules/[a-z][a-z0-9_-]{0,63}/(config|manifest)\.json",
     r"catalogs/[a-z][a-z0-9_-]{0,63}\.json",
     r"scenes/[a-z][a-z0-9_-]{0,63}\.json",
-    r"models/[a-z][a-z0-9_-]{0,63}(_(low|medium|high))?(_debug)?\.glb",
+    r"models/[a-z][a-z0-9_-]{0,63}(_(low|medium|high|ultra))?(_debug)?\.glb",
     r"shaders/[a-z][a-z0-9_-]{0,63}/[a-z][a-z0-9_-]{0,63}\.(glsl|mat)",
     r"textures/[a-z][a-z0-9_-]{0,63}/[a-z][a-z0-9_-]{0,63}\.(png|jpg|ktx|ktx2)"
 )
