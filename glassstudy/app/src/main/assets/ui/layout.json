@@ -163,15 +163,33 @@
       "action": "toggleGrid",
       "slot": "bottom",
       "icon": "grid",
-      "label": "Сетка",
+      "label": "",
       "heightDp": 46,
+      "widthDp": 48,
       "textColor": "#A3D0D3",
-      "offsetXDp": 0,
-      "offsetYDp": 0,
-      "iconScale": 0.8,
-      "marginStartDp": 0,
-      "marginTopDp": 0,
-      "widthDp": 200
+      "iconScale": 0.8
+    },
+    {
+      "id": "smoothing",
+      "action": "toggleFxaa",
+      "slot": "bottom",
+      "icon": "smooth",
+      "label": "",
+      "heightDp": 46,
+      "widthDp": 48,
+      "textColor": "#A3D0D3",
+      "iconScale": 0.8
+    },
+    {
+      "id": "adaptive",
+      "action": "toggleAdaptivePanel",
+      "slot": "bottom",
+      "icon": "adapt",
+      "label": "",
+      "heightDp": 46,
+      "widthDp": 48,
+      "textColor": "#A3D0D3",
+      "iconScale": 0.8
     }
   ],
   "showFps": true,

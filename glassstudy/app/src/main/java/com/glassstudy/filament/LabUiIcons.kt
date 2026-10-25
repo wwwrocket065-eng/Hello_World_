@@ -142,6 +142,20 @@ class LabIconView(context:Context, val iconName:String):View(context) {
                     canvas.drawLine(-12f,v,12f,v,ink)
                 }
             }
+            "smooth" -> {
+                canvas.drawLine(-14f,8f,-7f,1f,ink)
+                canvas.drawLine(-7f,1f,-1f,5f,ink)
+                canvas.drawArc(-3f,-11f,13f,5f,180f,180f,false,ink)
+                canvas.drawLine(13f,-3f,13f,7f,ink)
+            }
+            "adapt" -> {
+                canvas.drawRect(-14f,-12f,14f,12f,ink)
+                canvas.drawLine(-14f,0f,14f,0f,ink)
+                canvas.drawLine(-6f,-12f,-6f,12f,ink)
+                canvas.drawLine(1f,-12f,1f,12f,ink)
+                canvas.drawLine(5f,-12f,5f,12f,ink)
+                canvas.drawLine(9f,-12f,9f,12f,ink)
+            }
             "quality" -> {
                 canvas.drawRoundRect(-12f,-11f,12f,11f,1.5f,1.5f,ink)
                 canvas.drawLine(-6f,-4f,6f,-4f,ink)

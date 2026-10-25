@@ -135,14 +135,15 @@ data class UiLayout(
         // UI actions are strictly whitelisted. Patches can add/remove/reorder
         // button instances but cannot execute new code or start arbitrary intents.
         private val ICONS=setOf(
-            "chip","sun","reset","scene","menu","gear","objects","quality","grid","fps","info")
+            "chip","sun","reset","scene","menu","gear","objects","quality","grid","fps","info","smooth","adapt")
         private val DEFAULT_BUTTONS=listOf(
             UiButtonSpec("diagnostics","diagnostics","top","chip","",44,null,null,null,false),
             UiButtonSpec("light_top","toggleLight","top","sun","",44,null,null,null,false),
             UiButtonSpec("reset","openScene","top","scene","",44,null,null,null,false),
             UiButtonSpec("menu","menu","top","gear","",44,null,null,null,false),
-            UiButtonSpec("light_bottom","toggleLight","bottom","sun","Свет / Камера",46,null,null,null,false),
-            UiButtonSpec("grid","toggleGrid","bottom","grid","Сетка",46,null,null,null,false)
+            UiButtonSpec("grid","toggleGrid","bottom","grid","",46,null,null,null,false,48),
+            UiButtonSpec("smoothing","toggleFxaa","bottom","smooth","",46,null,null,null,false,48),
+            UiButtonSpec("adaptive","toggleAdaptivePanel","bottom","adapt","",46,null,null,null,false,48)
         )
         private val TOP_ITEMS = listOf("status", "selectors", "actions", "grid")
         private val BOTTOM_ITEMS = listOf("export", "diagnostics")
@@ -222,7 +223,10 @@ data class UiLayout(
                         "Unknown button action, location or icon"
                     }
                     require(label.length<=40 && !label.any { it.isISOControl() }) { "Bad button label" }
-                    require(slot=="top" || label.isNotBlank()) { "Bottom buttons require labels" }
+                    require(slot=="top" || label.isNotBlank() ||
+                        obj.optInt("widthDp",0) in 44..72) {
+                        "Icon-only bottom buttons need a 44..72dp touch target"
+                    }
                     val height=obj.optInt("heightDp",46)
                     require(height in 36..72) { "Invalid button height" }
                     fun dimension(key:String,min:Int,max:Int):Int? {

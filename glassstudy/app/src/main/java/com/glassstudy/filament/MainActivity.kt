@@ -32,6 +32,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.PopupWindow
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.view.KeyEvent
@@ -75,6 +76,10 @@ class MainActivity : Activity() {
     private lateinit var selectorRow: LinearLayout
     private lateinit var topButtonHost: LinearLayout
     private lateinit var bottomButtonHost: LinearLayout
+    private lateinit var adaptiveRow:LinearLayout
+    private lateinit var adaptiveSlider:SeekBar
+    private lateinit var adaptiveValue:TextView
+    private var pendingAdaptiveUpdate:Runnable?=null
     private lateinit var toolbarController:UiToolbarController
 
     /** All controls (toolbar, windows, overlays) go through one typed action API. */
@@ -99,6 +104,10 @@ class MainActivity : Activity() {
                     "menu" -> openMenu()
                     "selectModel" -> chooseObject.performClick()
                     "selectQuality" -> chooseLod.performClick()
+                    "toggleAdaptivePanel" -> {
+                        adaptiveRow.visibility=if(adaptiveRow.visibility==View.VISIBLE) View.GONE else View.VISIBLE
+                        updateButtonHighlights()
+                    }
                     else -> throw IllegalArgumentException("Unknown native action: $action")
                 }
             }
@@ -107,6 +116,8 @@ class MainActivity : Activity() {
                 "lightMode" -> if (cameraLight.lightMode) 1f else 0f
                 "grid" -> if (modelAssets.wireframe) 1f else 0f
                 "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
+                "fxaa" -> if(renderEnvironment.fxaaEnabled)1f else 0f
+                "adaptivityPercent" -> modelAssets.adaptivePercent.toFloat()
                 "brightnessPercent" -> (cameraLight.brightness * 100.0).toFloat()
                 else -> throw IllegalArgumentException("Unsupported binding: $binding")
             }
@@ -130,6 +141,29 @@ class MainActivity : Activity() {
                     "fps" -> {
                         fpsPill.visibility = if (value >= .5f) View.VISIBLE else View.GONE
                         updateButtonHighlights()
+                    }
+                    "fxaa" -> {
+                        val enabled=value>=.5f
+                        renderEnvironment.setFxaaOverride(enabled)
+                        getPreferences(MODE_PRIVATE).edit().putBoolean("fxaaOverride",enabled).apply()
+                        updateButtonHighlights()
+                    }
+                    "adaptivityPercent" -> {
+                        val requested=value.toInt().coerceIn(0,100)
+                        val result=modelAssets.setAdaptivity(requested)
+                        if(result.isSuccess) {
+                            getPreferences(MODE_PRIVATE).edit()
+                                .putInt("adaptivityPercent",requested).apply()
+                            if(::adaptiveSlider.isInitialized && adaptiveSlider.progress!=requested)
+                                adaptiveSlider.progress=requested
+                            if(::adaptiveValue.isInitialized)
+                                adaptiveValue.text="Адаптивность: $requested%"
+                            status()
+                        } else {
+                            if(::adaptiveSlider.isInitialized)
+                                adaptiveSlider.progress=modelAssets.adaptivePercent
+                            Toast.makeText(this@MainActivity,"Не удалось изменить сетку",Toast.LENGTH_SHORT).show()
+                        }
                     }
                     "brightnessPercent" -> cameraLight.setBrightnessPercent(value)
                     else -> throw IllegalArgumentException("Unsupported binding: $binding")
@@ -236,6 +270,8 @@ class MainActivity : Activity() {
 
         viewer = GlassStudyModelViewer(surface, manipulator = null)
         modelAssets=ModelMaterialController(viewer,updater)
+        modelAssets.setAdaptivity(getPreferences(MODE_PRIVATE)
+            .getInt("adaptivityPercent",0).coerceIn(0,100))
         sceneEnvironment=SceneEnvironmentController(this,viewer,getPreferences(MODE_PRIVATE)) {
             mode ->
             // A mode change must update *both* physical IBL and direct sunlight.
@@ -247,6 +283,9 @@ class MainActivity : Activity() {
         sceneEnvironment.applySkybox()
         renderEnvironment=RenderEnvironmentController(this,viewer)
         renderEnvironment.initialize()
+        val preferences=getPreferences(MODE_PRIVATE)
+        if(preferences.contains("fxaaOverride"))
+            renderEnvironment.setFxaaOverride(preferences.getBoolean("fxaaOverride",true))
         cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
             {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode,
                 cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz,
@@ -356,6 +395,45 @@ class MainActivity : Activity() {
             orientation=LinearLayout.VERTICAL
         }
         bottomPanel.addView(bottomButtonHost,LinearLayout.LayoutParams(-1,-2))
+        // The narrow on-demand control belongs to the dock, never floats over the bowl.
+        adaptiveRow=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            visibility=View.GONE
+            setPadding(d(5f),d(3f),d(5f),0)
+        }
+        adaptiveValue=TextView(this).apply {
+            text="Адаптивность: ${modelAssets.adaptivePercent}%"
+            textSize=11f
+            setTextColor(Color.rgb(163,208,211))
+        }
+        adaptiveSlider=SeekBar(this).apply {
+            max=100
+            progress=modelAssets.adaptivePercent
+            contentDescription="Адаптивность сетки, от 0 до 100 процентов"
+            setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean) {
+                    adaptiveValue.text="Адаптивность: $value%"
+                    if(!fromUser)return
+                    pendingAdaptiveUpdate?.let { adaptiveRow.removeCallbacks(it) }
+                    // Debounce GLB generation while dragging, apply final value on release.
+                    val job=Runnable {
+                        pendingAdaptiveUpdate=null
+                        uiController.write("adaptivityPercent",value.toFloat())
+                    }
+                    pendingAdaptiveUpdate=job
+                    adaptiveRow.postDelayed(job,110)
+                }
+                override fun onStartTrackingTouch(bar:SeekBar?) {}
+                override fun onStopTrackingTouch(bar:SeekBar?) {
+                    pendingAdaptiveUpdate?.let { adaptiveRow.removeCallbacks(it) }
+                    pendingAdaptiveUpdate=null
+                    uiController.write("adaptivityPercent",progress.toFloat())
+                }
+            })
+        }
+        adaptiveRow.addView(adaptiveValue,LinearLayout.LayoutParams(-1,-2))
+        adaptiveRow.addView(adaptiveSlider,LinearLayout.LayoutParams(-1,d(32f)))
+        bottomPanel.addView(adaptiveRow,LinearLayout.LayoutParams(-1,-2))
         // No fixed Apply / Export / Diagnostics buttons below. All actions
         // are created by the signed declarative UI patch layout.
         dock.addView(bottomPanel)
@@ -372,6 +450,8 @@ class MainActivity : Activity() {
                 override fun isActive(action:String):Boolean=when(action) {
                     "toggleLight" -> cameraLight.lightMode
                     "toggleGrid" -> modelAssets.wireframe
+                    "toggleFxaa" -> renderEnvironment.fxaaEnabled
+                    "toggleAdaptivePanel" -> adaptiveRow.visibility==View.VISIBLE
                     "diagnostics" -> diagnosticsPopup.isShowing
                     else -> false
                 }

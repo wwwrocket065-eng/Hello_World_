@@ -39,7 +39,7 @@ class UiToolbarController(
     }
     private fun button(spec:UiButtonSpec,ui:UiLayout,animations:Map<String,UiAnimationSpec>):View {
         val ink=spec.textColor?:ui.buttonTextColor
-        val target:View=if(spec.slot=="top") {
+        val target:View=if(spec.slot=="top" || spec.label.isBlank()) {
             LabIconView(activity,spec.icon).apply {
                 iconColor=ink
                 glyphScale=spec.iconScale ?: ui.topIconScale
@@ -52,6 +52,9 @@ class UiToolbarController(
                     "resetCamera" -> "Сброс камеры"
                     "openScene" -> "Сцена"
                     "menu" -> "Настройки"
+                    "toggleGrid" -> "Сетка"
+                    "toggleFxaa" -> "Сглаживание изображения"
+                    "toggleAdaptivePanel" -> "Настройка адаптивности сетки"
                     else -> spec.label.ifBlank { spec.action }
                 }
             }
@@ -119,9 +122,14 @@ class UiToolbarController(
             })
             buttons[spec.id]=view
         }
-        for(group in bottom.chunked(OrientationLayoutManager.bottomColumns(
-            activity.resources.configuration,bottom.size))) {
-            val row=LinearLayout(activity).apply { orientation=LinearLayout.HORIZONTAL }
+        val compact=bottom.size==3 && bottom.all { it.label.isBlank() }
+        val columns=if(compact)3 else OrientationLayoutManager.bottomColumns(
+            activity.resources.configuration,bottom.size)
+        for(group in bottom.chunked(columns)) {
+            val row=LinearLayout(activity).apply {
+                orientation=LinearLayout.HORIZONTAL
+                if(compact) gravity=Gravity.CENTER
+            }
             group.forEachIndexed { index,spec ->
                 val view=button(spec,ui,animations)
                 row.addView(view,LinearLayout.LayoutParams(
