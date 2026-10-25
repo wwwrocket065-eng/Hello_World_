@@ -202,53 +202,25 @@ assert 'requestApkInstall' not in activity and 'downloadApk(' not in updater
 assert 'FileProvider' not in (root/'app/src/main/AndroidManifest.xml').read_text()
 assert 'GLASSSTUDY_KEYSTORE' in build and 'GLASSSTUDY_STORE_PASSWORD' in build
 assert not any(p.suffix.lower() in ('.p12','.jks','.pem','.der') for p in root.rglob('*') if p.is_file())
-model_dir=root/'app/src/main/assets/models'
-models=list(model_dir.glob('*.glb'))
-assert len(models)==8,len(models)
-for f in models:
-    b=f.read_bytes()
-    assert b[:4]==b'glTF', f
-    assert struct.unpack_from('<I',b,8)[0]==len(b),f
-    json_len=struct.unpack_from('<I',b,12)[0]
-    mesh=json.loads(b[20:20+json_len])
-    bin_len=struct.unpack_from('<I',b,20+json_len)[0]
-    assert mesh['buffers'][0]['byteLength']==bin_len,f
-    assert all(0<=prim.get('material',0)<len(mesh['materials'])
-               for group in mesh['meshes'] for prim in group['primitives']),f
-# Assert genuine quad-only wireframe with no colored/shaded fill primitive.
-generator=(root/'tools/make_models.py').read_text()
-assert 'for model_id in ("goblet",)' in generator
-assert '("low","medium","high","ultra")' in generator
-assert 'KHR_materials_unlit' in generator and 'wireframe_primitive' in generator
-assert 'quad_edge_pairs' in generator
-for model_file in models:
-    data=model_file.read_bytes()
-    gltf=json.loads(data[20:20+struct.unpack_from('<I',data,12)[0]])
-    extras=gltf['extras']['quadGrid']
-    assert extras['quads']>0
-    if model_file.stem.endswith('_debug'):
-        assert len(gltf['meshes'][0]['primitives'])==1
-        assert 'KHR_materials_unlit' in gltf['materials'][0]['extensions']
-        assert gltf['materials'][0]['pbrMetallicRoughness']['baseColorFactor'] == [0,0,0,1], model_file
-        assert extras['filled'] is False
-        assert 'KHR_materials_transmission' not in gltf['materials'][0]['extensions']
-    else:
-        assert 'KHR_materials_transmission' in gltf['materials'][0]['extensions']
-        # Read actual GPU vertex coordinates: mouth must be narrower than the
-        # mid/upper bowl, identically across all four GLB LODs.
-        prim=gltf['meshes'][0]['primitives'][0]
-        pos_accessor=gltf['accessors'][prim['attributes']['POSITION']]
-        pos_view=gltf['bufferViews'][pos_accessor['bufferView']]
-        start=(20+struct.unpack_from('<I',data,12)[0]+8+
-               pos_view.get('byteOffset',0)+pos_accessor.get('byteOffset',0))
-        vertices=struct.iter_unpack('<fff',data[start:start+12*pos_accessor['count']])
-        sample=[(y,(x*x+z*z)**.5) for x,y,z in vertices]
-        # Low LOD has few contour rings; sample the actual highest ring,
-        # rather than requiring a vertex inside an arbitrary 5cm y-interval.
-        top_y=max(y for y,radius in sample)
-        mouth=max(radius for y,radius in sample if y>=top_y-0.08)
-        shoulder=max(radius for y,radius in sample if 2.50<=y<=2.95)
-        assert mouth/shoulder<.90, (model_file,mouth,shoulder)
+# One canonical goblet profile and one runtime mesh generator.
+profile=json.loads((root/'app/src/main/assets/catalogs/goblet.json').read_text())
+assert profile['schema']==1 and len(profile['profile'])>=30
+assert 0.0003<=profile['wireThickness']<=0.01
+assert max(r for y,r in profile['profile'] if 2.5<y<2.9) > max(r for y,r in profile['profile'] if y>3.30)
+assert profile['profile'][-1][0]-1.43 < 0.2
+geometry=(root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
+assert 'object ParametricGoblet' in geometry and 'fun create(' in geometry
+assert all('"'+lod+'"' in geometry for lod in ('low','medium','high','ultra'))
+assert 'KHR_materials_unlit' in geometry and 'KHR_materials_transmission' in geometry
+assert 'if(j<rings-1)append(a,a+sides)' in geometry
+assert 'if(grid)array(0,0,0,1)' in geometry
+loader=(root/'app/src/main/java/com/glassstudy/filament/ModelMaterialController.kt').read_text()
+assert 'ParametricGoblet.create(profile,selected.lod,debug)' in loader
+assert 'if(override!=null) return readCheckedResource(override,candidate)' in loader
+assert 'if (path == ParametricGoblet.PATH) ParametricGoblet.validate(raw)' in updater
+assert 'GlbMetrics.inspect(ParametricGoblet.create(' in report_src
+# No pre-baked models are necessary, including during native CI compilation.
+assert not list((root/'app/src/main/assets/models').glob('*.glb'))
 # The old studio environment/color picker is intentionally not a lighting option.
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))
@@ -318,7 +290,7 @@ assert 'runCatching { applyUiLayout() }' in activity
 assert 'runCatching { loadSelected() }' in activity
 assert 'blockedAfterCrash' in updater and 'feed.patchVersion != blockedVersion' in updater
 print('PASS: modular resource registry, signed patch integration, module consumers and default JSON')
-print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, 8 new GLBs, physical lighting')
+print('PASS: project identifiers, version, background updater, rollback, signature, gesture, key hygiene, one adaptive profile, physical lighting')
 print('NOTE: Android SDK/Gradle compile and device runtime must be tested separately.')
 # Scene style and module regression — standalone white/checker floors share width.
 scene_config=json.loads((root/'app/src/main/assets/modules/scene/config.json').read_text())

@@ -40,8 +40,7 @@ class ModelMaterialController(
             val materialJson=updater.readModuleConfig("materials",candidate)
             val catalog=if(candidate==null)configuration else MaterialModuleConfig.parse(materialJson)
             val overrides=MaterialOverrides.parse(materialJson)
-            val path=resolveResource(requested,debug,catalog)
-            val bytes=readCheckedResource(path,candidate)
+            val bytes=loadMesh(requested,debug,catalog,candidate)
             rendererTouched=true
             viewer.loadModelGlb(direct(bytes))
             require(viewer.asset!=null) { "Filament gltfio rejected GLB: "+path }
@@ -66,12 +65,25 @@ class ModelMaterialController(
     private data class Snapshot(val selection:ModelSelection,val wireframe:Boolean)
 
     private fun restore(snapshot:Snapshot) {
-        val path=resolveResource(snapshot.selection,snapshot.wireframe,configuration)
-        val bytes=readCheckedResource(path,null)
+        val bytes=loadMesh(snapshot.selection,snapshot.wireframe,configuration,null)
         val overrides=MaterialOverrides.parse(updater.readModuleConfig("materials"))
         viewer.loadModelGlb(direct(bytes))
         require(viewer.asset!=null) { "Cannot restore model: "+path }
         overrides.apply(viewer)
+    }
+
+    /**
+     * One shape, varying only tessellation density. Previously signed GLB
+     * overrides remain usable when explicitly mapped in the material catalog.
+     */
+    private fun loadMesh(selected:ModelSelection,debug:Boolean,
+                         catalog:MaterialModuleConfig,candidate:PatchManager.Candidate?):ByteArray {
+        val override=catalog.resolve(selected.modelId,selected.lod,debug)
+        if(override!=null) return readCheckedResource(override,candidate)
+        require(selected.modelId=="goblet")
+        val profile=updater.readResourceOrNull(ParametricGoblet.PATH,candidate)
+            ?: throw IllegalArgumentException("Missing canonical goblet profile")
+        return ParametricGoblet.create(profile,selected.lod,debug)
     }
 
     private fun resolveResource(selected:ModelSelection,debug:Boolean,catalog:MaterialModuleConfig):String {

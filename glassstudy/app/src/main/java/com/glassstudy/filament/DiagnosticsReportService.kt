@@ -41,8 +41,11 @@ class DiagnosticsReportService(
             else String.format(Locale("ru","RU"),"%.1f",x)
         val perf=profiler.metrics()
         val ram=try { MemoryMetrics.capture(context) } catch (_:Exception) { null }
-        val path="models/${state.modelId}_${state.modelLod}${if(state.wireframe) "_debug" else ""}.glb"
-        val mesh=try { GlbMetrics.inspect(updater.readModel(path)) } catch (_:Exception) { null }
+        val mesh=try {
+            val profile=updater.readResourceOrNull(ParametricGoblet.PATH)
+                ?: error("Missing goblet profile")
+            GlbMetrics.inspect(ParametricGoblet.create(profile,state.modelLod,state.wireframe))
+        } catch (_:Exception) { null }
         val server=updater.serverPatchVersion.takeIf { it>0 }?.toString() ?: "—"
         val active=updater.installedPatchVersion()
         val confirmed=updater.lastConfirmedVersion()

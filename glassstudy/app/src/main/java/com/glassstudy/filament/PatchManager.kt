@@ -267,6 +267,7 @@ class PatchManager(private val context: Context) {
                 require(total <= MAX_PATCH_BYTES)
                 require(sha(raw)==hash) { "Invalid SHA256: $path" }
                 PatchResourceRegistry.validate(path, raw)
+                if (path == ParametricGoblet.PATH) ParametricGoblet.validate(raw)
                 if (path.startsWith("modules/") && path.endsWith("/config.json")) {
                     val config = JSONObject(String(raw, StandardCharsets.UTF_8))
                     when (path) {

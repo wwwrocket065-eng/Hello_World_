@@ -25,8 +25,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.10.2
-      - name: Generate shared GLB models
-        run: python3 glassstudy/tools/make_models.py
       - name: Verify published signed patch with actual RSA key and attack vectors
         run: python3 glassstudy/tools/test_patch_integrity.py
       - name: Build native Android APK
