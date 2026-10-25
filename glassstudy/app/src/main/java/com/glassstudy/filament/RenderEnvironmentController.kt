@@ -24,6 +24,19 @@ class RenderEnvironmentController(
 ) {
     var configuration=RenderModuleConfig()
         private set
+    private var fxaaOverride:Boolean?=null
+    val fxaaEnabled:Boolean get()=fxaaOverride ?: configuration.fxaa
+
+    /** User UI override survives applying later signed render patches. */
+    fun setFxaaOverride(value:Boolean?) {
+        fxaaOverride=value
+        applyAntiAliasing()
+    }
+
+    private fun applyAntiAliasing() {
+        viewer.view.antiAliasing=if(fxaaEnabled)View.AntiAliasing.FXAA
+            else View.AntiAliasing.NONE
+    }
     private var globalBrightness=1.0
     private var sunElevation=.9
     private var sunAzimuth=1.3
@@ -145,8 +158,7 @@ class RenderEnvironmentController(
             enabled=next.ambientOcclusionEnabled
         }
         // updateAtmosphere() applies the current physical auto-exposure.
-        viewer.view.antiAliasing=if(next.fxaa)View.AntiAliasing.FXAA
-            else View.AntiAliasing.NONE
+        applyAntiAliasing()
         updateAtmosphere()
     }
 

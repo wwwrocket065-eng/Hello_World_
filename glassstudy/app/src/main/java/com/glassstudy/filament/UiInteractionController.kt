@@ -12,10 +12,11 @@ import android.os.SystemClock
 object UiInteractionRegistry {
     val nativeActions: Set<String> = setOf(
         "diagnostics", "toggleLight", "resetCamera", "openScene", "menu",
-        "selectModel", "selectQuality", "toggleGrid", "toggleFps"
+        "selectModel", "selectQuality", "toggleGrid", "toggleFps",
+        "toggleFxaa", "toggleAdaptivePanel"
     )
-    val toggleBindings: Set<String> = setOf("lightMode", "grid", "fps")
-    val sliderBindings: Set<String> = setOf("brightnessPercent")
+    val toggleBindings: Set<String> = setOf("lightMode", "grid", "fps", "fxaa")
+    val sliderBindings: Set<String> = setOf("brightnessPercent", "adaptivityPercent")
     private val windowId = Regex("^[a-z][a-zA-Z0-9_]{0,31}$")
 
     fun acceptsAction(action: String): Boolean =
@@ -101,6 +102,8 @@ class UiInteractionController(private val host: Host) {
             "toggleLight" -> write("lightMode", if (read("lightMode") >= .5f) 0f else 1f)
             "toggleGrid" -> write("grid", if (read("grid") >= .5f) 0f else 1f)
             "toggleFps" -> write("fps", if (read("fps") >= .5f) 0f else 1f)
+            "toggleFxaa" -> write("fxaa", if (read("fxaa") >= .5f) 0f else 1f)
+            "toggleAdaptivePanel" -> host.performNativeAction("toggleAdaptivePanel")
             "resetCamera", "openScene", "menu", "selectModel", "selectQuality" ->
                 host.performNativeAction(action)
             else -> throw IllegalArgumentException("Unknown native action: $action")

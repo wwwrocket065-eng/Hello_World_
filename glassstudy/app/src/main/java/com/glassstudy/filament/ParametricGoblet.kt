@@ -44,7 +44,7 @@ object ParametricGoblet {
         return Shape(points,width,offset)
     }
 
-    private fun sample(shape: Shape, count: Int): List<Ring> {
+    private fun sample(shape: Shape, count: Int, adaptivePercent: Int): List<Ring> {
         val source = shape.points
         fun cubic(a: Double,b: Double,c: Double,d: Double,t:Double) =
             .5 * (2*b+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t)
@@ -57,9 +57,25 @@ object ParametricGoblet {
                 max(.001,cubic(a.r,b.r,c.r,d.r,t))))
         }
         dense.add(source.last())
+        // Keep one fixed segment budget. At 0%, space rings uniformly by arc
+        // length; increasing adaptation redistributes rings to high curvature.
+        // This is geometric tessellation, unrelated to FXAA anti-aliasing.
+        require(adaptivePercent in 0..100)
+        val strength=adaptivePercent/100.0
         val length=DoubleArray(dense.size)
-        for (i in 1 until dense.size)
-            length[i]=length[i-1]+hypot(dense[i].y-dense[i-1].y,dense[i].r-dense[i-1].r)
+        for (i in 1 until dense.size) {
+            val ds=hypot(dense[i].y-dense[i-1].y,dense[i].r-dense[i-1].r)
+            val a=dense[max(0,i-2)]
+            val b=dense[i-1]
+            val c=dense[min(dense.lastIndex,i+1)]
+            val ux=b.y-a.y; val ur=b.r-a.r
+            val vx=c.y-b.y; val vr=c.r-b.r
+            val norm=hypot(ux,ur)*hypot(vx,vr)
+            val cosine=if(norm>1e-12) ((ux*vx+ur*vr)/norm).coerceIn(-1.0,1.0) else 1.0
+            val curvature=acos(cosine)/max(1e-5,hypot(c.y-a.y,c.r-a.r))
+            val priority=1.0+strength*min(5.0,curvature*.45)
+            length[i]=length[i-1]+ds*priority
+        }
         var cursor=0
         return (0 until count).map { j ->
             val target=length.last()*j/(count-1)
@@ -70,10 +86,10 @@ object ParametricGoblet {
         }
     }
 
-    fun create(bytes:ByteArray, quality:String, grid:Boolean):ByteArray {
+    fun create(bytes:ByteArray, quality:String, grid:Boolean, adaptivePercent:Int=0):ByteArray {
         val shape=parse(bytes)
         val (sides,rings)=density[quality] ?: error("Unsupported mesh density: $quality")
-        val contour=sample(shape,rings)
+        val contour=sample(shape,rings,adaptivePercent)
         val sourcePositions=FloatArray(sides*rings*3)
         val sourceNormals=FloatArray(sourcePositions.size)
         for(j in 0 until rings) {
