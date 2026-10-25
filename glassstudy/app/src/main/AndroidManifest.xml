@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Optional, user-approved direct Download folder access for offline patch imports. -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <application android:label="GlassStudy 3D LAB" android:icon="@drawable/glassstudy_launcher" android:roundIcon="@drawable/glassstudy_launcher" android:allowBackup="false"
         android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
@@ -20,17 +18,18 @@
                 <data android:scheme="content" android:mimeType="application/octet-stream" />
                 <data android:scheme="content" android:mimeType="application/json" />
                 <data android:scheme="content" android:mimeType="text/plain" />
-                <data android:scheme="content" android:mimeType="text/html" />
                 <data android:scheme="content" android:mimeType="application/x-pupdate" />
                 <data android:scheme="file" android:mimeType="application/octet-stream" />
                 <data android:scheme="file" android:mimeType="application/json" />
                 <data android:scheme="file" android:mimeType="text/plain" />
-                <data android:scheme="file" android:mimeType="text/html" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
+                <data android:mimeType="application/x-pupdate" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
     </application>

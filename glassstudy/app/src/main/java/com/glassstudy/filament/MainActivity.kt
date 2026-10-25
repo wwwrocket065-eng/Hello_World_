@@ -157,7 +157,7 @@ class MainActivity : Activity() {
     private var localPatchBusy = false
     private val localPatchFolder by lazy { LocalPatchDirectory(this) }
     private val patchFolderRequest=8124
-    private val patchFolderPromptedKey="localPatchPromptedV3"
+    private val patchFolderPromptedKey="localPatchPromptedV4"
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -206,7 +206,7 @@ class MainActivity : Activity() {
         // .pupdate asset module may change the unified technical appearance.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
             GlassDialogFactory.theme.menuOrder.map { "Папка локальных патчей" }) {
-                localPatchFolder.requestDownloadsAccess()
+                localPatchFolder.requestFolder(patchFolderRequest)
             }
     }
 
@@ -406,12 +406,12 @@ class MainActivity : Activity() {
         chooseLod.onItemSelectedListener=onSelection
         // Local signed files take precedence; GitHub is optional fallback.
         if (!handleIncomingPatchIntent(intent)) checkLocalThenRemote()
-        if(!localPatchFolder.hasDownloadsAccess() &&
+        if(!localPatchFolder.configured &&
             !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
             getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
-            GlassDialogFactory.menu(this,"Автообновление без GitHub",
-                listOf("Разрешить доступ к Download (один раз)","Позже")) { choice ->
-                if(choice==0)localPatchFolder.requestDownloadsAccess()
+            GlassDialogFactory.menu(this,"Безопасные локальные патчи",
+                listOf("Выбрать Downloads/GlassStudy_Patches (один раз)","Позже")) { choice ->
+                if(choice==0)localPatchFolder.requestFolder(patchFolderRequest)
             }
         }
     }
