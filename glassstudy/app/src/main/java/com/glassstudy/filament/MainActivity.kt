@@ -191,7 +191,7 @@ class MainActivity : Activity() {
     private var localPatchBusy = false
     private val localPatchFolder by lazy { LocalPatchDirectory(this) }
     private val patchFolderRequest=8124
-    private val patchFolderPromptedKey="localPatchPromptedV4"
+    private val patchFolderPromptedKey="localPatchPromptedV5"
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -239,8 +239,8 @@ class MainActivity : Activity() {
         // There is no user-visible sun color/style editor: only the verified
         // .pupdate asset module may change the unified technical appearance.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            GlassDialogFactory.theme.menuOrder.map { "Папка локальных патчей" }) {
-                localPatchFolder.requestFolder(patchFolderRequest)
+            GlassDialogFactory.theme.menuOrder.map { "Доступ к Загрузкам" }) {
+                localPatchFolder.requestDownloadsAccess()
             }
     }
 
@@ -486,12 +486,12 @@ class MainActivity : Activity() {
         chooseLod.onItemSelectedListener=onSelection
         // Local signed files take precedence; GitHub is optional fallback.
         if (!handleIncomingPatchIntent(intent)) checkLocalThenRemote()
-        if(!localPatchFolder.configured &&
+        if(!localPatchFolder.hasDownloadsAccess() &&
             !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
             getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
-            GlassDialogFactory.menu(this,"Безопасные локальные патчи",
-                listOf("Выбрать Downloads/GlassStudy_Patches (один раз)","Позже")) { choice ->
-                if(choice==0)localPatchFolder.requestFolder(patchFolderRequest)
+            GlassDialogFactory.menu(this,"Автообновление из Загрузок",
+                listOf("Разрешить доступ к Загрузкам","Позже")) { choice ->
+                if(choice==0)localPatchFolder.requestDownloadsAccess()
             }
         }
     }
@@ -753,7 +753,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         // A new .pupdate may have arrived while GlassStudy was in the background.
-        // Checking the persisted SAF folder requires no GitHub or file picker.
+        // After one Android system permission grant, scan Download without any picker.
         if (::updater.isInitialized && !localPatchBusy &&
             lastPatchFolderScanUptimeMs > 0L &&
             android.os.SystemClock.uptimeMillis()-lastPatchFolderScanUptimeMs >= 1200L) {
