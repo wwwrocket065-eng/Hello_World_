@@ -284,8 +284,8 @@ class MainActivity : Activity() {
         renderEnvironment=RenderEnvironmentController(this,viewer)
         renderEnvironment.initialize()
         val preferences=getPreferences(MODE_PRIVATE)
-        if(preferences.contains("fxaaOverride"))
-            renderEnvironment.setFxaaOverride(preferences.getBoolean("fxaaOverride",true))
+        // Off by default: only the user's explicit toolbar choice enables FXAA.
+        renderEnvironment.setFxaaOverride(preferences.getBoolean("fxaaOverride",false))
         cameraLight=CameraLightController(viewer,surface,{resources.displayMetrics.density},
             {mode,value -> uiChrome.showIndicator(mode,value,cameraLight.lightMode,
                 cameraLight.yaw,cameraLight.pitch,cameraLight.lightAz,

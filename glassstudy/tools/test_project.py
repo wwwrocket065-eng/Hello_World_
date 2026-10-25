@@ -503,6 +503,9 @@ assert 'val fxaaEnabled:Boolean get()=fxaaOverride ?: configuration.fxaa' in ren
 assert 'renderEnvironment.setFxaaOverride(enabled)' in activity
 assert 'putBoolean("fxaaOverride",enabled)' in activity
 assert 'renderEnvironment.setFxaaOverride(preferences.getBoolean' in activity
+assert 'preferences.getBoolean("fxaaOverride",false)' in activity
+assert 'val fxaa: Boolean = false' in (root/'app/src/main/java/com/glassstudy/filament/RenderModuleConfig.kt').read_text()
+assert json.loads((root/'app/src/main/assets/modules/render/config.json').read_text())['fxaa'] is False
 assert 'LightGestureController()' in camera_light
 assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
 
