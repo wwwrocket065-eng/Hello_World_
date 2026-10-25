@@ -253,6 +253,13 @@ for model_file in models:
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))
 import publish_patch
+import make_models
+# Geometry is one authored meridian for every LOD; verify its physical bowl
+# proportions as well as the actual exported GLB meshes above.
+make_models.check_profile_proportions()
+assert len(make_models.PROFILE) >= 40
+assert make_models.PROFILE[-1][0] < 1.65  # no thick floor at y=1.84
+assert make_models.PROFILE[-1][0] - make_models.PROFILE[17][0] < .12
 assert publish_patch.canonical(20010,[{'path':'models/a.glb','sha256':'0123'}]) == b'glassstudy-filament-assets-v2\n20010\nmodels/a.glb\t0123\n'
 # Modular source integration tests
 src=root/'app/src/main/java/com/glassstudy/filament'
