@@ -454,12 +454,16 @@ class MainActivity : Activity() {
         val scanError=localPatchFolder.lastScanError
         if (scanError != null) {
             updater.reportLocalScan("Ошибка чтения локальной папки: $scanError")
+            // A transient storage-provider failure must not disable online updates.
+            updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
             return
         }
         if (candidates.isEmpty()) {
             if (localPatchFolder.configured) {
                 updater.reportLocalScan("Локальная папка проверена: новых патчей нет")
-            } else updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
+            }
+            // A connected but empty local folder is NOT a reason to skip remote patches.
+            updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
             return
         }
         // On a corrupt or incompatible latest file, try an older *newer-than-active*
@@ -470,6 +474,8 @@ class MainActivity : Activity() {
                 localPatchBusy=false
                 updater.reportLocalScan("Локальные патчи отклонены: " +
                     failures.joinToString("; ").take(400))
+                // If all local files are invalid, try the signed remote feed.
+                updater.checkOnStart(onCandidate={candidate -> applyVerifiedPatch(candidate,false)})
                 return
             }
             updater.installFromUri(candidates[index],
