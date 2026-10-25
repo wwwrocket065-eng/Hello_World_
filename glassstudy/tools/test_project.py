@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.68' in props and 'GLASSSTUDY_VERSION_CODE=20068' in props
+assert 'GLASSSTUDY_VERSION=0.2.69' in props and 'GLASSSTUDY_VERSION_CODE=20069' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -459,7 +459,7 @@ assert 'val legacy=setOf("model","camera","diagnostics")' in (root/'app/src/main
 assert 'LightIndicatorSettingsPanel(' not in activity
 assert 'LightingIndicatorStyles' not in activity
 assert 'Стиль индикаторов освещения' not in activity
-assert 'Папка локальных патчей' in activity
+assert 'Доступ к Загрузкам' in activity
 assert 'names==listOf("indicatorStyle")' in (src/'WindowStyleConfig.kt').read_text()
 assert not (src/'LightIndicatorSettingsPanel.kt').exists()
 assert not (src/'LightingIndicatorStyles.kt').exists()
@@ -644,15 +644,16 @@ all_invalid = activity.split('if (index >= candidates.size) {',1)[1].split('upda
 assert 'updater.checkOnStart(' in all_invalid
 assert 'updater.installFromUri(candidates[index]' in activity
 assert 'updater.checkOnStart(' in activity
-assert 'localPatchFolder.requestFolder(patchFolderRequest)' in activity
-assert 'Папка локальных патчей' in activity
-assert 'android.permission.MANAGE_EXTERNAL_STORAGE' not in (root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'localPatchFolder.requestDownloadsAccess()' in activity
+assert 'Доступ к Загрузкам' in activity
+assert 'android.permission.MANAGE_EXTERNAL_STORAGE' in (root/'app/src/main/AndroidManifest.xml').read_text()
 
 # Android 16 offline updates require a one-time scoped folder grant; no broad file permission.
 assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_patch
 assert 'Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION' in local_patch
 assert 'takePersistableUriPermission' in local_patch
-assert 'Выбрать Downloads/GlassStudy_Patches (один раз)' in activity
+assert 'Разрешить доступ к Загрузкам' in activity
+assert 'Выбрать Downloads/GlassStudy_Patches' not in activity
 assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
 assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
 
@@ -676,16 +677,20 @@ assert 'Ошибка чтения локальной папки:' in activity
 assert 'Локальные патчи отклонены:' in activity
 assert 'localPatchBusy=false' in activity
 
-# v0.2.65: never request sensitive all-files access; 1x SAF persisted folder.
-assert 'Environment.isExternalStorageManager()' not in local_patch
-assert 'Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION' not in local_patch
-assert 'Environment.DIRECTORY_DOWNLOADS' not in local_patch
-assert 'Uri.fromFile(file)' not in local_patch
-assert 'fun requestDownloadsAccess()' not in local_patch
-assert 'fun acceptGrant(data:Intent?):Boolean' in local_patch
-assert 'private val patchFolderPromptedKey="localPatchPromptedV4"' in activity
-assert 'if(!localPatchFolder.configured &&' in activity
+# v0.2.69 restores the user-confirmed 0.2.48 Android 16 Download auto-updater.
+# One-time explicit system All-files grant only; no folder chooser on startup.
+assert 'Environment.isExternalStorageManager()' in local_patch
+assert 'Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION' in local_patch
+assert 'Environment.DIRECTORY_DOWNLOADS' in local_patch
+assert 'Uri.fromFile(file)' in local_patch
+assert 'fun requestDownloadsAccess()' in local_patch
+assert 'fun acceptGrant(data:Intent?):Boolean' in local_patch # backward compatibility
+assert 'private val patchFolderPromptedKey="localPatchPromptedV5"' in activity
+assert 'if(!localPatchFolder.hasDownloadsAccess() &&' in activity
 assert 'takePersistableUriPermission' in local_patch
+assert 'localPatchFolder.requestFolder(patchFolderRequest)' not in activity
+assert 'updater.installFromUri(candidates[index]' in activity
+assert 'blockedAfterCrash' in updater
 
 # One signed numeric system for all lighting indicators, not one-off Kotlin constants.
 visuals=overlay_config['indicatorVisuals']
