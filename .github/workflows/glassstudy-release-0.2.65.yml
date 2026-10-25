@@ -1,0 +1,75 @@
+name: GlassStudy verified signed APK release 0.2.65
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths:
+      - '.github/workflows/glassstudy-release-0.2.65.yml'
+      - 'glassstudy/release/0.2.65.apk.signed-delta.b64'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve the exact successful unsigned Android CI artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p unsigned
+          gh run download 40155755522 --repo "$GITHUB_REPOSITORY" --name "GlassStudy-CI-unsigned-SIGN-BEFORE-INSTALL" --dir unsigned
+          test -s unsigned/app-ciUnsigned-unsigned.apk
+      - name: Reconstruct and independently hash-verify the original-key signed APK
+        run: |
+          python3 - <<'PY'
+          import json,base64,hashlib,zlib,pathlib
+          root=pathlib.Path('.')
+          source=(root/'unsigned/app-ciUnsigned-unsigned.apk').read_bytes()
+          delta=base64.b64decode((root/'glassstudy/release/0.2.65.apk.signed-delta.b64').read_text().strip(),validate=True)
+          spec=json.loads(zlib.decompress(delta))
+          sha=lambda b:hashlib.sha256(b).hexdigest()
+          assert sha(source)==spec['from_sha256'], 'CI unsigned APK not the pinned source'
+          output=bytearray()
+          for op in spec['operations']:
+              if op[0]=='C':
+                  _,offset,length=op
+                  assert 0<=offset<len(source) and 0<length<=len(source)-offset
+                  output.extend(source[offset:offset+length])
+              elif op[0]=='B':
+                  output.extend(base64.b64decode(op[1],validate=True))
+              else:
+                  raise ValueError('Invalid APK delta')
+          expected='3407907366c4f82e72cc82526a639d664e81a795d85ea5240b567b927ff35b79'
+          assert sha(output)==expected==spec['to_sha256'], 'Signed APK integrity mismatch'
+          path=root/'GlassStudy_3D_LAB_v0.2.65_ORIGINAL_KEY.apk'
+          path.write_bytes(output)
+          assert len(output)==11590813
+          print('INDEPENDENT SIGNED SHA256:',sha(output),'bytes',len(output))
+          PY
+      - name: Validate real RSA APK v2 certificate and zipalign before public release
+        run: |
+          set -euo pipefail
+          APK=GlassStudy_3D_LAB_v0.2.65_ORIGINAL_KEY.apk
+          TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee signer-verify.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' signer-verify.txt
+          grep -q '35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc' signer-verify.txt
+          "$TOOLS/zipalign" -c -P 16 4 "$APK"
+          sha256sum "$APK"
+      - name: Create the stable direct HTTPS download URL on GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=GlassStudy_3D_LAB_v0.2.65_ORIGINAL_KEY.apk
+          TAG=glassstudy-v0.2.65
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --target 143b9bb78d0972e76f5c3ad7f48e9b1f7aa8008e --title "GlassStudy 3D LAB 0.2.65 (original signature)" --notes "Signed APK original RSA v2. SHA-256 3407907366c4f82e72cc82526a639d664e81a795d85ea5240b567b927ff35b79. This version removes broad MANAGE_EXTERNAL_STORAGE permission. Warning: a prior version was classified as potentially harmful by Google Play Protect; Google has not verified this release as safe. Do not bypass Play Protect if it still flags the app. User-installed Android 16 validation pending."
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | [.name,.size,.url] | @tsv'
