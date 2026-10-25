@@ -611,6 +611,13 @@ assert 'Regex(' in local_folder and '.pupdate' in local_folder
 assert 'fun newestAbove(installed:Int):Uri?' in local_folder
 assert 'private fun checkLocalThenRemote()' in activity
 assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
+# A one-time SAF directory grant must not disable signed HTTP patch delivery.
+local_empty = activity.split('if (candidates.isEmpty()) {',1)[1].split('// On a corrupt',1)[0]
+assert 'updater.checkOnStart(' in local_empty
+scan_failed = activity.split('if (scanError != null) {',1)[1].split('if (candidates.isEmpty())',1)[0]
+assert 'updater.checkOnStart(' in scan_failed
+all_invalid = activity.split('if (index >= candidates.size) {',1)[1].split('updater.installFromUri',1)[0]
+assert 'updater.checkOnStart(' in all_invalid
 assert 'updater.installFromUri(candidates[index]' in activity
 assert 'updater.checkOnStart(' in activity
 assert 'localPatchFolder.requestFolder(patchFolderRequest)' in activity
