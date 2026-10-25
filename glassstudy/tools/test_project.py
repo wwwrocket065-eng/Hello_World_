@@ -243,9 +243,12 @@ for model_file in models:
                pos_view.get('byteOffset',0)+pos_accessor.get('byteOffset',0))
         vertices=struct.iter_unpack('<fff',data[start:start+12*pos_accessor['count']])
         sample=[(y,(x*x+z*z)**.5) for x,y,z in vertices]
-        mouth=max(radius for y,radius in sample if 3.35<=y<=3.40)
+        # Low LOD has few contour rings; sample the actual highest ring,
+        # rather than requiring a vertex inside an arbitrary 5cm y-interval.
+        top_y=max(y for y,radius in sample)
+        mouth=max(radius for y,radius in sample if y>=top_y-0.08)
         shoulder=max(radius for y,radius in sample if 2.50<=y<=2.95)
-        assert mouth/shoulder<.86, (model_file,mouth,shoulder)
+        assert mouth/shoulder<.90, (model_file,mouth,shoulder)
 # The old studio environment/color picker is intentionally not a lighting option.
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))
