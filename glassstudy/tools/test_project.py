@@ -136,10 +136,18 @@ assert 'topOutlineColor=ui.topButtonOutlineColor' in chrome_src
 assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
-assert len(layout['uiButtons'])==5
+assert len(layout['uiButtons'])==7
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','openScene','menu']
-assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleGrid']
+assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleGrid','toggleFxaa','toggleAdaptivePanel']
 assert not any(x['action']=='export' for x in layout['uiButtons'])
+assert all(b['label']=='' and b['widthDp']>=44 for b in layout['uiButtons'] if b['slot']=='bottom')
+assert 'val compact=bottom.size==3 && bottom.all { it.label.isBlank() }' in toolbar
+assert 'adaptiveRow.visibility=if(adaptiveRow.visibility==View.VISIBLE)' in activity
+assert 'adaptiveRow.postDelayed(job,110)' in activity
+assert 'adaptiveRow.addView(adaptiveSlider' in activity
+assert '"adaptivityPercent" -> modelAssets.adaptivePercent.toFloat()' in activity
+assert 'modelAssets.setAdaptivity(requested)' in activity
+assert 'putInt("adaptivityPercent",requested)' in activity
 assert layout['panelOpacity'] < 1.0
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['showCameraHint'] is False
@@ -215,7 +223,7 @@ assert 'KHR_materials_unlit' in geometry and 'KHR_materials_transmission' in geo
 assert 'if(j<rings-1)append(a,a+sides)' in geometry
 assert 'if(grid)array(0,0,0,1)' in geometry
 loader=(root/'app/src/main/java/com/glassstudy/filament/ModelMaterialController.kt').read_text()
-assert 'ParametricGoblet.create(profile,selected.lod,debug)' in loader
+assert 'ParametricGoblet.create(profile,selected.lod,debug,adaptive)' in loader
 assert 'if(override!=null) return readCheckedResource(override,candidate)' in loader
 assert 'if (path == ParametricGoblet.PATH) ParametricGoblet.validate(raw)' in updater
 assert 'GlbMetrics.inspect(ParametricGoblet.create(' in report_src
@@ -237,6 +245,14 @@ assert make_models.QUALITY['low'] == (14,38)
 assert make_models.QUALITY['ultra'] == (112,280)
 assert make_models.PROFILE[-1][0] < 1.65  # no old thick heel at y=1.84
 assert 'private val density = mapOf(' in geometry
+assert 'adaptivePercent:Int=0' in geometry
+assert 'val strength=adaptivePercent/100.0' in geometry
+assert 'val priority=1.0+strength*min(5.0,curvature*.45)' in geometry
+assert 'val contour=sample(shape,rings,adaptivePercent)' in geometry
+assert 'fun setAdaptivity(value:Int):Result<Unit>' in loader
+assert 'Snapshot(selection,wireframe,adaptivePercent)' in loader
+assert 'snapshot.adaptive' in loader
+assert 'adaptivePercent=adaptive' in loader
 assert publish_patch.canonical(20010,[{'path':'models/a.glb','sha256':'0123'}]) == b'glassstudy-filament-assets-v2\n20010\nmodels/a.glb\t0123\n'
 # Modular source integration tests
 src=root/'app/src/main/java/com/glassstudy/filament'
@@ -482,6 +498,11 @@ assert 'cameraLight.resetHome()' in activity
 assert 'val direct=LightingResponseCurve.intensity(brightness,config.directBrightnessExponent)' in camera_light
 assert 'viewer.camera.setExposure(' in render_env
 assert 'viewer.view.antiAliasing=' in render_env
+assert 'private var fxaaOverride:Boolean?=null' in render_env
+assert 'val fxaaEnabled:Boolean get()=fxaaOverride ?: configuration.fxaa' in render_env
+assert 'renderEnvironment.setFxaaOverride(enabled)' in activity
+assert 'putBoolean("fxaaOverride",enabled)' in activity
+assert 'renderEnvironment.setFxaaOverride(preferences.getBoolean' in activity
 assert 'LightGestureController()' in camera_light
 assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
 
@@ -846,7 +867,7 @@ assert view.index('captionPlate.color=Color.argb(') < view.index('caption.alpha=
 # remains functional and one shared soft halo applies to all three indicator suns.
 assert not any(x['id']=='light_bottom' for x in layout['uiButtons'])
 assert any(x['slot']=='top' and x['action']=='toggleLight' for x in layout['uiButtons'])
-assert [x['id'] for x in layout['uiButtons'] if x['slot']=='bottom']==['grid']
+assert [x['id'] for x in layout['uiButtons'] if x['slot']=='bottom']==['grid','smoothing','adaptive']
 assert overlay_config['indicatorVisuals']['brightness']['offsetXDp']==100
 for kind in ('azimuth','elevation','brightness'):
     glow=overlay_config['indicatorVisuals'][kind]
