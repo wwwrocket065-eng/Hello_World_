@@ -4,29 +4,39 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 
 /**
- * Privacy-respecting, scoped local updater.
- *
- * Only a persistently user-approved *single folder* is searched. Never request
- * Android's highly privileged MANAGE_EXTERNAL_STORAGE All files access.
- *
- * Android 11+ cannot grant the root Downloads directory via a tree picker:
- * choose/create a Downloads/GlassStudy_Patches subfolder once, and place the
- * signed .pupdate files there. The persisted SAF grant works after reboot.
+ * GlassStudy's user-confirmed Android 16 Download auto-update workflow.
+ * After one explicit Android "All files access" approval, scan ordinary
+ * Download for signed .pupdate files on launch and resume, with no file picker.
+ * Retain earlier persisted SAF grants only as backward-compatible fallback.
+ * PatchManager verifies every candidate's RSA signature and SHA-256.
  */
 class LocalPatchDirectory(private val activity:Activity) {
     private val prefs=activity.getSharedPreferences("glassstudy.local.patches",0)
     private val key="tree_uri"
-    val configured:Boolean get()=prefs.getString(key,null)!=null
+    val configured:Boolean get()=hasDownloadsAccess() || prefs.getString(key,null)!=null
+    fun hasDownloadsAccess():Boolean=Build.VERSION.SDK_INT>=30 && Environment.isExternalStorageManager()
+    fun requestDownloadsAccess() {
+        if(Build.VERSION.SDK_INT<30) return
+        val request=Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:"+activity.packageName))
+        try { activity.startActivity(request) }
+        catch (_:android.content.ActivityNotFoundException) {
+            activity.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
     var lastScanError:String?=null
         private set
-
-    fun selectedFolder():String =
-        prefs.getString("folder_label","папка патчей") ?: "папка патчей"
+    fun selectedFolder():String=prefs.getString("folder_label","папка патчей") ?: "папка патчей"
 
     fun requestFolder(requestCode:Int) {
+        // Android 11+ blocks granting the Downloads ROOT. Use a user-created
+        // Downloads/GlassStudy_Patches subfolder with persistent read access.
         val request=Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
@@ -48,9 +58,23 @@ class LocalPatchDirectory(private val activity:Activity) {
         }
     }
 
-    /** Ordered candidate URIs; untrusted bytes are later RSA+SHA256 verified. */
+    /** Ranked candidates. Files are untrusted until PatchManager verifies their signatures. */
     fun candidatesAbove(installed:Int):List<Uri> {
         lastScanError=null
+        if(hasDownloadsAccess()) {
+            return try {
+                val directory=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val regex=Regex("""GlassStudy_Filament_(\d{5})\.pupdate""",RegexOption.IGNORE_CASE)
+                directory.listFiles()?.asSequence()?.filter { it.isFile }?.mapNotNull { file ->
+                    val version=regex.matchEntire(file.name)?.groupValues?.get(1)?.toIntOrNull()
+                    if(version!=null && version>installed) version to Uri.fromFile(file) else null
+                }?.sortedByDescending { it.first }?.map { it.second }?.toList()
+                    ?: throw java.io.IOException("Не удалось прочитать Download")
+            } catch(error:Exception) {
+                lastScanError="Download: "+error.javaClass.simpleName+": "+(error.message ?: "нет доступа")
+                emptyList()
+            }
+        }
         val stored=prefs.getString(key,null) ?:return emptyList()
         return try {
             val tree=Uri.parse(stored)
@@ -68,21 +92,20 @@ class LocalPatchDirectory(private val activity:Activity) {
                     if(c.getString(mime)==DocumentsContract.Document.MIME_TYPE_DIR)continue
                     val file=c.getString(name) ?:continue
                     val match=Regex("""(?:GlassStudy_Filament_)?(\d{5})[^/]*\.pupdate""",
-                        RegexOption.IGNORE_CASE).matchEntire(file) ?:continue
-                    val version=match.groupValues[1].toIntOrNull() ?:continue
-                    if(version<=installed)continue
-                    matches.add(version to
-                        DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(id)))
+                        RegexOption.IGNORE_CASE).matchEntire(file) ?: continue
+                    val v=match.groupValues[1].toIntOrNull() ?:continue
+                    if(v<=installed)continue
+                    matches.add(v to DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(id)))
                 }
             }
             matches.sortedByDescending { it.first }.map { it.second }
         } catch(error:Exception) {
-            Log.w("GlassStudy","Patch folder unavailable, retain existing folder grant",error)
+            Log.w("GlassStudy","Patch folder unavailable; retain previous persisted grant",error)
             lastScanError="${error.javaClass.simpleName}: ${error.message ?: "нет доступа"}"
-            // Persisted URI is not forgotten due to transient SAF failure.
+            // Keep the grant configuration. A transient DocumentsProvider failure
+            // should never force the user to select their folder again.
             emptyList()
         }
     }
-
     fun newestAbove(installed:Int):Uri?=candidatesAbove(installed).firstOrNull()
 }
