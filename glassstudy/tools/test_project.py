@@ -454,7 +454,7 @@ assert 'host.decorate(' in toolbar
 assert 'diagnosticsReports.create(DiagnosticsReportState(' in activity
 assert 'diagnosticsPopup.show(report,uiChrome.popupStyle())' in activity
 assert 'fun create(state:DiagnosticsReportState):String' in report_src
-assert 'GlbMetrics.inspect(updater.readModel(path))' in report_src
+assert 'GlbMetrics.inspect(ParametricGoblet.create(' in report_src
 assert 'MemoryMetrics.capture(context)' in report_src
 assert 'profiler.metrics()' in report_src
 assert 'tr("notMeasured")' in report_src
