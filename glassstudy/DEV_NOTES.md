@@ -623,3 +623,14 @@
 - Для отличия native-возможностей от предыдущей v0.2.67 версия исходников повышена до v0.2.68 (20068) в этом чекпоинте. Прежний APK без этих обработчиков НЕ получит возможности от одной UI-подмены.
 - Следующая операция — проверить CI именно последнего HEAD, исправить ошибки по настоящим логам, затем ORIGINAL-KEY подпись/проверка установки. Не считать APK опубликованным, скачанным или установленным до отдельных подтверждений.
 - Пользователь требует делать будущие чекпоинты без пауз и вопросов на каждом этапе: коротко фиксировать проверяемое состояние и продолжать следующую работу.
+
+## 2026-10-25 — v0.2.68 release artifact verified (voice-session checkpoint)
+
+- User explicitly requested the next APK, not just status. Target source HEAD `8d497d6482c36550a32cc109602b7971b308ea6d`, gradle versionName 0.2.68 and versionCode 20068, same applicationId.
+- GitHub Actions for the exact source SHA all **SUCCESS**: GlassStudy Android Build `40171898283`, GlassStudy Filament Android `40171898312`, and additional Android Build `40171901134`.
+- Fetched unsigned CI artifact `GlassStudy-CI-unsigned-SIGN-BEFORE-INSTALL` from run `40171898283`, containing `app-ciUnsigned-unsigned.apk`. Kept original key in a restricted local temporary workspace, from user-owned PRIVATE Keys Backup, never uploaded to GitHub.
+- Signed with official Android `apksigner.jar` using the original APK private signing key and original certificate. `apksigner verify --verbose --print-certs --min-sdk-version 26`: Verifies, v2=true, v3=true, 1 signer, SHA-256 certificate `35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc` matches all earlier originally signed versions.
+- ZIP CRC clean; **all 33 APK ZIP entries identical** to the CI unsigned source, no hidden code payload; all three uncompressed arm64 native `.so` offsets aligned to 16384 bytes. APK SHA-256 `f63da08e0de514daee5cd7fa520fbbe4edd39b5652205bbeb0b700baa6d365f3`; size **8,854,130 bytes**.
+- Signed final artifact for direct ChatGPT attachment: `GlassStudy_3D_LAB_v0.2.68_ORIGINAL_KEY.apk` under the response's sandbox. Signing intermediates and working directory erased immediately after signature validation.
+- Do not claim phone install, update compatibility on actual device, visual acceptance, Play Protect assessment, or GitHub Release upload is completed until independently confirmed. Prior device version in conversation uncertain, but same certificate and increasing versionCode allow in-place update assuming compatible device/install.
+- New behavior: one rounded parametric wine-glass profile, adaptive quad-mesh density at fixed LOD, three icon-only bottom controls, optional compact adaptivity slider and user-controlled FXAA default OFF. Signed patch distribution remains unchanged.
