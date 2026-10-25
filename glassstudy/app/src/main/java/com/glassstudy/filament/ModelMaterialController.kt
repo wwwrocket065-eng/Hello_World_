@@ -43,7 +43,7 @@ class ModelMaterialController(
             val bytes=loadMesh(requested,debug,catalog,candidate)
             rendererTouched=true
             viewer.loadModelGlb(direct(bytes))
-            require(viewer.asset!=null) { "Filament gltfio rejected GLB: "+path }
+            require(viewer.asset!=null) { "Filament gltfio rejected goblet mesh for "+requested.lod }
             overrides.apply(viewer)
             selection=requested
             wireframe=debug
@@ -68,7 +68,7 @@ class ModelMaterialController(
         val bytes=loadMesh(snapshot.selection,snapshot.wireframe,configuration,null)
         val overrides=MaterialOverrides.parse(updater.readModuleConfig("materials"))
         viewer.loadModelGlb(direct(bytes))
-        require(viewer.asset!=null) { "Cannot restore model: "+path }
+        require(viewer.asset!=null) { "Cannot restore goblet mesh for "+snapshot.selection.lod }
         overrides.apply(viewer)
     }
 
@@ -84,15 +84,6 @@ class ModelMaterialController(
         val profile=updater.readResourceOrNull(ParametricGoblet.PATH,candidate)
             ?: throw IllegalArgumentException("Missing canonical goblet profile")
         return ParametricGoblet.create(profile,selected.lod,debug)
-    }
-
-    private fun resolveResource(selected:ModelSelection,debug:Boolean,catalog:MaterialModuleConfig):String {
-        val name=selected.modelId+"_"+selected.lod+(if(debug)"_debug" else "")
-        val path=catalog.resolve(selected.modelId,selected.lod,debug) ?: ("models/"+name+".glb")
-        require(PatchResourceRegistry.accepts(path) && path.endsWith(".glb")) {
-            "Unsafe material/model path: "+path
-        }
-        return path
     }
 
     private fun readCheckedResource(path:String,candidate:PatchManager.Candidate?):ByteArray {
