@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.65' in props and 'GLASSSTUDY_VERSION_CODE=20065' in props
+assert 'GLASSSTUDY_VERSION=0.2.66' in props and 'GLASSSTUDY_VERSION_CODE=20066' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -229,10 +229,23 @@ for model_file in models:
     if model_file.stem.endswith('_debug'):
         assert len(gltf['meshes'][0]['primitives'])==1
         assert 'KHR_materials_unlit' in gltf['materials'][0]['extensions']
+        assert gltf['materials'][0]['pbrMetallicRoughness']['baseColorFactor'] == [0,0,0,1], model_file
         assert extras['filled'] is False
         assert 'KHR_materials_transmission' not in gltf['materials'][0]['extensions']
     else:
         assert 'KHR_materials_transmission' in gltf['materials'][0]['extensions']
+        # Read actual GPU vertex coordinates: mouth must be narrower than the
+        # mid/upper bowl, identically across all four GLB LODs.
+        prim=gltf['meshes'][0]['primitives'][0]
+        pos_accessor=gltf['accessors'][prim['attributes']['POSITION']]
+        pos_view=gltf['bufferViews'][pos_accessor['bufferView']]
+        start=(20+struct.unpack_from('<I',data,12)[0]+8+
+               pos_view.get('byteOffset',0)+pos_accessor.get('byteOffset',0))
+        vertices=struct.iter_unpack('<fff',data[start:start+12*pos_accessor['count']])
+        sample=[(y,(x*x+z*z)**.5) for x,y,z in vertices]
+        mouth=max(radius for y,radius in sample if 3.35<=y<=3.40)
+        shoulder=max(radius for y,radius in sample if 2.50<=y<=2.95)
+        assert mouth/shoulder<.86, (model_file,mouth,shoulder)
 # The old studio environment/color picker is intentionally not a lighting option.
 # Compare canonical signing algorithm source against Python test helper.
 sys.path.insert(0,str(root/'tools'))

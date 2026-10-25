@@ -23,6 +23,19 @@ QUALITY = {
 # Dimensions (y, radius) of one carefully designed full glass cross section.
 # Outside of foot -> stem -> exterior bowl -> rounded rim -> interior bowl.
 # The first/last rings approach the axis. No intersection or floating shell.
+# Reference v0.2.66: widest bowl at its shoulder, notably narrower at the mouth.
+# One smooth parameter controls both outer/inner surfaces, preventing wall gaps.
+RIM_TAPER_START_Y = 2.60
+RIM_TAPER_END_Y = 3.37
+RIM_TOP_RADIUS_SCALE = 0.88
+WIRE_COLOR_RGBA = (0.0, 0.0, 0.0, 1.0)
+
+def tapered_radius(y, radius):
+    t = max(0.0, min(1.0, (y-RIM_TAPER_START_Y) /
+                            (RIM_TAPER_END_Y-RIM_TAPER_START_Y)))
+    smooth = t*t*(3.0-2.0*t)
+    return radius * (1.0-(1.0-RIM_TOP_RADIUS_SCALE)*smooth)
+
 PROFILE = [
     (.018, .007), (.016, .32), (.025, .63), (.048, .75),
     (.083, .79), (.12, .76), (.16, .68), (.188, .48),
@@ -76,7 +89,8 @@ def unit(x, y, z):
     return (x/length, y/length, z/length)
 
 def lathe_mesh(sides, rings):
-    contour=smoothly_sample_profile(rings)
+    contour=[(y, tapered_radius(y, radius))
+             for y, radius in smoothly_sample_profile(rings)]
     positions=[]
     normals=[]
     for j, (y, radius) in enumerate(contour):
@@ -169,7 +183,7 @@ def make_glb(sides,rings,debug):
     indices_accessor=accessor(indices,5125,1,34963)
     if debug:
         material=dict(name="Quad wireframe only (no fill)",doubleSided=True,
-            pbrMetallicRoughness=dict(baseColorFactor=[.25,.38,.40,1.0],
+            pbrMetallicRoughness=dict(baseColorFactor=list(WIRE_COLOR_RGBA),
                                     metallicFactor=0,roughnessFactor=1),
             extensions={"KHR_materials_unlit":{}})
         extensions=["KHR_materials_unlit"]
@@ -184,7 +198,7 @@ def make_glb(sides,rings,debug):
                             "attenuationColor":[.985,.995,1.0]}})
         extensions=list(material["extensions"])
     gltf={
-        "asset":{"version":"2.0","generator":"GlassStudy quad-surface goblet v2"},
+        "asset":{"version":"2.0","generator":"GlassStudy quad-surface goblet v3 black quad-grid narrowed rim"},
         "extensionsUsed":extensions,
         "scene":0,
         "scenes":[{"nodes":[0]}],
