@@ -20,11 +20,14 @@ QUALITY = {
     "ultra": (112, 280),
 }
 
-# Dimensions (y, radius) of one carefully designed full glass cross section.
-# Outside of foot -> stem -> exterior bowl -> rounded rim -> interior bowl.
-# The first/last rings approach the axis. No intersection or floating shell.
-# Reference v0.2.66: widest bowl at its shoulder, notably narrower at the mouth.
-# One smooth parameter controls both outer/inner surfaces, preventing wall gaps.
+# ONE master meridian for a conventional tulip-shaped wine glass, not four
+# separately sculpted objects. LODs are resolutions of THIS exact same profile.
+# Coordinate convention: y increases upward; units are approximately 6 cm.
+# The foot is gently dished, the stem is thin, and the bowl has a hollow
+# interior with a modestly reinforced bottom and a rounded, thin drinking rim.
+# Wall thickness is geometric (actual inner/outer surfaces), not simulated by
+# glass material thicknessFactor. The old bowl floor was too high above the
+# outside base, producing a visibly massive lump near the stem.
 RIM_TAPER_START_Y = 2.60
 RIM_TAPER_END_Y = 3.37
 RIM_TOP_RADIUS_SCALE = 0.88
@@ -36,20 +39,60 @@ def tapered_radius(y, radius):
     smooth = t*t*(3.0-2.0*t)
     return radius * (1.0-(1.0-RIM_TOP_RADIUS_SCALE)*smooth)
 
+# Ordered from underside of foot, along the outer surface of stem and bowl,
+# around the drinking rim, back along the inner wall to the bowl's inside floor.
+# This is ONE contiguous cross-section. In particular, the inside floor at
+# y=1.55 now lies close to the outside bowl/stem junction at y=1.46, rather
+# than y=1.84 as in 0.2.66. The bowl wall narrows gradually toward its rim.
 PROFILE = [
-    (.018, .007), (.016, .32), (.025, .63), (.048, .75),
-    (.083, .79), (.12, .76), (.16, .68), (.188, .48),
-    (.225, .27), (.28, .15), (.35, .101), (.44, .091),
-    (.73, .087), (1.08, .086), (1.35, .09), (1.44, .117),
-    (1.50, .218), (1.58, .396), (1.74, .596), (1.97, .818),
-    (2.23, 1.018), (2.55, 1.125), (2.87, 1.142),
-    (3.12, 1.098), (3.31, 1.056), (3.367, 1.046),
-    (3.395, 1.024), (3.387, 1.002), (3.353, .994),
-    (3.245, 1.003), (3.057, 1.045), (2.828, 1.089),
-    (2.57, 1.067), (2.344, .951), (2.12, .75),
-    (1.946, .522), (1.853, .322), (1.828, .155),
-    (1.838, .007)
+    # Stable foot: thin outer edge and smooth rise into the stem.
+    (.012, .007), (.012, .25), (.012, .57), (.017, .71),
+    (.028, .79), (.046, .78), (.068, .70), (.087, .56),
+    (.112, .36), (.146, .19), (.210, .095),
+    # Slender stem and a blended, non-bulbous connection to the bowl.
+    (.300, .071), (.540, .068), (.860, .067),
+    (1.170, .069), (1.370, .072), (1.425, .090),
+    (1.465, .135), (1.500, .225),
+    # Exterior of the tulip bowl: fuller shoulder, subtly closed mouth.
+    (1.560, .370), (1.680, .550), (1.880, .760),
+    (2.100, .940), (2.380, 1.080), (2.680, 1.140),
+    (2.910, 1.130), (3.130, 1.080),
+    (3.310, 1.038), (3.380, 1.020),
+    # Small rounded lip, without a heavy rolled ring.
+    (3.396, 1.009), (3.397, .993), (3.385, .982),
+    # Inner wall: about 1.5-3 mm effective thickness near the bowl's sides.
+    (3.300, .992), (3.120, 1.038), (2.910, 1.090),
+    (2.670, 1.100), (2.380, 1.038), (2.120, .907),
+    (1.890, .735), (1.710, .530),
+    # The bottom is reinforced only where the stem supports the bowl.
+    (1.610, .330), (1.575, .220), (1.555, .090),
+    (1.550, .007)
 ]
+
+def check_profile_proportions():
+    """Geometry regression before exporting ANY LOD or wireframe."""
+    # Split into outer and inner surfaces exactly at the drinking rim.
+    outer = PROFILE[18:30]
+    inside = list(reversed(PROFILE[32:]))
+    def radius_at_height(points, y):
+        for (a,ra),(b,rb) in zip(points,points[1:]):
+            if a <= y <= b:
+                return tapered_radius(y, ra+(rb-ra)*(y-a)/(b-a))
+        raise AssertionError("Missing bowl wall at height "+str(y))
+    for y in (1.85, 2.10, 2.40, 2.70, 3.10):
+        wall = radius_at_height(outer,y)-radius_at_height(inside,y)
+        assert .018 < wall < .085, (y,wall)
+    # At the bowl's lowest support the bottom is stronger than its side,
+    # without the massive 0.3-0.4-unit slab found in the previous profile.
+    outside_support_y = PROFILE[17][0]
+    inside_floor_y = PROFILE[-1][0]
+    assert .06 < inside_floor_y - outside_support_y < .12
+    assert max(r for y,r in PROFILE if y<.20) >= .78
+    assert .06 < min(r for y,r in PROFILE if .3<y<1.4) < .09
+    # A wine glass must have a hollow bowl and a noticeably narrowed mouth.
+    assert PROFILE[-1][1]<.01
+    assert tapered_radius(PROFILE[29][0],PROFILE[29][1]) < 0.9 * \
+        tapered_radius(PROFILE[24][0],PROFILE[24][1])
 
 def smoothly_sample_profile(count):
     """Cubic Catmull-Rom sampled uniformly in cross-section arc length."""
@@ -198,7 +241,7 @@ def make_glb(sides,rings,debug):
                             "attenuationColor":[.985,.995,1.0]}})
         extensions=list(material["extensions"])
     gltf={
-        "asset":{"version":"2.0","generator":"GlassStudy quad-surface goblet v3 black quad-grid narrowed rim"},
+        "asset":{"version":"2.0","generator":"GlassStudy tulip wine glass v4 calibrated hollow walls"},
         "extensionsUsed":extensions,
         "scene":0,
         "scenes":[{"nodes":[0]}],
@@ -224,6 +267,7 @@ def make_glb(sides,rings,debug):
     return struct.pack("<4sII",b"glTF",2,12+len(chunk))+chunk
 
 def main():
+    check_profile_proportions()
     ROOT.mkdir(parents=True,exist_ok=True)
     for old in ROOT.glob("*.glb"):
         old.unlink()
