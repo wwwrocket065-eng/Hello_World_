@@ -1,0 +1,77 @@
+name: GlassStudy publish verified original-key APK
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths:
+      - 'glassstudy/releases/publish_*.json'
+      - '.github/workflows/glassstudy-publish-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore locally signed APK from verified Git blobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,hashlib,os,base64,subprocess
+          from pathlib import Path
+          config=json.loads(Path("glassstudy/releases/publish_0.2.66.json").read_text())
+          assert config["format"]=="glassstudy-signed-apk-blob-assembly-v1"
+          assert config["filename"]=="GlassStudy_3D_LAB_v0.2.66_ORIGINAL_KEY.apk"
+          assert config["tag"]=="glassstudy-v0.2.66"
+          assert len(config["chunkObjectShas"])==12
+          dest=Path(config["filename"])
+          repo=os.environ["GITHUB_REPOSITORY"]
+          with dest.open("wb") as f:
+              for blob_sha in config["chunkObjectShas"]:
+                  assert len(blob_sha)==40 and all(c in "0123456789abcdef" for c in blob_sha)
+                  response=subprocess.run(["gh","api","-H","Accept: application/vnd.github+json",
+                    f"repos/{repo}/git/blobs/{blob_sha}"],capture_output=True,text=True,check=True)
+                  obj=json.loads(response.stdout)
+                  assert obj["encoding"]=="base64"
+                  chunk=base64.b64decode(obj["content"],validate=False)
+                  actual=hashlib.sha1(b"blob "+str(len(chunk)).encode()+b"\0"+chunk).hexdigest()
+                  assert actual==blob_sha, ("Git blob digest mismatch",blob_sha)
+                  f.write(chunk)
+          payload=dest.read_bytes()
+          assert len(payload)==config["size"], "Invalid release size"
+          assert hashlib.sha256(payload).hexdigest()==config["sha256"], "Invalid release SHA256"
+          print("Verified signed APK payload:",dest,len(payload),config["sha256"])
+          PY
+      - name: Verify Android signature identity, version, and native alignment
+        run: |
+          set -euo pipefail
+          FILE=GlassStudy_3D_LAB_v0.2.66_ORIGINAL_KEY.apk
+          TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          if [ ! -f "$TOOLS/apksigner" ]; then
+            TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          fi
+          "$TOOLS/apksigner" verify --verbose --print-certs "$FILE" | tee release_signature.txt
+          grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" release_signature.txt
+          grep -F "Signer #1 certificate SHA-256 digest: 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc" release_signature.txt
+          "$TOOLS/zipalign" -c -P 16 4 "$FILE"
+          "$TOOLS/aapt" dump badging "$FILE" | grep "^package: " | tee release_package.txt
+          grep -F "name='com.glassstudy.filament.stable'" release_package.txt
+          grep -F "versionCode='20066'" release_package.txt
+          grep -F "versionName='0.2.66'" release_package.txt
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=glassstudy-v0.2.66
+          FILE=GlassStudy_3D_LAB_v0.2.66_ORIGINAL_KEY.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release exists; replacing only the verified matching asset"
+            gh release upload "$TAG" "$FILE" --clobber
+          else
+            gh release create "$TAG" "$FILE" --target "$GITHUB_SHA" \
+              --title "GlassStudy 3D LAB 0.2.66" \
+              --notes "Black unlit quad-only wireframe; narrowed wine-glass mouth matching on-device reference. Four LODs, original signing certificate, no removal of saved settings. Install over 0.2.65 without uninstalling. If Play Protect blocks the APK as harmful, do not bypass; submit an official appeal."
+          fi
+          gh release view "$TAG" --json url,assets
