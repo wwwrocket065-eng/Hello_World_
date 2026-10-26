@@ -107,3 +107,8 @@
 - Physical sun and all projected sun indicators MUST use SAME LightDirectionMath.source(azimuth,elevation). At zenith 90deg transition azimuth projected side flips appropriately; floor cast shadow direction should oppose the sun. No fake horizon-only indicator math.
 - Preserve mode choice in preferences; default atmosphere. All numbers in analytic model independently signed-patchable with bounded validators and usable through fast_patch without native rebuilding.
 - Current clear-sky Rayleigh/Mie-inspired SH is an approximate diffuse baseline. Do not assert spectrally correct multiple scattering, prefiltered specular sky cubemap, accurate caustics or multibounce transmission. These require separate tests and follow-up implementation, not pretend studio IBL is equivalent.
+
+## 2026-10-26 — Неприкосновенность работающих механизмов
+- НИКОГДА не менять автообновление, доступ к «Загрузкам», манифест разрешений, цифровую подпись или проверку/откат патчей при работе над моделью, сеткой, интерфейсом и прочими несвязанными задачами.
+- Любое изменение этих систем допустимо только по прямому запросу владельца, с отдельной проверкой и подтверждением работы на Android 16. Сохранить чтение локальных патчей по подтверждённому пользователем сценарию, не навязывать выбор папки, не добавлять новые разрешения без согласования.
+- Сборка CI, оригинальный сертификат и фактическая установка на устройстве — разные критерии; не выдавать невыполненную проверку за успешную. Предупреждение Play Protect не обходить.
