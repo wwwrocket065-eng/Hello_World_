@@ -230,7 +230,7 @@ geometry=(root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').
 assert 'object ParametricGoblet' in geometry and 'fun create(' in geometry
 assert all('"'+lod+'"' in geometry for lod in ('low','medium','high','ultra'))
 assert 'KHR_materials_unlit' in geometry and 'KHR_materials_transmission' in geometry
-assert 'if(j<rings-1)append(a,a+sides)' in geometry
+assert 'if(j<actualRings-1)append(a,a+sides)' in geometry
 assert 'if(grid)array(0,0,0,1)' in geometry
 loader=(root/'app/src/main/java/com/glassstudy/filament/ModelMaterialController.kt').read_text()
 assert 'ParametricGoblet.create(profile,selected.lod,debug,adaptive)' in loader
