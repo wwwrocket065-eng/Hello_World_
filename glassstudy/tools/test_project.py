@@ -459,7 +459,7 @@ assert 'val legacy=setOf("model","camera","diagnostics")' in (root/'app/src/main
 assert 'LightIndicatorSettingsPanel(' not in activity
 assert 'LightingIndicatorStyles' not in activity
 assert 'Стиль индикаторов освещения' not in activity
-assert 'Доступ к Загрузкам' in activity
+assert 'Обновления' in activity
 assert 'names==listOf("indicatorStyle")' in (src/'WindowStyleConfig.kt').read_text()
 assert not (src/'LightIndicatorSettingsPanel.kt').exists()
 assert not (src/'LightingIndicatorStyles.kt').exists()
