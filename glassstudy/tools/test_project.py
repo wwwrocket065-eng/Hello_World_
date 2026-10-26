@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.69' in props and 'GLASSSTUDY_VERSION_CODE=20069' in props
+assert 'GLASSSTUDY_VERSION=0.2.70' in props and 'GLASSSTUDY_VERSION_CODE=20070' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -626,16 +626,25 @@ assert 'spec.widthDp?.let' in toolbar
 assert 'spec.marginStartDp ?:' in toolbar
 assert 'view.visualSizeOverrideDp ?: topVisualSizeDp' in chrome_src
 
-# Android 16 scoped-storage offline patch folder, persistent read access and same RSA stage.
+# Android 16: least-privilege patch delivery. Signed HTTPS updates are
+# automatic. Previously saved SAF grants still work without prompting; local
+# files imported via Android share/open are verified by the same PatchManager.
 local_folder=(root/'app/src/main/java/com/glassstudy/filament/LocalPatchDirectory.kt').read_text()
-assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_folder
+manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
+assert 'android.permission.MANAGE_EXTERNAL_STORAGE' not in manifest
+assert 'android.permission.REQUEST_INSTALL_PACKAGES' not in manifest
+assert 'Environment.isExternalStorageManager()' not in local_folder
+assert 'ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION' not in local_folder
+assert 'requestDownloadsAccess' not in local_folder and 'requestDownloadsAccess' not in activity
+assert 'hasDownloadsAccess' not in local_folder and 'hasDownloadsAccess' not in activity
+assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_folder # backward-compatible grants
 assert 'takePersistableUriPermission' in local_folder
 assert 'DocumentsContract.buildChildDocumentsUriUsingTree' in local_folder
+assert 'localPatchFolder.requestFolder(' not in activity
 assert 'Regex(' in local_folder and '.pupdate' in local_folder
 assert 'fun newestAbove(installed:Int):Uri?' in local_folder
 assert 'private fun checkLocalThenRemote()' in activity
 assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
-# A one-time SAF directory grant must not disable signed HTTP patch delivery.
 local_empty = activity.split('if (candidates.isEmpty()) {',1)[1].split('// On a corrupt',1)[0]
 assert 'updater.checkOnStart(' in local_empty
 scan_failed = activity.split('if (scanError != null) {',1)[1].split('if (candidates.isEmpty())',1)[0]
@@ -643,54 +652,16 @@ assert 'updater.checkOnStart(' in scan_failed
 all_invalid = activity.split('if (index >= candidates.size) {',1)[1].split('updater.installFromUri',1)[0]
 assert 'updater.checkOnStart(' in all_invalid
 assert 'updater.installFromUri(candidates[index]' in activity
-assert 'updater.checkOnStart(' in activity
-assert 'localPatchFolder.requestDownloadsAccess()' in activity
-assert 'Доступ к Загрузкам' in activity
-assert 'android.permission.MANAGE_EXTERNAL_STORAGE' in (root/'app/src/main/AndroidManifest.xml').read_text()
-
-# Android 16 offline updates require a one-time scoped folder grant; no broad file permission.
-assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in local_patch
-assert 'Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION' in local_patch
-assert 'takePersistableUriPermission' in local_patch
-assert 'Разрешить доступ к Загрузкам' in activity
-assert 'Выбрать Downloads/GlassStudy_Patches' not in activity
-assert 'localPatchFolder.candidatesAbove(updater.installedPatchVersion())' in activity
-assert 'version != prefs.getInt("blockedAfterCrash",0)' in updater
-
-# Resume checks for locally delivered patches without a GitHub publication.
-assert 'lastPatchFolderScanUptimeMs' in activity
-assert '!localPatchBusy' in activity
+assert 'Intent.ACTION_VIEW' in activity and 'Intent.ACTION_SEND' in activity
+assert 'blockedAfterCrash' in updater and 'reconcileAfterCrash()' in activity
+assert 'lastPatchFolderScanUptimeMs' in activity and '!localPatchBusy' in activity
 assert 'checkLocalThenRemote()' in activity[activity.index('override fun onResume()'):activity.index('override fun onBackPressed()')]
-
 assert 'fun reportLocalScan(message: String)' in updater
-assert 'updater.reportLocalScan("Локальная папка проверена:' in activity
-
-# Offline scan regression: preserve grants on transient provider failures and
-# try lower-ranked (but still newer) files after signature/hash rejection.
-assert 'fun candidatesAbove(installed:Int):List<Uri>' in local_patch
-assert 'matches.sortedByDescending { it.first }' in local_patch
-assert 'lastScanError=' in local_patch
-assert 'prefs.edit().remove(key)' not in local_patch
+assert 'matches.sortedByDescending { it.first }' in local_folder
+assert 'prefs.edit().remove(key)' not in local_folder
 assert 'fun attempt(index:Int, failures:List<String>)' in activity
 assert 'attempt(index+1,failures +' in activity
-assert 'Ошибка чтения локальной папки:' in activity
-assert 'Локальные патчи отклонены:' in activity
 assert 'localPatchBusy=false' in activity
-
-# v0.2.69 restores the user-confirmed 0.2.48 Android 16 Download auto-updater.
-# One-time explicit system All-files grant only; no folder chooser on startup.
-assert 'Environment.isExternalStorageManager()' in local_patch
-assert 'Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION' in local_patch
-assert 'Environment.DIRECTORY_DOWNLOADS' in local_patch
-assert 'Uri.fromFile(file)' in local_patch
-assert 'fun requestDownloadsAccess()' in local_patch
-assert 'fun acceptGrant(data:Intent?):Boolean' in local_patch # backward compatibility
-assert 'private val patchFolderPromptedKey="localPatchPromptedV5"' in activity
-assert 'if(!localPatchFolder.hasDownloadsAccess() &&' in activity
-assert 'takePersistableUriPermission' in local_patch
-assert 'localPatchFolder.requestFolder(patchFolderRequest)' not in activity
-assert 'updater.installFromUri(candidates[index]' in activity
-assert 'blockedAfterCrash' in updater
 
 # One signed numeric system for all lighting indicators, not one-off Kotlin constants.
 visuals=overlay_config['indicatorVisuals']

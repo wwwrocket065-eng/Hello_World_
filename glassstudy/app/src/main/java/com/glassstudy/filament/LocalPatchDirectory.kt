@@ -4,32 +4,17 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
-import android.os.Build
-import android.os.Environment
-import android.provider.Settings
 import android.util.Log
 
-/**
- * GlassStudy's user-confirmed Android 16 Download auto-update workflow.
- * After one explicit Android "All files access" approval, scan ordinary
- * Download for signed .pupdate files on launch and resume, with no file picker.
- * Retain earlier persisted SAF grants only as backward-compatible fallback.
- * PatchManager verifies every candidate's RSA signature and SHA-256.
+/** Signed local patches from an earlier persisted Android SAF permission.
+ * No privileged Android storage permission is required or requested. If the user
+ * has not previously granted a subdirectory, signed updates are fetched through
+ * the existing HTTPS feed; local files can also be opened via ACTION_VIEW/SEND.
  */
 class LocalPatchDirectory(private val activity:Activity) {
     private val prefs=activity.getSharedPreferences("glassstudy.local.patches",0)
     private val key="tree_uri"
-    val configured:Boolean get()=hasDownloadsAccess() || prefs.getString(key,null)!=null
-    fun hasDownloadsAccess():Boolean=Build.VERSION.SDK_INT>=30 && Environment.isExternalStorageManager()
-    fun requestDownloadsAccess() {
-        if(Build.VERSION.SDK_INT<30) return
-        val request=Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-            Uri.parse("package:"+activity.packageName))
-        try { activity.startActivity(request) }
-        catch (_:android.content.ActivityNotFoundException) {
-            activity.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-        }
-    }
+    val configured:Boolean get()=prefs.getString(key,null)!=null
     var lastScanError:String?=null
         private set
     fun selectedFolder():String=prefs.getString("folder_label","папка патчей") ?: "папка патчей"
@@ -61,20 +46,6 @@ class LocalPatchDirectory(private val activity:Activity) {
     /** Ranked candidates. Files are untrusted until PatchManager verifies their signatures. */
     fun candidatesAbove(installed:Int):List<Uri> {
         lastScanError=null
-        if(hasDownloadsAccess()) {
-            return try {
-                val directory=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val regex=Regex("""GlassStudy_Filament_(\d{5})\.pupdate""",RegexOption.IGNORE_CASE)
-                directory.listFiles()?.asSequence()?.filter { it.isFile }?.mapNotNull { file ->
-                    val version=regex.matchEntire(file.name)?.groupValues?.get(1)?.toIntOrNull()
-                    if(version!=null && version>installed) version to Uri.fromFile(file) else null
-                }?.sortedByDescending { it.first }?.map { it.second }?.toList()
-                    ?: throw java.io.IOException("Не удалось прочитать Download")
-            } catch(error:Exception) {
-                lastScanError="Download: "+error.javaClass.simpleName+": "+(error.message ?: "нет доступа")
-                emptyList()
-            }
-        }
         val stored=prefs.getString(key,null) ?:return emptyList()
         return try {
             val tree=Uri.parse(stored)

@@ -191,7 +191,6 @@ class MainActivity : Activity() {
     private var localPatchBusy = false
     private val localPatchFolder by lazy { LocalPatchDirectory(this) }
     private val patchFolderRequest=8124
-    private val patchFolderPromptedKey="localPatchPromptedV5"
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -239,8 +238,10 @@ class MainActivity : Activity() {
         // There is no user-visible sun color/style editor: only the verified
         // .pupdate asset module may change the unified technical appearance.
         GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            GlassDialogFactory.theme.menuOrder.map { "Доступ к Загрузкам" }) {
-                localPatchFolder.requestDownloadsAccess()
+            GlassDialogFactory.theme.menuOrder.map { "Обновления" }) {
+                GlassDialogFactory.message(this,"Обновления",
+                    "Подписанные патчи проверяются автоматически через интернет. " +
+                    "Локальный патч можно открыть из «Загрузок» через «Поделиться» → GlassStudy.")
             }
     }
 
@@ -486,14 +487,7 @@ class MainActivity : Activity() {
         chooseLod.onItemSelectedListener=onSelection
         // Local signed files take precedence; GitHub is optional fallback.
         if (!handleIncomingPatchIntent(intent)) checkLocalThenRemote()
-        if(!localPatchFolder.hasDownloadsAccess() &&
-            !getPreferences(MODE_PRIVATE).getBoolean(patchFolderPromptedKey,false)) {
-            getPreferences(MODE_PRIVATE).edit().putBoolean(patchFolderPromptedKey,true).apply()
-            GlassDialogFactory.menu(this,"Автообновление из Загрузок",
-                listOf("Разрешить доступ к Загрузкам","Позже")) { choice ->
-                if(choice==0)localPatchFolder.requestDownloadsAccess()
-            }
-        }
+
     }
 
     /** Handle rotation without destroying Filament, camera state, or loaded models. */
