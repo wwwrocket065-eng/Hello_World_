@@ -695,3 +695,12 @@
 - Anti-aliasing is FXAA on the shaded Filament render only; grid mode explicitly disables FXAA and does not change mesh normals or geometry. Toggling back restores preferred AA state.
 - PROTECTED/UNCHANGED: PatchManager, LocalPatchDirectory, AndroidManifest, permissions, original APK signing, signed patch feed and rollback.
 - Build verification: pending GitHub Actions CI; this source commit does not imply an APK has been signed or tested on Android.
+
+### 0.2.71 verified result (2026-10-26)
+- Final code/test commit: `73d448cc11738ee65fad9b51add832a814bab56f` (earlier feature commit `5071bba15e525e627b44a4961a7b77dbec2106c8`).
+- GitHub Actions GlassStudy Android Build SUCCESS: https://github.com/wwwrocket065-eng/Hello_World_/actions/runs/40283670402
+- Filament Android CI SUCCESS: https://github.com/wwwrocket065-eng/Hello_World_/actions/runs/40283665032
+- Protected updater checks SUCCESS: https://github.com/wwwrocket065-eng/Hello_World_/actions/runs/40283670409
+- Downloaded CI-unsigned 0.2.71 artifact; locally signed official APK with the existing original private signing identity. Verified official apksigner APK Signature Scheme v2, public certificate fingerprint `35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc`, and byte-for-byte matching unsigned APK ZIP content. Signed file: `GlassStudy_3D_LAB_v0.2.71_ORIGINAL_KEY.apk`; size `8854130` bytes; SHA-256 `cc1a31e3439765afa1b715cd14455f47fb555fd01da2e77da38259de6074819c`.
+- Signed APK generated in conversation working directory and made available as attachment. GitHub Releases asset for 0.2.71 has NOT yet been published. Android real-device installation and runtime are not confirmed.
+- No changes to updater, Android storage permissions, manifest, signature verification, patch feed, or rollback mechanism. No private keys placed in repository.
