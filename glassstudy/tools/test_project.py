@@ -733,7 +733,7 @@ assert 'def numeric_catalog():' in (root/'tools/fast_patch.py').read_text()
 
 # Shared UI chrome geometry also flows through the same signed numeric API.
 visual_defaults=layout['visualNumbers']
-assert len(visual_defaults)==9
+assert len(visual_defaults)==10
 visual_parser=(src/'UiVisualNumbers.kt').read_text()
 for setting in visual_defaults:
     assert ('"'+setting+'"') in visual_parser
