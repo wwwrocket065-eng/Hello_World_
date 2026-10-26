@@ -167,7 +167,8 @@
       "heightDp": 46,
       "widthDp": 48,
       "textColor": "#A3D0D3",
-      "iconScale": 0.8
+      "iconScale": 0.8,
+      "visualSizeDp": 32
     },
     {
       "id": "smoothing",
@@ -177,6 +178,19 @@
       "label": "",
       "heightDp": 46,
       "widthDp": 48,
+      "textColor": "#A3D0D3",
+      "iconScale": 0.8,
+      "visualSizeDp": 32
+    },
+    {
+      "id": "quality",
+      "action": "toggleQualityPanel",
+      "slot": "bottom",
+      "icon": "quality",
+      "label": "",
+      "heightDp": 46,
+      "widthDp": 48,
+      "visualSizeDp": 32,
       "textColor": "#A3D0D3",
       "iconScale": 0.8
     },
@@ -189,7 +203,8 @@
       "heightDp": 46,
       "widthDp": 48,
       "textColor": "#A3D0D3",
-      "iconScale": 0.8
+      "iconScale": 0.8,
+      "visualSizeDp": 32
     }
   ],
   "showFps": true,
@@ -225,6 +240,7 @@
     "selectorClosedPaddingStartDp": 12,
     "selectorClosedPaddingEndDp": 7,
     "selectorOpenPaddingHorizontalDp": 15,
-    "selectorOpenPaddingVerticalDp": 10
+    "selectorOpenPaddingVerticalDp": 10,
+    "iconButtonCornerDp": 7
   }
 }

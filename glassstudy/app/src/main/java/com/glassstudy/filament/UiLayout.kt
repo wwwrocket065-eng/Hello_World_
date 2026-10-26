@@ -143,6 +143,7 @@ data class UiLayout(
             UiButtonSpec("menu","menu","top","gear","",44,null,null,null,false),
             UiButtonSpec("grid","toggleGrid","bottom","grid","",46,null,null,null,false,48),
             UiButtonSpec("smoothing","toggleFxaa","bottom","smooth","",46,null,null,null,false,48),
+            UiButtonSpec("quality","toggleQualityPanel","bottom","quality","",46,null,null,null,false,48,32),
             UiButtonSpec("adaptive","toggleAdaptivePanel","bottom","adapt","",46,null,null,null,false,48)
         )
         private val TOP_ITEMS = listOf("status", "selectors", "actions", "grid")

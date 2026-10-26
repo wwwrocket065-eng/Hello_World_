@@ -76,6 +76,9 @@ class MainActivity : Activity() {
     private lateinit var selectorRow: LinearLayout
     private lateinit var topButtonHost: LinearLayout
     private lateinit var bottomButtonHost: LinearLayout
+    private lateinit var qualityRow:LinearLayout
+    private lateinit var qualitySlider:SeekBar
+    private lateinit var qualityValue:TextView
     private lateinit var adaptiveRow:LinearLayout
     private lateinit var adaptiveSlider:SeekBar
     private lateinit var adaptiveValue:TextView
@@ -104,6 +107,10 @@ class MainActivity : Activity() {
                     "menu" -> openMenu()
                     "selectModel" -> chooseObject.performClick()
                     "selectQuality" -> chooseLod.performClick()
+                    "toggleQualityPanel" -> {
+                        qualityRow.visibility=if(qualityRow.visibility==View.VISIBLE) View.GONE else View.VISIBLE
+                        updateButtonHighlights()
+                    }
                     "toggleAdaptivePanel" -> {
                         adaptiveRow.visibility=if(adaptiveRow.visibility==View.VISIBLE) View.GONE else View.VISIBLE
                         updateButtonHighlights()
@@ -117,6 +124,7 @@ class MainActivity : Activity() {
                 "grid" -> if (modelAssets.wireframe) 1f else 0f
                 "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
                 "fxaa" -> if(renderEnvironment.fxaaEnabled)1f else 0f
+                "qualityLevel" -> chooseLod.selectedItemPosition.toFloat()
                 "adaptivityPercent" -> modelAssets.adaptivePercent.toFloat()
                 "brightnessPercent" -> (cameraLight.brightness * 100.0).toFloat()
                 else -> throw IllegalArgumentException("Unsupported binding: $binding")
@@ -147,6 +155,12 @@ class MainActivity : Activity() {
                         renderEnvironment.setFxaaOverride(enabled)
                         getPreferences(MODE_PRIVATE).edit().putBoolean("fxaaOverride",enabled).apply()
                         updateButtonHighlights()
+                    }
+                    "qualityLevel" -> {
+                        val level=value.toInt().coerceIn(0,ModelCatalog.qualities.lastIndex)
+                        chooseLod.setSelection(level)
+                        qualityValue.text="Качество: ${ModelCatalog.qualityNames[level]}"
+                        if(qualitySlider.progress!=level)qualitySlider.progress=level
                     }
                     "adaptivityPercent" -> {
                         val requested=value.toInt().coerceIn(0,100)
@@ -390,12 +404,44 @@ class MainActivity : Activity() {
             background=uiChrome.roundedFill(Color.rgb(20,42,57),13f,Color.argb(152,126,172,190))
         }
         selectorRow.addView(chooseLod,LinearLayout.LayoutParams(0,d(45f),1f))
+        // The quality spinner remains an internal selection state for compatibility;
+        // the user changes LOD through the independent four-stop slider.
+        chooseLod.visibility=View.GONE
         bottomPanel.addView(selectorRow)
 
         bottomButtonHost=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
         }
         bottomPanel.addView(bottomButtonHost,LinearLayout.LayoutParams(-1,-2))
+        // Independent quality and adaptivity controls. If both are open, quality
+        // is always above adaptivity, regardless of button click order.
+        qualityRow=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            visibility=View.GONE
+            setPadding(d(5f),d(3f),d(5f),0)
+        }
+        qualityValue=TextView(this).apply {
+            text="Качество: ${ModelCatalog.qualityNames[ModelCatalog.indexOfQuality(ModelCatalog.defaultSelection.lod)]}"
+            textSize=11f
+            setTextColor(Color.rgb(163,208,211))
+        }
+        qualitySlider=SeekBar(this).apply {
+            max=ModelCatalog.qualities.lastIndex
+            progress=ModelCatalog.indexOfQuality(ModelCatalog.defaultSelection.lod)
+            contentDescription="Качество сетки: Low, Medium, High или Ultra"
+            setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean) {
+                    val level=value.coerceIn(0,ModelCatalog.qualities.lastIndex)
+                    qualityValue.text="Качество: ${ModelCatalog.qualityNames[level]}"
+                    if(fromUser)uiController.write("qualityLevel",level.toFloat())
+                }
+                override fun onStartTrackingTouch(bar:SeekBar?) {}
+                override fun onStopTrackingTouch(bar:SeekBar?) {}
+            })
+        }
+        qualityRow.addView(qualityValue,LinearLayout.LayoutParams(-1,-2))
+        qualityRow.addView(qualitySlider,LinearLayout.LayoutParams(-1,d(32f)))
+        bottomPanel.addView(qualityRow,LinearLayout.LayoutParams(-1,-2))
         // The narrow on-demand control belongs to the dock, never floats over the bowl.
         adaptiveRow=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
@@ -452,6 +498,7 @@ class MainActivity : Activity() {
                     "toggleLight" -> cameraLight.lightMode
                     "toggleGrid" -> modelAssets.wireframe
                     "toggleFxaa" -> renderEnvironment.fxaaEnabled
+                    "toggleQualityPanel" -> qualityRow.visibility==View.VISIBLE
                     "toggleAdaptivePanel" -> adaptiveRow.visibility==View.VISIBLE
                     "diagnostics" -> diagnosticsPopup.isShowing
                     else -> false
@@ -475,6 +522,9 @@ class MainActivity : Activity() {
         // Immediately reload when a model or LOD is chosen, replacing "Применить".
         val onSelection=object: AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent:AdapterView<*>?, view:View?, position:Int, id:Long) {
+                val level=chooseLod.selectedItemPosition.coerceIn(0,ModelCatalog.qualities.lastIndex)
+                if(qualitySlider.progress!=level)qualitySlider.progress=level
+                qualityValue.text="Качество: ${ModelCatalog.qualityNames[level]}"
                 if (::viewer.isInitialized && ::updater.isInitialized &&
                     (ModelCatalog.idAt(chooseObject.selectedItemPosition) != modelAssets.selection.modelId ||
                     ModelCatalog.qualityAt(chooseLod.selectedItemPosition) != modelAssets.selection.lod)) {
@@ -693,6 +743,9 @@ class MainActivity : Activity() {
             else initialWireframe
         val outcome=modelAssets.load(requested,debug,candidate)
         if(outcome.isSuccess) {
+            // FXAA must never blur the topology wires; preserve the preference
+            // for the normal rendered glass mode.
+            renderEnvironment.setWireframeMode(modelAssets.wireframe)
             status()
             return true
         }

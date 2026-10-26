@@ -86,14 +86,59 @@ object ParametricGoblet {
         }
     }
 
+    /**
+     * Remove actual cross-section rings where the profile is already close to
+     * a straight segment. Unlike curvature weighting this reduces quads.
+     * Quality chooses the maximum geometric error; the slider chooses strength.
+     * Endpoints and bends are preserved within that tolerance.
+     */
+    private fun simplify(profile:List<Ring>,quality:String,adaptivePercent:Int):List<Ring> {
+        if(adaptivePercent==0 || profile.size<=3)return profile
+        val maxError=when(quality) {
+            "low" -> .014
+            "medium" -> .007
+            "high" -> .0035
+            "ultra" -> .0015
+            else -> error("Unsupported mesh quality")
+        }
+        val threshold=maxError*(adaptivePercent/100.0).pow(2.0)
+        val kept=BooleanArray(profile.size)
+        kept[0]=true;kept[profile.lastIndex]=true
+        val work=java.util.ArrayDeque<Pair<Int,Int>>()
+        work.add(0 to profile.lastIndex)
+        while(!work.isEmpty()) {
+            val (start,end)=work.removeLast()
+            val from=profile[start];val to=profile[end]
+            val dy=to.y-from.y;val dr=to.r-from.r
+            val lengthSquared=dy*dy+dr*dr
+            var worst=-1.0;var split=-1
+            for(i in start+1 until end) {
+                val point=profile[i]
+                val t=if(lengthSquared>1e-18)
+                    (((point.y-from.y)*dy+(point.r-from.r)*dr)/lengthSquared).coerceIn(0.0,1.0)
+                    else 0.0
+                val error=hypot(point.y-(from.y+t*dy),point.r-(from.r+t*dr))
+                if(error>worst){worst=error;split=i}
+            }
+            if(split>=0 && worst>threshold) {
+                kept[split]=true
+                work.add(start to split)
+                work.add(split to end)
+            }
+        }
+        val result=profile.filterIndexed { index,_ -> kept[index] }
+        return if(result.size>=8)result else profile
+    }
+
     fun create(bytes:ByteArray, quality:String, grid:Boolean, adaptivePercent:Int=0):ByteArray {
         val shape=parse(bytes)
         val (sides,rings)=density[quality] ?: error("Unsupported mesh density: $quality")
-        val contour=sample(shape,rings,adaptivePercent)
-        val sourcePositions=FloatArray(sides*rings*3)
+        val contour=simplify(sample(shape,rings,adaptivePercent),quality,adaptivePercent)
+        val actualRings=contour.size
+        val sourcePositions=FloatArray(sides*actualRings*3)
         val sourceNormals=FloatArray(sourcePositions.size)
-        for(j in 0 until rings) {
-            val prev=contour[max(j-1,0)];val next=contour[min(j+1,rings-1)]
+        for(j in 0 until actualRings) {
+            val prev=contour[max(j-1,0)];val next=contour[min(j+1,actualRings-1)]
             val dy=next.y-prev.y;val dr=next.r-prev.r
             val len=max(1e-10,hypot(dy,dr))
             for(k in 0 until sides) {
@@ -112,16 +157,16 @@ object ParametricGoblet {
         val indices:IntArray
         if(!grid) {
             positions=sourcePositions;normals=sourceNormals
-            indices=IntArray((rings-1)*sides*6)
+            indices=IntArray((actualRings-1)*sides*6)
             var p=0
-            for(j in 0 until rings-1)for(k in 0 until sides){
+            for(j in 0 until actualRings-1)for(k in 0 until sides){
                 val a=j*sides+k;val b=j*sides+(k+1)%sides
                 val c=a+sides;val d=b+sides
                 indices[p++]=a;indices[p++]=c;indices[p++]=b
                 indices[p++]=b;indices[p++]=c;indices[p++]=d
             }
         } else {
-            val edges=sides*(2*rings-1)
+            val edges=sides*(2*actualRings-1)
             positions=FloatArray(edges*12)
             normals=FloatArray(edges*12)
             indices=IntArray(edges*6)
@@ -157,14 +202,14 @@ object ParametricGoblet {
                 indices[i+3]=v+1;indices[i+4]=v+2;indices[i+5]=v+3
                 edge++
             }
-            for(j in 0 until rings)for(k in 0 until sides){
+            for(j in 0 until actualRings)for(k in 0 until sides){
                 val a=j*sides+k
                 append(a,j*sides+(k+1)%sides)
-                if(j<rings-1)append(a,a+sides)
+                if(j<actualRings-1)append(a,a+sides)
             }
             check(edge==edges)
         }
-        return toGlb(sides,rings,grid,positions,normals,indices)
+        return toGlb(sides,actualRings,grid,positions,normals,indices)
     }
 
     private fun toGlb(sides:Int,rings:Int,grid:Boolean,

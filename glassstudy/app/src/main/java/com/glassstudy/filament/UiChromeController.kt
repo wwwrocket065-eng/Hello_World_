@@ -76,7 +76,11 @@ class UiChromeController(private val activity:Activity) {
         val actual=if(selected)Color.argb(alpha,48,116,124) else color
         val stroke=outline ?:
             if(selected)Color.rgb(166,246,233) else Color.argb(180,109,185,203)
-        val surface=roundedFill(actual,visualNumbers.buttonCornerDp,stroke)
+        // Icon-only controls use one compact rounded-square shape, both bars.
+        // Dedicated number remains adjustable by a verified UI resource patch.
+        val corner=if(view is LabIconView)visualNumbers.iconButtonCornerDp
+            else visualNumbers.buttonCornerDp
+        val surface=roundedFill(actual,corner,stroke)
         // The four compact TOP glyph buttons keep their full 44dp+ touch target.
         // Only the painted square is inset, independently of adaptive hitbox sizing.
         val content=if(view is LabIconView) {

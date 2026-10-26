@@ -25,6 +25,12 @@ class RenderEnvironmentController(
     var configuration=RenderModuleConfig()
         private set
     private var fxaaOverride:Boolean?=null
+    private var wireframeMode=false
+    fun setWireframeMode(enabled:Boolean) {
+        if(wireframeMode==enabled)return
+        wireframeMode=enabled
+        applyAntiAliasing()
+    }
     val fxaaEnabled:Boolean get()=fxaaOverride ?: configuration.fxaa
 
     /** User UI override survives applying later signed render patches. */
@@ -34,7 +40,7 @@ class RenderEnvironmentController(
     }
 
     private fun applyAntiAliasing() {
-        viewer.view.antiAliasing=if(fxaaEnabled)View.AntiAliasing.FXAA
+        viewer.view.antiAliasing=if(fxaaEnabled && !wireframeMode)View.AntiAliasing.FXAA
             else View.AntiAliasing.NONE
     }
     private var globalBrightness=1.0

@@ -43,7 +43,7 @@ class UiToolbarController(
             LabIconView(activity,spec.icon).apply {
                 iconColor=ink
                 glyphScale=spec.iconScale ?: ui.topIconScale
-                visualSizeOverrideDp=spec.visualSizeDp
+                visualSizeOverrideDp=spec.visualSizeDp ?: if(spec.slot=="bottom") ui.topButtonSizeDp else null
                 gearInnerRoundness=ui.gearInnerRoundness
                 chipCenterFilled=ui.fillChipCenter
                 contentDescription=when(spec.action) {
@@ -55,6 +55,7 @@ class UiToolbarController(
                     "toggleGrid" -> "Сетка"
                     "toggleFxaa" -> "Сглаживание изображения"
                     "toggleAdaptivePanel" -> "Настройка адаптивности сетки"
+                    "toggleQualityPanel" -> "Качество сетки: Low, Medium, High, Ultra"
                     else -> spec.label.ifBlank { spec.action }
                 }
             }
@@ -122,8 +123,8 @@ class UiToolbarController(
             })
             buttons[spec.id]=view
         }
-        val compact=bottom.size==3 && bottom.all { it.label.isBlank() }
-        val columns=if(compact)3 else OrientationLayoutManager.bottomColumns(
+        val compact=bottom.size in 3..4 && bottom.all { it.label.isBlank() }
+        val columns=if(compact)bottom.size else OrientationLayoutManager.bottomColumns(
             activity.resources.configuration,bottom.size)
         for(group in bottom.chunked(columns)) {
             val row=LinearLayout(activity).apply {

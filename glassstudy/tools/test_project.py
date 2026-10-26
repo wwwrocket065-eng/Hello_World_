@@ -136,12 +136,22 @@ assert 'topOutlineColor=ui.topButtonOutlineColor' in chrome_src
 assert layout['logoColor']=="#6DE0DE"
 assert layout['buttonTextColor']=="#A3D0D3"
 assert layout['format']=='glassstudy-ui-v1' and layout['schema']==1
-assert len(layout['uiButtons'])==7
+assert len(layout['uiButtons'])==8
 assert [x['action'] for x in layout['uiButtons'] if x['slot']=='top']==['diagnostics','toggleLight','openScene','menu']
-assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleGrid','toggleFxaa','toggleAdaptivePanel']
+assert [x['action'] for x in layout['uiButtons'] if x['slot']=='bottom']==['toggleGrid','toggleFxaa','toggleQualityPanel','toggleAdaptivePanel']
 assert not any(x['action']=='export' for x in layout['uiButtons'])
 assert all(b['label']=='' and b['widthDp']>=44 for b in layout['uiButtons'] if b['slot']=='bottom')
-assert 'val compact=bottom.size==3 && bottom.all { it.label.isBlank() }' in toolbar
+assert 'val compact=bottom.size in 3..4 && bottom.all { it.label.isBlank() }' in toolbar
+assert 'qualityRow.visibility=if(qualityRow.visibility==View.VISIBLE)' in activity
+assert 'bottomPanel.addView(qualityRow' in activity
+assert 'bottomPanel.addView(adaptiveRow' in activity
+assert 'qualitySlider' in activity and 'qualityLevel' in activity
+assert 'toggleQualityPanel' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
+assert 'fun setWireframeMode(enabled:Boolean)' in render_env
+assert 'if(fxaaEnabled && !wireframeMode)' in render_env
+assert 'fun simplify(profile:List<Ring>' in geometry
+assert 'val actualRings=contour.size' in geometry
+assert 'iconButtonCornerDp' in chrome_src
 assert 'adaptiveRow.visibility=if(adaptiveRow.visibility==View.VISIBLE)' in activity
 assert 'adaptiveRow.postDelayed(job,110)' in activity
 assert 'adaptiveRow.addView(adaptiveSlider' in activity
@@ -248,7 +258,7 @@ assert 'private val density = mapOf(' in geometry
 assert 'adaptivePercent:Int=0' in geometry
 assert 'val strength=adaptivePercent/100.0' in geometry
 assert 'val priority=1.0+strength*min(5.0,curvature*.45)' in geometry
-assert 'val contour=sample(shape,rings,adaptivePercent)' in geometry
+assert 'val contour=simplify(sample(shape,rings,adaptivePercent),quality,adaptivePercent)' in geometry
 assert 'fun setAdaptivity(value:Int):Result<Unit>' in loader
 assert 'Snapshot(selection,wireframe,adaptivePercent)' in loader
 assert 'snapshot.adaptive' in loader
@@ -846,7 +856,7 @@ assert view.index('captionPlate.color=Color.argb(') < view.index('caption.alpha=
 # remains functional and one shared soft halo applies to all three indicator suns.
 assert not any(x['id']=='light_bottom' for x in layout['uiButtons'])
 assert any(x['slot']=='top' and x['action']=='toggleLight' for x in layout['uiButtons'])
-assert [x['id'] for x in layout['uiButtons'] if x['slot']=='bottom']==['grid','smoothing','adaptive']
+assert [x['id'] for x in layout['uiButtons'] if x['slot']=='bottom']==['grid','smoothing','quality','adaptive']
 assert overlay_config['indicatorVisuals']['brightness']['offsetXDp']==100
 for kind in ('azimuth','elevation','brightness'):
     glow=overlay_config['indicatorVisuals'][kind]

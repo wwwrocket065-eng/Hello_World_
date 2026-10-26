@@ -12,7 +12,8 @@ data class UiVisualNumbers(
     val selectorClosedPaddingStartDp:Float=12f,
     val selectorClosedPaddingEndDp:Float=7f,
     val selectorOpenPaddingHorizontalDp:Float=15f,
-    val selectorOpenPaddingVerticalDp:Float=10f
+    val selectorOpenPaddingVerticalDp:Float=10f,
+    val iconButtonCornerDp:Float=7f
 ) {
     companion object {
         fun parse(json:JSONObject?):UiVisualNumbers {
@@ -20,7 +21,7 @@ data class UiVisualNumbers(
             val known=setOf("buttonCornerDp","buttonElevationDp","logoHeightFactor",
                 "selectorClosedTextSp","selectorOpenTextSp","selectorClosedPaddingStartDp",
                 "selectorClosedPaddingEndDp","selectorOpenPaddingHorizontalDp",
-                "selectorOpenPaddingVerticalDp")
+                "selectorOpenPaddingVerticalDp","iconButtonCornerDp")
             require(json.keys().asSequence().all { it in known }) {
                 "Unknown UI visual numeric setting"
             }
@@ -40,7 +41,8 @@ data class UiVisualNumbers(
                 n("selectorClosedPaddingStartDp",12.0,0.0,24.0),
                 n("selectorClosedPaddingEndDp",7.0,0.0,24.0),
                 n("selectorOpenPaddingHorizontalDp",15.0,0.0,28.0),
-                n("selectorOpenPaddingVerticalDp",10.0,0.0,22.0)
+                n("selectorOpenPaddingVerticalDp",10.0,0.0,22.0),
+                n("iconButtonCornerDp",7.0,0.0,18.0)
             )
         }
     }
