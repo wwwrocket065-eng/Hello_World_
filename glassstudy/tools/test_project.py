@@ -147,10 +147,10 @@ assert 'bottomPanel.addView(qualityRow' in activity
 assert 'bottomPanel.addView(adaptiveRow' in activity
 assert 'qualitySlider' in activity and 'qualityLevel' in activity
 assert 'toggleQualityPanel' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
-assert 'fun setWireframeMode(enabled:Boolean)' in render_env
-assert 'if(fxaaEnabled && !wireframeMode)' in render_env
-assert 'fun simplify(profile:List<Ring>' in geometry
-assert 'val actualRings=contour.size' in geometry
+assert 'fun setWireframeMode(enabled:Boolean)' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
+assert 'if(fxaaEnabled && !wireframeMode)' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
+assert 'fun simplify(profile:List<Ring>' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
+assert 'val actualRings=contour.size' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
 assert 'iconButtonCornerDp' in chrome_src
 assert 'adaptiveRow.visibility=if(adaptiveRow.visibility==View.VISIBLE)' in activity
 assert 'adaptiveRow.postDelayed(job,110)' in activity
