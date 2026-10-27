@@ -47,7 +47,6 @@ class SceneEnvironmentController(
         currentElevation=elevation
         currentAzimuth=azimuth
         updatePhysicalSky()
-
     }
 
     fun configureAtmosphereHaze(value:Double) {
@@ -110,19 +109,15 @@ class SceneEnvironmentController(
                     module.darkLevel,module.whiteLevel)
                 else -> null
             })
-
-        } catch(e:Exception) {
+        } catch/(e:Exception) {
             Log.e("GlassStudy","Floor GLB rejected; keeping main model running",e)
             floorMode="none"
             preferences.edit().putString("floorMode","none").apply()
             try { viewer.setFloorGlb(null) } catch(_:Exception) {}
-
         }
     }
 
     fun release() {
-
-
         try { viewer.setCausticGlb(null) } catch(_:Exception) {}
         activeSkybox?.let {
             if(viewer.scene.skybox===it)viewer.scene.skybox=null
