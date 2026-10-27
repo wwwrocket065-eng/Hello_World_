@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.78' in props and 'GLASSSTUDY_VERSION_CODE=20078' in props
+assert 'GLASSSTUDY_VERSION=0.2.79' in props and 'GLASSSTUDY_VERSION_CODE=20079' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -155,7 +155,7 @@ assert 'val shadedAA=fxaaEnabled && !wireframeMode' in (root/'app/src/main/java/
 assert 'View.MultiSampleAntiAliasingOptions()' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
 assert 'fun simplify(profile:List<Ring>' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
 assert 'val actualRings=contour.size' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
-assert 'val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.30f) }' in chrome_src
+assert 'val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.5f) }' in chrome_src
 assert 'val surface=roundedFill(actual,cornerDp,stroke)' in chrome_src
 assert 'visualNumbers.iconButtonCornerDp' not in chrome_src
 assert 'iconButtonCornerDp' not in layout['visualNumbers']
@@ -1048,7 +1048,7 @@ assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
 assert 'glassMaterialDetails=modelAssets.glassMaterialDiagnostics()' in activity
 assert 'reflectionDetails=renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.78' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.79' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
 
 # 0.2.78: use the stock Filament / glTF material; never cover the floor with
@@ -1069,3 +1069,9 @@ assert 'штатное glTF-преломление Filament' in report_src
 assert 'causticDetails=sceneEnvironment.causticDiagnostics' in activity
 assert 'sunGlint=' in render_env and 'doubleArrayOf(.22,.215,.20)' in render_env
 print('PASS: native Filament glTF glass, synthetic caustic overlay removed, protected updater')
+
+# 0.2.79: restore previous approved rounding, do not change controls or mesh.
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.5f)' in chrome_src
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.30f)' not in chrome_src
+assert 'visualNumbers.buttonCornerDp' in chrome_src
+print('PASS: patch-controlled toolbar corner radius is no longer flattened')
