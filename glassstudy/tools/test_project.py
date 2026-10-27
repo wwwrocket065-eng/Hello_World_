@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.75' in props and 'GLASSSTUDY_VERSION_CODE=20075' in props
+assert 'GLASSSTUDY_VERSION=0.2.76' in props and 'GLASSSTUDY_VERSION_CODE=20076' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -1034,7 +1034,7 @@ assert 'reflectionSamples = integer("reflectionSamples",8,setOf(4,8,16,32,64))' 
 assert 'reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)' in render_params
 assert 'reflectionsEnabled = json.optBoolean("reflectionsEnabled",true)' in render_params
 
-# 0.2.75 runtime glass audit + physically honest shadow policy.
+# 0.2.76 runtime glass audit + physically honest shadow policy.
 material_controller=(src/'ModelMaterialController.kt').read_text()
 env_controller=(src/'RenderEnvironmentController.kt').read_text()
 diagnostics_src=(src/'DiagnosticsReportService.kt').read_text()
@@ -1048,5 +1048,25 @@ assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
 assert 'glassMaterialDetails=modelAssets.glassMaterialDiagnostics()' in activity
 assert 'reflectionDetails=renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.75' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.76' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
+
+# 0.2.76 mobile glass: separate projected floor effect, thin shell transmission.
+caustics=(root/'app/src/main/java/com/glassstudy/filament/GlassCausticsGlb.kt').read_text()
+assert 'object GlassCausticsGlb' in caustics and 'LightDirectionMath.source(azimuth,elevation)' in caustics
+assert 'light.y < .12f' in caustics and 'brightness < .015' in caustics
+assert 'alphaMode","BLEND"' in caustics and 'KHR_materials_unlit' in caustics
+assert 'COLOR_0' in caustics and 'val projected=' in caustics
+assert 'fun setCausticGlb(buffer: Buffer?)' in custom
+assert 'causticResourceLoader.asyncUpdateLoad()' in custom
+assert 'causticAsset?.let { populateScene(it, contactShadows = false) }' in custom
+assert 'setCastShadows(instance,false)' in custom and 'setReceiveShadows(instance,false)' in custom
+assert 'fun setLightState(brightness:Double,elevation:Double,azimuth:Double)' in environment
+assert 'if(floorMode=="none" || globalBrightness<.015' in environment
+assert 'updateGlassLight(force=true)' in environment
+assert 'sceneEnvironment.setLightState(factor,elevation,azimuth)' in activity
+assert 'KHR_materials_volume' not in geometry
+assert 'KHR_materials_transmission' in geometry and 'KHR_materials_ior' in geometry
+assert 'KHR_materials_volume' not in (root/'tools/make_models.py').read_text()
+assert 'приближённый' in report_src and 'тонкая стенка' in (root/'app/src/main/assets/ui/layout.json').read_text()
+print('PASS: projected mobile glass light, no solid-volume double wall, same physical sun')
