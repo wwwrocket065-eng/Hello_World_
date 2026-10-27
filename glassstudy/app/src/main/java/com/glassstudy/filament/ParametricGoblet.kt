@@ -21,6 +21,17 @@ object ParametricGoblet {
     private data class Shape(val points: List<Ring>, val width: Double, val offset: Double)
 
     fun validate(bytes: ByteArray) { parse(bytes) }
+    /** Shared signed profile sampling for the optical pass, not a second shape. */
+    fun opticalContour(bytes:ByteArray,quality:String,adaptivePercent:Int):FloatArray {
+        val shape=parse(bytes)
+        val rings=density[quality]?.second ?: error("Unsupported mesh quality")
+        val contour=simplify(sample(shape,rings,adaptivePercent),quality,adaptivePercent)
+        val result=ArrayList<Float>()
+        result.add(contour.first().y.toFloat());result.add(0f)
+        contour.forEach { result.add(it.y.toFloat());result.add(it.r.toFloat()) }
+        result.add(contour.last().y.toFloat());result.add(0f)
+        return result.toFloatArray()
+    }
     private fun parse(bytes: ByteArray): Shape {
         require(bytes.size in 80..32768) { "Invalid goblet profile size" }
         val obj = JSONObject(String(bytes, Charsets.UTF_8))

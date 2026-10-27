@@ -201,6 +201,7 @@ class MainActivity : Activity() {
     private lateinit var fpsPill: TextView
     private lateinit var cameraLight:CameraLightController
     private lateinit var renderEnvironment:RenderEnvironmentController
+    private lateinit var opticalSurface:GlassOpticsSurface
     private var diagnosticsModule = DiagnosticsModuleConfig()
     private lateinit var sceneEnvironment:SceneEnvironmentController
     private lateinit var sceneSettings:SceneSettingsPanel
@@ -220,6 +221,7 @@ class MainActivity : Activity() {
             Choreographer.getInstance().postFrameCallback(this)
             val submitStartNs=SystemClock.elapsedRealtimeNanos()
             cameraLight.applyToFilament()
+            updateOpticalSurface()
             val framesBefore = viewer.renderedFrames
             viewer.render(frameTimeNanos)
             val frameWasRendered = viewer.renderedFrames > framesBefore
@@ -227,13 +229,29 @@ class MainActivity : Activity() {
             profiler.frame(frameTimeNanos,submissionMs)
             if (::fpsPill.isInitialized && viewer.renderedFrames % 40L == 0L) {
                 val f=profiler.metrics().fps
-                fpsPill.text="${if(f!=null) String.format(Locale.US,"%.0f",f) else "—"} FPS · Filament"
+                fpsPill.text=if(opticalSurface.visibility==View.VISIBLE)
+                    "${opticalSurface.sampleCount} spp · Оптика GPU"
+                    else "${if(f!=null) String.format(Locale.US,"%.0f",f) else "—"} FPS · Filament"
             }
             if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()
         }
     }
 
     private fun d(v: Float): Int = (v * resources.displayMetrics.density).toInt()
+    private fun updateOpticalSurface() {
+        if(!::opticalSurface.isInitialized)return
+        val contour=modelAssets.opticalContour
+        val enabled=renderEnvironment.configuration.optics.enabled && !modelAssets.wireframe &&
+            contour!=null && opticalSurface.failed==null
+        val visibility=if(enabled)View.VISIBLE else View.GONE
+        if(opticalSurface.visibility!=visibility)opticalSurface.visibility=visibility
+        if(!enabled)return
+        opticalSurface.setContour(contour!!)
+        opticalSurface.update(GlassOpticsSurface.State(cameraLight.yaw,cameraLight.pitch,cameraLight.distance,
+            cameraLight.config.fieldOfView,cameraLight.lightAz,cameraLight.lightElevation,cameraLight.brightness,
+            sceneEnvironment.lightingMode,sceneEnvironment.floorMode,sceneEnvironment.module,
+            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor))
+    }
     /**
      * All patch-defined windows, including their interactive controls, use one
      * renderer and a fixed whitelist of safe application state bindings.
@@ -322,6 +340,14 @@ class MainActivity : Activity() {
             {elevation -> renderEnvironment.directTransmission(elevation)},
             {elevation -> renderEnvironment.directColor(elevation)})
         surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
+        opticalSurface=GlassOpticsSurface(this) { error ->
+            opticalSurface.visibility=View.GONE
+            android.util.Log.w("GlassStudy","Optical fallback: $error")
+        }.apply {
+            visibility=View.GONE
+            setOnTouchListener { _, event -> cameraLight.onTouch(event) }
+        }
+        root.addView(opticalSurface,1,FrameLayout.LayoutParams(-1,-1))
 
         // Floating header, modeled on GlassStudy 3D LAB v0.1.22.
         topPanel = LinearLayout(this).apply {
@@ -791,9 +817,12 @@ class MainActivity : Activity() {
             modelName=ModelCatalog.displayName(modelAssets.selection.modelId),
             modelLod=modelAssets.selection.lod,
             wireframe=modelAssets.wireframe,
-            glassMaterialDetails=modelAssets.glassMaterialDiagnostics(),
-            reflectionDetails=renderEnvironment.reflectionDiagnostics(),
-            causticDetails=sceneEnvironment.causticDiagnostics,
+            glassMaterialDetails=if(opticalSurface.visibility==View.VISIBLE)opticalSurface.diagnostics()
+                else modelAssets.glassMaterialDiagnostics()+" | "+opticalSurface.diagnostics(),
+            reflectionDetails=if(opticalSurface.visibility==View.VISIBLE)
+                "GPU: направления отражённых лучей; многократные границы" else renderEnvironment.reflectionDiagnostics(),
+            causticDetails=if(opticalSurface.visibility==View.VISIBLE)opticalSurface.diagnostics()
+                else sceneEnvironment.causticDiagnostics,
             renderedFrames=viewer.renderedFrames.toString(),
             surfaceWidth=surface.width,
             surfaceHeight=surface.height,
@@ -809,6 +838,7 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
+        if(::opticalSurface.isInitialized)opticalSurface.onResume()
         // A new .pupdate may have arrived while GlassStudy was in the background.
         // After one Android system permission grant, scan Download without any picker.
         if (::updater.isInitialized && !localPatchBusy &&
@@ -828,6 +858,7 @@ class MainActivity : Activity() {
         else super.onBackPressed()
     }
     override fun onPause() {
+        if(::opticalSurface.isInitialized)opticalSurface.onPause()
         cameraLight.resetGesture()
         diagnosticsPopup.dismiss()
         running=false
