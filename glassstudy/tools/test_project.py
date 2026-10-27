@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.77' in props and 'GLASSSTUDY_VERSION_CODE=20077' in props
+assert 'GLASSSTUDY_VERSION=0.2.78' in props and 'GLASSSTUDY_VERSION_CODE=20078' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -1034,7 +1034,7 @@ assert 'reflectionSamples = integer("reflectionSamples",16,setOf(4,8,16,32,64))'
 assert 'reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)' in render_params
 assert 'reflectionsEnabled = json.optBoolean("reflectionsEnabled",true)' in render_params
 
-# 0.2.77 runtime glass audit + physically honest shadow policy.
+# 0.2.78 runtime glass audit + physically honest shadow policy.
 material_controller=(src/'ModelMaterialController.kt').read_text()
 env_controller=(src/'RenderEnvironmentController.kt').read_text()
 diagnostics_src=(src/'DiagnosticsReportService.kt').read_text()
@@ -1048,44 +1048,24 @@ assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
 assert 'glassMaterialDetails=modelAssets.glassMaterialDiagnostics()' in activity
 assert 'reflectionDetails=renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.77' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.78' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
 
-# 0.2.77: computed photon map, no pre-drawn light discs.
-raytrace=(root/'app/src/main/java/com/glassstudy/filament/GlassRayTrace.kt').read_text()
-caustics=(root/'app/src/main/java/com/glassstudy/filament/GlassCausticsGlb.kt').read_text()
-assert 'object GlassRayTrace' in raytrace
-assert 'LightDirectionMath.source(azimuth,elevation)' in raytrace
-assert 'JSONObject(String(raw,Charsets.UTF_8)).getJSONArray("profile")' in raytrace
-assert 'val segments=profileRings.zipWithNext()' in raytrace
-assert 'private fun intersection(' in raytrace
-assert 'val eta=if(entering)1.0/IOR else IOR' in raytrace
-assert 'val fresnel=' in raytrace
-assert 'difference[z*SIZE+x]-=incoming' in raytrace
-assert 'difference[cz*SIZE+cx]+=incoming*energy*weight' in raytrace
-assert 'return Field(SIZE,halfWidth,smooth,hitCount,passed)' in raytrace
-assert 'fun create(field:GlassRayTrace.Field,brightness:Double)' in caustics
-assert 'field.flux[cz*n+cx]' in caustics
-assert 'ln(1.0+delta.coerceAtLeast(0.0))' in caustics
-assert 'disc(' not in caustics
-assert 'alphaMode","BLEND"' in caustics and 'KHR_materials_unlit' in caustics
-assert 'COLOR_0' in caustics and 'val dark=delta<0.0' in caustics
-assert 'fun setCausticGlb(buffer: Buffer?)' in custom
-assert 'causticResourceLoader.asyncUpdateLoad()' in custom
-assert 'causticAsset?.let { populateScene(it, contactShadows = false) }' in custom
-assert 'setCastShadows(instance,false)' in custom and 'setReceiveShadows(instance,false)' in custom
+# 0.2.78: use the stock Filament / glTF material; never cover the floor with
+# an unlit synthetic photon quad. This is a clean baseline, not full caustics.
+assert not (src/'GlassRayTrace.kt').exists()
+assert not (src/'GlassCausticsGlb.kt').exists()
 assert 'fun setLightState(brightness:Double,elevation:Double,azimuth:Double)' in environment
-assert 'private val tracingExecutor=Executors.newSingleThreadExecutor()' in environment
-assert 'lightHandler.postDelayed(work,if(force)80L else 320L)' in environment
-assert 'if(stopped || token!=traceRevision)return@post' in environment
-assert 'fun setGlassProfile(profile:ByteArray?,wireframe:Boolean)' in environment
-assert 'sceneEnvironment.setGlassProfile(' in activity
-assert 'updateGlassLight(force=true)' in environment
-assert 'sceneEnvironment.setLightState(factor,elevation,azimuth)' in activity
+assert 'val causticDiagnostics:String get()="отключена: без искусственной накладки"' in environment
+assert 'updateGlassLight(' not in environment
+assert 'setGlassProfile(' not in environment
+assert 'sceneEnvironment.setGlassProfile(' not in activity
+assert 'viewer.setCausticGlb(null)' in environment
+assert 'setCausticGlb(overlay)' not in environment
 assert 'KHR_materials_volume' not in geometry
 assert 'KHR_materials_transmission' in geometry and 'KHR_materials_ior' in geometry
 assert 'KHR_materials_volume' not in (root/'tools/make_models.py').read_text()
-assert 'CPU-трассировка' in report_src and 'тонкая стенка' in (root/'app/src/main/assets/ui/layout.json').read_text()
+assert 'штатное glTF-преломление Filament' in report_src
 assert 'causticDetails=sceneEnvironment.causticDiagnostics' in activity
 assert 'sunGlint=' in render_env and 'doubleArrayOf(.22,.215,.20)' in render_env
-print('PASS: cached ray-cone Snell/Fresnel caustics, shader-backed HDR environment, protected updater')
+print('PASS: native Filament glTF glass, synthetic caustic overlay removed, protected updater')
