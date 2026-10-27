@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.71' in props and 'GLASSSTUDY_VERSION_CODE=20071' in props
+assert 'GLASSSTUDY_VERSION=0.2.72' in props and 'GLASSSTUDY_VERSION_CODE=20072' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -42,7 +42,10 @@ assert 'AlertDialog.Builder(this).setTitle(tr("title"))' not in activity
 assert '"copy" -> {' in (root/'app/src/main/java/com/glassstudy/filament/LabUiIcons.kt').read_text()
 assert 'Применить' not in activity or 'no "Применить"' in activity
 assert 'chooseObject.onItemSelectedListener=onSelection' in activity
-assert 'chooseLod.onItemSelectedListener=onSelection' in activity
+assert 'chooseLod.onItemSelectedListener=onSelection' not in activity
+assert '"qualityLevel" -> qualitySlider.progress.toFloat()' in activity
+assert 'val ok=modelAssets.selection.lod==requested || loadSelected()' in activity
+assert 'ModelCatalog.qualityAt(qualitySlider.progress)' in activity
 assert 'loadSelected()' in activity
 assert 'modelAssets.load(requested,debug,candidate)' in activity
 assert 'modelAssets.configure(bundle.materials)' in activity
@@ -148,10 +151,15 @@ assert 'bottomPanel.addView(adaptiveRow' in activity
 assert 'qualitySlider' in activity and 'qualityLevel' in activity
 assert 'toggleQualityPanel' in (root/'app/src/main/java/com/glassstudy/filament/UiInteractionController.kt').read_text()
 assert 'fun setWireframeMode(enabled:Boolean)' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
-assert 'if(fxaaEnabled && !wireframeMode)' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
+assert 'val shadedAA=fxaaEnabled && !wireframeMode' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
+assert 'View.MultiSampleAntiAliasingOptions()' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
 assert 'fun simplify(profile:List<Ring>' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
 assert 'val actualRings=contour.size' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
-assert 'iconButtonCornerDp' in chrome_src
+assert 'val surface=roundedFill(actual,visualNumbers.buttonCornerDp,stroke)' in chrome_src
+assert 'visualNumbers.iconButtonCornerDp' not in chrome_src
+assert 'iconButtonCornerDp' not in layout['visualNumbers']
+assert '"iconButtonCornerDp"' in (root/'app/src/main/java/com/glassstudy/filament/UiVisualNumbers.kt').read_text()
+assert activity.index('bottomPanel.addView(qualityRow') < activity.index('bottomPanel.addView(adaptiveRow') < activity.index('bottomPanel.addView(bottomButtonHost')
 assert 'adaptiveRow.visibility=if(adaptiveRow.visibility==View.VISIBLE)' in activity
 assert 'adaptiveRow.postDelayed(job,110)' in activity
 assert 'adaptiveRow.addView(adaptiveSlider' in activity
