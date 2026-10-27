@@ -1033,3 +1033,20 @@ assert 'reflectionMapSize = integer("reflectionMapSize",32,setOf(16,32,64,128))'
 assert 'reflectionSamples = integer("reflectionSamples",8,setOf(4,8,16,32,64))' in render_params
 assert 'reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)' in render_params
 assert 'reflectionsEnabled = json.optBoolean("reflectionsEnabled",true)' in render_params
+
+# 0.2.75 runtime glass audit + physically honest shadow policy.
+material_controller=(src/'ModelMaterialController.kt').read_text()
+env_controller=(src/'RenderEnvironmentController.kt').read_text()
+diagnostics_src=(src/'DiagnosticsReportService.kt').read_text()
+assert 'fun glassMaterialDiagnostics():String' in material_controller
+assert 'material.refractionMode !=' in material_controller
+assert 'Material.RefractionMode.NONE' in material_controller
+assert 'if(refractive)manager.setCastShadows(instance,false)' in material_controller
+assert 'avoidOpaqueShadowsOnRefractiveGlass(snapshot.wireframe)' in material_controller
+assert 'fun reflectionDiagnostics():String' in env_controller
+assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
+assert 'glassMaterialDetails=modelAssets.glassMaterialDiagnostics()' in activity
+assert 'reflectionDetails=renderEnvironment.reflectionDiagnostics()' in activity
+assert 'Материал gltfio (фактически)' in diagnostics_src
+assert 'GLASSSTUDY_VERSION=0.2.75' in (root/'gradle.properties').read_text()
+print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')

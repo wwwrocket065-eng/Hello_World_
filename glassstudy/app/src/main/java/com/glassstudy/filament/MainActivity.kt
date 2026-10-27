@@ -791,6 +791,8 @@ class MainActivity : Activity() {
             modelName=ModelCatalog.displayName(modelAssets.selection.modelId),
             modelLod=modelAssets.selection.lod,
             wireframe=modelAssets.wireframe,
+            glassMaterialDetails=modelAssets.glassMaterialDiagnostics(),
+            reflectionDetails=renderEnvironment.reflectionDiagnostics(),
             renderedFrames=viewer.renderedFrames.toString(),
             surfaceWidth=surface.width,
             surfaceHeight=surface.height,

@@ -17,6 +17,8 @@ data class DiagnosticsReportState(
     val modelName:String,
     val modelLod:String,
     val wireframe:Boolean,
+    val glassMaterialDetails:String,
+    val reflectionDetails:String,
     val renderedFrames:String,
     val surfaceWidth:Int,
     val surfaceHeight:Int,
@@ -123,11 +125,13 @@ class DiagnosticsReportService(
                         appendLine("Google Filament / gltfio · OpenGL ES")
                         appendLine("Реально нарисованных кадров Filament: ${state.renderedFrames}")
                         appendLine("${tr("glass")}: ${tr("glassValue")}")
+                        appendLine("Материал gltfio (фактически): ${state.glassMaterialDetails}")
                         appendLine("Режим света: ${if(state.lightingMode==LightEnvironmentMode.VACUUM) "Вакуум" else "Атмосфера"}")
-                        appendLine("IBL: ${if(state.lightingMode==LightEnvironmentMode.VACUUM) "выключен" else "аналитическое рассеяние неба (SH, приближение)"}")
+                        appendLine("IBL: ${state.reflectionDetails}")
                         appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
                         appendLine("Экспозиция камеры: ISO ${num(effectiveIso.toDouble())} · адаптация ${if(state.lightingMode==LightEnvironmentMode.ATMOSPHERE) "по небу и солнцу" else "отключена"}")
-                        appendLine("Студийные HDRI: отключены · физические каустики: не реализованы")
+                        appendLine("Студийные HDRI: отключены · каустики: не реализованы")
+                        appendLine("Тени преломляющего стекла: непрозрачное затенение отключено; каустики отсутствуют")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                     }
                     "camera" -> {

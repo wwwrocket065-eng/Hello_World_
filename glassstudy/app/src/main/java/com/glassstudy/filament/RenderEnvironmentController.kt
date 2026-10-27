@@ -65,6 +65,19 @@ class RenderEnvironmentController(
     private var skyLight:IndirectLight?=null
     private var reflectionMap:Texture?=null
     private var reflectionsDisabledForSession=false
+    private var lastReflectionError:String?=null
+
+    /** Actual runtime IBL allocation and failure state, not configured intentions. */
+    fun reflectionDiagnostics():String = when {
+        lightingMode==LightEnvironmentMode.VACUUM -> "отключён (вакуум)"
+        !configuration.reflectionsEnabled -> "карта отключена настройками; рассеяние SH=${skyLight!=null}"
+        reflectionsDisabledForSession ->
+            "создание карты не удалось (${lastReflectionError ?: "ошибка GPU"}); SH=${skyLight!=null}"
+        reflectionMap!=null && skyLight!=null ->
+            "HDR cubemap ${configuration.reflectionMapSize} px, " +
+                "prefilter ${configuration.reflectionSamples} samples, SH: включён"
+        else -> "карта отсутствует; SH=${skyLight!=null} (проверить GPU/журнал)"
+    }
     private var previousShElevation=Double.NaN
     private var previousShAzimuth=Double.NaN
     private var previousReflectionElevation=Double.NaN
@@ -208,6 +221,7 @@ class RenderEnvironmentController(
                     // Keep existing map, or render sky SH alone if the GPU rejects RGB16F.
                     Log.w("GlassStudy","Filament reflection map unavailable; keeping diffuse sky",error)
                     reflectionsDisabledForSession=true
+                    lastReflectionError=error.javaClass.simpleName
                 }
             }
             try {
@@ -224,6 +238,7 @@ class RenderEnvironmentController(
                 if(replacementMap!=null) {
                     reflectionMap?.let { viewer.engine.destroyTexture(it) }
                     reflectionMap=replacementMap
+                    lastReflectionError=null
                     replacementMap=null
                     previousReflectionElevation=sunElevation
                     previousReflectionAzimuth=sunAzimuth
@@ -272,6 +287,7 @@ class RenderEnvironmentController(
             previousReflectionElevation=Double.NaN
             previousReflectionAzimuth=Double.NaN
             reflectionsDisabledForSession=false
+            lastReflectionError=null
         }
         viewer.view.ambientOcclusionOptions=viewer.view.ambientOcclusionOptions.apply {
             enabled=next.ambientOcclusionEnabled

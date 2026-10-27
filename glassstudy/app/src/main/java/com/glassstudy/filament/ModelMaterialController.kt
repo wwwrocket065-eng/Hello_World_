@@ -60,6 +60,7 @@ class ModelMaterialController(
             viewer.loadModelGlb(direct(bytes))
             require(viewer.asset!=null) { "Filament gltfio rejected goblet mesh for "+requested.lod }
             overrides.apply(viewer)
+            avoidOpaqueShadowsOnRefractiveGlass(debug)
             selection=requested
             wireframe=debug
             adaptivePercent=adaptive
@@ -78,6 +79,48 @@ class ModelMaterialController(
         }
     }
 
+    /**
+     * Gltfio's default opaque shadow map otherwise makes a transmissive
+     * goblet cast a solid black silhouette. This is NOT caustics: until a
+     * transparent-shadow-capable material is implemented, avoid an invented
+     * opaque shadow for refractive primitives. Opaque/grid meshes are untouched.
+     */
+    private fun avoidOpaqueShadowsOnRefractiveGlass(debug:Boolean) {
+        if(debug)return
+        val asset=viewer.asset ?: return
+        val manager=viewer.engine.renderableManager
+        for(entity in asset.entities) {
+            val instance=manager.getInstance(entity)
+            if(instance==0)continue
+            val refractive=(0 until manager.getPrimitiveCount(instance)).any { index ->
+                manager.getMaterialInstanceAt(instance,index).material.refractionMode !=
+                    com.google.android.filament.Material.RefractionMode.NONE
+            }
+            if(refractive)manager.setCastShadows(instance,false)
+        }
+    }
+
+    /** Reads REAL loaded gltfio material state, never just GLB JSON claims. */
+    fun glassMaterialDiagnostics():String {
+        val asset=viewer.asset ?: return "GLB: модель не загружена"
+        val manager=viewer.engine.renderableManager
+        val records=mutableListOf<String>()
+        for(entity in asset.entities) {
+            val instance=manager.getInstance(entity)
+            if(instance==0)continue
+            for(index in 0 until manager.getPrimitiveCount(instance)) {
+                val material=manager.getMaterialInstanceAt(instance,index).material
+                records.add(
+                    "${material.name}: refraction=${material.refractionMode}, " +
+                    "type=${material.refractionType}, transmissionParam=${material.hasParameter("transmissionFactor")}, " +
+                    "iorParam=${material.hasParameter("ior")}, " +
+                    "opaqueShadow=${manager.isShadowCaster(instance)}")
+            }
+        }
+        return if(records.isEmpty())"GLB: нет отображаемых материалов"
+            else records.distinct().joinToString(" | ")
+    }
+
     private data class Snapshot(val selection:ModelSelection,val wireframe:Boolean,val adaptive:Int)
 
     private fun restore(snapshot:Snapshot) {
@@ -86,6 +129,7 @@ class ModelMaterialController(
         viewer.loadModelGlb(direct(bytes))
         require(viewer.asset!=null) { "Cannot restore goblet mesh for "+snapshot.selection.lod }
         overrides.apply(viewer)
+        avoidOpaqueShadowsOnRefractiveGlass(snapshot.wireframe)
     }
 
     /**
