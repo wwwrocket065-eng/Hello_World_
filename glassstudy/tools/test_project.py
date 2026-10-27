@@ -155,7 +155,7 @@ assert 'val shadedAA=fxaaEnabled && !wireframeMode' in (root/'app/src/main/java/
 assert 'View.MultiSampleAntiAliasingOptions()' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
 assert 'fun simplify(profile:List<Ring>' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
 assert 'val actualRings=contour.size' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
-assert 'val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.30f) }' in chrome_src
+assert 'val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.5f) }' in chrome_src
 assert 'val surface=roundedFill(actual,cornerDp,stroke)' in chrome_src
 assert 'visualNumbers.iconButtonCornerDp' not in chrome_src
 assert 'iconButtonCornerDp' not in layout['visualNumbers']
@@ -1071,7 +1071,7 @@ assert 'sunGlint=' in render_env and 'doubleArrayOf(.22,.215,.20)' in render_env
 print('PASS: native Filament glTF glass, synthetic caustic overlay removed, protected updater')
 
 # 0.2.79: restore previous approved rounding, do not change controls or mesh.
-assert 'minOf(visualNumbers.buttonCornerDp,it*0.5f)' in ui_chrome
-assert 'minOf(visualNumbers.buttonCornerDp,it*0.30f)' not in ui_chrome
-assert 'visualNumbers.buttonCornerDp' in ui_chrome
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.5f)' in chrome_src
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.30f)' not in chrome_src
+assert 'visualNumbers.buttonCornerDp' in chrome_src
 print('PASS: patch-controlled toolbar corner radius is no longer flattened')
