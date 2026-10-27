@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.74' in props and 'GLASSSTUDY_VERSION_CODE=20074' in props
+assert 'GLASSSTUDY_VERSION=0.2.75' in props and 'GLASSSTUDY_VERSION_CODE=20075' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
