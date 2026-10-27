@@ -753,10 +753,6 @@ class MainActivity : Activity() {
             // FXAA must never blur the topology wires; preserve the preference
             // for the normal rendered glass mode.
             renderEnvironment.setWireframeMode(modelAssets.wireframe)
-            // Trace only the same canonical signed cross-section as the GLB.
-            sceneEnvironment.setGlassProfile(
-                updater.readResourceOrNull(ParametricGoblet.PATH,candidate),
-                modelAssets.wireframe)
             status()
             return true
         }
