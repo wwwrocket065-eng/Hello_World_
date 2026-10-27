@@ -997,7 +997,7 @@ assert 'mgr.setIntensity(instance,(config.lightIntensity*transmitted).toFloat())
 assert 'val transmitted=direct*directTransmission(lightElevation)' in camera_light
 assert 'mgr.setColor(instance,sunRgb[0],sunRgb[1],sunRgb[2])' in camera_light
 assert 'renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,' in activity
-assert 'sceneEnvironment.setLightState(factor,elevation)' in activity
+assert 'sceneEnvironment.setLightState(factor,elevation,azimuth)' in activity
 assert 'studioBackgroundDimmer' not in activity
 assert 'LightDirectionMath.azimuthMarkerOnHorizon(' in proj
 assert 'sunElevationRad:Double=0.0' in proj
