@@ -793,6 +793,7 @@ class MainActivity : Activity() {
             wireframe=modelAssets.wireframe,
             glassMaterialDetails=modelAssets.glassMaterialDiagnostics(),
             reflectionDetails=renderEnvironment.reflectionDiagnostics(),
+            causticDetails=sceneEnvironment.causticDiagnostics,
             renderedFrames=viewer.renderedFrames.toString(),
             surfaceWidth=surface.width,
             surfaceHeight=surface.height,

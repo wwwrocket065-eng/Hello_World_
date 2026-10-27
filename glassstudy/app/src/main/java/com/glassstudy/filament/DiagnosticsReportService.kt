@@ -19,6 +19,7 @@ data class DiagnosticsReportState(
     val wireframe:Boolean,
     val glassMaterialDetails:String,
     val reflectionDetails:String,
+    val causticDetails:String,
     val renderedFrames:String,
     val surfaceWidth:Int,
     val surfaceHeight:Int,
@@ -130,8 +131,8 @@ class DiagnosticsReportService(
                         appendLine("IBL: ${state.reflectionDetails}")
                         appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
                         appendLine("Экспозиция камеры: ISO ${num(effectiveIso.toDouble())} · адаптация ${if(state.lightingMode==LightEnvironmentMode.ATMOSPHERE) "по небу и солнцу" else "отключена"}")
-                        appendLine("Студийные HDRI: отключены · каустики: отдельная быстрая аппроксимация")
-                        appendLine("Тени стекла: сплошная чёрная отключена; световой рисунок на полу приближённый")
+                        appendLine("Студийные HDRI: отключены · каустики: ${state.causticDetails}")
+                        appendLine("Стекло: штатное glTF-преломление Filament, отражения IBL; физическая каустика пока отсутствует")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                     }
                     "camera" -> {
