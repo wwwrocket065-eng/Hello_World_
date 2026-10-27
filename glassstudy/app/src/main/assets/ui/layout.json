@@ -240,7 +240,6 @@
     "selectorClosedPaddingStartDp": 12,
     "selectorClosedPaddingEndDp": 7,
     "selectorOpenPaddingHorizontalDp": 15,
-    "selectorOpenPaddingVerticalDp": 10,
-    "iconButtonCornerDp": 7
+    "selectorOpenPaddingVerticalDp": 10
   }
 }
