@@ -78,7 +78,9 @@ void main() {
     if(x==0) { dielectric(vec3(0,-1,0),vec3(0,1,0),r,t,f); color=vec4(f,t.y,0,1); }
     else if(x==1) { float a=radians(50.0);dielectric(vec3(sin(a),cos(a),0),vec3(0,1,0),r,t,f);color=vec4(f,0,0,1); }
     else if(x==2) { hit=wallHit(vec3(2,1,0),vec3(-1,0,0),n); color=vec4(hit,n.x,0,1); }
-    else { hit=wallHit(vec3(0,1,0),vec3(1,0,0),n);color=vec4(hit,n.x,0,1); }
+    else if(x==3) { hit=wallHit(vec3(0,1,0),vec3(1,0,0),n);color=vec4(hit,n.x,0,1); }
+    else if(x==4) { color=vec4(limitedRadiance(vec3(16000,8000,4000),8.0),1); }
+    else { color=vec4(limitedRadiance(vec3(uintBitsToFloat(0x7f800000u)),8.0),1); }
 }
 '''
     p=compile_program(vertex,fragment)
@@ -100,7 +102,7 @@ void main() {
     uniform3(location(p,b'uBoundsMin'),-1.01,-.01,-1.01)
     uniform3(location(p,b'uBoundsMax'),1.01,2.01,1.01)
     proc('glActiveTexture',None,C.c_uint)(0x84C1)
-    bind(0x0DE1,ids[1]);image(0x0DE1,0,0x8814,4,1,0,0x1908,0x1406,None)
+    bind(0x0DE1,ids[1]);image(0x0DE1,0,0x8814,6,1,0,0x1908,0x1406,None)
     param(0x0DE1,0x2801,0x2600);param(0x0DE1,0x2800,0x2600)
     fbo=C.c_uint();proc('glGenFramebuffers',None,C.c_int,C.POINTER(C.c_uint))(1,C.byref(fbo))
     proc('glBindFramebuffer',None,C.c_uint,C.c_uint)(0x8D40,fbo)
@@ -108,14 +110,65 @@ void main() {
     assert proc('glCheckFramebufferStatus',C.c_uint,C.c_uint)(0x8D40)==0x8CD5
     vao=C.c_uint();proc('glGenVertexArrays',None,C.c_int,C.POINTER(C.c_uint))(1,C.byref(vao))
     proc('glBindVertexArray',None,C.c_uint)(vao)
-    proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,0,4,1)
+    proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,0,6,1)
     proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)(4,0,3)
-    output=(C.c_float*16)()
-    proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,4,1,0x1908,0x1406,output)
+    output=(C.c_float*24)()
+    proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,6,1,0x1908,0x1406,output)
     assert proc('glGetError',C.c_uint)()==0
-    expected=[((1.52-1)/(1.52+1))**2,-1,0,1,1,0,0,1,1,1,0,1,.8,-1,0,1]
+    expected=[((1.52-1)/(1.52+1))**2,-1,0,1,1,0,0,1,1,1,0,1,.8,-1,0,1,8,4,2,1,0,0,0,1]
     assert all(math.isclose(a,b,abs_tol=2e-5) for a,b in zip(output,expected)),list(output)
-    print('PASS actual ES3 numerical output: Fresnel, TIR, outer and inner wall distances/normals')
+    print('PASS actual ES3 output: Fresnel, TIR, both walls, radiance outlier cap and nonfinite rejection')
+
+
+def smoothing_toggle(vertex,fragment):
+    """Read back the actual display shader: off/on/off without changing input."""
+    size=16
+    p=compile_program(vertex,fragment)
+    proc('glUseProgram',None,C.c_uint)(p)
+    ids=(C.c_uint*2)();proc('glGenTextures',None,C.c_int,C.POINTER(C.c_uint))(2,ids)
+    active=proc('glActiveTexture',None,C.c_uint)
+    bind=proc('glBindTexture',None,C.c_uint,C.c_uint)
+    image=proc('glTexImage2D',None,C.c_uint,C.c_int,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)
+    param=proc('glTexParameteri',None,C.c_uint,C.c_uint,C.c_int)
+    active(0x84C0);bind(0x0DE1,ids[0])
+    values=[]
+    for y in range(size):
+        for x in range(size):
+            level=1. if x>y else 0.
+            values.extend([level,level,level,1.])
+    data=(C.c_float*len(values))(*values)
+    image(0x0DE1,0,0x881A,size,size,0,0x1908,0x1406,data)
+    for key in [0x2801,0x2800]:param(0x0DE1,key,0x2601)
+    for key in [0x2802,0x2803]:param(0x0DE1,key,0x812F)
+    active(0x84C1);bind(0x0DE1,ids[1])
+    image(0x0DE1,0,0x8814,size,size,0,0x1908,0x1406,None)
+    param(0x0DE1,0x2801,0x2600);param(0x0DE1,0x2800,0x2600)
+    fbo=C.c_uint();proc('glGenFramebuffers',None,C.c_int,C.POINTER(C.c_uint))(1,C.byref(fbo))
+    proc('glBindFramebuffer',None,C.c_uint,C.c_uint)(0x8D40,fbo)
+    proc('glFramebufferTexture2D',None,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.c_int)(0x8D40,0x8CE0,0x0DE1,ids[1],0)
+    assert proc('glCheckFramebufferStatus',C.c_uint,C.c_uint)(0x8D40)==0x8CD5
+    loc=proc('glGetUniformLocation',C.c_int,C.c_uint,C.c_char_p)
+    uniform=proc('glUniform1i',None,C.c_int,C.c_int)
+    uniform(loc(p,b'uImage'),0)
+    proc('glUniform1f',None,C.c_int,C.c_float)(loc(p,b'uExposure'),1.)
+    proc('glUniform2f',None,C.c_int,C.c_float,C.c_float)(loc(p,b'uScreen'),size,size)
+    proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,0,size,size)
+    read=proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)
+    outputs=[]
+    for enabled in [0,1,0]:
+        uniform(loc(p,b'uFxaa'),enabled)
+        proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)(4,0,3)
+        output=(C.c_float*(size*size*4))();read(0,0,size,size,0x1908,0x1406,output)
+        outputs.append(list(output))
+    assert proc('glGetError',C.c_uint)()==0
+    off,on,again=outputs
+    assert max(abs(a-b) for a,b in zip(off,on))>.02,'AA toggle has no rendered effect'
+    assert off==again,'AA off does not restore exact original image'
+    # Flat regions stay unchanged: this is an edge filter, not global blur.
+    for x,y in [(2,13),(13,2)]:
+        k=(y*size+x)*4
+        assert max(abs(a-b) for a,b in zip(off[k:k+4],on[k:k+4]))<1e-5
+    print('PASS actual FXAA off/on/off readback: edges change, flat fields unchanged, off restores input')
 
 
 def main():
@@ -128,6 +181,7 @@ def main():
         compile_program(source(v),source(f))
         print(f'PASS ES3 compile+link: {v} / {f}')
     numerical_kernel(source('quad.vert'),kernel)
+    smoothing_toggle(source('quad.vert'),source('display.frag'))
     print('PASS exact Android shaders; device driver/runtime still unverified')
 
 

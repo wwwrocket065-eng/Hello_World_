@@ -5,6 +5,11 @@ uniform float uIor;
 uniform vec3 uBoundsMin,uBoundsMax;
 const float EPS=0.00008;
 const float FAR=1e20;
+vec3 limitedRadiance(vec3 value,float maximum) {
+    if(any(isnan(value)) || any(isinf(value)))return vec3(0);
+    float peak=max(value.r,max(value.g,value.b));
+    return peak>maximum ? value*(maximum/peak) : value;
+}
 vec2 ringAt(int i) { return texelFetch(uProfile,ivec2(i,0),0).rg; }
 float wallHit(vec3 o,vec3 d,out vec3 normal) {
     // Conservative canonical bound avoids walking the contour for most pixels.

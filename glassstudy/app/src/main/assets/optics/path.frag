@@ -8,6 +8,8 @@ uniform vec3 uEye,uSun,uSunColor,uBackdrop;
 uniform float uTanFov,uAspect,uDirect,uSky,uHaze,uExposure;
 uniform float uFloorWidth,uTile,uDark,uLight,uWhite,uPhotonExtent,uMaxSampleRadiance;
 uniform int uFloorMode,uFrame,uBounces,uPhotonReady;
+uniform int uBaseOnly,uPreserveGlass;
+uniform vec4 uGlassRegion;
 out vec4 color;
 uint rng;
 float randomValue() {
@@ -54,12 +56,21 @@ vec3 floorRadiance(vec3 p) {
 }
 void main() {
     rng=uint(gl_FragCoord.x)*1973u+uint(gl_FragCoord.y)*9277u+uint(uFrame+1)*26699u+1u;
-    vec2 pixel=gl_FragCoord.xy+vec2(randomValue(),randomValue())-.5;
+    if(uBaseOnly==1 && uPreserveGlass==1 &&
+        all(greaterThanEqual(gl_FragCoord.xy,uGlassRegion.xy)) &&
+        all(lessThan(gl_FragCoord.xy,uGlassRegion.zw)))discard;
+    vec2 pixel=gl_FragCoord.xy+(uBaseOnly==1 ? vec2(0) : vec2(randomValue(),randomValue())-.5);
     vec2 ndc=(pixel/uResolution)*2.0-1.0;
     vec3 forward=normalize(vec3(0,1,0)-uEye);
     vec3 right=normalize(cross(forward,vec3(0,1,0))),up=cross(right,forward);
     vec3 d=normalize(forward+ndc.x*uAspect*uTanFov*right+ndc.y*uTanFov*up);
     vec3 o=uEye,result=vec3(0);
+    if(uBaseOnly==1) {
+        // Cheap opaque scene: no wall intersections, Fresnel choices or bounces.
+        float tf=floorDistance(o,d);
+        color=vec4(tf<FAR*.5 ? floorRadiance(o+tf*d) : uBackdrop,1);
+        return;
+    }
     for(int bounce=0;bounce<24;bounce++) {
         if(bounce>=uBounces)break;
         vec3 n;float t=wallHit(o,d,n),tf=floorDistance(o,d);
@@ -72,9 +83,7 @@ void main() {
     }
     // Limit rare solar-path outliers before accumulation. This is a bounded,
     // deliberately biased firefly filter, not a blur of the floor or glass.
-    if(any(isnan(result)) || any(isinf(result)))result=vec3(0);
-    float peak=max(result.r,max(result.g,result.b));
-    if(peak>uMaxSampleRadiance)result*=uMaxSampleRadiance/peak;
+    result=limitedRadiance(result,uMaxSampleRadiance);
     vec3 previous=uFrame==0 ? vec3(0) : texelFetch(uPrevious,ivec2(gl_FragCoord.xy),0).rgb;
     color=vec4((previous*float(uFrame)+result)/float(uFrame+1),1);
 }

@@ -84,12 +84,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var motionTime=0L
         private var rowCursor=0
         private var shownIndex=0
+        private var baseDirty=true
+        private var havePreview=false
         private var initialized=false
         private var delayed=false
 
         fun invalidatePhotons() {
             dirtyPhotons=true;photonReady=false;sampleCount=0
-            changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0
+            changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0;baseDirty=true
         }
         fun accept(next:State) {
             if(state?.copy(antialias=next.antialias)==next) {
@@ -98,7 +100,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
                 next.scene,next.render,next.camera.lightIntensity)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
-            state=next;sampleCount=0;rowCursor=0;motionTime=SystemClock.uptimeMillis()
+            state=next;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
         }
         private fun source(name:String):String=context.assets.open("optics/$name")
             .bufferedReader().use { it.readText() }.replace("/*OPTICS_KERNEL*/",
@@ -136,12 +138,12 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 GL.glGenTextures(1,ids,0);photons=ids[0]
                 GL.glGenFramebuffers(1,ids,0);photonFbo=ids[0]
                 val vao=IntArray(1);GL.glGenVertexArrays(1,vao,0);GL.glBindVertexArray(vao[0])
-                initialized=true;bufferWidth=0;mapSize=0;profileDirty=true
+                initialized=true;bufferWidth=0;mapSize=0;profileDirty=true;havePreview=false;baseDirty=true
                 invalidatePhotons()
             } catch(e:Exception) { fail(e) }
         }
         override fun onSurfaceChanged(gl:GL10?,w:Int,h:Int) {
-            width=w;height=h;sampleCount=0;rowCursor=0;motionTime=SystemClock.uptimeMillis()
+            width=w;height=h;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
         }
         private fun f(p:Int,name:String,value:Float)=GL.glUniform1f(GL.glGetUniformLocation(p,name),value)
         private fun i(p:Int,name:String,value:Int)=GL.glUniform1i(GL.glGetUniformLocation(p,name),value)
@@ -186,7 +188,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RG32F,contour.size/2,1,0,GL.GL_RG,GL.GL_FLOAT,data)
                     GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
                     GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
-                    profileDirty=false;sampleCount=0;rowCursor=0
+                    profileDirty=false;sampleCount=0;rowCursor=0;baseDirty=true
                 }
                 val moving=SystemClock.uptimeMillis()-motionTime<c.settleMs
                 val w=min(if(moving)c.movingWidth else c.width,width)
@@ -208,7 +210,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         }
                     }
                     GL.glDeleteTextures(2,oldTextures,0);GL.glDeleteFramebuffers(2,oldFbos,0)
-                    bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h
+                    bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h;baseDirty=true
                 }
                 if(mapSize!=c.photonMap) {
                     allocate(photons,photonFbo,c.photonMap,c.photonMap)
@@ -227,11 +229,12 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         GL.glDisable(GL.GL_BLEND)
                         photonReady=true
                     }
-                    dirtyPhotons=false;sampleCount=0;rowCursor=0
+                    dirtyPhotons=false;sampleCount=0;rowCursor=0;baseDirty=true
                 }
-                if(sampleCount<c.samples) {
+                if(sampleCount<c.samples || baseDirty) {
                     val p=pathProgram
-                    val rows=min(h-rowCursor,max(1,c.pixelBudget/w))
+                    val region=OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h)
+                    val rows=min(region.height-rowCursor,max(1,c.pixelBudget/max(1,region.width)))
                     GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2]);GL.glViewport(0,0,w,h)
                     GL.glUseProgram(p);common(p,s)
                     texture(accum[1-sampleCount%2],1,p,"uPrevious");texture(photons,2,p,"uPhotons")
@@ -257,11 +260,28 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     f(p,"uWhite",s.scene.whiteLevel.toFloat())
                     i(p,"uFloorMode",when(s.floor) { "checker"->1;"white"->2;else->0 })
                     i(p,"uPhotonReady",if(photonReady)1 else 0);i(p,"uFrame",sampleCount)
-                    GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(0,rowCursor,w,rows)
+                    if(baseDirty) {
+                        i(p,"uBaseOnly",1);i(p,"uPreserveGlass",if(havePreview)1 else 0)
+                        GL.glUniform4f(GL.glGetUniformLocation(p,"uGlassRegion"),region.x.toFloat(),region.y.toFloat(),
+                            (region.x+region.width).toFloat(),(region.y+region.height).toFloat())
+                        // Neither base draw may sample an attached accumulation texture.
+                        texture(photons,1,p,"uPrevious")
+                        for(j in 0..1) {
+                            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[j])
+                            GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                        }
+                        texture(accum[1-sampleCount%2],1,p,"uPrevious")
+                        i(p,"uBaseOnly",0);baseDirty=false
+                        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2])
+                    }
+                    if(region.width>0 && region.height>0) {
+                    GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(region.x,region.y+rowCursor,region.width,rows)
                     GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
                     GL.glDisable(GL.GL_SCISSOR_TEST)
                     shownIndex=sampleCount%2;rowCursor+=rows
-                    if(rowCursor>=h) { sampleCount++;rowCursor=0 }
+                    if(rowCursor>=region.height) { sampleCount++;rowCursor=0 }
+                    } else { sampleCount=c.samples;shownIndex=0 }
+                    havePreview=true
                 }
                 GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
                 GL.glUseProgram(displayProgram)
