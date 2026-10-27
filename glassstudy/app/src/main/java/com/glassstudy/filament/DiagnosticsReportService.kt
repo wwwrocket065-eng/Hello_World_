@@ -131,7 +131,7 @@ class DiagnosticsReportService(
                         appendLine("IBL: ${state.reflectionDetails}")
                         appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
                         appendLine("Экспозиция камеры: ISO ${num(effectiveIso.toDouble())} · адаптация ${if(state.lightingMode==LightEnvironmentMode.ATMOSPHERE) "по небу и солнцу" else "отключена"}")
-                        appendLine("Каустики: ${state.causticDetails}")
+                        appendLine("Студийные HDRI: отключены · каустики: ${state.causticDetails}")
                         appendLine("Свет через стекло: кешированная CPU-трассировка по форме чаши, частичная модель отражений")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                     }
