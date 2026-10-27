@@ -158,10 +158,21 @@ class RenderEnvironmentController(
                 else -> doubleArrayOf(-u,-v,-1.0)
             }
             val length=sqrt(vector[0]*vector[0]+vector[1]*vector[1]+vector[2]*vector[2])
-            val colors=PhysicalAtmosphereModel.skyRadiance(
-                vector[0]/length,vector[1]/length,vector[2]/length,
-                sun.x.toDouble(),sun.y.toDouble(),sun.z.toDouble(),haze)
-            for(color in colors)rgb.putFloat(color.toFloat())
+            val dx=vector[0]/length;val dy=vector[1]/length;val dz=vector[2]/length
+            // Lower-hemisphere bounce is missing from the analytic sky: a lit
+            // diffuse floor is not black when reflected by the underside.
+            // This is an inexpensive approximate ground radiance, not HDRI.
+            val colors=if(dy<0.0)doubleArrayOf(.22,.215,.20)
+                else PhysicalAtmosphereModel.skyRadiance(dx,dy,dz,
+                    sun.x.toDouble(),sun.y.toDouble(),sun.z.toDouble(),haze)
+            val cosine=(dx*sun.x+dy*sun.y+dz*sun.z).coerceIn(-1.0,1.0)
+            // Sub-texel solar disc approximated by an energy-limited angular
+            // lobe to preserve a visible highlight after cubemap prefilter.
+            val sunGlint=if(dy>0.0)6.0*kotlin.math.exp((cosine-1.0)/.0016)
+                else 0.0
+            val tint=PhysicalAtmosphereModel.sunlightRgb(
+                lightingMode,sunElevation,configuration.atmosphereExtinction.toDouble())
+            for(i in 0..2) rgb.putFloat((colors[i]+sunGlint*tint[i]).toFloat())
         }
         rgb.flip()
         val cubemap=Texture.Builder().width(size).height(size)
