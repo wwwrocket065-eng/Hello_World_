@@ -1,0 +1,52 @@
+name: GlassStudy Patch Audit
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths: ['.github/workflows/glassstudy-patch-audit.yml', 'glassstudy/updates/v2/latest.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate server feed and complete signed model patch
+        run: |
+          python -m pip -q install cryptography
+          python - <<'PY'
+          import urllib.request,json,hashlib,base64,struct,pathlib,re
+          from cryptography.hazmat.primitives import hashes,serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          repo='https://raw.githubusercontent.com/wwwrocket065-eng/Hello_World_/glassstudy-filament-ci/glassstudy/updates/v2/'
+          def get(name):
+              with urllib.request.urlopen(urllib.request.Request(repo+name,headers={'User-Agent':'GlassStudyPatchAudit'}),timeout=60) as r:
+                  b=r.read()
+                  print('FETCH',name,'HTTP',r.status,'BYTES',len(b),'CONTENT_TYPE',r.headers.get('Content-Type'),flush=True)
+                  return b
+          feed=json.loads(get('latest.json'))
+          print('FEED',feed,flush=True)
+          assert feed['patchVersion']>=20017 and feed['patchName']==f"GlassStudy_Filament_{feed['patchVersion']}.pupdate", 'Invalid update feed'
+          patch=get(feed['patchName'])
+          actual=hashlib.sha256(patch).hexdigest()
+          print('FILE_SHA256',actual,'MATCHES_FEED',actual==feed['patchSha256'],flush=True)
+          assert actual==feed['patchSha256']
+          data=json.loads(patch)
+          print('PATCH VERSION',data.get('version'),'entries',len(data['entries']),flush=True)
+          assert data['version']==feed['patchVersion']
+          manifest=('glassstudy-filament-assets-v2\n'+str(data['version'])+'\n'+''.join(e['path']+'\t'+e['sha256']+'\n' for e in sorted(data['entries'],key=lambda e:e['path']))).encode()
+          pubkey=re.search(r'PUBLIC_KEY_BASE64 = "([^"]+)"',pathlib.Path('glassstudy/app/src/main/java/com/glassstudy/filament/PatchManager.kt').read_text()).group(1)
+          pk=serialization.load_der_public_key(base64.b64decode(pubkey))
+          pk.verify(base64.b64decode(data['signature']),manifest,padding.PKCS1v15(),hashes.SHA256())
+          print('RSA SIGNATURE OK',flush=True)
+          for e in data['entries']:
+              b=base64.b64decode(e['data'])
+              assert len(b)<=16*1024*1024 and hashlib.sha256(b).hexdigest()==e['sha256'],e['path']
+              if e['path'].endswith('.glb'):
+                  assert b[:4]==b'glTF' and struct.unpack_from('<I',b,8)[0]==len(b),e['path']
+                  jl=struct.unpack_from('<I',b,12)[0]
+                  j=json.loads(b[20:20+jl]); binlen=struct.unpack_from('<I',b,20+jl)[0]
+                  assert j['buffers'][0]['byteLength']==binlen,e['path']
+                  assert all(0<=pr.get('material',0)<len(j['materials']) for mesh in j['meshes'] for pr in mesh['primitives']),e['path']
+          print('ALL ENTRIES VERIFIED',flush=True)
+          PY

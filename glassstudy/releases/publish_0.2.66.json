@@ -1,0 +1,24 @@
+{
+  "format": "glassstudy-signed-apk-blob-assembly-v1",
+  "version": "0.2.66",
+  "versionCode": 20066,
+  "tag": "glassstudy-v0.2.66",
+  "filename": "GlassStudy_3D_LAB_v0.2.66_ORIGINAL_KEY.apk",
+  "size": 11590813,
+  "sha256": "cde309e68756054ee7319b4222733cf1eb5aaf3b02faa83c2fe91995e5ed9ee0",
+  "signerCertificateSha256": "35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc",
+  "chunkObjectShas": [
+    "d55adb777b8f9f879026792970e845c2433e267b",
+    "6c88c0bc1cb22d4087b10b538c23ad6475d58f85",
+    "56fd0b500f95a4cbbc43fbf25ecf2788141b540a",
+    "ed4d38e898cd3dda4b047439920e42fb04256985",
+    "aeffc38813f94e80f4acede0cc3362d8875241bf",
+    "91e481c07bb3f6aa748c6c61386e247174be2dca",
+    "65b2120f2dc23cf2d0872d30eb928abcc836246c",
+    "d4fca8998e14ba2af8d6465a3eae51585decf9e9",
+    "666f14d4017af67ff6ba9fcafc052e5fcc72490c",
+    "0722011706733292b223e31271fec2dd4059a8a8",
+    "2daaf384b22d9c044375ed70e1abaaff567ecd32",
+    "36e7fb357ef9fad783ea67f05f1e3fda7074d470"
+  ]
+}

@@ -1,0 +1,21 @@
+name: GlassStudy Protected Updater
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths:
+      - 'glassstudy/**'
+      - '.github/workflows/glassstudy-protected-updater.yml'
+  pull_request:
+    paths:
+      - 'glassstudy/**'
+      - '.github/workflows/glassstudy-protected-updater.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  freeze-critical-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block unauthorized changes to update and signing core
+        run: python3 glassstudy/tools/check_protected_updater_ci.py

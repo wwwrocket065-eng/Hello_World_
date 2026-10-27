@@ -1,0 +1,23 @@
+name: GlassStudy Android Signature Tools
+on:
+  push:
+    branches: [glassstudy-filament-ci]
+    paths: ['.github/workflows/glassstudy-apk-tools.yml']
+  workflow_dispatch:
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export official Android APK verifier and aligner
+        run: |
+          set -euo pipefail
+          ls -al "$ANDROID_HOME/build-tools"
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          mkdir -p exported
+          cp "$TOOLS/apksigner" "$TOOLS/zipalign" "$TOOLS/lib/apksigner.jar" exported/
+          chmod +x exported/apksigner exported/zipalign
+      - name: Upload official APK tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassStudy-official-apk-tools
+          path: exported/

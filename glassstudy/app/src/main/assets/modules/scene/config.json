@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "floorWidth": 12,
+  "tileWidth": 0.6,
+  "darkLevel": 0.006,
+  "lightLevel": 0.96,
+  "whiteLevel": 0.96,
+  "sectionOrder": [
+    "skybox",
+    "floor"
+  ],
+  "skyboxOrder": [
+    "gray",
+    "studio",
+    "white",
+    "dark",
+    "custom"
+  ],
+  "floorOrder": [
+    "checker",
+    "white",
+    "none"
+  ],
+  "graySkyRed": 110,
+  "graySkyGreen": 110,
+  "graySkyBlue": 110,
+  "whiteSkyRed": 240,
+  "whiteSkyGreen": 240,
+  "whiteSkyBlue": 240,
+  "darkSkyRed": 27,
+  "darkSkyGreen": 30,
+  "darkSkyBlue": 35,
+  "skyBrightnessExponent": 1.4,
+  "skyBrightnessCeiling": 1.25,
+  "defaultLightingMode": "atmosphere"
+}
