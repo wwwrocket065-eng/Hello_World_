@@ -124,7 +124,7 @@ class MainActivity : Activity() {
                 "grid" -> if (modelAssets.wireframe) 1f else 0f
                 "fps" -> if (fpsPill.visibility == View.VISIBLE) 1f else 0f
                 "fxaa" -> if(renderEnvironment.fxaaEnabled)1f else 0f
-                "qualityLevel" -> chooseLod.selectedItemPosition.toFloat()
+                "qualityLevel" -> qualitySlider.progress.toFloat()
                 "adaptivityPercent" -> modelAssets.adaptivePercent.toFloat()
                 "brightnessPercent" -> (cameraLight.brightness * 100.0).toFloat()
                 else -> throw IllegalArgumentException("Unsupported binding: $binding")
@@ -158,9 +158,17 @@ class MainActivity : Activity() {
                     }
                     "qualityLevel" -> {
                         val level=value.toInt().coerceIn(0,ModelCatalog.qualities.lastIndex)
-                        chooseLod.setSelection(level)
-                        qualityValue.text="Качество: ${ModelCatalog.qualityNames[level]}"
-                        if(qualitySlider.progress!=level)qualitySlider.progress=level
+                        // The old spinner is GONE and does not reliably
+                        // dispatch selection events. Reload the real GLB now,
+                        // with the slider as the single source of truth.
+                        val requested=ModelCatalog.qualityAt(level)
+                        val ok=modelAssets.selection.lod==requested || loadSelected()
+                        val actual=if(ok)level else ModelCatalog.indexOfQuality(modelAssets.selection.lod)
+                        if(qualitySlider.progress!=actual)qualitySlider.progress=actual
+                        chooseLod.setSelection(actual)
+                        qualityValue.text="Качество: ${ModelCatalog.qualityNames[actual]}"
+                        if(!ok)Toast.makeText(this@MainActivity,
+                            "Не удалось изменить качество сетки",Toast.LENGTH_SHORT).show()
                     }
                     "adaptivityPercent" -> {
                         val requested=value.toInt().coerceIn(0,100)
@@ -412,7 +420,6 @@ class MainActivity : Activity() {
         bottomButtonHost=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
         }
-        bottomPanel.addView(bottomButtonHost,LinearLayout.LayoutParams(-1,-2))
         // Independent quality and adaptivity controls. If both are open, quality
         // is always above adaptivity, regardless of button click order.
         qualityRow=LinearLayout(this).apply {
@@ -481,6 +488,9 @@ class MainActivity : Activity() {
         adaptiveRow.addView(adaptiveValue,LinearLayout.LayoutParams(-1,-2))
         adaptiveRow.addView(adaptiveSlider,LinearLayout.LayoutParams(-1,d(32f)))
         bottomPanel.addView(adaptiveRow,LinearLayout.LayoutParams(-1,-2))
+        // Buttons are always the LAST row; the quality slider is above
+        // adaptivity when both are expanded. No overlay over the glass.
+        bottomPanel.addView(bottomButtonHost,LinearLayout.LayoutParams(-1,-2))
         // No fixed Apply / Export / Diagnostics buttons below. All actions
         // are created by the signed declarative UI patch layout.
         dock.addView(bottomPanel)
@@ -522,19 +532,16 @@ class MainActivity : Activity() {
         // Immediately reload when a model or LOD is chosen, replacing "Применить".
         val onSelection=object: AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent:AdapterView<*>?, view:View?, position:Int, id:Long) {
-                val level=chooseLod.selectedItemPosition.coerceIn(0,ModelCatalog.qualities.lastIndex)
-                if(qualitySlider.progress!=level)qualitySlider.progress=level
-                qualityValue.text="Качество: ${ModelCatalog.qualityNames[level]}"
                 if (::viewer.isInitialized && ::updater.isInitialized &&
-                    (ModelCatalog.idAt(chooseObject.selectedItemPosition) != modelAssets.selection.modelId ||
-                    ModelCatalog.qualityAt(chooseLod.selectedItemPosition) != modelAssets.selection.lod)) {
+                    ModelCatalog.idAt(chooseObject.selectedItemPosition) != modelAssets.selection.modelId) {
                     loadSelected()
                 }
             }
             override fun onNothingSelected(parent:AdapterView<*>?) {}
         }
         chooseObject.onItemSelectedListener=onSelection
-        chooseLod.onItemSelectedListener=onSelection
+        // The quality spinner remains internal for old patches. Its callbacks
+        // must not overwrite or suppress the visible quality slider.
         // Local signed files take precedence; GitHub is optional fallback.
         if (!handleIncomingPatchIntent(intent)) checkLocalThenRemote()
 
@@ -738,7 +745,7 @@ class MainActivity : Activity() {
     ):Boolean {
         val requested=ModelSelection(
             ModelCatalog.idAt(chooseObject.selectedItemPosition),
-            ModelCatalog.qualityAt(chooseLod.selectedItemPosition))
+            ModelCatalog.qualityAt(qualitySlider.progress))
         val debug=debugOverride ?: if(modelAssets.hasLoaded) modelAssets.wireframe
             else initialWireframe
         val outcome=modelAssets.load(requested,debug,candidate)
