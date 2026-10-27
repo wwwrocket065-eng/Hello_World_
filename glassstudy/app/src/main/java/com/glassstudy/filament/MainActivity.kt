@@ -230,7 +230,7 @@ class MainActivity : Activity() {
             if (::fpsPill.isInitialized && viewer.renderedFrames % 40L == 0L) {
                 val f=profiler.metrics().fps
                 fpsPill.text=if(opticalSurface.visibility==View.VISIBLE)
-                    "${opticalSurface.sampleCount} spp · Оптика GPU"
+                    "${opticalSurface.traceWidth}px · ${opticalSurface.sampleCount} spp"
                     else "${if(f!=null) String.format(Locale.US,"%.0f",f) else "—"} FPS · Filament"
             }
             if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()
@@ -250,7 +250,7 @@ class MainActivity : Activity() {
         opticalSurface.update(GlassOpticsSurface.State(cameraLight.yaw,cameraLight.pitch,cameraLight.distance,
             cameraLight.config.fieldOfView,cameraLight.lightAz,cameraLight.lightElevation,cameraLight.brightness,
             sceneEnvironment.lightingMode,sceneEnvironment.floorMode,sceneEnvironment.module,
-            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor))
+            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled))
     }
     /**
      * All patch-defined windows, including their interactive controls, use one

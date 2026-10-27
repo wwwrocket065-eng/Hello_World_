@@ -79,7 +79,7 @@ def render(output,width=128,height=192,samples=32):
             uniform(path,'uResolution',(width,height),'v2');uniform(path,'uAspect',width/height)
             uniform(path,'uEye',(5.5*math.cos(.34)*math.sin(.56),1+5.5*math.sin(.34),5.5*math.cos(.34)*math.cos(.56)),'v3')
             uniform(path,'uTanFov',math.tan(math.radians(45)*.5))
-            uniform(path,'uDirect',.83);uniform(path,'uSky',.12);uniform(path,'uHaze',.3)
+            uniform(path,'uMaxSampleRadiance',8.);uniform(path,'uDirect',.83);uniform(path,'uSky',.12);uniform(path,'uHaze',.3)
             uniform(path,'uSunColor',(1.,.94,.87),'v3');uniform(path,'uBackdrop',(.2,.28,.38),'v3')
             for key,val in [('uFloorWidth',12.),('uTile',.6),('uDark',.006),('uLight',.96),('uWhite',.96)]:uniform(path,key,val)
             for key,val in [('uFloorMode',mode),('uFrame',frame),('uPhotonReady',1)]:uniform(path,key,val,'i')

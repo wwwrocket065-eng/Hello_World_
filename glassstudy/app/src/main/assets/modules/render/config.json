@@ -20,13 +20,16 @@
   "atmosphereExposureMaxGain": 32,
   "optics": {
     "enabled": true,
-    "width": 256,
-    "samples": 64,
+    "width": 1280,
+    "samples": 128,
     "bounces": 16,
     "photonMap": 128,
     "photonSide": 384,
     "photonExtent": 4,
     "settleMs": 350,
-    "exposure": 3
+    "exposure": 3,
+    "movingWidth": 256,
+    "pixelBudget": 131072,
+    "maxSampleRadiance": 8
   }
 }

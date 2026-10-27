@@ -22,7 +22,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         val yaw:Double,val pitch:Double,val distance:Double,val fov:Double,
         val azimuth:Double,val elevation:Double,val brightness:Double,
         val mode:LightEnvironmentMode,val floor:String,val scene:SceneModuleConfig,
-        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float
+        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean
     )
     @Volatile var failed:String?=null
         private set
@@ -74,25 +74,31 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var height=0
         private var bufferWidth=0
         private var bufferHeight=0
-        private val accum=IntArray(2)
-        private val fbos=IntArray(2)
+        private var accum=IntArray(2)
+        private var fbos=IntArray(2)
         private var photons=0
         private var photonFbo=0
         private var mapSize=0
         private var dirtyPhotons=true
         private var changeTime=0L
+        private var motionTime=0L
+        private var rowCursor=0
+        private var shownIndex=0
         private var initialized=false
         private var delayed=false
 
         fun invalidatePhotons() {
             dirtyPhotons=true;photonReady=false;sampleCount=0
-            changeTime=SystemClock.uptimeMillis()
+            changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0
         }
         fun accept(next:State) {
+            if(state?.copy(antialias=next.antialias)==next) {
+                state=next;return // Display-only FXAA must not discard converged paths.
+            }
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
                 next.scene,next.render,next.camera.lightIntensity)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
-            state=next;sampleCount=0
+            state=next;sampleCount=0;rowCursor=0;motionTime=SystemClock.uptimeMillis()
         }
         private fun source(name:String):String=context.assets.open("optics/$name")
             .bufferedReader().use { it.readText() }.replace("/*OPTICS_KERNEL*/",
@@ -135,7 +141,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             } catch(e:Exception) { fail(e) }
         }
         override fun onSurfaceChanged(gl:GL10?,w:Int,h:Int) {
-            width=w;height=h;bufferWidth=0;sampleCount=0
+            width=w;height=h;sampleCount=0;rowCursor=0;motionTime=SystemClock.uptimeMillis()
         }
         private fun f(p:Int,name:String,value:Float)=GL.glUniform1f(GL.glGetUniformLocation(p,name),value)
         private fun i(p:Int,name:String,value:Int)=GL.glUniform1i(GL.glGetUniformLocation(p,name),value)
@@ -180,13 +186,29 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RG32F,contour.size/2,1,0,GL.GL_RG,GL.GL_FLOAT,data)
                     GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
                     GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
-                    profileDirty=false;sampleCount=0
+                    profileDirty=false;sampleCount=0;rowCursor=0
                 }
-                val w=min(c.width,width)
+                val moving=SystemClock.uptimeMillis()-motionTime<c.settleMs
+                val w=min(if(moving)c.movingWidth else c.width,width)
                 val h=(w*height.toFloat()/width).roundToInt().coerceAtLeast(1)
                 if(bufferWidth!=w || bufferHeight!=h) {
-                    for(j in 0..1)allocate(accum[j],fbos[j],w,h)
-                    bufferWidth=w;bufferHeight=h;sampleCount=0;traceWidth=w;traceHeight=h
+                    val oldTextures=accum;val oldFbos=fbos
+                    val oldWidth=bufferWidth;val oldHeight=bufferHeight
+                    accum=IntArray(2);fbos=IntArray(2)
+                    GL.glGenTextures(2,accum,0);GL.glGenFramebuffers(2,fbos,0)
+                    for(j in 0..1) {
+                        allocate(accum[j],fbos[j],w,h)
+                        if(oldWidth>0 && oldHeight>0) {
+                            // Seed the high-resolution buffers with the live preview;
+                            // unfinished tiles must not turn into black stripes.
+                            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER,oldFbos[shownIndex])
+                            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER,fbos[j])
+                            GL.glBlitFramebuffer(0,0,oldWidth,oldHeight,0,0,w,h,
+                                GL.GL_COLOR_BUFFER_BIT,GL.GL_LINEAR)
+                        }
+                    }
+                    GL.glDeleteTextures(2,oldTextures,0);GL.glDeleteFramebuffers(2,oldFbos,0)
+                    bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h
                 }
                 if(mapSize!=c.photonMap) {
                     allocate(photons,photonFbo,c.photonMap,c.photonMap)
@@ -205,10 +227,11 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         GL.glDisable(GL.GL_BLEND)
                         photonReady=true
                     }
-                    dirtyPhotons=false;sampleCount=0
+                    dirtyPhotons=false;sampleCount=0;rowCursor=0
                 }
                 if(sampleCount<c.samples) {
                     val p=pathProgram
+                    val rows=min(h-rowCursor,max(1,c.pixelBudget/w))
                     GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2]);GL.glViewport(0,0,w,h)
                     GL.glUseProgram(p);common(p,s)
                     texture(accum[1-sampleCount%2],1,p,"uPrevious");texture(photons,2,p,"uPhotons")
@@ -223,6 +246,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     val sky=LightingResponseCurve.intensity(s.brightness,s.render.globalBrightnessExponent.toDouble())*
                         PhysicalAtmosphereModel.skyIlluminance(s.mode,s.elevation,s.render.atmosphereSkyIlluminance.toDouble(),
                             s.render.atmosphereHorizonFraction.toDouble())/100000.0
+                    f(p,"uMaxSampleRadiance",c.maxSampleRadiance)
                     f(p,"uDirect",direct.toFloat());f(p,"uSky",sky.toFloat());f(p,"uHaze",s.render.atmosphereHaze)
                     val tint=PhysicalAtmosphereModel.sunlightRgb(s.mode,s.elevation,s.render.atmosphereExtinction.toDouble())
                     v(p,"uSunColor",tint[0],tint[1],tint[2])
@@ -233,19 +257,24 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     f(p,"uWhite",s.scene.whiteLevel.toFloat())
                     i(p,"uFloorMode",when(s.floor) { "checker"->1;"white"->2;else->0 })
                     i(p,"uPhotonReady",if(photonReady)1 else 0);i(p,"uFrame",sampleCount)
-                    GL.glDrawArrays(GL.GL_TRIANGLES,0,3);sampleCount++
+                    GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(0,rowCursor,w,rows)
+                    GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                    GL.glDisable(GL.GL_SCISSOR_TEST)
+                    shownIndex=sampleCount%2;rowCursor+=rows
+                    if(rowCursor>=h) { sampleCount++;rowCursor=0 }
                 }
                 GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
                 GL.glUseProgram(displayProgram)
-                texture(accum[(sampleCount-1).coerceAtLeast(0)%2],0,displayProgram,"uImage")
+                texture(accum[shownIndex],0,displayProgram,"uImage")
                 GL.glUniform2f(GL.glGetUniformLocation(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
                 f(displayProgram,"uExposure",c.exposure)
+                i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
                 GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
                 val error=GL.glGetError();check(error==GL.GL_NO_ERROR) { "GL error 0x${error.toString(16)}" }
                 if(sampleCount<c.samples)requestRender()
-                else if(dirtyPhotons && !delayed) {
+                else if((dirtyPhotons || moving) && !delayed) {
                     delayed=true
-                    postDelayed({ queueEvent { delayed=false };requestRender() },(c.settleMs-elapsed).coerceAtLeast(1))
+                    postDelayed({ queueEvent { delayed=false };requestRender() },(c.settleMs-min(elapsed,SystemClock.uptimeMillis()-motionTime)).coerceAtLeast(1))
                 }
             } catch(e:Exception) { fail(e) }
         }

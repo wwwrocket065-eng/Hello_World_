@@ -6,7 +6,7 @@ uniform sampler2D uPrevious,uPhotons;
 uniform vec2 uResolution;
 uniform vec3 uEye,uSun,uSunColor,uBackdrop;
 uniform float uTanFov,uAspect,uDirect,uSky,uHaze,uExposure;
-uniform float uFloorWidth,uTile,uDark,uLight,uWhite,uPhotonExtent;
+uniform float uFloorWidth,uTile,uDark,uLight,uWhite,uPhotonExtent,uMaxSampleRadiance;
 uniform int uFloorMode,uFrame,uBounces,uPhotonReady;
 out vec4 color;
 uint rng;
@@ -15,7 +15,8 @@ float randomValue() {
     return float(rng)*(1.0/4294967296.0);
 }
 vec3 sky(vec3 d) {
-    // Beyond the finite platform, use the same visible sun-dependent backdrop.
+    // The finite platform ends at the visible backdrop. A transmitted ray
+    // must not reveal an invented black hemisphere behind that backdrop.
     if(d.y<0.0)return uBackdrop;
     float horizon=1.0-clamp(d.y,0.0,1.0);
     float cs=clamp(dot(d,uSun),-1.0,1.0);
@@ -69,6 +70,11 @@ void main() {
         d=randomValue()<f ? r : tr;
         o=hit+d*EPS*4.0;
     }
+    // Limit rare solar-path outliers before accumulation. This is a bounded,
+    // deliberately biased firefly filter, not a blur of the floor or glass.
+    if(any(isnan(result)) || any(isinf(result)))result=vec3(0);
+    float peak=max(result.r,max(result.g,result.b));
+    if(peak>uMaxSampleRadiance)result*=uMaxSampleRadiance/peak;
     vec3 previous=uFrame==0 ? vec3(0) : texelFetch(uPrevious,ivec2(gl_FragCoord.xy),0).rgb;
     color=vec4((previous*float(uFrame)+result)/float(uFrame+1),1);
 }
