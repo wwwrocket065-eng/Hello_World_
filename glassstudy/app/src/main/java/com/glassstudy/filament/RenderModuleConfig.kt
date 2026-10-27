@@ -22,8 +22,8 @@ data class RenderModuleConfig(
     val atmosphereExposureReferenceLux:Float=50000f,
     val atmosphereExposureMaxGain:Float=32f,
     val reflectionsEnabled:Boolean=true,
-    val reflectionMapSize:Int=32,
-    val reflectionSamples:Int=8,
+    val reflectionMapSize:Int=64,
+    val reflectionSamples:Int=16,
     val reflectionUpdateDegrees:Float=10f
 ) {
     companion object {
@@ -61,8 +61,8 @@ data class RenderModuleConfig(
                 atmosphereExposureReferenceLux = number("atmosphereExposureReferenceLux",50000f,1000f,250000f),
                 atmosphereExposureMaxGain = number("atmosphereExposureMaxGain",32f,1f,64f),
                 reflectionsEnabled = json.optBoolean("reflectionsEnabled",true),
-                reflectionMapSize = integer("reflectionMapSize",32,setOf(16,32,64,128)),
-                reflectionSamples = integer("reflectionSamples",8,setOf(4,8,16,32,64)),
+                reflectionMapSize = integer("reflectionMapSize",64,setOf(16,32,64,128)),
+                reflectionSamples = integer("reflectionSamples",16,setOf(4,8,16,32,64)),
                 reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)
             )
         }
