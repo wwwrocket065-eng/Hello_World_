@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.73' in props and 'GLASSSTUDY_VERSION_CODE=20073' in props
+assert 'GLASSSTUDY_VERSION=0.2.74' in props and 'GLASSSTUDY_VERSION_CODE=20074' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -1019,3 +1019,17 @@ assert 'renderEnvironment.configureNoonSunLux(bundle.camera.lightIntensity)' in 
 assert 'configuration.exposureShutter,iso' in render_env
 assert 'PhysicalExposureModel.sensitivity(' in report_src
 assert (root/'tools/PhysicalExposureRegression.kt').is_file()
+
+# 0.2.74 single physical sky: Filament-native specular prefiltered cubemap.
+assert 'builder.reflections(cubemap)' in render_env
+assert 'cubemap.generatePrefilterMipmap(engine,' in render_env
+assert 'PhysicalAtmosphereModel.skyRadiance(' in render_env
+assert 'Texture.InternalFormat.RGB16F' in render_env
+assert 'reflectionMap?.let { viewer.engine.destroyTexture(it) }' in render_env
+assert 'globalBrightness>0.0' in render_env
+assert 'skyLight?.intensity=(illuminance*brightness).toFloat()' in render_env
+render_params=(root/'app/src/main/java/com/glassstudy/filament/RenderModuleConfig.kt').read_text()
+assert 'reflectionMapSize = integer("reflectionMapSize",32,setOf(16,32,64,128))' in render_params
+assert 'reflectionSamples = integer("reflectionSamples",8,setOf(4,8,16,32,64))' in render_params
+assert 'reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)' in render_params
+assert 'reflectionsEnabled = json.optBoolean("reflectionsEnabled",true)' in render_params

@@ -20,7 +20,11 @@ data class RenderModuleConfig(
     val atmosphereHorizonFraction:Float=.08f,
     val atmosphereShUpdateDegrees:Float=3f,
     val atmosphereExposureReferenceLux:Float=50000f,
-    val atmosphereExposureMaxGain:Float=32f
+    val atmosphereExposureMaxGain:Float=32f,
+    val reflectionsEnabled:Boolean=true,
+    val reflectionMapSize:Int=32,
+    val reflectionSamples:Int=8,
+    val reflectionUpdateDegrees:Float=10f
 ) {
     companion object {
         fun parse(json: JSONObject?): RenderModuleConfig {
@@ -30,6 +34,13 @@ data class RenderModuleConfig(
                 val n = json.getDouble(name)
                 require(n.isFinite() && n >= min && n <= max) { "Invalid render setting $name" }
                 return n.toFloat()
+            }
+            fun integer(name:String, fallback:Int, allowed:Set<Int>):Int {
+                if(!json.has(name))return fallback
+                val n=json.getDouble(name)
+                require(n.isFinite() && n%1.0==0.0 && n in Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble() &&
+                    n.toInt() in allowed) { "Invalid render setting $name" }
+                return n.toInt()
             }
             return RenderModuleConfig(
                 skyRed = number("skyRed", 0.43f, 0f, 1f),
@@ -48,7 +59,11 @@ data class RenderModuleConfig(
                 atmosphereHorizonFraction = number("atmosphereHorizonFraction",.08f,0f,.30f),
                 atmosphereShUpdateDegrees = number("atmosphereShUpdateDegrees",3f,.5f,12f),
                 atmosphereExposureReferenceLux = number("atmosphereExposureReferenceLux",50000f,1000f,250000f),
-                atmosphereExposureMaxGain = number("atmosphereExposureMaxGain",32f,1f,64f)
+                atmosphereExposureMaxGain = number("atmosphereExposureMaxGain",32f,1f,64f),
+                reflectionsEnabled = json.optBoolean("reflectionsEnabled",true),
+                reflectionMapSize = integer("reflectionMapSize",32,setOf(16,32,64,128)),
+                reflectionSamples = integer("reflectionSamples",8,setOf(4,8,16,32,64)),
+                reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)
             )
         }
     }

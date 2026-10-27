@@ -3,7 +3,11 @@ package com.glassstudy.filament
 import android.content.Context
 import android.util.Log
 import com.google.android.filament.IndirectLight
+import com.google.android.filament.Texture
 import com.google.android.filament.View
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.math.sqrt
 import com.google.android.filament.utils.GlassStudyModelViewer
 import kotlin.math.abs
 
@@ -11,12 +15,11 @@ import kotlin.math.abs
  * Owner of physically interpretable outdoor / space lighting.
  *
  * VACUUM: absolutely no environment lighting (Scene.indirectLight=null).
- * ATMOSPHERE: analytic Rayleigh+Mie-inspired clear sky projected into
- * 3-band SH via Filament IndirectLight.Builder.radiance(3, ...).
- * NO studio_ibl.ktx and NO constant fabricated ambient term.
- *
- * Caveat: SH models diffuse sky irradiance, NOT full prefiltered specular
- * sky reflection nor path-traced caustics; those need a dedicated renderer.
+ * ATMOSPHERE: a single analytic Rayleigh/Mie-inspired sky is used for both
+ * diffuse spherical harmonics and a physically directional specular cubemap.
+ * Filament prefilters the cubemap for the existing PBR glass material.
+ * VACUUM has neither diffuse nor specular environment. No studio HDRI/fill.
+ * No screen-space refraction, multibounce light or caustics are claimed.
  */
 class RenderEnvironmentController(
     private val context:Context,
@@ -60,8 +63,12 @@ class RenderEnvironmentController(
         private set
 
     private var skyLight:IndirectLight?=null
+    private var reflectionMap:Texture?=null
+    private var reflectionsDisabledForSession=false
     private var previousShElevation=Double.NaN
     private var previousShAzimuth=Double.NaN
+    private var previousReflectionElevation=Double.NaN
+    private var previousReflectionAzimuth=Double.NaN
 
     /** Cached mode controls both physical light model and actual IBL. */
     fun setLightingEnvironment(mode:LightEnvironmentMode,brightness:Double,
@@ -109,41 +116,126 @@ class RenderEnvironmentController(
         PhysicalAtmosphereModel.sunlightRgb(lightingMode,elevation,
             configuration.atmosphereExtinction.toDouble())
 
+    /**
+     * Create Filament's native prefiltered reflection cubemap. The same sky
+     * radiance function and LightDirectionMath sun vector drive both specular
+     * reflections and diffuse SH; no extra lighting pipeline or static HDRI.
+     * Rebuilt only on signed angular thresholds, NOT per frame/touch sample.
+     */
+    private fun createSkyReflectionMap():Texture {
+        val engine=viewer.engine
+        val size=configuration.reflectionMapSize
+        check(Texture.isTextureFormatSupported(engine,Texture.InternalFormat.RGB16F)) {
+            "RGB16F cubemap not supported by graphics driver"
+        }
+        val bytesPerFace=size*size*3*Float.SIZE_BYTES
+        val rgb=ByteBuffer.allocateDirect(bytesPerFace*6).order(ByteOrder.nativeOrder())
+        val sun=LightDirectionMath.source(sunAzimuth,sunElevation)
+        val haze=configuration.atmosphereHaze.toDouble()
+        for(face in 0 until 6)for(row in 0 until size)for(col in 0 until size) {
+            val u=2.0*(col+0.5)/size-1.0
+            val v=2.0*(row+0.5)/size-1.0
+            // Conventional cubemap faces: +X,-X,+Y,-Y,+Z,-Z.
+            val vector=when(face) {
+                0 -> doubleArrayOf(1.0,-v,-u)
+                1 -> doubleArrayOf(-1.0,-v,u)
+                2 -> doubleArrayOf(u,1.0,v)
+                3 -> doubleArrayOf(u,-1.0,-v)
+                4 -> doubleArrayOf(u,-v,1.0)
+                else -> doubleArrayOf(-u,-v,-1.0)
+            }
+            val length=sqrt(vector[0]*vector[0]+vector[1]*vector[1]+vector[2]*vector[2])
+            val colors=PhysicalAtmosphereModel.skyRadiance(
+                vector[0]/length,vector[1]/length,vector[2]/length,
+                sun.x.toDouble(),sun.y.toDouble(),sun.z.toDouble(),haze)
+            for(color in colors)rgb.putFloat(color.toFloat())
+        }
+        rgb.flip()
+        val cubemap=Texture.Builder().width(size).height(size)
+            .levels(Integer.numberOfTrailingZeros(size)+1)
+            .sampler(Texture.Sampler.SAMPLER_CUBEMAP)
+            .format(Texture.InternalFormat.RGB16F).build(engine)
+        try {
+            val offsets=IntArray(6) { it*bytesPerFace }
+            val options=Texture.PrefilterOptions().apply {
+                sampleCount=configuration.reflectionSamples
+                mirror=true
+            }
+            cubemap.generatePrefilterMipmap(engine,
+                Texture.PixelBufferDescriptor(rgb,Texture.Format.RGB,Texture.Type.FLOAT),
+                offsets,options)
+            return cubemap
+        } catch(error:Exception) {
+            engine.destroyTexture(cubemap)
+            throw error
+        }
+    }
+
+    private fun angleDelta(a:Double,b:Double):Double {
+        if(!b.isFinite())return Double.POSITIVE_INFINITY
+        return abs(((a-b+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI)
+    }
+
     private fun updateAtmosphere() {
-        // Change camera sensitivity only; do not inject any fake light.
         updateExposure()
         if(lightingMode==LightEnvironmentMode.VACUUM) {
-            if(skyLight!=null) {
-                viewer.scene.indirectLight=null
-                skyLight?.let { viewer.engine.destroyIndirectLight(it) }
-                skyLight=null
-            }
+            viewer.scene.indirectLight=null
+            skyLight?.let { viewer.engine.destroyIndirectLight(it) }
+            skyLight=null
+            reflectionMap?.let { viewer.engine.destroyTexture(it) }
+            reflectionMap=null
+            previousReflectionElevation=Double.NaN
+            previousReflectionAzimuth=Double.NaN
             return
         }
-        // Changing direct brightness only needs one lightweight setIntensity.
-        // Sky direction is discretized a few degrees to avoid allocating an
-        // IndirectLight + 3-band coefficients on every 60/120fps touch event.
-        val threshold=Math.toRadians(configuration.atmosphereShUpdateDegrees.toDouble())
-        val angularDelta=if(previousShAzimuth.isFinite())
-            abs(((sunAzimuth-previousShAzimuth+Math.PI)%(2*Math.PI)+
-                2*Math.PI)%(2*Math.PI)-Math.PI) else Double.POSITIVE_INFINITY
-        if(skyLight==null || abs(sunElevation-previousShElevation)>threshold ||
-            angularDelta>threshold*2.0) {
+        val shThreshold=Math.toRadians(configuration.atmosphereShUpdateDegrees.toDouble())
+        val reflectionThreshold=Math.toRadians(configuration.reflectionUpdateDegrees.toDouble())
+        val needReflection=configuration.reflectionsEnabled && !reflectionsDisabledForSession &&
+            globalBrightness>0.0 &&
+            (reflectionMap==null ||
+                abs(sunElevation-previousReflectionElevation)>reflectionThreshold ||
+                angleDelta(sunAzimuth,previousReflectionAzimuth)>reflectionThreshold)
+        val rebuild=skyLight==null ||
+            abs(sunElevation-previousShElevation)>shThreshold ||
+            angleDelta(sunAzimuth,previousShAzimuth)>shThreshold*2.0 ||
+            needReflection || (!configuration.reflectionsEnabled && reflectionMap!=null)
+        if(rebuild) {
+            var replacementMap:Texture?=null
+            if(needReflection) {
+                try {
+                    replacementMap=createSkyReflectionMap()
+                } catch(error:Exception) {
+                    // Keep existing map, or render sky SH alone if the GPU rejects RGB16F.
+                    Log.w("GlassStudy","Filament reflection map unavailable; keeping diffuse sky",error)
+                    reflectionsDisabledForSession=true
+                }
+            }
             try {
                 val sh=PhysicalAtmosphereModel.skyRadianceSh(
                     sunElevation,sunAzimuth,configuration.atmosphereHaze.toDouble())
-                val next=IndirectLight.Builder().radiance(3,sh)
-                    .intensity(0f).build(viewer.engine)
+                val cubemap=if(configuration.reflectionsEnabled)
+                    replacementMap ?: reflectionMap else null
+                val builder=IndirectLight.Builder().radiance(3,sh)
+                if(cubemap!=null)builder.reflections(cubemap)
+                val next=builder.intensity(0f).build(viewer.engine)
                 viewer.scene.indirectLight=next
                 skyLight?.let { viewer.engine.destroyIndirectLight(it) }
                 skyLight=next
+                if(replacementMap!=null) {
+                    reflectionMap?.let { viewer.engine.destroyTexture(it) }
+                    reflectionMap=replacementMap
+                    replacementMap=null
+                    previousReflectionElevation=sunElevation
+                    previousReflectionAzimuth=sunAzimuth
+                } else if(!configuration.reflectionsEnabled) {
+                    reflectionMap?.let { viewer.engine.destroyTexture(it) }
+                    reflectionMap=null
+                }
                 previousShElevation=sunElevation
                 previousShAzimuth=sunAzimuth
-            } catch(e:Exception) {
-                Log.e("GlassStudy","Analytic atmosphere SH rejected",e)
-                viewer.scene.indirectLight=null
-                skyLight?.let { viewer.engine.destroyIndirectLight(it) }
-                skyLight=null
+            } catch(error:Exception) {
+                Log.e("GlassStudy","Sky IBL update failed; preserving last working light",error)
+                replacementMap?.let { viewer.engine.destroyTexture(it) }
             }
         }
         val illuminance=PhysicalAtmosphereModel.skyIlluminance(
@@ -152,6 +244,8 @@ class RenderEnvironmentController(
             configuration.atmosphereHorizonFraction.toDouble())
         val brightness=LightingResponseCurve.intensity(globalBrightness,
             configuration.globalBrightnessExponent.toDouble())
+        // One intensity scales BOTH the diffuse sky and the specular cubemap.
+        // At exactly 0% there is neither indirect diffuse nor reflected light.
         skyLight?.intensity=(illuminance*brightness).toFloat()
     }
 
@@ -164,10 +258,20 @@ class RenderEnvironmentController(
     fun apply(next:RenderModuleConfig) {
         val newAtmosphere=next.atmosphereHaze!=configuration.atmosphereHaze ||
             next.atmosphereShUpdateDegrees!=configuration.atmosphereShUpdateDegrees
+        val newReflections=newAtmosphere ||
+            next.reflectionsEnabled!=configuration.reflectionsEnabled ||
+            next.reflectionMapSize!=configuration.reflectionMapSize ||
+            next.reflectionSamples!=configuration.reflectionSamples ||
+            next.reflectionUpdateDegrees!=configuration.reflectionUpdateDegrees
         configuration=next
-        if(newAtmosphere) {
+        if(newAtmosphere || newReflections) {
             previousShElevation=Double.NaN
             previousShAzimuth=Double.NaN
+        }
+        if(newReflections) {
+            previousReflectionElevation=Double.NaN
+            previousReflectionAzimuth=Double.NaN
+            reflectionsDisabledForSession=false
         }
         viewer.view.ambientOcclusionOptions=viewer.view.ambientOcclusionOptions.apply {
             enabled=next.ambientOcclusionEnabled
@@ -181,5 +285,7 @@ class RenderEnvironmentController(
         viewer.scene.indirectLight=null
         skyLight?.let { viewer.engine.destroyIndirectLight(it) }
         skyLight=null
+        reflectionMap?.let { viewer.engine.destroyTexture(it) }
+        reflectionMap=null
     }
 }
