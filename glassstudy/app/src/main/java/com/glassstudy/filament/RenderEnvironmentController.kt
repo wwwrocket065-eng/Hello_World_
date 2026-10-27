@@ -40,8 +40,17 @@ class RenderEnvironmentController(
     }
 
     private fun applyAntiAliasing() {
-        viewer.view.antiAliasing=if(fxaaEnabled && !wireframeMode)View.AntiAliasing.FXAA
+        // FXAA alone has very little visible effect on transparent glass.
+        // Use 4x MSAA for the shaded render as well; neither option changes
+        // normals, mesh density or specular response.
+        val shadedAA=fxaaEnabled && !wireframeMode
+        viewer.view.antiAliasing=if(shadedAA)View.AntiAliasing.FXAA
             else View.AntiAliasing.NONE
+        viewer.view.multiSampleAntiAliasingOptions=
+            View.MultiSampleAntiAliasingOptions().apply {
+                enabled=shadedAA
+                sampleCount=4
+            }
     }
     private var globalBrightness=1.0
     private var sunElevation=.9
