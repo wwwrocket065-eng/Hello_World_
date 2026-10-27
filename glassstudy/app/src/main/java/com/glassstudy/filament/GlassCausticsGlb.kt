@@ -35,7 +35,7 @@ object GlassCausticsGlb {
             val delta=if(count>0)(flux/count-1.0)*factor else 0.0
             val dark=delta<0.0
             val alpha=if(dark) min(.78,-delta*.82)
-                else min(.74,log1p(delta.coerceAtLeast(0.0))*.59)
+                else min(.74,ln(1.0+delta.coerceAtLeast(0.0))*.59)
             val color=if(dark).025f else 1f
             colors[idx*4]=color; colors[idx*4+1]=color
             colors[idx*4+2]=color;colors[idx*4+3]=alpha.toFloat()
