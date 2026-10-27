@@ -171,6 +171,54 @@ def smoothing_toggle(vertex,fragment):
     print('PASS actual FXAA off/on/off readback: edges change, flat fields unchanged, off restores input')
 
 
+def resize_and_tiles(vertex):
+    """Check the half-float preview blit and partial-tile preservation on GL."""
+    ids=(C.c_uint*2)();fbos=(C.c_uint*2)()
+    proc('glGenTextures',None,C.c_int,C.POINTER(C.c_uint))(2,ids)
+    proc('glGenFramebuffers',None,C.c_int,C.POINTER(C.c_uint))(2,fbos)
+    bind=proc('glBindFramebuffer',None,C.c_uint,C.c_uint)
+    viewport=proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)
+    for j,size in enumerate([4,8]):
+        proc('glBindTexture',None,C.c_uint,C.c_uint)(0x0DE1,ids[j])
+        proc('glTexImage2D',None,C.c_uint,C.c_int,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0x0DE1,0,0x881A,size,size,0,0x1908,0x1406,None)
+        for key in [0x2801,0x2800]:proc('glTexParameteri',None,C.c_uint,C.c_uint,C.c_int)(0x0DE1,key,0x2601)
+        bind(0x8D40,fbos[j])
+        proc('glFramebufferTexture2D',None,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.c_int)(0x8D40,0x8CE0,0x0DE1,ids[j],0)
+        assert proc('glCheckFramebufferStatus',C.c_uint,C.c_uint)(0x8D40)==0x8CD5
+    frag='''#version 300 es
+precision highp float;
+uniform int phase;
+out vec4 color;
+void main() { color=phase==0 ? vec4(4,2,1,1) : vec4(.25*gl_FragCoord.xy,2,1); }
+'''
+    p=compile_program(vertex,frag);proc('glUseProgram',None,C.c_uint)(p)
+    loc=proc('glGetUniformLocation',C.c_int,C.c_uint,C.c_char_p)(p,b'phase')
+    uniform=proc('glUniform1i',None,C.c_int,C.c_int)
+    draw=proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)
+    uniform(loc,0);bind(0x8D40,fbos[0]);viewport(0,0,4,4);draw(4,0,3)
+    bind(0x8CA8,fbos[0]);bind(0x8CA9,fbos[1])
+    proc('glBlitFramebuffer',None,*([C.c_int]*8),C.c_uint,C.c_uint)(0,0,4,4,0,0,8,8,0x4000,0x2601)
+    bind(0x8D40,fbos[1]);viewport(0,0,8,8)
+    read=proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)
+    seeded=(C.c_float*256)();read(0,0,8,8,0x1908,0x1406,seeded)
+    assert all(abs(seeded[k]-[4,2,1,1][k%4])<1e-5 for k in range(256)),'HDR seed lost/clamped'
+    uniform(loc,1);proc('glEnable',None,C.c_uint)(0x0C11)
+    scissor=proc('glScissor',None,C.c_int,C.c_int,C.c_int,C.c_int)
+    scissor(0,0,8,3);draw(4,0,3)
+    partial=(C.c_float*256)();read(0,0,8,8,0x1908,0x1406,partial)
+    assert partial[(0*8+0)*4+2]==2 and partial[(7*8+0)*4+2]==1,'Unfinished tiles not preserved'
+    for row in [3,6]:scissor(0,row,8,min(3,8-row));draw(4,0,3)
+    proc('glDisable',None,C.c_uint)(0x0C11)
+    final=(C.c_float*256)();read(0,0,8,8,0x1908,0x1406,final)
+    for y in range(8):
+        for x in range(8):
+            k=(y*8+x)*4
+            assert abs(final[k]-.25*(x+.5))<1e-5 and abs(final[k+1]-.25*(y+.5))<1e-5
+            assert final[k+2]==2
+    assert proc('glGetError',C.c_uint)()==0
+    print('PASS RGBA16F resize preserves HDR; partial tiles preserve preview and cover every row')
+
+
 def main():
     context()
     root=Path(__file__).parents[1]/'app/src/main/assets/optics'
@@ -182,6 +230,7 @@ def main():
         print(f'PASS ES3 compile+link: {v} / {f}')
     numerical_kernel(source('quad.vert'),kernel)
     smoothing_toggle(source('quad.vert'),source('display.frag'))
+    resize_and_tiles(source('quad.vert'))
     print('PASS exact Android shaders; device driver/runtime still unverified')
 
 
