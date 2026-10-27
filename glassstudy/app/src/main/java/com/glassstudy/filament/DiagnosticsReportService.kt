@@ -130,8 +130,8 @@ class DiagnosticsReportService(
                         appendLine("IBL: ${state.reflectionDetails}")
                         appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
                         appendLine("Экспозиция камеры: ISO ${num(effectiveIso.toDouble())} · адаптация ${if(state.lightingMode==LightEnvironmentMode.ATMOSPHERE) "по небу и солнцу" else "отключена"}")
-                        appendLine("Студийные HDRI: отключены · каустики: не реализованы")
-                        appendLine("Тени преломляющего стекла: непрозрачное затенение отключено; каустики отсутствуют")
+                        appendLine("Студийные HDRI: отключены · каустики: отдельная быстрая аппроксимация")
+                        appendLine("Тени стекла: сплошная чёрная отключена; световой рисунок на полу приближённый")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                     }
                     "camera" -> {

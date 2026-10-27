@@ -237,9 +237,7 @@ object ParametricGoblet {
         val extensions=if(grid) JSONObject().put("KHR_materials_unlit",JSONObject()) else
             JSONObject().put("KHR_materials_transmission",JSONObject().put("transmissionFactor",1.0))
                 .put("KHR_materials_ior",JSONObject().put("ior",1.52))
-                .put("KHR_materials_volume",JSONObject().put("thicknessFactor",.05)
-                    .put("attenuationDistance",12.0).put("attenuationColor",array(.985,.995,1.0)))
-        val material=JSONObject().put("name",if(grid)"Black mesh without fill" else "Physical glass")
+        val material=JSONObject().put("name",if(grid)"Black mesh without fill" else "Physical thin-shell glass")
             .put("doubleSided",true)
             .put("pbrMetallicRoughness",JSONObject()
                 .put("baseColorFactor",if(grid)array(0,0,0,1) else array(.99,1,1,1))
@@ -248,7 +246,7 @@ object ParametricGoblet {
         val gltf=JSONObject()
             .put("asset",JSONObject().put("version","2.0").put("generator","GlassStudy adaptive single goblet"))
             .put("extensionsUsed",if(grid)array("KHR_materials_unlit") else
-                array("KHR_materials_transmission","KHR_materials_ior","KHR_materials_volume"))
+                array("KHR_materials_transmission","KHR_materials_ior"))
             .put("scene",0).put("scenes",array(JSONObject().put("nodes",array(0))))
             .put("nodes",array(JSONObject().put("mesh",0)))
             .put("meshes",array(JSONObject().put("name","Goblet").put("primitives",

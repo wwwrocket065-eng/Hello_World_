@@ -317,7 +317,7 @@ class MainActivity : Activity() {
             {factor,elevation,azimuth ->
                 renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,
                     factor,elevation,azimuth)
-                sceneEnvironment.setLightState(factor,elevation)
+                sceneEnvironment.setLightState(factor,elevation,azimuth)
             },
             {elevation -> renderEnvironment.directTransmission(elevation)},
             {elevation -> renderEnvironment.directColor(elevation)})

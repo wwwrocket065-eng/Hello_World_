@@ -66,6 +66,30 @@ class GlassStudyModelViewer(
 ) : android.view.View.OnTouchListener {
     private var floorAsset: FilamentAsset? = null
     private val floorResourceLoader = ResourceLoader(engine, true)
+    private var causticAsset: FilamentAsset? = null
+    private val causticResourceLoader = ResourceLoader(engine, true)
+
+    /** Independent, non-shadow-casting receiver overlay; floor/model untouched. */
+    fun setCausticGlb(buffer: Buffer?) {
+        causticResourceLoader.asyncCancelLoad()
+        causticResourceLoader.evictResourceData()
+        causticAsset?.let { scene.removeEntities(it.entities); assetLoader.destroyAsset(it) }
+        causticAsset = null
+        if(buffer!=null) {
+            val next=assetLoader.createAsset(buffer)
+                ?: throw IllegalArgumentException("Could not create projected glass-light GLB")
+            causticAsset=next
+            for(entity in next.entities) {
+                val instance=engine.renderableManager.getInstance(entity)
+                if(instance!=0) {
+                    engine.renderableManager.setCastShadows(instance,false)
+                    engine.renderableManager.setReceiveShadows(instance,false)
+                }
+            }
+            causticResourceLoader.asyncBeginLoad(next)
+            next.releaseSourceData()
+        }
+    }
 
     fun setFloorGlb(buffer: Buffer?) {
         floorResourceLoader.asyncCancelLoad()
@@ -311,10 +335,12 @@ class GlassStudyModelViewer(
         // Allow the resource loader to finalize textures that have become ready.
         resourceLoader.asyncUpdateLoad()
         floorResourceLoader.asyncUpdateLoad()
+        causticResourceLoader.asyncUpdateLoad()
 
         // Add renderable entities to the scene as they become ready.
         asset?.let { populateScene(it) }
         floorAsset?.let { populateScene(it) }
+        causticAsset?.let { populateScene(it, contactShadows = false) }
 
         // DO NOT overwrite the camera configured by MainActivity.updateCamera().
         // The upstream Filament v1.57.1 ModelViewer always creates a fallback
@@ -331,14 +357,14 @@ class GlassStudyModelViewer(
         }
     }
 
-    private fun populateScene(asset: FilamentAsset) {
+    private fun populateScene(asset: FilamentAsset, contactShadows: Boolean = true) {
         val rcm = engine.renderableManager
         var count = 0
         val popRenderables = { count = asset.popRenderables(readyRenderables); count != 0 }
         while (popRenderables()) {
             for (i in 0 until count) {
                 val ri = rcm.getInstance(readyRenderables[i])
-                rcm.setScreenSpaceContactShadows(ri, true)
+                rcm.setScreenSpaceContactShadows(ri, contactShadows)
             }
             scene.addEntities(readyRenderables.take(count).toIntArray())
         }
@@ -353,11 +379,13 @@ class GlassStudyModelViewer(
 
                 destroyModel()
                 setFloorGlb(null)
+                setCausticGlb(null)
                 assetLoader.destroy()
                 materialProvider.destroyMaterials()
                 materialProvider.destroy()
                 resourceLoader.destroy()
                 floorResourceLoader.destroy()
+                causticResourceLoader.destroy()
 
                 engine.destroyEntity(light)
                 engine.destroyRenderer(renderer)
