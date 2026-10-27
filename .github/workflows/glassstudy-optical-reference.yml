@@ -1,0 +1,27 @@
+name: GlassStudy offline optical reference
+on:
+  push:
+    branches: [glassstudy-real-glass-20261027]
+    paths:
+      - 'glassstudy/tools/glass_optical_reference.py'
+      - 'glassstudy/tools/test_glass_optical_reference.py'
+      - '.github/workflows/glassstudy-optical-reference.yml'
+  pull_request:
+    paths:
+      - 'glassstudy/tools/glass_optical_reference.py'
+      - 'glassstudy/tools/test_glass_optical_reference.py'
+      - '.github/workflows/glassstudy-optical-reference.yml'
+permissions:
+  contents: read
+jobs:
+  numerical-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install offline reference dependencies (not APK dependencies)
+        run: python -m pip install numpy scipy Pillow
+      - name: Verify dielectric physics and receiver energy budget
+        run: python -m unittest discover -s glassstudy/tools -p test_glass_optical_reference.py -v
