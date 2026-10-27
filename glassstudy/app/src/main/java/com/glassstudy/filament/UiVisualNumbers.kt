@@ -12,8 +12,7 @@ data class UiVisualNumbers(
     val selectorClosedPaddingStartDp:Float=12f,
     val selectorClosedPaddingEndDp:Float=7f,
     val selectorOpenPaddingHorizontalDp:Float=15f,
-    val selectorOpenPaddingVerticalDp:Float=10f,
-    val iconButtonCornerDp:Float=7f
+    val selectorOpenPaddingVerticalDp:Float=10f
 ) {
     companion object {
         fun parse(json:JSONObject?):UiVisualNumbers {
@@ -32,6 +31,10 @@ data class UiVisualNumbers(
                 }
                 return value.toFloat()
             }
+            // Validate but ignore the 0.2.71-only corner override from an
+            // existing signed layout: it must not change the legacy profile.
+            // The single buttonCornerDp field controls EVERY toolbar button.
+            if(json.has("iconButtonCornerDp")) n("iconButtonCornerDp",7.0,0.0,18.0)
             return UiVisualNumbers(
                 n("buttonCornerDp",14.0,0.0,32.0),
                 n("buttonElevationDp",2.0,0.0,12.0),
@@ -41,8 +44,7 @@ data class UiVisualNumbers(
                 n("selectorClosedPaddingStartDp",12.0,0.0,24.0),
                 n("selectorClosedPaddingEndDp",7.0,0.0,24.0),
                 n("selectorOpenPaddingHorizontalDp",15.0,0.0,28.0),
-                n("selectorOpenPaddingVerticalDp",10.0,0.0,22.0),
-                n("iconButtonCornerDp",7.0,0.0,18.0)
+                n("selectorOpenPaddingVerticalDp",10.0,0.0,22.0)
             )
         }
     }
