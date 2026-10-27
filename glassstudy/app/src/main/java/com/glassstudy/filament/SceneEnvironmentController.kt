@@ -3,8 +3,9 @@ package com.glassstudy.filament
 import android.app.Activity
 import android.content.SharedPreferences
 import android.util.Log
-import android.os.SystemClock
-import kotlin.math.abs
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executors
 import com.google.android.filament.Skybox
 import com.google.android.filament.utils.GlassStudyModelViewer
 
@@ -35,44 +36,73 @@ class SceneEnvironmentController(
     private var currentElevation=.9
     private var currentAzimuth=1.3
     private var atmosphereHaze=.3
-    private var lastCausticElevation=Double.NaN
-    private var lastCausticAzimuth=Double.NaN
-    private var lastCausticBrightness=Double.NaN
-    private var lastCausticUpdateMs=0L
-    private var causticActive=false
+    private val lightHandler=Handler(Looper.getMainLooper())
+    private val tracingExecutor=Executors.newSingleThreadExecutor()
+    private var pendingTrace:Runnable?=null
+    private var traceRevision=0L
+    private var stopped=false
+    private var gridMode=false
+    private var glassProfile:ByteArray?=runCatching {
+        activity.assets.open(ParametricGoblet.PATH).use { it.readBytes() }
+    }.getOrNull()
+    private var lastCachedTrace:String="не рассчитана"
+    val causticDiagnostics:String get()=lastCachedTrace
 
-    /** Rebuild only after meaningful light changes, never on every frame. */
+    /** A matching model profile is required; wireframe has no glass caustics. */
+    fun setGlassProfile(profile:ByteArray?,wireframe:Boolean) {
+        val same=profile?.contentEquals(glassProfile ?: byteArrayOf())==true
+        if(same && gridMode==wireframe)return
+        glassProfile=profile?.clone()
+        gridMode=wireframe
+        updateGlassLight(force=true)
+    }
+
+    /** Debounced CPU photon trace. Only the result touches Filament's UI thread. */
     private fun updateGlassLight(force:Boolean=false) {
-        if(floorMode=="none" || globalBrightness<.015 ||
-            kotlin.math.sin(currentElevation)<.12) {
-            if(causticActive) {
-                viewer.setCausticGlb(null)
-                causticActive=false
-            }
-            lastCausticElevation=Double.NaN
+        if(stopped)return
+        pendingTrace?.let(lightHandler::removeCallbacks)
+        pendingTrace=null
+        val token=++traceRevision
+        val profile=glassProfile?.clone()
+        if(floorMode=="none" || gridMode || profile==null ||
+            globalBrightness<.015 || kotlin.math.sin(currentElevation)<.27) {
+            viewer.setCausticGlb(null)
+            lastCachedTrace=if(gridMode)"выключена: сетка" else "выключена: нет освещения/пола"
             return
         }
-        val now=SystemClock.uptimeMillis()
-        if(!force && causticActive) {
-            if(now-lastCausticUpdateMs<220L)return
-            val azDelta=abs(((currentAzimuth-lastCausticAzimuth+Math.PI)%
-                (2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI)
-            if(azDelta<Math.toRadians(7.0) &&
-                abs(currentElevation-lastCausticElevation)<Math.toRadians(7.0) &&
-                abs(globalBrightness-lastCausticBrightness)<.10)return
+        val az=currentAzimuth
+        val el=currentElevation
+        val intensity=globalBrightness
+        val work=Runnable {
+            tracingExecutor.execute {
+                try {
+                    val traced=GlassRayTrace.trace(profile,az,el,intensity)
+                    val overlay=if(traced!=null)GlassCausticsGlb.create(traced,intensity) else null
+                    lightHandler.post {
+                        if(stopped || token!=traceRevision)return@post
+                        try {
+                            viewer.setCausticGlb(overlay)
+                            lastCachedTrace=if(traced==null)"солнце ниже горизонта" else
+                                "CPU Snell: ${traced.size}², попаданий ${traced.hits}, " +
+                                "преломлённых ${traced.refracted}, кеш"
+                        } catch(e:Exception) {
+                            Log.e("GlassStudy","Failed to render cached photon map",e)
+                            lastCachedTrace="ошибка отображения: ${e.javaClass.simpleName}"
+                        }
+                    }
+                } catch(e:Exception) {
+                    Log.e("GlassStudy","Glass photon projection failed",e)
+                    lightHandler.post {
+                        if(!stopped && token==traceRevision) {
+                            viewer.setCausticGlb(null)
+                            lastCachedTrace="ошибка трассировки: ${e.javaClass.simpleName}"
+                        }
+                    }
+                }
+            }
         }
-        try {
-            viewer.setCausticGlb(GlassCausticsGlb.create(
-                currentAzimuth,currentElevation,globalBrightness))
-            causticActive=true
-            lastCausticElevation=currentElevation
-            lastCausticAzimuth=currentAzimuth
-            lastCausticBrightness=globalBrightness
-            lastCausticUpdateMs=now
-        } catch(e:Exception) {
-            Log.e("GlassStudy","Projected glass-light effect unavailable",e)
-            // No change to the glass, floor, user lighting or patch safety.
-        }
+        pendingTrace=work
+        lightHandler.postDelayed(work,if(force)80L else 320L)
     }
 
     fun setLightState(brightness:Double,elevation:Double,azimuth:Double) {
@@ -159,8 +189,12 @@ class SceneEnvironmentController(
     }
 
     fun release() {
+        stopped=true
+        traceRevision++
+        pendingTrace?.let(lightHandler::removeCallbacks)
+        lightHandler.removeCallbacksAndMessages(null)
+        tracingExecutor.shutdownNow()
         try { viewer.setCausticGlb(null) } catch(_:Exception) {}
-        causticActive=false
         activeSkybox?.let {
             if(viewer.scene.skybox===it)viewer.scene.skybox=null
             viewer.engine.destroySkybox(it)
