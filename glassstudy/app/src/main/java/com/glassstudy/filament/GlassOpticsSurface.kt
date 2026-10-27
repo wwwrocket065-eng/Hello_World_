@@ -234,7 +234,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 if(sampleCount<c.samples || baseDirty) {
                     val p=pathProgram
                     val region=OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h)
-                    val rows=min(region.height-rowCursor,max(1,c.pixelBudget/max(1,region.width)))
+                    val rows=if(moving)region.height else min(region.height-rowCursor,max(1,c.pixelBudget/max(1,region.width)))
                     GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2]);GL.glViewport(0,0,w,h)
                     GL.glUseProgram(p);common(p,s)
                     texture(accum[1-sampleCount%2],1,p,"uPrevious");texture(photons,2,p,"uPhotons")

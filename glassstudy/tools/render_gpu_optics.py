@@ -71,6 +71,22 @@ def render(output,width=128,height=192,samples=32):
     gl['draw'](0,0,384*384);proc('glDisable',None,C.c_uint)(0x0BE2)
     print('GPU photon pass submitted',flush=True)
     result=[]
+    eye=np.array([5.5*math.cos(.34)*math.sin(.56),1+5.5*math.sin(.34),5.5*math.cos(.34)*math.cos(.56)])
+    forward=(np.array([0.,1.,0.])-eye);forward/=np.linalg.norm(forward)
+    right=np.cross(forward,[0.,1.,0.]);right/=np.linalg.norm(right)
+    up=np.cross(right,forward)
+    radius=float(points[:,1].max())
+    corners=np.array([[x,y,z] for x in [-radius,radius] for y in [points[:,0].min(),points[:,0].max()] for z in [-radius,radius]])
+    camera=(corners-eye)@np.stack([right,up,forward],axis=1)
+    if np.any(camera[:,2]<=0):box=(0,0,width,height)
+    else:
+        projected=camera[:,:2]/camera[:,2,None]/math.tan(math.radians(45)*.5)
+        projected[:,0]/=width/height
+        projected=(projected*.5+.5)*[width,height]
+        low=np.maximum(0,np.floor(projected.min(axis=0)).astype(int)-2)
+        high=np.minimum([width,height],np.ceil(projected.max(axis=0)).astype(int)+2)
+        box=(int(low[0]),int(low[1]),int(high[0]-low[0]),int(high[1]-low[1]))
+    print(f'Glass region: {box}, {box[2]*box[3]/(width*height):.1%} of viewport',flush=True)
     for mode in [1,2]:
         for frame in range(samples):
             gl['use'](path);common(path)
@@ -83,10 +99,22 @@ def render(output,width=128,height=192,samples=32):
             uniform(path,'uSunColor',(1.,.94,.87),'v3');uniform(path,'uBackdrop',(.2,.28,.38),'v3')
             for key,val in [('uFloorWidth',12.),('uTile',.6),('uDark',.006),('uLight',.96),('uWhite',.96)]:uniform(path,key,val)
             for key,val in [('uFloorMode',mode),('uFrame',frame),('uPhotonReady',1)]:uniform(path,key,val,'i')
-            gl['draw'](4,0,3)
+            if frame==0:
+                uniform(path,'uBaseOnly',1,'i');uniform(path,'uPreserveGlass',0,'i')
+                bind(textures[3],1,path,'uPrevious')
+                for j in range(2):
+                    gl['fbo'](0x8D40,fbos[j]);gl['draw'](4,0,3)
+                uniform(path,'uBaseOnly',0,'i')
+                bind(textures[2-frame%2],1,path,'uPrevious')
+            gl['fbo'](0x8D40,fbos[frame%2])
+            proc('glEnable',None,C.c_uint)(0x0C11)
+            for row in range(0,box[3],11):
+                proc('glScissor',None,C.c_int,C.c_int,C.c_int,C.c_int)(box[0],box[1]+row,box[2],min(11,box[3]-row))
+                gl['draw'](4,0,3)
+            proc('glDisable',None,C.c_uint)(0x0C11)
         gl['fbo'](0x8D40,fbos[3]);gl['viewport'](0,0,width,height)
         gl['use'](display);bind(textures[1+(samples-1)%2],0,display,'uImage')
-        uniform(display,'uScreen',(width,height),'v2');uniform(display,'uExposure',3.)
+        uniform(display,'uScreen',(width,height),'v2');uniform(display,'uExposure',3.);uniform(display,'uFxaa',1,'i')
         gl['draw'](4,0,3)
         data=np.zeros((height,width,4),np.float32)
         proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,width,height,0x1908,0x1406,data.ctypes.data)
