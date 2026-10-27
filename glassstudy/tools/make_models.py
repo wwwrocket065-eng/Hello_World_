@@ -188,14 +188,11 @@ def make_glb(sides,rings,debug):
             extensions={"KHR_materials_unlit":{}})
         extensions=["KHR_materials_unlit"]
     else:
-        material=dict(name="Realistic wine glass",doubleSided=True,
+        material=dict(name="Realistic thin-shell wine glass",doubleSided=True,
             pbrMetallicRoughness=dict(baseColorFactor=[.99,1,1,1],
                                     metallicFactor=0,roughnessFactor=.028),
             extensions={"KHR_materials_transmission":{"transmissionFactor":1.0},
-                        "KHR_materials_ior":{"ior":1.52},
-                        "KHR_materials_volume":{"thicknessFactor":.05,
-                            "attenuationDistance":12.0,
-                            "attenuationColor":[.985,.995,1.0]}})
+                        "KHR_materials_ior":{"ior":1.52}})
         extensions=list(material["extensions"])
     gltf={
         "asset":{"version":"2.0","generator":"GlassStudy canonical catalog goblet mesh exporter"},
