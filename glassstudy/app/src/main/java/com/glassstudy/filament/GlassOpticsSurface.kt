@@ -120,11 +120,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         }
         override fun onSurfaceCreated(gl:GL10?,config:EGLConfig?) {
             try {
-                // Float additive flux is mandatory; never silently clamp it to RGBA8.
-                val extensions=GL.glGetString(GL.GL_EXTENSIONS) ?: ""
-                check("GL_EXT_color_buffer_float" in extensions && "GL_EXT_float_blend" in extensions) {
-                    "Float irradiance attachments/blending unsupported"
-                }
+                // Probe actual RGBA16F attachments and GL drawing errors below.
+                // EXT_float_blend is required for 32F, not half-float blending.
                 pathProgram=program("quad.vert","path.frag")
                 photonProgram=program("photon.vert","photon.frag")
                 displayProgram=program("quad.vert","display.frag")

@@ -17,5 +17,16 @@
   "atmosphereHorizonFraction": 0.08,
   "atmosphereShUpdateDegrees": 3,
   "atmosphereExposureReferenceLux": 50000,
-  "atmosphereExposureMaxGain": 32
+  "atmosphereExposureMaxGain": 32,
+  "optics": {
+    "enabled": true,
+    "width": 256,
+    "samples": 64,
+    "bounces": 16,
+    "photonMap": 128,
+    "photonSide": 384,
+    "photonExtent": 4,
+    "settleMs": 350,
+    "exposure": 3
+  }
 }

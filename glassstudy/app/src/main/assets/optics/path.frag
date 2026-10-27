@@ -15,7 +15,8 @@ float randomValue() {
     return float(rng)*(1.0/4294967296.0);
 }
 vec3 sky(vec3 d) {
-    if(d.y<0.0)return vec3(0);
+    // Beyond the finite platform, use the same visible sun-dependent backdrop.
+    if(d.y<0.0)return uBackdrop;
     float horizon=1.0-clamp(d.y,0.0,1.0);
     float cs=clamp(dot(d,uSun),-1.0,1.0);
     float rayleigh=.75*(1.0+cs*cs);
