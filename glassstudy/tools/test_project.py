@@ -1048,7 +1048,7 @@ assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
 assert 'glassMaterialDetails=modelAssets.glassMaterialDiagnostics()' in activity
 assert 'reflectionDetails=renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.78' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.79' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
 
 # 0.2.78: use the stock Filament / glTF material; never cover the floor with
@@ -1069,3 +1069,9 @@ assert 'штатное glTF-преломление Filament' in report_src
 assert 'causticDetails=sceneEnvironment.causticDiagnostics' in activity
 assert 'sunGlint=' in render_env and 'doubleArrayOf(.22,.215,.20)' in render_env
 print('PASS: native Filament glTF glass, synthetic caustic overlay removed, protected updater')
+
+# 0.2.79: restore previous approved rounding, do not change controls or mesh.
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.5f)' in ui_chrome
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.30f)' not in ui_chrome
+assert 'visualNumbers.buttonCornerDp' in ui_chrome
+print('PASS: patch-controlled toolbar corner radius is no longer flattened')
