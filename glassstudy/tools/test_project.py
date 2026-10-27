@@ -1066,7 +1066,7 @@ assert 'difference[cz*SIZE+cx]+=incoming*energy*weight' in raytrace
 assert 'return Field(SIZE,halfWidth,smooth,hitCount,passed)' in raytrace
 assert 'fun create(field:GlassRayTrace.Field,brightness:Double)' in caustics
 assert 'field.flux[cz*n+cx]' in caustics
-assert 'log1p(delta.coerceAtLeast(0.0))' in caustics
+assert 'ln(1.0+delta.coerceAtLeast(0.0))' in caustics
 assert 'disc(' not in caustics
 assert 'alphaMode","BLEND"' in caustics and 'KHR_materials_unlit' in caustics
 assert 'COLOR_0' in caustics and 'val dark=delta<0.0' in caustics
