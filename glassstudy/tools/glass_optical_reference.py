@@ -135,7 +135,11 @@ class ReferenceScene:
         outside = 0.
         work = [(origin, direction, weight, 0)]
         while work:
-            origin, direction, weight, depth = work.pop()
+            batch, work = work, []
+            origin = np.concatenate([b[0] for b in batch])
+            direction = np.concatenate([b[1] for b in batch])
+            weight = np.concatenate([b[2] for b in batch])
+            depth = batch[0][3]
             t, normal = self.glass.intersect(origin, direction)
             tf = np.divide(-origin[:, 1], direction[:, 1],
                            out=np.full(len(origin), np.inf), where=direction[:, 1] < -1e-10)
@@ -206,7 +210,12 @@ class ReferenceScene:
         work = [(origin, direction, indices, energy, 0)]
         discarded = 0.
         while work:
-            origin, direction, indices, energy, depth = work.pop()
+            batch, work = work, []
+            origin = np.concatenate([b[0] for b in batch])
+            direction = np.concatenate([b[1] for b in batch])
+            indices = np.concatenate([b[2] for b in batch])
+            energy = np.concatenate([b[3] for b in batch])
+            depth = batch[0][4]
             t, normal = self.glass.intersect(origin, direction)
             tf = np.divide(-origin[:, 1], direction[:, 1], out=np.full(len(origin), np.inf),
                            where=direction[:, 1] < -1e-10)
@@ -248,7 +257,9 @@ def main():
     profile_path = Path(__file__).parents[1] / 'app/src/main/assets/catalogs/goblet.json'
     scene = ReferenceScene(json.loads(profile_path.read_text())['profile'])
     scene.photons()
+    print('Receiver photon map complete', flush=True)
     checker = scene.render(args.width*args.supersample, args.height*args.supersample, True)
+    print('Checker-floor comparison complete', flush=True)
     white = scene.render(args.width*args.supersample, args.height*args.supersample, False)
     checker = checker.resize((args.width, args.height), Image.Resampling.LANCZOS)
     white = white.resize((args.width, args.height), Image.Resampling.LANCZOS)
