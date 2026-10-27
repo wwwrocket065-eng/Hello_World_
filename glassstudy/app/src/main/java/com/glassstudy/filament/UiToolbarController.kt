@@ -43,7 +43,11 @@ class UiToolbarController(
             LabIconView(activity,spec.icon).apply {
                 iconColor=ink
                 glyphScale=spec.iconScale ?: ui.topIconScale
-                visualSizeOverrideDp=spec.visualSizeDp ?: if(spec.slot=="bottom") ui.topButtonSizeDp else null
+                // Fall back to the same painted glyph size as the top row,
+                // including when a signed legacy patch omits bottom sizes.
+                visualSizeOverrideDp=spec.visualSizeDp ?:
+                    ui.buttons.firstOrNull { it.slot=="top" && it.visualSizeDp!=null }?.visualSizeDp
+                    ?: ui.topButtonSizeDp
                 gearInnerRoundness=ui.gearInnerRoundness
                 chipCenterFilled=ui.fillChipCenter
                 contentDescription=when(spec.action) {
