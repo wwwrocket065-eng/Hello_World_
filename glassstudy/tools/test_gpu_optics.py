@@ -5,6 +5,7 @@ Requires Mesa EGL, no Android device. This does not prove mobile performance.
 """
 import ctypes as C
 import ctypes.util
+import math
 from pathlib import Path
 
 EGL=C.CDLL(ctypes.util.find_library('EGL'))
@@ -65,6 +66,58 @@ def compile_program(vertex,fragment):
     return program
 
 
+def numerical_kernel(vertex,kernel):
+    fragment='''#version 300 es
+precision highp float;
+precision highp int;
+'''+kernel+'''
+out vec4 color;
+void main() {
+    int x=int(gl_FragCoord.x);
+    vec3 r,t,n;float f,hit;
+    if(x==0) { dielectric(vec3(0,-1,0),vec3(0,1,0),r,t,f); color=vec4(f,t.y,0,1); }
+    else if(x==1) { float a=radians(50.0);dielectric(vec3(sin(a),cos(a),0),vec3(0,1,0),r,t,f);color=vec4(f,0,0,1); }
+    else if(x==2) { hit=wallHit(vec3(2,1,0),vec3(-1,0,0),n); color=vec4(hit,n.x,0,1); }
+    else { hit=wallHit(vec3(0,1,0),vec3(1,0,0),n);color=vec4(hit,n.x,0,1); }
+}
+'''
+    p=compile_program(vertex,fragment)
+    proc('glUseProgram',None,C.c_uint)(p)
+    gen_tex=proc('glGenTextures',None,C.c_int,C.POINTER(C.c_uint))
+    bind=proc('glBindTexture',None,C.c_uint,C.c_uint)
+    image=proc('glTexImage2D',None,C.c_uint,C.c_int,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)
+    param=proc('glTexParameteri',None,C.c_uint,C.c_uint,C.c_int)
+    ids=(C.c_uint*2)();gen_tex(2,ids)
+    bind(0x0DE1,ids[0])
+    profile=(C.c_float*12)(0,0,0,1,2,1,2,.8,.2,.8,.2,0)
+    image(0x0DE1,0,0x8230,6,1,0,0x8227,0x1406,profile)
+    param(0x0DE1,0x2801,0x2600);param(0x0DE1,0x2800,0x2600)
+    location=proc('glGetUniformLocation',C.c_int,C.c_uint,C.c_char_p)
+    proc('glUniform1i',None,C.c_int,C.c_int)(location(p,b'uProfile'),0)
+    proc('glUniform1i',None,C.c_int,C.c_int)(location(p,b'uProfileCount'),6)
+    proc('glUniform1f',None,C.c_int,C.c_float)(location(p,b'uIor'),1.52)
+    uniform3=proc('glUniform3f',None,C.c_int,C.c_float,C.c_float,C.c_float)
+    uniform3(location(p,b'uBoundsMin'),-1.01,-.01,-1.01)
+    uniform3(location(p,b'uBoundsMax'),1.01,2.01,1.01)
+    proc('glActiveTexture',None,C.c_uint)(0x84C1)
+    bind(0x0DE1,ids[1]);image(0x0DE1,0,0x8814,4,1,0,0x1908,0x1406,None)
+    param(0x0DE1,0x2801,0x2600);param(0x0DE1,0x2800,0x2600)
+    fbo=C.c_uint();proc('glGenFramebuffers',None,C.c_int,C.POINTER(C.c_uint))(1,C.byref(fbo))
+    proc('glBindFramebuffer',None,C.c_uint,C.c_uint)(0x8D40,fbo)
+    proc('glFramebufferTexture2D',None,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.c_int)(0x8D40,0x8CE0,0x0DE1,ids[1],0)
+    assert proc('glCheckFramebufferStatus',C.c_uint,C.c_uint)(0x8D40)==0x8CD5
+    vao=C.c_uint();proc('glGenVertexArrays',None,C.c_int,C.POINTER(C.c_uint))(1,C.byref(vao))
+    proc('glBindVertexArray',None,C.c_uint)(vao)
+    proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,0,4,1)
+    proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)(4,0,3)
+    output=(C.c_float*16)()
+    proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,4,1,0x1908,0x1406,output)
+    assert proc('glGetError',C.c_uint)()==0
+    expected=[((1.52-1)/(1.52+1))**2,-1,0,1,1,0,0,1,1,1,0,1,.8,-1,0,1]
+    assert all(math.isclose(a,b,abs_tol=2e-5) for a,b in zip(output,expected)),list(output)
+    print('PASS actual ES3 numerical output: Fresnel, TIR, outer and inner wall distances/normals')
+
+
 def main():
     context()
     root=Path(__file__).parents[1]/'app/src/main/assets/optics'
@@ -74,6 +127,7 @@ def main():
     for v,f in [('quad.vert','path.frag'),('photon.vert','photon.frag'),('quad.vert','display.frag')]:
         compile_program(source(v),source(f))
         print(f'PASS ES3 compile+link: {v} / {f}')
+    numerical_kernel(source('quad.vert'),kernel)
     print('PASS exact Android shaders; device driver/runtime still unverified')
 
 
