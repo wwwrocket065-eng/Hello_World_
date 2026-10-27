@@ -165,14 +165,14 @@ class RenderEnvironmentController(
             val colors=if(dy<0.0)doubleArrayOf(.22,.215,.20)
                 else PhysicalAtmosphereModel.skyRadiance(dx,dy,dz,
                     sun.x.toDouble(),sun.y.toDouble(),sun.z.toDouble(),haze)
-            val cosine=(dx*sun.x+dy*sun.y+dz*sun.z).coerceIn(-1.0,1.0)
+            val cosine=(dx*sun.x.toDouble()+dy*sun.y.toDouble()+dz*sun.z.toDouble()).coerceIn(-1.0,1.0)
             // Sub-texel solar disc approximated by an energy-limited angular
             // lobe to preserve a visible highlight after cubemap prefilter.
             val sunGlint=if(dy>0.0)6.0*kotlin.math.exp((cosine-1.0)/.0016)
                 else 0.0
             val tint=PhysicalAtmosphereModel.sunlightRgb(
                 lightingMode,sunElevation,configuration.atmosphereExtinction.toDouble())
-            for(i in 0..2) rgb.putFloat((colors[i]+sunGlint*tint[i]).toFloat())
+            for(i in 0..2) rgb.putFloat((colors[i]+sunGlint*tint[i].toDouble()).toFloat())
         }
         rgb.flip()
         val cubemap=Texture.Builder().width(size).height(size)
