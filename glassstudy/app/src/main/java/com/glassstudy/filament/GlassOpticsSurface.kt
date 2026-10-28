@@ -60,6 +60,10 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         queueEvent { renderer.startProfileMeasurement();renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
         requestRender()
     }
+    fun configureDiagnostics(config:DiagnosticsModuleConfig) {
+        metrics.configure(config.sampleIntervalMs,config.historySeconds)
+        queueEvent { renderer.configureGpuTiming(config.gpuTimingEnabled) }
+    }
     override fun onPause() {
         queueEvent { renderer.pauseMeasurement() }
         super.onPause()
@@ -110,6 +114,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var gpuDescription="не определён"
         private val gpuTimer=OpticalGpuTimer(metrics)
 
+        fun configureGpuTiming(enabled:Boolean) = gpuTimer.configure(enabled)
         private inline fun measured(stage:Stage,block:()->Unit) {
             metrics.stageStarted(stage)
             val wall=System.nanoTime();val cpu=Debug.threadCpuTimeNanos()

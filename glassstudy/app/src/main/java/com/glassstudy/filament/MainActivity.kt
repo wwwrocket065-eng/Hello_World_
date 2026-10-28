@@ -758,7 +758,7 @@ class MainActivity : Activity() {
             renderEnvironment.apply(bundle.render)
             sceneEnvironment.configureAtmosphereHaze(bundle.render.atmosphereHaze.toDouble())
             diagnosticsModule=bundle.diagnostics
-            opticalSurface.metrics.configure(diagnosticsModule.sampleIntervalMs,diagnosticsModule.historySeconds)
+            opticalSurface.configureDiagnostics(diagnosticsModule)
             modelAssets.configure(bundle.materials)
             sceneEnvironment.applyConfiguration(bundle.scene)
             renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,

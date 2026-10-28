@@ -7,6 +7,23 @@ class OpticalGpuTimer(private val metrics:OpticalRenderMetrics) {
     private data class Pending(val id:Int,val stage:OpticalRenderMetrics.Stage,val run:Long,val issuedNs:Long)
     private val pending=java.util.ArrayDeque<Pending>()
     private var enabled=false
+    private var requested=true
+    private var supported=false
+    private var bits=0
+    fun configure(value:Boolean) {
+        requested=value
+        if(!value && enabled)discard("GPU-таймер отключён конфигурацией")
+        enabled=supported && requested
+        updateStatus()
+    }
+    private fun updateStatus() {
+        metrics.gpuStatus(when {
+            !requested -> "отключён подписанной конфигурацией"
+            supported -> "EXT_disjoint_timer_query, ${bits}-битный счётчик; асинхронно"
+            bits>0 -> "недоступно: счётчик $bits бит, длинные вызовы могут переполниться"
+            else -> "недоступно: драйвер/модуль не поддерживает EXT_disjoint_timer_query"
+        })
+    }
     private var active:Pending?=null
     private var skipped=0L
     private external fun nativeInit():Int
@@ -20,14 +37,13 @@ class OpticalGpuTimer(private val metrics:OpticalRenderMetrics) {
     }
     fun contextCreated(extensions:String) {
         // Names belong to the destroyed context. Do NOT delete them in a new context.
-        pending.clear();active=null;enabled=false;skipped=0
+        pending.clear();active=null;enabled=false;supported=false;bits=0;skipped=0
         if(!loaded || "GL_EXT_disjoint_timer_query" !in extensions.split(' ')) {
-            metrics.gpuStatus("недоступно: драйвер/64-битный модуль не поддерживает EXT_disjoint_timer_query")
+            updateStatus()
             return
         }
-        val bits=nativeInit();enabled=bits>=64
-        metrics.gpuStatus(if(enabled)"EXT_disjoint_timer_query, ${bits}-битный счётчик; асинхронно"
-            else "недоступно: счётчик $bits бит, длинные вызовы могут переполниться")
+        bits=nativeInit();supported=bits>=64;enabled=supported && requested
+        updateStatus()
     }
     fun begin(stage:OpticalRenderMetrics.Stage) {
         if(!enabled)return
