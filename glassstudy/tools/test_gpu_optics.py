@@ -80,6 +80,10 @@ void main() {
     else if(x==2) { hit=wallHit(vec3(2,1,0),vec3(-1,0,0),n); color=vec4(hit,n.x,0,1); }
     else if(x==3) { hit=wallHit(vec3(0,1,0),vec3(1,0,0),n);color=vec4(hit,n.x,0,1); }
     else if(x==4) { color=vec4(limitedRadiance(vec3(16000,8000,4000),8.0),1); }
+    else if(x==6 || x==7) {
+        float y=x==6 ? .999 : 1.001;
+        hit=wallHit(vec3(3,y,0),vec3(-1,0,0),n);color=vec4(n,hit);
+    }
     else { color=vec4(limitedRadiance(vec3(uintBitsToFloat(0x7f800000u)),8.0),1); }
 }
 '''
@@ -118,6 +122,30 @@ void main() {
     expected=[((1.52-1)/(1.52+1))**2,-1,0,1,1,0,0,1,1,1,0,1,.8,-1,0,1,8,4,2,1,0,0,0,1]
     assert all(math.isclose(a,b,abs_tol=2e-5) for a,b in zip(output,expected)),list(output)
     print('PASS actual ES3 output: Fresnel, TIR, both walls, radiance outlier cap and nonfinite rejection')
+    # Replace the cylinder with a genuinely faceted curved meridian. Query
+    # either side of a shared ring using the production wallHit/normal code.
+    active=proc('glActiveTexture',None,C.c_uint)
+    active(0x84C0);bind(0x0DE1,ids[0])
+    curved=(C.c_float*12)(0,0,0,1,1,1,2,1.4,3,2,3,0)
+    image(0x0DE1,0,0x8230,6,1,0,0x8227,0x1406,curved)
+    uniform3(location(p,b'uBoundsMin'),-2.1,-.1,-2.1)
+    uniform3(location(p,b'uBoundsMax'),2.1,3.1,2.1)
+    active(0x84C1);bind(0x0DE1,ids[1])
+    image(0x0DE1,0,0x8814,8,1,0,0x1908,0x1406,None)
+    proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,0,8,1)
+    results=[]
+    for enabled in [0,1]:
+        proc('glUniform1i',None,C.c_int,C.c_int)(location(p,b'uSmoothSurface'),enabled)
+        proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)(4,0,3)
+        pixels=(C.c_float*32)()
+        proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,8,1,0x1908,0x1406,pixels)
+        results.append((list(pixels[24:27]),list(pixels[28:31])))
+    jump=lambda pair:math.sqrt(sum((a-b)**2 for a,b in zip(*pair)))
+    flat,smooth=map(jump,results)
+    assert flat>.3 and smooth<.003,(flat,smooth,results)
+    assert max(abs(a-b) for a,b in zip(results[0][0],results[1][0]))>.1
+    assert proc('glGetError',C.c_uint)()==0
+    print(f'PASS optical surface toggle: normal jump across ring {flat:.6f} -> {smooth:.6f}')
 
 
 def smoothing_toggle(vertex,fragment):
@@ -219,18 +247,65 @@ void main() { color=phase==0 ? vec4(4,2,1,1) : vec4(.25*gl_FragCoord.xy,2,1); }
     print('PASS RGBA16F resize preserves HDR; partial tiles preserve preview and cover every row')
 
 
+def receiver_coverage(vertex,path_source):
+    """The actual floor shader must keep receiver illumination across +/-4."""
+    fragment=path_source.split('void main()')[0]+'''
+void main() {
+    float x=(gl_FragCoord.x-.5)*2.0-6.0;
+    color=vec4(floorRadiance(vec3(x,-.06,0)),1);
+}
+'''
+    p=compile_program(vertex,fragment);proc('glUseProgram',None,C.c_uint)(p)
+    ids=(C.c_uint*2)();proc('glGenTextures',None,C.c_int,C.POINTER(C.c_uint))(2,ids)
+    active=proc('glActiveTexture',None,C.c_uint)
+    bind=proc('glBindTexture',None,C.c_uint,C.c_uint)
+    image=proc('glTexImage2D',None,C.c_uint,C.c_int,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)
+    param=proc('glTexParameteri',None,C.c_uint,C.c_uint,C.c_int)
+    active(0x84C0);bind(0x0DE1,ids[0])
+    data=(C.c_float*36)(*([.25,0,0,1]*9))
+    image(0x0DE1,0,0x881A,3,3,0,0x1908,0x1406,data)
+    for key in [0x2801,0x2800]:param(0x0DE1,key,0x2601)
+    for key in [0x2802,0x2803]:param(0x0DE1,key,0x812F)
+    active(0x84C1);bind(0x0DE1,ids[1]);image(0x0DE1,0,0x8814,7,1,0,0x1908,0x1406,None)
+    for key in [0x2801,0x2800]:param(0x0DE1,key,0x2600)
+    fbo=C.c_uint();proc('glGenFramebuffers',None,C.c_int,C.POINTER(C.c_uint))(1,C.byref(fbo))
+    proc('glBindFramebuffer',None,C.c_uint,C.c_uint)(0x8D40,fbo)
+    proc('glFramebufferTexture2D',None,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.c_int)(0x8D40,0x8CE0,0x0DE1,ids[1],0)
+    assert proc('glCheckFramebufferStatus',C.c_uint,C.c_uint)(0x8D40)==0x8CD5
+    loc=proc('glGetUniformLocation',C.c_int,C.c_uint,C.c_char_p)
+    for name,value in [('uPhotons',0),('uPhotonReady',1),('uFloorMode',2)]:
+        proc('glUniform1i',None,C.c_int,C.c_int)(loc(p,name.encode()),value)
+    for name,value in [('uWhite',1.),('uDirect',math.pi),('uSky',0.)]:
+        proc('glUniform1f',None,C.c_int,C.c_float)(loc(p,name.encode()),value)
+    for name,value in [('uSun',(0,1,0)),('uSunColor',(1,1,1))]:
+        proc('glUniform3f',None,C.c_int,C.c_float,C.c_float,C.c_float)(loc(p,name.encode()),*value)
+    proc('glViewport',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,0,7,1)
+    results=[]
+    for extent in [4.,6.5]:
+        proc('glUniform1f',None,C.c_int,C.c_float)(loc(p,b'uPhotonExtent'),extent)
+        proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)(4,0,3)
+        pixels=(C.c_float*28)()
+        proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,7,1,0x1908,0x1406,pixels)
+        results.append(list(pixels)[::4])
+    assert results[0][0]>.9 and results[0][-1]>.9,results
+    assert all(abs(value-.25)<1e-5 for value in results[1]),results
+    assert proc('glGetError',C.c_uint)()==0
+    print('PASS receiver regression: +/-4 clips illumination; full-floor extent preserves it through +/-6')
+
+
 def main():
     context()
     root=Path(__file__).parents[1]/'app/src/main/assets/optics'
     kernel=(root/'kernel.glsl').read_text()
     def source(name):
         return (root/name).read_text().replace('/*OPTICS_KERNEL*/',kernel)
-    for v,f in [('quad.vert','path.frag'),('photon.vert','photon.frag'),('quad.vert','display.frag')]:
+    for v,f in [('quad.vert','path.frag'),('photon.vert','photon.frag'),('quad.vert','display.frag'),('mask.vert','mask.frag')]:
         compile_program(source(v),source(f))
         print(f'PASS ES3 compile+link: {v} / {f}')
     numerical_kernel(source('quad.vert'),kernel)
     smoothing_toggle(source('quad.vert'),source('display.frag'))
     resize_and_tiles(source('quad.vert'))
+    receiver_coverage(source('quad.vert'),source('path.frag'))
     print('PASS exact Android shaders; device driver/runtime still unverified')
 
 

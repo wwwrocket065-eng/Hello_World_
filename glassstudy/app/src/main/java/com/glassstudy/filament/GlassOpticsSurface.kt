@@ -54,7 +54,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
     fun setContour(points:FloatArray) {
         if(lastContour?.contentEquals(points)==true)return
         lastContour=points.copyOf()
-        queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.invalidatePhotons() }
+        queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
         requestRender()
     }
     fun diagnostics():String = failed?.let { "GPU-оптика: отказ ($it); Filament fallback" }
@@ -64,11 +64,15 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
     private inner class OpticalRenderer:Renderer {
         var contour= floatArrayOf(0f,0f,.01f,.01f,.02f,0f)
         var profileDirty=true
+        var maskDirty=true
         private var state:State?=null
         private var oldLight:List<Any>?=null
         private var pathProgram=0
         private var photonProgram=0
         private var displayProgram=0
+        private var maskProgram=0
+        private var maskTexture=0
+        private var maskFbo=0
         private var profile=0
         private var width=0
         private var height=0
@@ -94,6 +98,11 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0;baseDirty=true
         }
         fun accept(next:State) {
+            val previous=state
+            if(previous==null || previous.yaw!=next.yaw || previous.pitch!=next.pitch ||
+                previous.distance!=next.distance || previous.fov!=next.fov || previous.floor!=next.floor ||
+                previous.scene.floorWidth!=next.scene.floorWidth ||
+                previous.render.optics.maskSides!=next.render.optics.maskSides)maskDirty=true
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
                 next.scene,next.render,next.camera.lightIntensity,next.antialias)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
@@ -130,17 +139,20 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 pathProgram=program("quad.vert","path.frag")
                 photonProgram=program("photon.vert","photon.frag")
                 displayProgram=program("quad.vert","display.frag")
+                maskProgram=program("mask.vert","mask.frag")
                 val ids=IntArray(1);GL.glGenTextures(1,ids,0);profile=ids[0]
+                GL.glGenTextures(1,ids,0);maskTexture=ids[0]
+                GL.glGenFramebuffers(1,ids,0);maskFbo=ids[0]
                 GL.glGenTextures(2,accum,0);GL.glGenFramebuffers(2,fbos,0)
                 GL.glGenTextures(1,ids,0);photons=ids[0]
                 GL.glGenFramebuffers(1,ids,0);photonFbo=ids[0]
                 val vao=IntArray(1);GL.glGenVertexArrays(1,vao,0);GL.glBindVertexArray(vao[0])
-                initialized=true;bufferWidth=0;mapSize=0;profileDirty=true;havePreview=false;baseDirty=true
+                initialized=true;bufferWidth=0;mapSize=0;profileDirty=true;maskDirty=true;havePreview=false;baseDirty=true
                 invalidatePhotons()
             } catch(e:Exception) { fail(e) }
         }
         override fun onSurfaceChanged(gl:GL10?,w:Int,h:Int) {
-            width=w;height=h;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
+            width=w;height=h;sampleCount=0;rowCursor=0;baseDirty=true;maskDirty=true;motionTime=SystemClock.uptimeMillis()
         }
         private fun f(p:Int,name:String,value:Float)=GL.glUniform1f(GL.glGetUniformLocation(p,name),value)
         private fun i(p:Int,name:String,value:Int)=GL.glUniform1i(GL.glGetUniformLocation(p,name),value)
@@ -159,6 +171,34 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER,GL.GL_COLOR_ATTACHMENT0,GL.GL_TEXTURE_2D,texture,0)
             check(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)==GL.GL_FRAMEBUFFER_COMPLETE) { "RGBA16F FBO incomplete" }
             GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        }
+        private fun allocateMask(w:Int,h:Int) {
+            GL.glBindTexture(GL.GL_TEXTURE_2D,maskTexture)
+            GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_R8,w,h,0,GL.GL_RED,GL.GL_UNSIGNED_BYTE,null)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_WRAP_S,GL.GL_CLAMP_TO_EDGE)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_WRAP_T,GL.GL_CLAMP_TO_EDGE)
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,maskFbo)
+            GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER,GL.GL_COLOR_ATTACHMENT0,GL.GL_TEXTURE_2D,maskTexture,0)
+            check(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)==GL.GL_FRAMEBUFFER_COMPLETE) { "Silhouette mask incomplete" }
+            maskDirty=true
+        }
+        private fun drawMask(s:State,w:Int,h:Int) {
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,maskFbo);GL.glViewport(0,0,w,h)
+            GL.glDisable(GL.GL_SCISSOR_TEST);GL.glDisable(GL.GL_DEPTH_TEST);GL.glDisable(GL.GL_CULL_FACE)
+            GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            GL.glUseProgram(maskProgram);texture(profile,0,maskProgram,"uProfile")
+            i(maskProgram,"uMaskSides",s.render.optics.maskSides)
+            val cy=cos(s.pitch)
+            v(maskProgram,"uEye",(s.distance*cy*sin(s.yaw)).toFloat(),(1+s.distance*sin(s.pitch)).toFloat(),
+                (s.distance*cy*cos(s.yaw)).toFloat())
+            f(maskProgram,"uTanFov",tan(Math.toRadians(s.fov)*.5).toFloat())
+            f(maskProgram,"uAspect",width.toFloat()/height)
+            f(maskProgram,"uFloorWidth",s.scene.floorWidth)
+            i(maskProgram,"uFloorMode",if(s.floor=="none")0 else 1)
+            GL.glDrawArrays(GL.GL_TRIANGLES,0,(contour.size/2-1)*s.render.optics.maskSides*6)
+            maskDirty=false
         }
         private fun receiverExtent(s:State):Float=max(s.render.optics.photonExtent,
             s.scene.floorWidth*.5f+s.render.optics.photonMargin)
@@ -188,7 +228,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RG32F,contour.size/2,1,0,GL.GL_RG,GL.GL_FLOAT,data)
                     GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
                     GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
-                    profileDirty=false;sampleCount=0;rowCursor=0;baseDirty=true
+                    profileDirty=false;maskDirty=true;sampleCount=0;rowCursor=0;baseDirty=true
                 }
                 val moving=SystemClock.uptimeMillis()-motionTime<c.settleMs
                 val w=min(if(moving)c.movingWidth else c.width,width)
@@ -210,10 +250,12 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         }
                     }
                     GL.glDeleteTextures(2,oldTextures,0);GL.glDeleteFramebuffers(2,oldFbos,0)
+                    allocateMask(w,h)
                     bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h;baseDirty=true
                 }
                 // Cover every visible floor point plus a filter margin. Keep
                 // world texel/photon density as the receiver grows beyond 4 units.
+                if(maskDirty)drawMask(s,w,h)
                 val receiverScale=receiverExtent(s)/c.photonExtent
                 val desiredMap=(c.photonMap*receiverScale).roundToInt().coerceIn(64,512)
                 val launchSide=(c.photonSide*receiverScale).roundToInt().coerceIn(128,1536)
@@ -243,6 +285,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2]);GL.glViewport(0,0,w,h)
                     GL.glUseProgram(p);common(p,s)
                     texture(accum[1-sampleCount%2],1,p,"uPrevious");texture(photons,2,p,"uPhotons")
+                    texture(maskTexture,3,p,"uGlassMask");i(p,"uUseGlassMask",1)
                     GL.glUniform2f(GL.glGetUniformLocation(p,"uResolution"),w.toFloat(),h.toFloat())
                     val cy=cos(s.pitch)
                     v(p,"uEye",(s.distance*cy*sin(s.yaw)).toFloat(),(1+s.distance*sin(s.pitch)).toFloat(),
@@ -267,8 +310,6 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     i(p,"uPhotonReady",if(photonReady)1 else 0);i(p,"uFrame",sampleCount)
                     if(baseDirty) {
                         i(p,"uBaseOnly",1);i(p,"uPreserveGlass",if(havePreview)1 else 0)
-                        GL.glUniform4f(GL.glGetUniformLocation(p,"uGlassRegion"),region.x.toFloat(),region.y.toFloat(),
-                            (region.x+region.width).toFloat(),(region.y+region.height).toFloat())
                         // Neither base draw may sample an attached accumulation texture.
                         texture(photons,1,p,"uPrevious")
                         for(j in 0..1) {

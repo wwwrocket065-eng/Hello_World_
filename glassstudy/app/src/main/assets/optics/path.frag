@@ -9,8 +9,18 @@ uniform float uTanFov,uAspect,uDirect,uSky,uHaze,uExposure;
 uniform float uFloorWidth,uTile,uDark,uLight,uWhite,uPhotonExtent,uMaxSampleRadiance;
 uniform int uFloorMode,uFrame,uBounces,uPhotonReady;
 uniform int uBaseOnly,uPreserveGlass;
-uniform vec4 uGlassRegion;
+uniform highp sampler2D uGlassMask;
+uniform int uUseGlassMask;
 out vec4 color;
+float glassCoverage() {
+    if(uUseGlassMask==0)return 1.0;
+    ivec2 size=textureSize(uGlassMask,0),pixel=ivec2(gl_FragCoord.xy);
+    float coverage=0.0;
+    // A one-pixel conservative envelope preserves subpixel edge jitter.
+    for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++)
+        coverage=max(coverage,texelFetch(uGlassMask,clamp(pixel+ivec2(x,y),ivec2(0),size-1),0).r);
+    return coverage;
+}
 uint rng;
 float randomValue() {
     rng^=rng<<13; rng^=rng>>17; rng^=rng<<5;
@@ -56,9 +66,9 @@ vec3 floorRadiance(vec3 p) {
 }
 void main() {
     rng=uint(gl_FragCoord.x)*1973u+uint(gl_FragCoord.y)*9277u+uint(uFrame+1)*26699u+1u;
-    if(uBaseOnly==1 && uPreserveGlass==1 &&
-        all(greaterThanEqual(gl_FragCoord.xy,uGlassRegion.xy)) &&
-        all(lessThan(gl_FragCoord.xy,uGlassRegion.zw)))discard;
+    float coverage=glassCoverage();
+    if(uBaseOnly==0 && coverage==0.0)discard;
+    if(uBaseOnly==1 && uPreserveGlass==1 && coverage>0.0)discard;
     vec2 pixel=gl_FragCoord.xy+(uBaseOnly==1 ? vec2(0) : vec2(randomValue(),randomValue())-.5);
     vec2 ndc=(pixel/uResolution)*2.0-1.0;
     vec3 forward=normalize(vec3(0,1,0)-uEye);

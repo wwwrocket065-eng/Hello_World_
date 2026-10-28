@@ -31,6 +31,7 @@
     "movingWidth": 256,
     "pixelBudget": 131072,
     "maxSampleRadiance": 8,
-    "photonMargin": 0.5
+    "photonMargin": 0.5,
+    "maskSides": 128
   }
 }
