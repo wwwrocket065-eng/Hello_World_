@@ -358,6 +358,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         dirtyPhotons=false;sampleCount=0;rowCursor=0;baseDirty=true
                     }
                 }
+                if(!moving && !dirtyPhotons && w==min(c.width,width))metrics.qualityStarted()
                 if(sampleCount<c.samples || baseDirty) {
                     val p=pathProgram
                     val region=OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h)

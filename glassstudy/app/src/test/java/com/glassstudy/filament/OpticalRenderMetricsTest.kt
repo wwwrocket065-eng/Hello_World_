@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OpticalRenderMetricsTest {
+    @Test(expected=IllegalArgumentException::class) fun rejectsExcessiveSampling() {
+        OpticalRenderMetrics().configure(1,180)
+    }
+    @Test fun liveClockAdvancesWithoutAnotherDraw() {
+        var time=1_000_000_000L
+        val m=OpticalRenderMetrics { time }
+        m.begin("лучи")
+        time+=5_000_000_000
+        assertEquals(5_000_000_000L,m.snapshot().elapsedNs)
+        m.pause()
+        time+=50_000_000_000
+        assertEquals(5_000_000_000L,m.snapshot().elapsedNs)
+    }
     @Test fun completionFreezesAndNewInputRestarts() {
         var time=1_000_000_000L
         val m=OpticalRenderMetrics { time }

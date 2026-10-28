@@ -47,6 +47,7 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
     private var retentionNs=180_000_000_000L
 
     @Synchronized fun configure(intervalMs:Int,historySeconds:Int) {
+        require(intervalMs in 250..5000 && historySeconds in 10..600)
         intervalNs=intervalMs.toLong()*1_000_000L
         retentionNs=historySeconds.toLong()*1_000_000_000L
     }
@@ -77,6 +78,7 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
             if(firstSample>0)(firstSample-started).coerceAtLeast(0) else 0L,
             parameters,gpu,bufferBytes,runCosts.toMap(),runGpuCosts.toMap())
     }
+    @Synchronized fun qualityStarted() { if(qualityStarted==0L)qualityStarted=now() }
     @Synchronized fun refreshElapsed() {
         if(started>0L && ended==0L)view=view.copy(elapsedNs=(now()-started).coerceAtLeast(0))
     }
@@ -124,14 +126,22 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
     }
     @Synchronized fun windows():List<Window> = history.toList()
 
-    @Synchronized fun report():String {
-        val v=snapshot();val rows=history.toList()
+    private data class ReportData(val view:View,val rows:List<Window>,val interval:Long,
+        val retention:Long,val status:String,val skipped:Long,val time:Long)
+    fun report():String {
+        val data=synchronized(this) { ReportData(snapshot(),history.toList(),intervalNs,retentionNs,
+            timerStatus,skippedGpu,now()) }
+        // Formatting a long copied report must not hold the GL recorder lock.
+        val v=data.view;val rows=data.rows
+        val intervalNs=data.interval;val retentionNs=data.retention
+        val timerStatus=data.status;val skippedGpu=data.skipped
         fun ms(ns:Long)=String.format(Locale("ru","RU"),"%.2f",ns/1e6)
         fun num(value:Double?)=value?.let { String.format(Locale("ru","RU"),"%.1f",it) } ?: "—"
         return buildString {
             appendLine("▸ GPU-ОПТИКА · ДИНАМИКА")
             appendLine("Рендер #${v.run}: ${v.phase}; ${v.width}×${v.height}; ${v.spp}/${v.targetSpp} spp")
             appendLine("От последнего изменения: ${ms(v.elapsedNs)} мс${if(v.complete) " (завершение GPU подтверждено fence)" else " (в процессе)"}")
+            appendLine("Отчёт — снимок на момент открытия; история продолжает собираться независимо от окна.")
             appendLine("Отсчёт включает ожидание стабилизации, preview, каустику и накопление; пауза прерывает замер.")
             appendLine("Начало финального качества: ${if(v.qualityStartNs>0)ms(v.qualityStartNs) else "—"} мс; первый полный spp: ${if(v.firstSampleNs>0)ms(v.firstSampleNs) else "—"} мс от изменения (подача команд)")
             appendLine(v.parameters)
@@ -153,7 +163,7 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
             appendLine("сек назад | # | этап | px/spp | CPU% | UI avg/P95 мс | Java/native МиБ · thermal | подача этапов wall/CPU/пик мс")
             val peakGpu=rows.flatMap { it.gpuSamples }.maxByOrNull { it.peakNs }
             if(peakGpu!=null)appendLine("Самый долгий полученный GPU-этап: ${peakGpu.stage.title}, ${ms(peakGpu.peakNs)} мс; рендер #${peakGpu.run}")
-            val time=now()
+            val time=data.time
             for(r in rows) {
                 append("${num((time-r.atNs)/1e9)} | ${r.run} | ${r.phase} | ${r.width}/${r.spp} | ${num(r.cpuPercent)} | ${num(r.frameAvgMs)}/${num(r.frameP95Ms)} | ${num(r.javaMb)}/${num(r.nativeMb)} · ${r.thermalStatus ?: "—"} | ")
                 append(r.costs.entries.joinToString("; ") { (stage,cost) -> "${stage.title}=${ms(cost.wallNs)}/${ms(cost.cpuNs)}/${ms(cost.peakWallNs)}(${cost.calls})" })

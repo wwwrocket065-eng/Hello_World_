@@ -102,7 +102,9 @@ class DiagnosticsReportService(
                         appendLine("FPS: ${num(perf.fps)} · ${tr("frameTime")}: ${num(perf.avgFrameMs)} / ${num(perf.p95FrameMs)} ${tr("milliseconds")} (P95)")
                         appendLine("${tr("cpuProcess")}: ${num(perf.cpuPercent)} % ${tr("oneCore")}")
                         appendLine("${tr("frameSubmission")}: ${num(perf.submissionMs)} ${tr("milliseconds")} (${tr("cpuThread")})")
-                        appendLine("${tr("gpuTime")}: ${tr("notMeasured")}")
+                        appendLine(if(state.opticalActive) "GPU: реальные времена этапов и доступность таймера — в разделе рендера"
+                            else "${tr("gpuTime")}: ${tr("notMeasured")}")
+                        appendLine("FPS/кадр выше — UI/Filament; ход трассировки см. по SPP и таймеру оптики")
                     }
                     "memory" -> {
                         appendLine()
@@ -153,7 +155,8 @@ class DiagnosticsReportService(
                         appendLine("▸ ${tr("sectionDevice")}")
                         appendLine("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}")
                         appendLine("${tr("screen")}: ${state.surfaceWidth} × ${state.surfaceHeight} · DPR ${num(state.pixelDensity.toDouble())}")
-                        appendLine("${tr("gpuInfo")}: ${tr("notMeasured")}")
+                        appendLine(if(state.opticalActive) "GPU/драйвер: см. раздел GPU-оптики"
+                            else "${tr("gpuInfo")}: ${tr("notMeasured")}")
                     }
                 }
             }
