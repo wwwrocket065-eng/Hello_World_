@@ -232,6 +232,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 v(programId,"uEye",(s.distance*cy*sin(s.yaw)).toFloat(),(1+s.distance*sin(s.pitch)).toFloat(),(s.distance*cy*cos(s.yaw)).toFloat())
                 f(programId,"uTanFov",tan(Math.toRadians(s.fov)*.5).toFloat())
                 f(programId,"uAspect",width.toFloat()/height);f(programId,"uFloorWidth",s.scene.floorWidth)
+                i(programId,"uFloorMode",if(s.floor=="none")0 else 1)
                 GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
                 val buffer=ByteBuffer.allocateDirect(w*h*16).order(ByteOrder.nativeOrder()).asFloatBuffer()
                 GL.glReadPixels(0,0,w,h,GL.GL_RGBA,GL.GL_FLOAT,buffer)

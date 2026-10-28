@@ -917,6 +917,7 @@ class MainActivity : Activity() {
         super.onPause()
     }
     override fun onDestroy() {
+        if(::opticalSurface.isInitialized)opticsTest.close()
         running=false
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         if(::sceneEnvironment.isInitialized)sceneEnvironment.release()

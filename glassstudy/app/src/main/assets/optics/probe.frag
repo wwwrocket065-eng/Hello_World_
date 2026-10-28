@@ -4,7 +4,7 @@ precision highp int;
 /*OPTICS_KERNEL*/
 uniform vec3 uEye;
 uniform float uTanFov,uAspect,uFloorWidth;
-uniform int uBounces;
+uniform int uBounces,uFloorMode;
 out vec4 color;
 void main() {
     int column=int(gl_FragCoord.x),ray=int(gl_FragCoord.y);
@@ -20,7 +20,7 @@ void main() {
         vec3 n;float t=wallHit(o,d,n);
         float tf=abs(d.y)>1e-8 ? (-.06-o.y)/d.y : FAR;
         vec3 fp=o+tf*d;
-        bool floorHit=tf>EPS && max(abs(fp.x),abs(fp.z))<=uFloorWidth*.5 && tf<t;
+        bool floorHit=uFloorMode!=0 && tf>EPS && max(abs(fp.x),abs(fp.z))<=uFloorWidth*.5 && tf<t;
         if(floorHit || t>=FAR*.5) {
             if(bounce==step)color=field==0 ? vec4(floorHit ? fp : vec3(0),floorHit ? 2.0 : 3.0) : vec4(0);
             break;

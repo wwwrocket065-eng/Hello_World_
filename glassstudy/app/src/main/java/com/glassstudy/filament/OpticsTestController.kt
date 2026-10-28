@@ -29,6 +29,7 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
     private var timeoutMs=600000L
     private var generation=0
     private var finishing=false
+    private var closed=false
     private var initialReport=""
     private var originalContour=FloatArray(0)
     private var smoothContour=FloatArray(0)
@@ -36,10 +37,10 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
     private val names=mutableListOf<String>()
     var running=false
         private set
-    var onFinished:(()->Unit)?=null
-    fun report():String=File(directory,"report.txt").takeIf { it.isFile }?.readText() ?: "Тест ещё не выполнен."
+    fun report():String=File(directory,"clipboard.txt").takeIf { it.isFile }?.readText() ?: "Тест ещё не выполнен."
     fun start(config:DiagnosticsModuleConfig,diagnostics:String,polygon:FloatArray?,smooth:FloatArray?) {
-        if(running)return
+        if(running || closed)return
+        if(surface.visibility!=android.view.View.VISIBLE)return toast("Включите оптический рендер")
         if(polygon==null || smooth==null)return toast("Нет профиля для теста")
         originalContour=polygon.copyOf();smoothContour=smooth.copyOf()
         val original=surface.beginTest() ?: return toast("Для теста включите оптический рендер")
@@ -104,11 +105,21 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
     private fun finish(status:String) {
         if(!running || finishing)return
         finishing=true;generation++;handler.removeCallbacks(poll)
+        if(index<cases.size)initialReport+="\nНезавершённый прогон ${index+1}: ${surface.metrics.snapshot()}\n"+surface.metrics.report()
         saved?.let { surface.endTest(it) };saved=null
         val text=initialReport+"\n\n▸ АВТОТЕСТ ОПТИКИ\n$status; ${reports.size}/${cases.size} прогонов\n"+
             "Одинаковые камера/свет в первых трёх прогонах; тестовое разрешение/SPP указаны ниже.\n"+
             "Снимки после GPU fence; GPU-загрузка не выводится из CPU/FPS.\n"+
             reports.joinToString("\n\n")
+        fun compact(value:String):String=if(value.length<=24000)value else
+            value.take(18000)+"\n[История сокращена для буфера; полный отчёт сохранён в приложении]\n"+value.takeLast(6000)
+        val clipboardText=compact(initialReport)+"\n\n▸ АВТОТЕСТ ОПТИКИ\n$status; ${reports.size}/${cases.size} прогонов\n"+
+            reports.joinToString("\n\n") { item ->
+                val history=item.indexOf("ИСТОРИЯ:")
+                val rays=item.indexOf("ПРОБА ЛУЧЕЙ")
+                compact(if(history>=0)item.take(history) else item)+
+                    if(rays>=0)"\n"+item.substring(rays) else ""
+            }
         val files=names.toList()
         worker.execute {
             val outcome=runCatching {
@@ -117,15 +128,17 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
                 else File(directory,"image.png").delete()
                 val temp=File(directory,"report.tmp");temp.writeText(text)
                 check(temp.renameTo(File(directory,"report.txt")))
+                File(directory,"clipboard.txt").writeText(clipboardText)
                 directory.listFiles()?.filter { it.name.startsWith("run-") && it.name !in files }?.forEach { it.delete() }
             }
             handler.post {
                 running=false;finishing=false
+                if(closed)return@post
                 outcome.fold(onSuccess={
                     val clipboard=activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("GlassStudy: диагностика и тест",text))
-                    toast("$status. Диагностика и тест скопированы")
-                    onFinished?.invoke()
+                    runCatching { clipboard.setPrimaryClip(ClipData.newPlainText("GlassStudy: диагностика и тест",clipboardText)) }
+                        .fold(onSuccess={ toast("$status. Диагностика и тест скопированы") },
+                            onFailure={ toast("Отчёт сохранён. Повторите копирование из диагностики") })
                 },onFailure={ toast("Не удалось сохранить тест: ${it.message}") })
             }
         }
@@ -158,5 +171,6 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
         clipboard.setPrimaryClip(ClipData.newUri(activity.contentResolver,"Рендеры теста GlassStudy",uri))
         toast("Картинка скопирована. Вставка зависит от клавиатуры и приложения")
     }
+    fun close() { cancel();closed=true;worker.shutdown() }
     private fun toast(text:String) { Toast.makeText(activity,text,Toast.LENGTH_LONG).show() }
 }
