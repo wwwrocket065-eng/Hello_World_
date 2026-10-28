@@ -17,7 +17,7 @@ import kotlin.math.*
  * Independent ES3 dielectric renderer. All GL ownership stays on its GL thread.
  * Stochastic camera paths converge while stationary; photon flux lights the
  * actual floor material, rather than covering the checker with an overlay.
- * Unsupported drivers fail back to the still-running Filament surface.
+ * Unsupported drivers resume the retained Filament fallback surface.
  */
 class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):GLSurfaceView(context) {
     data class State(
@@ -93,6 +93,10 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var maskTexture=0
         private var maskFbo=0
         private var profile=0
+        private var boundsRadius=0f
+        private var boundsLow=0f
+        private var boundsHigh=0f
+        private val uniformLocations=hashMapOf<Int,MutableMap<String,Int>>()
         private var width=0
         private var height=0
         private var bufferWidth=0
@@ -201,7 +205,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         override fun onSurfaceCreated(gl:GL10?,config:EGLConfig?) {
             try {
                 // Context-local sync names cannot survive context recreation.
-                completionFence=0L;fencePollScheduled=false
+                completionFence=0L;fencePollScheduled=false;uniformLocations.clear()
                 gpuDescription=listOf(GL.glGetString(GL.GL_VENDOR),GL.glGetString(GL.GL_RENDERER),
                     GL.glGetString(GL.GL_VERSION)).joinToString(" · ")
                 metrics.begin("создание GL-контекста")
@@ -227,9 +231,11 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             restartMeasurement("размер поверхности")
             width=w;height=h;sampleCount=0;rowCursor=0;baseDirty=true;maskDirty=true;motionTime=SystemClock.uptimeMillis()
         }
-        private fun f(p:Int,name:String,value:Float)=GL.glUniform1f(GL.glGetUniformLocation(p,name),value)
-        private fun i(p:Int,name:String,value:Int)=GL.glUniform1i(GL.glGetUniformLocation(p,name),value)
-        private fun v(p:Int,name:String,x:Float,y:Float,z:Float)=GL.glUniform3f(GL.glGetUniformLocation(p,name),x,y,z)
+        private fun location(p:Int,name:String):Int = uniformLocations.getOrPut(p) { hashMapOf() }
+            .getOrPut(name) { GL.glGetUniformLocation(p,name) }
+        private fun f(p:Int,name:String,value:Float)=GL.glUniform1f(location(p,name),value)
+        private fun i(p:Int,name:String,value:Int)=GL.glUniform1i(location(p,name),value)
+        private fun v(p:Int,name:String,x:Float,y:Float,z:Float)=GL.glUniform3f(location(p,name),x,y,z)
         private fun texture(id:Int,unit:Int,p:Int,name:String) {
             GL.glActiveTexture(GL.GL_TEXTURE0+unit);GL.glBindTexture(GL.GL_TEXTURE_2D,id);i(p,name,unit)
         }
@@ -277,12 +283,9 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             s.scene.floorWidth*.5f+s.render.optics.photonMargin)
         private fun common(p:Int,s:State) {
             texture(profile,0,p,"uProfile");i(p,"uProfileCount",contour.size/2)
-            var radius=0f;var low=Float.POSITIVE_INFINITY;var high=Float.NEGATIVE_INFINITY
-            for(j in contour.indices step 2) {
-                low=min(low,contour[j]);high=max(high,contour[j]);radius=max(radius,contour[j+1])
-            }
-            v(p,"uBoundsMin",-radius-.001f,low-.001f,-radius-.001f)
-            v(p,"uBoundsMax",radius+.001f,high+.001f,radius+.001f)
+            i(p,"uCullSegments",if(s.render.optics.segmentCullingEnabled)1 else 0)
+            v(p,"uBoundsMin",-boundsRadius-.001f,boundsLow-.001f,-boundsRadius-.001f)
+            v(p,"uBoundsMax",boundsRadius+.001f,boundsHigh+.001f,boundsRadius+.001f)
             f(p,"uIor",s.ior);i(p,"uBounces",s.render.optics.bounces)
             val sun=LightDirectionMath.source(s.azimuth,s.elevation)
             v(p,"uSun",sun.x,sun.y,sun.z)
@@ -304,6 +307,10 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RG32F,contour.size/2,1,0,GL.GL_RG,GL.GL_FLOAT,data)
                         GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
                         GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
+                        boundsRadius=0f;boundsLow=Float.POSITIVE_INFINITY;boundsHigh=Float.NEGATIVE_INFINITY
+                        for(j in contour.indices step 2) {
+                            boundsRadius=max(boundsRadius,contour[j+1]);boundsLow=min(boundsLow,contour[j]);boundsHigh=max(boundsHigh,contour[j])
+                        }
                         profileDirty=false;maskDirty=true;sampleCount=0;rowCursor=0;baseDirty=true
                     }
                 }
@@ -369,7 +376,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glUseProgram(p);common(p,s)
                     texture(accum[1-sampleCount%2],1,p,"uPrevious");texture(photons,2,p,"uPhotons")
                     texture(maskTexture,3,p,"uGlassMask");i(p,"uUseGlassMask",1)
-                    GL.glUniform2f(GL.glGetUniformLocation(p,"uResolution"),w.toFloat(),h.toFloat())
+                    GL.glUniform2f(location(p,"uResolution"),w.toFloat(),h.toFloat())
                     val cy=cos(s.pitch)
                     v(p,"uEye",(s.distance*cy*sin(s.yaw)).toFloat(),(1+s.distance*sin(s.pitch)).toFloat(),
                         (s.distance*cy*cos(s.yaw)).toFloat())
@@ -420,7 +427,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
                     GL.glUseProgram(displayProgram)
                     texture(accum[shownIndex],0,displayProgram,"uImage")
-                    GL.glUniform2f(GL.glGetUniformLocation(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
+                    GL.glUniform2f(location(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
                     f(displayProgram,"uExposure",c.exposure)
                     i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
                     GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
@@ -437,7 +444,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 val rebuildParameters=previousMetrics.run==0L || previousMetrics.width!=w || previousMetrics.height!=h || sampleCount<=1
                 val regionInfo=if(rebuildParameters)OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h) else null
                 val parameters=if(rebuildParameters) "Цель: ${min(c.width,width)}px · ${c.samples} spp · ${c.bounces} границ; preview ${c.movingWidth}px; settle ${c.settleMs} мс; бюджет ${c.pixelBudget} px/подачу\n"+
-                    "Профиль ${contour.size/2} точек; маска ${c.maskSides} сторон; scissor ${regionInfo?.width}×${regionInfo?.height} (прямоугольник планирования, не площадь стекла)\n"+
+                    "Отсечение сегментов ${s.render.optics.segmentCullingEnabled}; профиль ${contour.size/2} точек; маска ${c.maskSides} сторон; scissor ${regionInfo?.width}×${regionInfo?.height} (прямоугольник планирования, не площадь стекла)\n"+
                     "Карта каустики ${mapSize}×${mapSize}; запуск ${launchSide}² (${launchSide.toLong()*launchSide}) фотонов; полуразмер ${receiverExtent(s)}; готова=$photonReady\n"+
                     "IOR ${s.ior}; сглаживание/FXAA ${s.antialias}; отсечение выбросов ${c.maxSampleRadiance}" else previousMetrics.parameters
                 metrics.progress(phase,w,h,sampleCount,c.samples,finalQuality,parameters,gpuDescription,

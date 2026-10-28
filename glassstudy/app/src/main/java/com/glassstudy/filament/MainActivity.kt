@@ -211,6 +211,8 @@ class MainActivity : Activity() {
     private var lightIndicator:LightIndicatorView?=null
     private var running = false
     private var stableFrames = 0
+    private var lastPillUpdateMs=0L
+    private var filamentSuspended=false
     private var localPatchBusy = false
     private val localPatchFolder by lazy { LocalPatchDirectory(this) }
     private val patchFolderRequest=8124
@@ -220,10 +222,19 @@ class MainActivity : Activity() {
             if (!running) return
             Choreographer.getInstance().postFrameCallback(this)
             val submitStartNs=SystemClock.elapsedRealtimeNanos()
-            cameraLight.applyToFilament()
             updateOpticalSurface()
+            // Preserve the existing four actual Filament frames that confirm an
+            // activated patch; after that the opaque optical surface covers it.
+            val renderFilament=opticalSurface.visibility!=View.VISIBLE || stableFrames<4
+            if(filamentSuspended==renderFilament) {
+                filamentSuspended=!renderFilament
+                opticalSurface.metrics.event(if(filamentSuspended) "Filament: скрытая отрисовка приостановлена" else "Filament: отрисовка возобновлена")
+            }
             val framesBefore = viewer.renderedFrames
-            viewer.render(frameTimeNanos)
+            if(renderFilament) {
+                cameraLight.applyToFilament()
+                viewer.render(frameTimeNanos)
+            }
             val frameWasRendered = viewer.renderedFrames > framesBefore
             val submissionMs=(SystemClock.elapsedRealtimeNanos()-submitStartNs)/1_000_000.0
             profiler.frame(frameTimeNanos,submissionMs)
@@ -238,7 +249,8 @@ class MainActivity : Activity() {
                     (heap.totalMemory()-heap.freeMemory())/1048576.0,
                     android.os.Debug.getNativeHeapAllocatedSize()/1048576.0,thermal)
             }
-            if (::fpsPill.isInitialized && viewer.renderedFrames % 40L == 0L) {
+            if (::fpsPill.isInitialized && SystemClock.uptimeMillis()-lastPillUpdateMs>=diagnosticsModule.sampleIntervalMs) {
+                lastPillUpdateMs=SystemClock.uptimeMillis()
                 val f=profiler.metrics().fps
                 fpsPill.text=if(opticalSurface.visibility==View.VISIBLE)
                     opticalSurface.metrics.snapshot().pill()
@@ -837,7 +849,7 @@ class MainActivity : Activity() {
                 "GPU: направления отражённых лучей; многократные границы" else renderEnvironment.reflectionDiagnostics(),
             causticDetails=if(opticalSurface.visibility==View.VISIBLE)opticalSurface.diagnostics()
                 else sceneEnvironment.causticDiagnostics,
-            renderedFrames=viewer.renderedFrames.toString(),
+            renderedFrames=viewer.renderedFrames.toString()+if(filamentSuspended) " (скрытая отрисовка приостановлена)" else "",
             surfaceWidth=surface.width,
             surfaceHeight=surface.height,
             pixelDensity=resources.displayMetrics.density.toDouble(),

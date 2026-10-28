@@ -4,6 +4,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OpticalRenderMetricsTest {
+    @Test fun completedHistorySurvivesLongIdleAndNewRender() {
+        var time=1_000_000_000L
+        val m=OpticalRenderMetrics { time }
+        m.configure(1000,10);m.begin("сцена");m.poll(0,null,null,true)
+        m.record(OpticalRenderMetrics.Stage.PATH,1234,500)
+        time+=1_000_000_000;m.poll(20,null,null,true)
+        m.complete()
+        val retained=m.completedWindows()
+        for(i in 1..40) { time+=1_000_000_000;m.poll(i*30L,null,null,true) }
+        assertTrue(m.windows().none { it.costs.isNotEmpty() })
+        assertEquals(retained,m.completedWindows())
+        assertTrue(m.report().contains("СОХРАНЕНА история"))
+        m.begin("новая сцена")
+        assertEquals(retained,m.completedWindows())
+    }
     @Test fun includesGlQueueDelayFromUserChange() {
         var time=1_000_000_000L
         val request=time

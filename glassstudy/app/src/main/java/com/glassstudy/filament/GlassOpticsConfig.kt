@@ -14,10 +14,11 @@ data class GlassOpticsConfig(
     val settleMs:Long=350,
     val exposure:Float=3f,
     val movingWidth:Int=256,
-    val pixelBudget:Int=131072,
+    val pixelBudget:Int=524288,
     val maxSampleRadiance:Float=8f,
     val photonMargin:Float=.5f,
-    val maskSides:Int=128
+    val maskSides:Int=128,
+    val segmentCullingEnabled:Boolean=true
 ) {
     companion object {
         fun parse(json:JSONObject?):GlassOpticsConfig {
@@ -37,8 +38,8 @@ data class GlassOpticsConfig(
                 integer("bounces",16,4..24),integer("photonMap",128,64..256),
                 integer("photonSide",384,128..768),number("photonExtent",4f,2f,12f),
                 integer("settleMs",350,100..2000).toLong(),number("exposure",3f,.1f,32f),
-                integer("movingWidth",256,128..512),integer("pixelBudget",131072,32768..524288),
-                number("maxSampleRadiance",8f,1f,128f),number("photonMargin",.5f,.125f,4f),integer("maskSides",128,64..512))
+                integer("movingWidth",256,128..512),integer("pixelBudget",524288,32768..524288),
+                number("maxSampleRadiance",8f,1f,128f),number("photonMargin",.5f,.125f,4f),integer("maskSides",128,64..512),json.optBoolean("segmentCullingEnabled",true))
         }
     }
 }

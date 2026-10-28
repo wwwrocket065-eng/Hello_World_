@@ -11,10 +11,10 @@ from test_gpu_optics import context,proc,compile_program
 from glass_optical_reference import HollowLathe
 
 
-def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,distance=7.0):
+def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,distance=7.0,reference=False):
     context()
     root=Path(__file__).parents[1]/'app/src/main/assets'
-    kernel=(root/'optics/kernel.glsl').read_text()
+    kernel=((Path(__file__).parent/'fixtures/optics_kernel_0_2_83.glsl') if reference else (root/'optics/kernel.glsl')).read_text()
     def source(name):return (root/'optics'/name).read_text().replace('/*OPTICS_KERNEL*/',kernel)
     path=compile_program(source('quad.vert'),source('path.frag'))
     photon=compile_program(source('photon.vert'),source('photon.frag'))
@@ -70,6 +70,7 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
     eye=np.array([distance*math.cos(.34)*math.sin(.56),1+distance*math.sin(.34),distance*math.cos(.34)*math.cos(.56)])
     def common(p):
         bind(textures[0],0,p,'uProfile')
+        uniform(p,'uCullSegments',1,'i')
         uniform(p,'uProfileCount',len(points),'i');uniform(p,'uIor',1.52)
         uniform(p,'uBoundsMin',(-.86,0.,-.86),'v3');uniform(p,'uBoundsMax',(.86,3.4,.86),'v3')
         uniform(p,'uSun',sun,'v3');uniform(p,'uBounces',16,'i');uniform(p,'uPhotonExtent',extent);uniform(p,'uSmoothSurface',int(smooth),'i')

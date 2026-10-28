@@ -41,6 +41,8 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
     private var skippedGpu=0L
     private val history=java.util.ArrayDeque<Window>()
     private val events=linkedSetOf<String>()
+    private data class Completed(val view:View,val rows:List<Window>,val endedAtNs:Long)
+    private var lastCompleted:Completed?=null
     private var lastPoll=0L
     private var lastCpuMs=0L
     private var intervalNs=1_000_000_000L
@@ -86,6 +88,11 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
         if(started==0L || ended>0L)return
         ended=now();events.add("GPU завершил рендер")
         view=view.copy(elapsedNs=(ended-started).coerceAtLeast(0),complete=true,phase="готово",costs=runCosts.toMap())
+        // Preserve the active render before idle polling evicts it from the
+        // rolling history. Partial last interval has no invented CPU/RAM sample.
+        val finalWindow=Window(ended,run,"готово",view.width,view.spp,null,null,null,
+            windowCosts.toMap(),windowGpuSamples.values.toList(),"GPU завершил рендер",null,null,null)
+        lastCompleted=Completed(view,history.filter { it.run==run }.takeLast(599)+finalWindow,ended)
     }
     @Synchronized fun gpuStatus(status:String) { timerStatus=status }
     @Synchronized fun gpuSkipped(count:Long) { skippedGpu=count }
@@ -125,14 +132,17 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
         view=view.copy(phase="пауза",complete=false)
     }
     @Synchronized fun windows():List<Window> = history.toList()
+    @Synchronized fun completedWindows():List<Window> = lastCompleted?.rows ?: emptyList()
 
     private data class ReportData(val view:View,val rows:List<Window>,val interval:Long,
-        val retention:Long,val status:String,val skipped:Long,val time:Long)
+        val retention:Long,val status:String,val skipped:Long,val time:Long,val completed:Completed?)
     fun report():String {
         val data=synchronized(this) { ReportData(snapshot(),history.toList(),intervalNs,retentionNs,
-            timerStatus,skippedGpu,now()) }
+            timerStatus,skippedGpu,now(),lastCompleted) }
         // Formatting a long copied report must not hold the GL recorder lock.
-        val v=data.view;val rows=data.rows
+        val v=data.view
+        val retained=data.completed?.takeIf { v.complete && it.view.run==v.run }
+        val rows=retained?.rows ?: data.rows
         val intervalNs=data.interval;val retentionNs=data.retention
         val timerStatus=data.status;val skippedGpu=data.skipped
         fun ms(ns:Long)=String.format(Locale("ru","RU"),"%.2f",ns/1e6)
@@ -155,6 +165,11 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
             appendLine("ЭТАПЫ текущего рендера: вызовы · подача wall / CPU потока / пик wall, мс")
             for((stage,cost) in v.costs)appendLine("${stage.title}: ${cost.calls} · ${ms(cost.wallNs)} / ${ms(cost.cpuNs)} / ${ms(cost.peakWallNs)}")
             appendLine("Wall включает ожидания драйвера; CPU потока — реально затраченное CPU-время. Это не длительность выполнения шейдера.")
+            if(retained!=null) {
+                appendLine("СОХРАНЕНА история завершённого рендера #${retained.view.run}: простой её не вытесняет")
+                val idle=data.rows.filter { it.atNs>retained.endedAtNs }.mapNotNull { it.cpuPercent }
+                if(idle.isNotEmpty())appendLine("После завершения: CPU средний ${num(idle.average())}%, пик ${num(idle.maxOrNull())}%; ${idle.size} интервалов")
+            } else if(data.completed!=null)appendLine("Предыдущий завершённый рендер #${data.completed.view.run}: ${ms(data.completed.view.elapsedNs)} мс")
             appendLine("ИСТОРИЯ: ${rows.size} интервалов; период ≥${intervalNs/1_000_000} мс; хранение до ${retentionNs/1_000_000_000} с / 600 интервалов")
             val peakCpu=rows.mapNotNull { it.cpuPercent }.maxOrNull()
             val peakStage=rows.flatMap { r -> r.costs.map { Triple(r,it.key,it.value) } }.maxByOrNull { it.third.peakWallNs }

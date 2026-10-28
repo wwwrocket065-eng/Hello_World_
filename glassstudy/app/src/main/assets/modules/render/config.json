@@ -29,9 +29,10 @@
     "settleMs": 350,
     "exposure": 3,
     "movingWidth": 256,
-    "pixelBudget": 131072,
+    "pixelBudget": 524288,
     "maxSampleRadiance": 8,
     "photonMargin": 0.5,
-    "maskSides": 128
+    "maskSides": 128,
+    "segmentCullingEnabled": true
   }
 }

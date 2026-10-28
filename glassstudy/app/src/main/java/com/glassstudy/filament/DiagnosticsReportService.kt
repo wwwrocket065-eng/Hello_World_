@@ -128,7 +128,7 @@ class DiagnosticsReportService(
                         appendLine()
                         appendLine("▸ ${tr("sectionRenderer")}")
                         if(state.opticalActive) {
-                            appendLine("Активен: собственная ES3-трассировка стекла; Filament работает под оптической поверхностью")
+                            appendLine("Активен: собственная ES3-трассировка стекла; Filament сохранён для fallback")
                         } else {
                         appendLine("Google Filament / gltfio · OpenGL ES")
                         appendLine("Реально нарисованных кадров Filament: ${state.renderedFrames}")
@@ -142,6 +142,7 @@ class DiagnosticsReportService(
                         appendLine("Стекло: штатное glTF-преломление Filament, отражения IBL; физическая каустика пока отсутствует")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
                         }
+                        appendLine("Кадры Filament: ${state.renderedFrames}")
                         appendLine(state.opticalReport)
                     }
                     "camera" -> {
