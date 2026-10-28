@@ -94,11 +94,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0;baseDirty=true
         }
         fun accept(next:State) {
-            if(state?.copy(antialias=next.antialias)==next) {
-                state=next;return // Display-only FXAA must not discard converged paths.
-            }
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
-                next.scene,next.render,next.camera.lightIntensity)
+                next.scene,next.render,next.camera.lightIntensity,next.antialias)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
             state=next;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
         }
@@ -163,6 +160,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             check(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)==GL.GL_FRAMEBUFFER_COMPLETE) { "RGBA16F FBO incomplete" }
             GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         }
+        private fun receiverExtent(s:State):Float=max(s.render.optics.photonExtent,
+            s.scene.floorWidth*.5f+s.render.optics.photonMargin)
         private fun common(p:Int,s:State) {
             texture(profile,0,p,"uProfile");i(p,"uProfileCount",contour.size/2)
             var radius=0f;var low=Float.POSITIVE_INFINITY;var high=Float.NEGATIVE_INFINITY
@@ -174,7 +173,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             f(p,"uIor",s.ior);i(p,"uBounces",s.render.optics.bounces)
             val sun=LightDirectionMath.source(s.azimuth,s.elevation)
             v(p,"uSun",sun.x,sun.y,sun.z)
-            f(p,"uPhotonExtent",s.render.optics.photonExtent)
+            f(p,"uPhotonExtent",receiverExtent(s))
+            i(p,"uSmoothSurface",if(s.antialias)1 else 0)
         }
         override fun onDrawFrame(gl:GL10?) {
             val s=state ?: return
@@ -212,9 +212,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glDeleteTextures(2,oldTextures,0);GL.glDeleteFramebuffers(2,oldFbos,0)
                     bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h;baseDirty=true
                 }
-                if(mapSize!=c.photonMap) {
-                    allocate(photons,photonFbo,c.photonMap,c.photonMap)
-                    mapSize=c.photonMap;invalidatePhotons()
+                // Cover every visible floor point plus a filter margin. Keep
+                // world texel/photon density as the receiver grows beyond 4 units.
+                val receiverScale=receiverExtent(s)/c.photonExtent
+                val desiredMap=(c.photonMap*receiverScale).roundToInt().coerceIn(64,512)
+                val launchSide=(c.photonSide*receiverScale).roundToInt().coerceIn(128,1536)
+                if(mapSize!=desiredMap) {
+                    allocate(photons,photonFbo,desiredMap,desiredMap)
+                    mapSize=desiredMap;invalidatePhotons()
                 }
                 val elapsed=SystemClock.uptimeMillis()-changeTime
                 if(dirtyPhotons && elapsed>=c.settleMs) {
@@ -223,9 +228,9 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
                     if(s.elevation>.05 && s.elevation<Math.PI-.05 && s.brightness>0) {
                         GL.glUseProgram(photonProgram);common(photonProgram,s)
-                        i(photonProgram,"uPhotonSide",c.photonSide);i(photonProgram,"uPhotonMapSize",mapSize)
+                        i(photonProgram,"uPhotonSide",launchSide);i(photonProgram,"uPhotonMapSize",mapSize)
                         GL.glEnable(GL.GL_BLEND);GL.glBlendFunc(GL.GL_ONE,GL.GL_ONE)
-                        GL.glDrawArrays(GL.GL_POINTS,0,c.photonSide*c.photonSide)
+                        GL.glDrawArrays(GL.GL_POINTS,0,launchSide*launchSide)
                         GL.glDisable(GL.GL_BLEND)
                         photonReady=true
                     }

@@ -30,6 +30,7 @@
     "exposure": 3,
     "movingWidth": 256,
     "pixelBudget": 131072,
-    "maxSampleRadiance": 8
+    "maxSampleRadiance": 8,
+    "photonMargin": 0.5
   }
 }

@@ -1,6 +1,7 @@
 // Canonical hollow lathe. Outward normals select air/glass at EACH interface.
 uniform highp sampler2D uProfile;
 uniform int uProfileCount;
+uniform int uSmoothSurface;
 uniform float uIor;
 uniform vec3 uBoundsMin,uBoundsMax;
 const float EPS=0.00008;
@@ -11,6 +12,31 @@ vec3 limitedRadiance(vec3 value,float maximum) {
     return peak>maximum ? value*(maximum/peak) : value;
 }
 vec2 ringAt(int i) { return texelFetch(uProfile,ivec2(i,0),0).rg; }
+vec2 segmentNormal(int j) {
+    vec2 delta=ringAt(j+1)-ringAt(j);
+    return normalize(vec2(delta.x,-delta.y));
+}
+vec3 opticalNormal(int j,vec3 p,vec3 d,vec3 geometric) {
+    if(uSmoothSurface==0)return geometric;
+    vec2 a=ringAt(j),b=ringAt(j+1),delta=b-a;
+    vec2 center=segmentNormal(j),low=center,high=center;
+    // Preserve real creases at rim/caps instead of smearing opposite surfaces.
+    if(j>0) {
+        vec2 previous=segmentNormal(j-1);
+        if(dot(center,previous)>.5)low=normalize(center+previous);
+    }
+    if(j+2<uProfileCount) {
+        vec2 next=segmentNormal(j+1);
+        if(dot(center,next)>.5)high=normalize(center+next);
+    }
+    float radius=length(p.xz);
+    float f=clamp(dot(vec2(p.y,radius)-a,delta)/max(dot(delta,delta),1e-12),0.0,1.0);
+    vec2 meridian=normalize(mix(low,high,f));
+    vec3 smoothN=normalize(vec3(meridian.x*p.x/max(radius,1e-9),meridian.y,
+        meridian.x*p.z/max(radius,1e-9)));
+    // A shading normal may not reverse the actual entry/exit side at grazing incidence.
+    return dot(smoothN,d)*dot(geometric,d)>0.0 ? smoothN : geometric;
+}
 float wallHit(vec3 o,vec3 d,out vec3 normal) {
     // Conservative canonical bound avoids walking the contour for most pixels.
     float nearT=0.0, farT=1e5;
@@ -52,7 +78,8 @@ float wallHit(vec3 o,vec3 d,out vec3 normal) {
                 vec3 p=o+t*d;
                 if(t>EPS && t<best && p.y>=min(a.x,b.x)-EPS && p.y<=max(a.x,b.x)+EPS) {
                     best=t;
-                    normal=normalize(vec3(p.x,-slope*(a.y+slope*(p.y-a.x)),p.z))*sign(dy);
+                    vec3 geometric=normalize(vec3(p.x,-slope*(a.y+slope*(p.y-a.x)),p.z))*sign(dy);
+                    normal=opticalNormal(j,p,d,geometric);
                 }
             }
         }

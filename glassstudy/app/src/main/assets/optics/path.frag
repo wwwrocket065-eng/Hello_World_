@@ -45,7 +45,7 @@ vec3 floorRadiance(vec3 p) {
     float albedo=uFloorMode==1 ? mix(uLight,uDark,odd) : uWhite;
     float flux=1.0;
     vec2 uv=p.xz/(2.0*uPhotonExtent)+.5;
-    if(uPhotonReady==1 && min(uv.x,uv.y)>.015 && max(uv.x,uv.y)<.985) {
+    if(uPhotonReady==1 && min(uv.x,uv.y)>=0.0 && max(uv.x,uv.y)<=1.0) {
         // Filter irradiance, not floor reflectance. No rectangular white film.
         vec2 dx=1.0/vec2(textureSize(uPhotons,0));
         flux=texture(uPhotons,uv).r*.25;
