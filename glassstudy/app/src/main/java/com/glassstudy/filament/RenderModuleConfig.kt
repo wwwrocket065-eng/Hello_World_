@@ -24,7 +24,8 @@ data class RenderModuleConfig(
     val reflectionsEnabled:Boolean=true,
     val reflectionMapSize:Int=64,
     val reflectionSamples:Int=16,
-    val reflectionUpdateDegrees:Float=10f
+    val reflectionUpdateDegrees:Float=10f,
+    val optics:GlassOpticsConfig=GlassOpticsConfig()
 ) {
     companion object {
         fun parse(json: JSONObject?): RenderModuleConfig {
@@ -63,7 +64,8 @@ data class RenderModuleConfig(
                 reflectionsEnabled = json.optBoolean("reflectionsEnabled",true),
                 reflectionMapSize = integer("reflectionMapSize",64,setOf(16,32,64,128)),
                 reflectionSamples = integer("reflectionSamples",16,setOf(4,8,16,32,64)),
-                reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)
+                reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f),
+                optics = GlassOpticsConfig.parse(json.optJSONObject("optics"))
             )
         }
     }

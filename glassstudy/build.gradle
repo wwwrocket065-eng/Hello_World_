@@ -2,3 +2,9 @@ plugins {
     id 'com.android.application' version '8.8.2' apply false
     id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
 }
+// Native optical instrumentation is isolated from the protected signing core.
+subprojects { appProject ->
+    appProject.plugins.withId('com.android.application') {
+        appProject.apply from: rootProject.file('tools/optical-metrics.gradle')
+    }
+}
