@@ -57,6 +57,7 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
             qualityStartNs=0,firstSampleNs=0,costs=emptyMap(),gpuCosts=emptyMap())
     }
     @Synchronized fun stageStarted(stage:Stage) {
+        if(ended>0L)return
         view=view.copy(phase=stage.title,elapsedNs=if(started>0)(now()-started).coerceAtLeast(0) else 0L)
     }
     @Synchronized fun event(reason:String) { events.add(reason) }
@@ -71,7 +72,7 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
         if(finalQuality && qualityStarted==0L)qualityStarted=time
         if(finalQuality && spp>0 && firstSample==0L)firstSample=time
         view=View(run,if(started==0L)0L else ((if(ended>0)ended else time)-started).coerceAtLeast(0),
-            ended>0,phase,width,height,spp,target,
+            ended>0,if(ended>0)"готово" else phase,width,height,spp,target,
             if(qualityStarted>0)(qualityStarted-started).coerceAtLeast(0) else 0L,
             if(firstSample>0)(firstSample-started).coerceAtLeast(0) else 0L,
             parameters,gpu,bufferBytes,runCosts.toMap(),runGpuCosts.toMap())
@@ -99,7 +100,10 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
             view=view.copy(gpuCosts=runGpuCosts.toMap())
         }
     }
-    @Synchronized fun snapshot():View = view
+    @Synchronized fun snapshot():View {
+        refreshElapsed()
+        return view
+    }
     /** Called by the already-running UI frame callback, not by an extra rendering loop. */
     @Synchronized fun isSampleDue():Boolean = lastPoll==0L || now()-lastPoll>=intervalNs
     @Synchronized fun poll(processCpuMs:Long,frameAvgMs:Double?,frameP95Ms:Double?,active:Boolean,
@@ -115,12 +119,13 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
     }
     @Synchronized fun pause() {
         event("пауза приложения");lastPoll=0L;windowCosts.clear();windowGpuSamples.clear()
+        started=0L;ended=0L
         view=view.copy(phase="пауза",complete=false)
     }
     @Synchronized fun windows():List<Window> = history.toList()
 
     @Synchronized fun report():String {
-        val v=view;val rows=history.toList()
+        val v=snapshot();val rows=history.toList()
         fun ms(ns:Long)=String.format(Locale("ru","RU"),"%.2f",ns/1e6)
         fun num(value:Double?)=value?.let { String.format(Locale("ru","RU"),"%.1f",it) } ?: "—"
         return buildString {

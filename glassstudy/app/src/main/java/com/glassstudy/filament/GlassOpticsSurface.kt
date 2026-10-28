@@ -138,7 +138,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 GL.GL_WAIT_FAILED -> { clearFence();metrics.event("ошибка GPU fence: завершение не подтверждено") }
                 else -> if(!fencePollScheduled) {
                     fencePollScheduled=true
-                    postDelayed({ queueEvent { fencePollScheduled=false };requestRender() },16L)
+                    postDelayed({ queueEvent { fencePollScheduled=false;pollCompletion() } },16L)
                 }
             }
         }
@@ -288,7 +288,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             try {
                 val c=s.render.optics
                 gpuTimer.poll()
-                if(completionFence!=0L) { pollCompletion();return }
+                if(completionFence!=0L)pollCompletion()
                 if(profileDirty) {
                     measured(Stage.PROFILE) {
                         GL.glBindTexture(GL.GL_TEXTURE_2D,profile)

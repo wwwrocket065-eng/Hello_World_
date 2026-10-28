@@ -66,8 +66,8 @@ class OpticalRenderMetricsTest {
         m.configure(250,10);m.begin("камера");m.poll(0,null,null,true)
         for(i in 1..100) { time+=250_000_000;m.poll(i.toLong(),null,null,true) }
         assertTrue(m.windows().size<=41)
-        m.pause();time+=100_000_000_000;m.poll(5000,null,null,true)
         val n=m.windows().size
+        m.pause();time+=100_000_000_000;m.poll(5000,null,null,true)
         assertEquals(n,m.windows().size)
         time+=1_000_000_000;m.poll(5100,null,null,true)
         assertEquals(10.0,m.windows().last().cpuPercent!!,.001)
