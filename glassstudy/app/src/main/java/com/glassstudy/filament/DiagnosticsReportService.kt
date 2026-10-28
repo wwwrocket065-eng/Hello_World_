@@ -7,6 +7,8 @@ import java.util.Locale
 
 /** Frozen application state passed to an on-demand, read-only diagnostic report. */
 data class DiagnosticsReportState(
+    val opticalActive:Boolean,
+    val opticalReport:String,
     val diagnosticLabels:Map<String,String>,
     val diagnosticSections:List<String>,
     val diagnosticsModule:DiagnosticsModuleConfig,
@@ -123,6 +125,10 @@ class DiagnosticsReportService(
                     "renderer" -> {
                         appendLine()
                         appendLine("▸ ${tr("sectionRenderer")}")
+                        if(state.opticalActive) {
+                            appendLine("Активен: собственная ES3-трассировка стекла; Filament работает под оптической поверхностью")
+                            appendLine(state.opticalReport)
+                        } else {
                         appendLine("Google Filament / gltfio · OpenGL ES")
                         appendLine("Реально нарисованных кадров Filament: ${state.renderedFrames}")
                         appendLine("${tr("glass")}: ${tr("glassValue")}")
@@ -134,6 +140,7 @@ class DiagnosticsReportService(
                         appendLine("Студийные HDRI: отключены · каустики: ${state.causticDetails}")
                         appendLine("Стекло: штатное glTF-преломление Filament, отражения IBL; физическая каустика пока отсутствует")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
+                        }
                     }
                     "camera" -> {
                         appendLine()

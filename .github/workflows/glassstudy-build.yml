@@ -37,6 +37,11 @@ jobs:
         run: python3 glassstudy/tools/test_patch_integrity.py
       - name: Verify fast-patch workflow without Gradle
         run: python3 glassstudy/tools/test_fast_patch.py
+      - name: Verify dynamic renderer metrics and native timer adapter
+        run: |
+          python3 glassstudy/tools/test_optical_timer.py
+          cd glassstudy
+          gradle --no-daemon :app:testCiUnsignedUnitTest --stacktrace
       - name: Build unsigned APK for original-key signing
         working-directory: glassstudy
         run: |

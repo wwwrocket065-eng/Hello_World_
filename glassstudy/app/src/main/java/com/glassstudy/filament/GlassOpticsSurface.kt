@@ -4,6 +4,8 @@ import android.content.Context
 import android.opengl.GLES30 as GL
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
+import android.os.Debug
+import com.glassstudy.filament.OpticalRenderMetrics.Stage
 import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -34,6 +36,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private set
     @Volatile var traceHeight=0
         private set
+    val metrics=OpticalRenderMetrics()
     private val renderer=OpticalRenderer()
     private var lastState:State?=null
     private var lastContour:FloatArray?=null
@@ -54,7 +57,17 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
     fun setContour(points:FloatArray) {
         if(lastContour?.contentEquals(points)==true)return
         lastContour=points.copyOf()
-        queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
+        queueEvent { renderer.startProfileMeasurement();renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
+        requestRender()
+    }
+    override fun onPause() {
+        queueEvent { renderer.pauseMeasurement() }
+        super.onPause()
+        metrics.pause()
+    }
+    override fun onResume() {
+        super.onResume()
+        queueEvent { renderer.resumeMeasurement() }
         requestRender()
     }
     fun diagnostics():String = failed?.let { "GPU-оптика: отказ ($it); Filament fallback" }
@@ -92,7 +105,45 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var havePreview=false
         private var initialized=false
         private var delayed=false
+        private var completionFence=0L
+        private var fencePollScheduled=false
+        private var gpuDescription="не определён"
+        private val gpuTimer=OpticalGpuTimer(metrics)
 
+        private inline fun measured(stage:Stage,block:()->Unit) {
+            metrics.stageStarted(stage)
+            val wall=System.nanoTime();val cpu=Debug.threadCpuTimeNanos()
+            gpuTimer.begin(stage)
+            try { block() } finally {
+                gpuTimer.end()
+                metrics.record(stage,System.nanoTime()-wall,Debug.threadCpuTimeNanos()-cpu)
+            }
+        }
+        private fun clearFence() {
+            if(completionFence!=0L) { GL.glDeleteSync(completionFence);completionFence=0L }
+        }
+        private fun restartMeasurement(reason:String) { clearFence();metrics.begin(reason) }
+        fun pauseMeasurement() { clearFence();gpuTimer.pause() }
+        fun resumeMeasurement() {
+            if(state==null)return
+            restartMeasurement("возврат в приложение")
+            sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
+        }
+        private fun pollCompletion() {
+            if(completionFence==0L)return
+            metrics.refreshElapsed()
+            gpuTimer.poll()
+            when(GL.glClientWaitSync(completionFence,0,0L)) {
+                GL.GL_ALREADY_SIGNALED,GL.GL_CONDITION_SATISFIED -> { gpuTimer.poll();clearFence();metrics.complete() }
+                GL.GL_WAIT_FAILED -> { clearFence();metrics.event("ошибка GPU fence: завершение не подтверждено") }
+                else -> if(!fencePollScheduled) {
+                    fencePollScheduled=true
+                    postDelayed({ queueEvent { fencePollScheduled=false };requestRender() },16L)
+                }
+            }
+        }
+
+        fun startProfileMeasurement() = restartMeasurement("изменение профиля")
         fun invalidatePhotons() {
             dirtyPhotons=true;photonReady=false;sampleCount=0
             changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0;baseDirty=true
@@ -106,6 +157,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
                 next.scene,next.render,next.camera.lightIntensity,next.antialias)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
+            val reason=when {
+                previous==null -> "начальный рендер"
+                previous.antialias!=next.antialias -> "переключение сглаживания"
+                light!=listOf(previous.azimuth,previous.elevation,previous.brightness,previous.mode,previous.ior,
+                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias) -> "изменение света/сцены"
+                else -> "движение камеры"
+            }
+            restartMeasurement(reason)
             state=next;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
         }
         private fun source(name:String):String=context.assets.open("optics/$name")
@@ -134,6 +193,12 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         }
         override fun onSurfaceCreated(gl:GL10?,config:EGLConfig?) {
             try {
+                // Context-local sync names cannot survive context recreation.
+                completionFence=0L;fencePollScheduled=false
+                gpuDescription=listOf(GL.glGetString(GL.GL_VENDOR),GL.glGetString(GL.GL_RENDERER),
+                    GL.glGetString(GL.GL_VERSION)).joinToString(" · ")
+                metrics.begin("создание GL-контекста")
+                gpuTimer.contextCreated(GL.glGetString(GL.GL_EXTENSIONS) ?: "")
                 // Probe actual RGBA16F attachments and GL drawing errors below.
                 // EXT_float_blend is required for 32F, not half-float blending.
                 pathProgram=program("quad.vert","path.frag")
@@ -152,6 +217,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             } catch(e:Exception) { fail(e) }
         }
         override fun onSurfaceChanged(gl:GL10?,w:Int,h:Int) {
+            restartMeasurement("размер поверхности")
             width=w;height=h;sampleCount=0;rowCursor=0;baseDirty=true;maskDirty=true;motionTime=SystemClock.uptimeMillis()
         }
         private fun f(p:Int,name:String,value:Float)=GL.glUniform1f(GL.glGetUniformLocation(p,name),value)
@@ -221,62 +287,71 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             if(!initialized || failed!=null || width<1 || height<1)return
             try {
                 val c=s.render.optics
+                gpuTimer.poll()
+                if(completionFence!=0L) { pollCompletion();return }
                 if(profileDirty) {
-                    GL.glBindTexture(GL.GL_TEXTURE_2D,profile)
-                    val data=ByteBuffer.allocateDirect(contour.size*4).order(ByteOrder.nativeOrder()).asFloatBuffer()
-                    data.put(contour).position(0)
-                    GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RG32F,contour.size/2,1,0,GL.GL_RG,GL.GL_FLOAT,data)
-                    GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
-                    GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
-                    profileDirty=false;maskDirty=true;sampleCount=0;rowCursor=0;baseDirty=true
+                    measured(Stage.PROFILE) {
+                        GL.glBindTexture(GL.GL_TEXTURE_2D,profile)
+                        val data=ByteBuffer.allocateDirect(contour.size*4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+                        data.put(contour).position(0)
+                        GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RG32F,contour.size/2,1,0,GL.GL_RG,GL.GL_FLOAT,data)
+                        GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
+                        GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
+                        profileDirty=false;maskDirty=true;sampleCount=0;rowCursor=0;baseDirty=true
+                    }
                 }
                 val moving=SystemClock.uptimeMillis()-motionTime<c.settleMs
                 val w=min(if(moving)c.movingWidth else c.width,width)
                 val h=(w*height.toFloat()/width).roundToInt().coerceAtLeast(1)
                 if(bufferWidth!=w || bufferHeight!=h) {
-                    val oldTextures=accum;val oldFbos=fbos
-                    val oldWidth=bufferWidth;val oldHeight=bufferHeight
-                    accum=IntArray(2);fbos=IntArray(2)
-                    GL.glGenTextures(2,accum,0);GL.glGenFramebuffers(2,fbos,0)
-                    for(j in 0..1) {
-                        allocate(accum[j],fbos[j],w,h)
-                        if(oldWidth>0 && oldHeight>0) {
-                            // Seed the high-resolution buffers with the live preview;
-                            // unfinished tiles must not turn into black stripes.
-                            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER,oldFbos[shownIndex])
-                            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER,fbos[j])
-                            GL.glBlitFramebuffer(0,0,oldWidth,oldHeight,0,0,w,h,
-                                GL.GL_COLOR_BUFFER_BIT,GL.GL_LINEAR)
+                    measured(Stage.BUFFERS) {
+                        val oldTextures=accum;val oldFbos=fbos
+                        val oldWidth=bufferWidth;val oldHeight=bufferHeight
+                        accum=IntArray(2);fbos=IntArray(2)
+                        GL.glGenTextures(2,accum,0);GL.glGenFramebuffers(2,fbos,0)
+                        for(j in 0..1) {
+                            allocate(accum[j],fbos[j],w,h)
+                            if(oldWidth>0 && oldHeight>0) {
+                                // Seed the high-resolution buffers with the live preview;
+                                // unfinished tiles must not turn into black stripes.
+                                GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER,oldFbos[shownIndex])
+                                GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER,fbos[j])
+                                GL.glBlitFramebuffer(0,0,oldWidth,oldHeight,0,0,w,h,
+                                    GL.GL_COLOR_BUFFER_BIT,GL.GL_LINEAR)
+                            }
                         }
+                        GL.glDeleteTextures(2,oldTextures,0);GL.glDeleteFramebuffers(2,oldFbos,0)
+                        allocateMask(w,h)
+                        bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h;baseDirty=true
                     }
-                    GL.glDeleteTextures(2,oldTextures,0);GL.glDeleteFramebuffers(2,oldFbos,0)
-                    allocateMask(w,h)
-                    bufferWidth=w;bufferHeight=h;sampleCount=0;rowCursor=0;shownIndex=0;traceWidth=w;traceHeight=h;baseDirty=true
                 }
                 // Cover every visible floor point plus a filter margin. Keep
                 // world texel/photon density as the receiver grows beyond 4 units.
-                if(maskDirty)drawMask(s,w,h)
+                if(maskDirty)measured(Stage.MASK) { drawMask(s,w,h) }
                 val receiverScale=receiverExtent(s)/c.photonExtent
                 val desiredMap=(c.photonMap*receiverScale).roundToInt().coerceIn(64,512)
                 val launchSide=(c.photonSide*receiverScale).roundToInt().coerceIn(128,1536)
                 if(mapSize!=desiredMap) {
-                    allocate(photons,photonFbo,desiredMap,desiredMap)
+                    measured(Stage.BUFFERS) { allocate(photons,photonFbo,desiredMap,desiredMap) }
                     mapSize=desiredMap;invalidatePhotons()
                 }
                 val elapsed=SystemClock.uptimeMillis()-changeTime
                 if(dirtyPhotons && elapsed>=c.settleMs) {
-                    GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,photonFbo)
-                    GL.glViewport(0,0,mapSize,mapSize)
-                    GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-                    if(s.elevation>.05 && s.elevation<Math.PI-.05 && s.brightness>0) {
-                        GL.glUseProgram(photonProgram);common(photonProgram,s)
-                        i(photonProgram,"uPhotonSide",launchSide);i(photonProgram,"uPhotonMapSize",mapSize)
-                        GL.glEnable(GL.GL_BLEND);GL.glBlendFunc(GL.GL_ONE,GL.GL_ONE)
-                        GL.glDrawArrays(GL.GL_POINTS,0,launchSide*launchSide)
-                        GL.glDisable(GL.GL_BLEND)
-                        photonReady=true
+                    metrics.event("пересчёт каустики")
+                    measured(Stage.PHOTONS) {
+                        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,photonFbo)
+                        GL.glViewport(0,0,mapSize,mapSize)
+                        GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+                        if(s.elevation>.05 && s.elevation<Math.PI-.05 && s.brightness>0) {
+                            GL.glUseProgram(photonProgram);common(photonProgram,s)
+                            i(photonProgram,"uPhotonSide",launchSide);i(photonProgram,"uPhotonMapSize",mapSize)
+                            GL.glEnable(GL.GL_BLEND);GL.glBlendFunc(GL.GL_ONE,GL.GL_ONE)
+                            GL.glDrawArrays(GL.GL_POINTS,0,launchSide*launchSide)
+                            GL.glDisable(GL.GL_BLEND)
+                            photonReady=true
+                        }
+                        dirtyPhotons=false;sampleCount=0;rowCursor=0;baseDirty=true
                     }
-                    dirtyPhotons=false;sampleCount=0;rowCursor=0;baseDirty=true
                 }
                 if(sampleCount<c.samples || baseDirty) {
                     val p=pathProgram
@@ -309,34 +384,61 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     i(p,"uFloorMode",when(s.floor) { "checker"->1;"white"->2;else->0 })
                     i(p,"uPhotonReady",if(photonReady)1 else 0);i(p,"uFrame",sampleCount)
                     if(baseDirty) {
-                        i(p,"uBaseOnly",1);i(p,"uPreserveGlass",if(havePreview)1 else 0)
-                        // Neither base draw may sample an attached accumulation texture.
-                        texture(photons,1,p,"uPrevious")
-                        for(j in 0..1) {
-                            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[j])
-                            GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                        measured(Stage.BASE) {
+                            i(p,"uBaseOnly",1);i(p,"uPreserveGlass",if(havePreview)1 else 0)
+                            // Neither base draw may sample an attached accumulation texture.
+                            texture(photons,1,p,"uPrevious")
+                            for(j in 0..1) {
+                                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[j])
+                                GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                            }
+                            texture(accum[1-sampleCount%2],1,p,"uPrevious")
+                            i(p,"uBaseOnly",0);baseDirty=false
+                            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2])
                         }
-                        texture(accum[1-sampleCount%2],1,p,"uPrevious")
-                        i(p,"uBaseOnly",0);baseDirty=false
-                        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2])
                     }
                     if(region.width>0 && region.height>0) {
-                    GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(region.x,region.y+rowCursor,region.width,rows)
-                    GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
-                    GL.glDisable(GL.GL_SCISSOR_TEST)
-                    shownIndex=sampleCount%2;rowCursor+=rows
-                    if(rowCursor>=region.height) { sampleCount++;rowCursor=0 }
+                        measured(Stage.PATH) {
+                            GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(region.x,region.y+rowCursor,region.width,rows)
+                            GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                            GL.glDisable(GL.GL_SCISSOR_TEST)
+                            shownIndex=sampleCount%2;rowCursor+=rows
+                            if(rowCursor>=region.height) { sampleCount++;rowCursor=0 }
+                        }
                     } else { sampleCount=c.samples;shownIndex=0 }
                     havePreview=true
                 }
-                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
-                GL.glUseProgram(displayProgram)
-                texture(accum[shownIndex],0,displayProgram,"uImage")
-                GL.glUniform2f(GL.glGetUniformLocation(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
-                f(displayProgram,"uExposure",c.exposure)
-                i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
-                GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                measured(Stage.DISPLAY) {
+                    GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
+                    GL.glUseProgram(displayProgram)
+                    texture(accum[shownIndex],0,displayProgram,"uImage")
+                    GL.glUniform2f(GL.glGetUniformLocation(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
+                    f(displayProgram,"uExposure",c.exposure)
+                    i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
+                    GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                }
                 val error=GL.glGetError();check(error==GL.GL_NO_ERROR) { "GL error 0x${error.toString(16)}" }
+                val finalQuality=!moving && !dirtyPhotons && w==min(c.width,width)
+                val phase=when {
+                    moving -> "preview/стабилизация"
+                    dirtyPhotons -> "ожидание каустики"
+                    sampleCount<c.samples -> "накопление лучей"
+                    else -> "ожидание GPU"
+                }
+                val previousMetrics=metrics.snapshot()
+                val rebuildParameters=previousMetrics.run==0L || previousMetrics.width!=w || previousMetrics.height!=h || sampleCount<=1
+                val regionInfo=if(rebuildParameters)OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h) else null
+                val parameters=if(rebuildParameters) "Цель: ${min(c.width,width)}px · ${c.samples} spp · ${c.bounces} границ; preview ${c.movingWidth}px; settle ${c.settleMs} мс; бюджет ${c.pixelBudget} px/подачу\n"+
+                    "Профиль ${contour.size/2} точек; маска ${c.maskSides} сторон; scissor ${regionInfo?.width}×${regionInfo?.height} (прямоугольник планирования, не площадь стекла)\n"+
+                    "Карта каустики ${mapSize}×${mapSize}; запуск ${launchSide}² (${launchSide.toLong()*launchSide}) фотонов; полуразмер ${receiverExtent(s)}; готова=$photonReady\n"+
+                    "IOR ${s.ior}; сглаживание/FXAA ${s.antialias}; отсечение выбросов ${c.maxSampleRadiance}" else previousMetrics.parameters
+                metrics.progress(phase,w,h,sampleCount,c.samples,finalQuality,parameters,gpuDescription,
+                    17L*w*h+8L*mapSize*mapSize+contour.size*4L)
+                if(finalQuality && sampleCount>=c.samples && !metrics.snapshot().complete) {
+                    completionFence=GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE,0)
+                    check(completionFence!=0L) { "Cannot confirm GPU completion" }
+                    GL.glFlush();pollCompletion()
+                }
                 if(sampleCount<c.samples)requestRender()
                 else if((dirtyPhotons || moving) && !delayed) {
                     delayed=true

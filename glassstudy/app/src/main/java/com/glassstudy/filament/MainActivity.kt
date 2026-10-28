@@ -227,10 +227,21 @@ class MainActivity : Activity() {
             val frameWasRendered = viewer.renderedFrames > framesBefore
             val submissionMs=(SystemClock.elapsedRealtimeNanos()-submitStartNs)/1_000_000.0
             profiler.frame(frameTimeNanos,submissionMs)
+            if(::opticalSurface.isInitialized && opticalSurface.metrics.isSampleDue()) {
+                val frameMetrics=profiler.metrics()
+                val heap=Runtime.getRuntime()
+                val thermal=if(android.os.Build.VERSION.SDK_INT>=29)runCatching {
+                    (getSystemService(POWER_SERVICE) as android.os.PowerManager).currentThermalStatus
+                }.getOrNull() else null
+                opticalSurface.metrics.poll(android.os.Process.getElapsedCpuTime(),frameMetrics.avgFrameMs,
+                    frameMetrics.p95FrameMs,opticalSurface.visibility==View.VISIBLE,
+                    (heap.totalMemory()-heap.freeMemory())/1048576.0,
+                    android.os.Debug.getNativeHeapAllocatedSize()/1048576.0,thermal)
+            }
             if (::fpsPill.isInitialized && viewer.renderedFrames % 40L == 0L) {
                 val f=profiler.metrics().fps
                 fpsPill.text=if(opticalSurface.visibility==View.VISIBLE)
-                    "${opticalSurface.traceWidth}px · ${opticalSurface.sampleCount} spp"
+                    opticalSurface.metrics.snapshot().pill()
                     else "${if(f!=null) String.format(Locale.US,"%.0f",f) else "—"} FPS · Filament"
             }
             if (frameWasRendered && ++stableFrames == 4) updater.confirmFrameRendered()
@@ -747,6 +758,7 @@ class MainActivity : Activity() {
             renderEnvironment.apply(bundle.render)
             sceneEnvironment.configureAtmosphereHaze(bundle.render.atmosphereHaze.toDouble())
             diagnosticsModule=bundle.diagnostics
+            opticalSurface.metrics.configure(diagnosticsModule.sampleIntervalMs,diagnosticsModule.historySeconds)
             modelAssets.configure(bundle.materials)
             sceneEnvironment.applyConfiguration(bundle.scene)
             renderEnvironment.setLightingEnvironment(sceneEnvironment.lightingMode,
@@ -807,6 +819,8 @@ class MainActivity : Activity() {
 
     private fun showDiagnostic() {
         val report=diagnosticsReports.create(DiagnosticsReportState(
+            opticalActive=opticalSurface.visibility==View.VISIBLE,
+            opticalReport=opticalSurface.metrics.report(),
             diagnosticLabels=uiChrome.diagnosticLabels,
             diagnosticSections=uiChrome.diagnosticSections,
             diagnosticsModule=diagnosticsModule,

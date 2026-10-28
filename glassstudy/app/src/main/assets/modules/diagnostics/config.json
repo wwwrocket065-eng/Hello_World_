@@ -3,5 +3,7 @@
   "id": "diagnostics",
   "includeModuleStatus": false,
   "includeRenderParameters": false,
-  "includeCameraParameters": false
+  "includeCameraParameters": false,
+  "sampleIntervalMs": 1000,
+  "historySeconds": 180
 }
