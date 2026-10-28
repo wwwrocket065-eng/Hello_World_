@@ -1,0 +1,58 @@
+name: GlassStudy 0.2.86 verified original-key test release
+on:
+  push:
+    branches: [glassstudy-optics-test-20261028]
+    paths: ['.github/workflows/glassstudy-release-0.2.86.yml', 'glassstudy/releases/0.2.86.signed-delta.json']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore exactly verified signed APK (no private signing key)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/12805939961/zip > unsigned.zip
+          python3 - <<'PY'
+          import json,zipfile,hashlib,base64
+          from pathlib import Path
+          config=json.loads(Path('glassstudy/releases/0.2.86.signed-delta.json').read_text())
+          assert config['format']=='glassstudy-public-signed-delta-v1'
+          with zipfile.ZipFile('unsigned.zip') as z:
+              files=[n for n in z.namelist() if n.endswith('.apk')]
+              assert len(files)==1
+              data=z.read(files[0])
+          assert hashlib.sha256(data).hexdigest()==config['unsignedSha256']
+          data=bytearray(data)
+          for edit in reversed(config['edits']):
+              offset=edit['offset'];length=edit['delete']
+              assert 0<=offset<=len(data) and 0<=length<=len(data)-offset
+              data[offset:offset+length]=base64.b64decode(edit['base64'],validate=True)
+          assert hashlib.sha256(data).hexdigest()==config['signedSha256']=='e466f4aa61d7f8df681961214610d9bdab7341c4f931216646b055823cf5fd2c'
+          assert config['filename']=='GlassStudy_3D_LAB_v0.2.86_ORIGINAL_KEY.apk'
+          Path(config['filename']).write_bytes(data)
+          PY
+      - name: Official Android signature, identity and alignment gates
+        run: |
+          set -euo pipefail
+          FILE=GlassStudy_3D_LAB_v0.2.86_ORIGINAL_KEY.apk
+          TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$FILE" | tee signature.txt
+          grep -F 'Verified using v2 scheme (APK Signature Scheme v2): true' signature.txt
+          grep -F 'Signer #1 certificate SHA-256 digest: 35ef51601249bac0ee7fc9fc88a7b380b7750bc9169dde0da382145ff69873cc' signature.txt
+          "$TOOLS/zipalign" -c -P 16 4 "$FILE"
+          "$TOOLS/aapt" dump badging "$FILE" | tee package.txt
+          grep -F "name='com.glassstudy.filament.stable'" package.txt
+          grep -F "versionCode='20086'" package.txt
+          grep -F "versionName='0.2.86'" package.txt
+      - name: Publish test APK with original identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create glassstudy-v0.2.86 GlassStudy_3D_LAB_v0.2.86_ORIGINAL_KEY.apk \
+            --target 19a88fccd1e6d5a847719c5fea8b546b096216cb --prerelease \
+            --title 'GlassStudy 0.2.86 — optical diagnostics test' \
+            --notes 'Automatic optical A/B test, retained render images and separate image clipboard. Original signing certificate; install over 0.2.85. Android CI and APK identity/alignment verified. Xiaomi runtime and image paste still require device validation.'

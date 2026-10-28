@@ -203,6 +203,7 @@ class MainActivity : Activity() {
     private lateinit var renderEnvironment:RenderEnvironmentController
     private lateinit var opticalSurface:GlassOpticsSurface
     private var diagnosticsModule = DiagnosticsModuleConfig()
+    private val opticsTest by lazy(LazyThreadSafetyMode.NONE) { OpticsTestController(this,opticalSurface) }
     private lateinit var sceneEnvironment:SceneEnvironmentController
     private lateinit var sceneSettings:SceneSettingsPanel
     private val profiler = FrameProfiler()
@@ -263,6 +264,7 @@ class MainActivity : Activity() {
     private fun d(v: Float): Int = (v * resources.displayMetrics.density).toInt()
     private fun updateOpticalSurface() {
         if(!::opticalSurface.isInitialized)return
+        if(opticalSurface.testOwnsState)return
         val contour=if(analyticSurface)modelAssets.analyticOpticalContour else modelAssets.opticalContour
         val enabled=renderEnvironment.configuration.optics.enabled && !modelAssets.wireframe &&
             contour!=null && opticalSurface.failed==null
@@ -378,13 +380,13 @@ class MainActivity : Activity() {
             },
             {elevation -> renderEnvironment.directTransmission(elevation)},
             {elevation -> renderEnvironment.directColor(elevation)})
-        surface.setOnTouchListener { _, event -> cameraLight.onTouch(event) }
+        surface.setOnTouchListener { _, event -> if(opticsTest.running)true else cameraLight.onTouch(event) }
         opticalSurface=GlassOpticsSurface(this) { error ->
             opticalSurface.visibility=View.GONE
             android.util.Log.w("GlassStudy","Optical fallback: $error")
         }.apply {
             visibility=View.GONE
-            setOnTouchListener { _, event -> cameraLight.onTouch(event) }
+            setOnTouchListener { _, event -> if(opticsTest.running)true else cameraLight.onTouch(event) }
         }
         root.addView(opticalSurface,1,FrameLayout.LayoutParams(-1,-1))
 
@@ -845,8 +847,7 @@ class MainActivity : Activity() {
         uiChrome.updateStatus(cameraLight.lightMode)
     }
 
-    private fun showDiagnostic() {
-        val report=diagnosticsReports.create(DiagnosticsReportState(
+    private fun diagnosticReport():String = diagnosticsReports.create(DiagnosticsReportState(
             opticalActive=opticalSurface.visibility==View.VISIBLE,
             opticalReport=opticalSurface.metrics.report(),
             diagnosticLabels=uiChrome.diagnosticLabels,
@@ -876,7 +877,14 @@ class MainActivity : Activity() {
             lightElevation=cameraLight.lightElevation,
             brightness=cameraLight.brightness
         ))
-        diagnosticsPopup.show(report,uiChrome.popupStyle())
+    private fun showDiagnostic() {
+        val report=diagnosticReport()+"\n\n"+opticsTest.report()
+        diagnosticsPopup.show(report,uiChrome.popupStyle(),onTest={
+            if(!opticsTest.running) {
+                diagnosticsPopup.dismiss()
+                opticsTest.start(diagnosticsModule,diagnosticReport(),modelAssets.opticalContour,modelAssets.analyticOpticalContour)
+            }
+        },onCopyImage={ opticsTest.copyImage() },testRunning=opticsTest.running)
     }
     override fun onResume() {
         super.onResume()
@@ -900,7 +908,7 @@ class MainActivity : Activity() {
         else super.onBackPressed()
     }
     override fun onPause() {
-        if(::opticalSurface.isInitialized)opticalSurface.onPause()
+        if(::opticalSurface.isInitialized) { opticsTest.cancel();opticalSurface.onPause() }
         cameraLight.resetGesture()
         diagnosticsPopup.dismiss()
         running=false
@@ -909,6 +917,7 @@ class MainActivity : Activity() {
         super.onPause()
     }
     override fun onDestroy() {
+        if(::opticalSurface.isInitialized)opticsTest.close()
         running=false
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         if(::sceneEnvironment.isInitialized)sceneEnvironment.release()
