@@ -3,8 +3,6 @@ package com.glassstudy.filament
 import android.app.Activity
 import android.content.SharedPreferences
 import android.util.Log
-import android.os.SystemClock
-import kotlin.math.abs
 import com.google.android.filament.Skybox
 import com.google.android.filament.utils.GlassStudyModelViewer
 
@@ -35,45 +33,9 @@ class SceneEnvironmentController(
     private var currentElevation=.9
     private var currentAzimuth=1.3
     private var atmosphereHaze=.3
-    private var lastCausticElevation=Double.NaN
-    private var lastCausticAzimuth=Double.NaN
-    private var lastCausticBrightness=Double.NaN
-    private var lastCausticUpdateMs=0L
-    private var causticActive=false
-
-    /** Rebuild only after meaningful light changes, never on every frame. */
-    private fun updateGlassLight(force:Boolean=false) {
-        if(floorMode=="none" || globalBrightness<.015 ||
-            kotlin.math.sin(currentElevation)<.12) {
-            if(causticActive) {
-                viewer.setCausticGlb(null)
-                causticActive=false
-            }
-            lastCausticElevation=Double.NaN
-            return
-        }
-        val now=SystemClock.uptimeMillis()
-        if(!force && causticActive) {
-            if(now-lastCausticUpdateMs<220L)return
-            val azDelta=abs(((currentAzimuth-lastCausticAzimuth+Math.PI)%
-                (2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI)
-            if(azDelta<Math.toRadians(7.0) &&
-                abs(currentElevation-lastCausticElevation)<Math.toRadians(7.0) &&
-                abs(globalBrightness-lastCausticBrightness)<.10)return
-        }
-        try {
-            viewer.setCausticGlb(GlassCausticsGlb.create(
-                currentAzimuth,currentElevation,globalBrightness))
-            causticActive=true
-            lastCausticElevation=currentElevation
-            lastCausticAzimuth=currentAzimuth
-            lastCausticBrightness=globalBrightness
-            lastCausticUpdateMs=now
-        } catch(e:Exception) {
-            Log.e("GlassStudy","Projected glass-light effect unavailable",e)
-            // No change to the glass, floor, user lighting or patch safety.
-        }
-    }
+    // Real glass remains under Filament's glTF/PBR renderer.
+    // Reject unlit photon overlays that obscured the checker / white floor.
+    val causticDiagnostics:String get()="отключена: без искусственной накладки"
 
     fun setLightState(brightness:Double,elevation:Double,azimuth:Double) {
         require(brightness.isFinite() && brightness in 0.0..2.0)
@@ -85,7 +47,6 @@ class SceneEnvironmentController(
         currentElevation=elevation
         currentAzimuth=azimuth
         updatePhysicalSky()
-        updateGlassLight()
     }
 
     fun configureAtmosphereHaze(value:Double) {
@@ -148,19 +109,16 @@ class SceneEnvironmentController(
                     module.darkLevel,module.whiteLevel)
                 else -> null
             })
-            updateGlassLight(force=true)
         } catch(e:Exception) {
             Log.e("GlassStudy","Floor GLB rejected; keeping main model running",e)
             floorMode="none"
             preferences.edit().putString("floorMode","none").apply()
             try { viewer.setFloorGlb(null) } catch(_:Exception) {}
-            try { updateGlassLight(force=true) } catch(_:Exception) {}
         }
     }
 
     fun release() {
         try { viewer.setCausticGlb(null) } catch(_:Exception) {}
-        causticActive=false
         activeSkybox?.let {
             if(viewer.scene.skybox===it)viewer.scene.skybox=null
             viewer.engine.destroySkybox(it)

@@ -7,6 +7,8 @@ import java.util.Locale
 
 /** Frozen application state passed to an on-demand, read-only diagnostic report. */
 data class DiagnosticsReportState(
+    val opticalActive:Boolean,
+    val opticalReport:String,
     val diagnosticLabels:Map<String,String>,
     val diagnosticSections:List<String>,
     val diagnosticsModule:DiagnosticsModuleConfig,
@@ -19,6 +21,7 @@ data class DiagnosticsReportState(
     val wireframe:Boolean,
     val glassMaterialDetails:String,
     val reflectionDetails:String,
+    val causticDetails:String,
     val renderedFrames:String,
     val surfaceWidth:Int,
     val surfaceHeight:Int,
@@ -99,7 +102,9 @@ class DiagnosticsReportService(
                         appendLine("FPS: ${num(perf.fps)} · ${tr("frameTime")}: ${num(perf.avgFrameMs)} / ${num(perf.p95FrameMs)} ${tr("milliseconds")} (P95)")
                         appendLine("${tr("cpuProcess")}: ${num(perf.cpuPercent)} % ${tr("oneCore")}")
                         appendLine("${tr("frameSubmission")}: ${num(perf.submissionMs)} ${tr("milliseconds")} (${tr("cpuThread")})")
-                        appendLine("${tr("gpuTime")}: ${tr("notMeasured")}")
+                        appendLine(if(state.opticalActive) "GPU: реальные времена этапов и доступность таймера — в разделе рендера"
+                            else "${tr("gpuTime")}: ${tr("notMeasured")}")
+                        appendLine("FPS/кадр выше — UI/Filament; ход трассировки см. по SPP и таймеру оптики")
                     }
                     "memory" -> {
                         appendLine()
@@ -122,6 +127,9 @@ class DiagnosticsReportService(
                     "renderer" -> {
                         appendLine()
                         appendLine("▸ ${tr("sectionRenderer")}")
+                        if(state.opticalActive) {
+                            appendLine("Активен: собственная ES3-трассировка стекла; Filament сохранён для fallback")
+                        } else {
                         appendLine("Google Filament / gltfio · OpenGL ES")
                         appendLine("Реально нарисованных кадров Filament: ${state.renderedFrames}")
                         appendLine("${tr("glass")}: ${tr("glassValue")}")
@@ -130,9 +138,12 @@ class DiagnosticsReportService(
                         appendLine("IBL: ${state.reflectionDetails}")
                         appendLine("Расчётный солнечный поток: ${num(physicalSunLux)} лк · рассеянный свет: ${num(physicalSkyLux)} лк")
                         appendLine("Экспозиция камеры: ISO ${num(effectiveIso.toDouble())} · адаптация ${if(state.lightingMode==LightEnvironmentMode.ATMOSPHERE) "по небу и солнцу" else "отключена"}")
-                        appendLine("Студийные HDRI: отключены · каустики: отдельная быстрая аппроксимация")
-                        appendLine("Тени стекла: сплошная чёрная отключена; световой рисунок на полу приближённый")
+                        appendLine("Студийные HDRI: отключены · каустики: ${state.causticDetails}")
+                        appendLine("Стекло: штатное glTF-преломление Filament, отражения IBL; физическая каустика пока отсутствует")
                         appendLine("${tr("pathTracing")}: ${tr("pathTracingValue")}")
+                        }
+                        appendLine("Кадры Filament: ${state.renderedFrames}")
+                        appendLine(state.opticalReport)
                     }
                     "camera" -> {
                         appendLine()
@@ -145,7 +156,8 @@ class DiagnosticsReportService(
                         appendLine("▸ ${tr("sectionDevice")}")
                         appendLine("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}")
                         appendLine("${tr("screen")}: ${state.surfaceWidth} × ${state.surfaceHeight} · DPR ${num(state.pixelDensity.toDouble())}")
-                        appendLine("${tr("gpuInfo")}: ${tr("notMeasured")}")
+                        appendLine(if(state.opticalActive) "GPU/драйвер: см. раздел GPU-оптики"
+                            else "${tr("gpuInfo")}: ${tr("notMeasured")}")
                     }
                 }
             }

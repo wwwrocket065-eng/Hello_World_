@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(glassstudy_optical_timer LANGUAGES CXX)
+add_library(glassstudy_optical_timer SHARED optical_timer.cpp)
+target_compile_features(glassstudy_optical_timer PRIVATE cxx_std_17)
+target_compile_options(glassstudy_optical_timer PRIVATE -Wall -Wextra -Werror)
+target_link_options(glassstudy_optical_timer PRIVATE -Wl,-z,max-page-size=16384)
+target_link_libraries(glassstudy_optical_timer PRIVATE EGL)

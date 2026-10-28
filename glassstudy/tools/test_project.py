@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.76' in props and 'GLASSSTUDY_VERSION_CODE=20076' in props
+assert 'GLASSSTUDY_VERSION=0.2.85' in props and 'GLASSSTUDY_VERSION_CODE=20085' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -155,7 +155,7 @@ assert 'val shadedAA=fxaaEnabled && !wireframeMode' in (root/'app/src/main/java/
 assert 'View.MultiSampleAntiAliasingOptions()' in (root/'app/src/main/java/com/glassstudy/filament/RenderEnvironmentController.kt').read_text()
 assert 'fun simplify(profile:List<Ring>' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
 assert 'val actualRings=contour.size' in (root/'app/src/main/java/com/glassstudy/filament/ParametricGoblet.kt').read_text()
-assert 'val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.30f) }' in chrome_src
+assert 'val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.5f) }' in chrome_src
 assert 'val surface=roundedFill(actual,cornerDp,stroke)' in chrome_src
 assert 'visualNumbers.iconButtonCornerDp' not in chrome_src
 assert 'iconButtonCornerDp' not in layout['visualNumbers']
@@ -352,7 +352,10 @@ scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.
 dialog_factory=(root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
 assert 'state.module.floorOrder.forEach' in panel
 assert 'order("sectionOrder",listOf("skybox","floor"))' in scene_module
-assert 'GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles' in activity
+assert 'Гладкая поверхность для лучей' in activity
+assert 'putBoolean("analyticSurface",analyticSurface)' in activity
+assert 'key="menu"' in activity
+assert 'Подписанные патчи проверяются автоматически' in activity
 assert 'theme.titles.getValue("patchRejected")' in activity
 assert 'fun menu(activity:Activity' in dialog_factory
 assert 'fun panel(activity:Activity' in dialog_factory
@@ -1029,12 +1032,12 @@ assert 'reflectionMap?.let { viewer.engine.destroyTexture(it) }' in render_env
 assert 'globalBrightness>0.0' in render_env
 assert 'skyLight?.intensity=(illuminance*brightness).toFloat()' in render_env
 render_params=(root/'app/src/main/java/com/glassstudy/filament/RenderModuleConfig.kt').read_text()
-assert 'reflectionMapSize = integer("reflectionMapSize",32,setOf(16,32,64,128))' in render_params
-assert 'reflectionSamples = integer("reflectionSamples",8,setOf(4,8,16,32,64))' in render_params
+assert 'reflectionMapSize = integer("reflectionMapSize",64,setOf(16,32,64,128))' in render_params
+assert 'reflectionSamples = integer("reflectionSamples",16,setOf(4,8,16,32,64))' in render_params
 assert 'reflectionUpdateDegrees = number("reflectionUpdateDegrees",10f,3f,45f)' in render_params
 assert 'reflectionsEnabled = json.optBoolean("reflectionsEnabled",true)' in render_params
 
-# 0.2.76 runtime glass audit + physically honest shadow policy.
+# 0.2.78 runtime glass audit + physically honest shadow policy.
 material_controller=(src/'ModelMaterialController.kt').read_text()
 env_controller=(src/'RenderEnvironmentController.kt').read_text()
 diagnostics_src=(src/'DiagnosticsReportService.kt').read_text()
@@ -1045,28 +1048,33 @@ assert 'if(refractive)manager.setCastShadows(instance,false)' in material_contro
 assert 'avoidOpaqueShadowsOnRefractiveGlass(snapshot.wireframe)' in material_controller
 assert 'fun reflectionDiagnostics():String' in env_controller
 assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
-assert 'glassMaterialDetails=modelAssets.glassMaterialDiagnostics()' in activity
-assert 'reflectionDetails=renderEnvironment.reflectionDiagnostics()' in activity
+assert 'modelAssets.glassMaterialDiagnostics()' in activity and 'opticalSurface.diagnostics()' in activity
+assert 'else renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.76' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.85' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
 
-# 0.2.76 mobile glass: separate projected floor effect, thin shell transmission.
-caustics=(root/'app/src/main/java/com/glassstudy/filament/GlassCausticsGlb.kt').read_text()
-assert 'object GlassCausticsGlb' in caustics and 'LightDirectionMath.source(azimuth,elevation)' in caustics
-assert 'light.y < .12f' in caustics and 'brightness < .015' in caustics
-assert 'alphaMode","BLEND"' in caustics and 'KHR_materials_unlit' in caustics
-assert 'COLOR_0' in caustics and 'val projected=' in caustics
-assert 'fun setCausticGlb(buffer: Buffer?)' in custom
-assert 'causticResourceLoader.asyncUpdateLoad()' in custom
-assert 'causticAsset?.let { populateScene(it, contactShadows = false) }' in custom
-assert 'setCastShadows(instance,false)' in custom and 'setReceiveShadows(instance,false)' in custom
+# 0.2.78: use the stock Filament / glTF material; never cover the floor with
+# an unlit synthetic photon quad. This is a clean baseline, not full caustics.
+assert not (src/'GlassRayTrace.kt').exists()
+assert not (src/'GlassCausticsGlb.kt').exists()
 assert 'fun setLightState(brightness:Double,elevation:Double,azimuth:Double)' in environment
-assert 'if(floorMode=="none" || globalBrightness<.015' in environment
-assert 'updateGlassLight(force=true)' in environment
-assert 'sceneEnvironment.setLightState(factor,elevation,azimuth)' in activity
+assert 'val causticDiagnostics:String get()="отключена: без искусственной накладки"' in environment
+assert 'updateGlassLight(' not in environment
+assert 'setGlassProfile(' not in environment
+assert 'sceneEnvironment.setGlassProfile(' not in activity
+assert 'viewer.setCausticGlb(null)' in environment
+assert 'setCausticGlb(overlay)' not in environment
 assert 'KHR_materials_volume' not in geometry
 assert 'KHR_materials_transmission' in geometry and 'KHR_materials_ior' in geometry
 assert 'KHR_materials_volume' not in (root/'tools/make_models.py').read_text()
-assert 'приближённый' in report_src and 'тонкая стенка' in (root/'app/src/main/assets/ui/layout.json').read_text()
-print('PASS: projected mobile glass light, no solid-volume double wall, same physical sun')
+assert 'штатное glTF-преломление Filament' in report_src
+assert 'else sceneEnvironment.causticDiagnostics' in activity and 'causticDetails=if(opticalSurface.visibility==View.VISIBLE)' in activity
+assert 'sunGlint=' in render_env and 'doubleArrayOf(.22,.215,.20)' in render_env
+print('PASS: native Filament glTF glass, synthetic caustic overlay removed, protected updater')
+
+# 0.2.79: restore previous approved rounding, do not change controls or mesh.
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.5f)' in chrome_src
+assert 'minOf(visualNumbers.buttonCornerDp,it*0.30f)' not in chrome_src
+assert 'visualNumbers.buttonCornerDp' in chrome_src
+print('PASS: patch-controlled toolbar corner radius is no longer flattened')

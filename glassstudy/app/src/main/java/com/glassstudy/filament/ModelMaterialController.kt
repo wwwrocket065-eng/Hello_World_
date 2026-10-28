@@ -24,6 +24,12 @@ class ModelMaterialController(
         private set
     var adaptivePercent=0
         private set
+    var opticalContour:FloatArray?=null
+        private set
+    var analyticOpticalContour:FloatArray?=null
+        private set
+    var opticalIor=1.52f
+        private set
 
     /** Changes reuse the same profile and density. Commit only after GLB loads. */
     fun setAdaptivity(value:Int):Result<Unit> {
@@ -61,6 +67,19 @@ class ModelMaterialController(
             require(viewer.asset!=null) { "Filament gltfio rejected goblet mesh for "+requested.lod }
             overrides.apply(viewer)
             avoidOpaqueShadowsOnRefractiveGlass(debug)
+            opticalContour=if(catalog.resolve(requested.modelId,requested.lod,debug)==null &&
+                requested.modelId=="goblet" && (overrides.metallic ?: 0f)==0f &&
+                (overrides.transmission ?: 1f)==1f) {
+                updater.readResourceOrNull(ParametricGoblet.PATH,candidate)?.let {
+                    ParametricGoblet.opticalContour(it,requested.lod,adaptive)
+                }
+            } else null
+            // Fixed reference curve: independent of visible mesh LOD/adaptivity.
+            analyticOpticalContour=if(opticalContour!=null)
+                updater.readResourceOrNull(ParametricGoblet.PATH,candidate)?.let {
+                    ParametricGoblet.opticalContour(it,"ultra",0)
+                } else null
+            opticalIor=overrides.ior ?: 1.52f
             selection=requested
             wireframe=debug
             adaptivePercent=adaptive

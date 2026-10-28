@@ -76,16 +76,14 @@ class UiChromeController(private val activity:Activity) {
         val actual=if(selected)Color.argb(alpha,48,116,124) else color
         val stroke=outline ?:
             if(selected)Color.rgb(166,246,233) else Color.argb(180,109,185,203)
-        // Restore the original 0.2.70 control silhouette: every toolbar
-        // button shares the same patchable corner profile (14dp by default).
-        // Do not invent separate top/bottom or icon-only shapes.
-        // Match the original rounded-rectangle silhouette at ANY icon size.
-        // A 14dp corner on a 32dp painted square is almost a circle.
-        // Apply identical corner proportions to top and bottom icon buttons.
+        // Use the single signed numeric corner radius exactly as requested.
+        // Clamp only at the mathematical maximum for a rounded rectangle.
+        // The previous 0.30*side cap flattened every 32dp button to 9.6dp,
+        // contradicting the original 14dp rounded-square setting.
         val visualSideDp=(view as? LabIconView)?.let {
             (it.visualSizeOverrideDp ?: topVisualSizeDp)*topVisualScale
         }
-        val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.30f) }
+        val cornerDp=visualSideDp?.let { minOf(visualNumbers.buttonCornerDp,it*0.5f) }
             ?: visualNumbers.buttonCornerDp
         val surface=roundedFill(actual,cornerDp,stroke)
         // The four compact TOP glyph buttons keep their full 44dp+ touch target.

@@ -17,5 +17,22 @@
   "atmosphereHorizonFraction": 0.08,
   "atmosphereShUpdateDegrees": 3,
   "atmosphereExposureReferenceLux": 50000,
-  "atmosphereExposureMaxGain": 32
+  "atmosphereExposureMaxGain": 32,
+  "optics": {
+    "enabled": true,
+    "width": 1280,
+    "samples": 128,
+    "bounces": 16,
+    "photonMap": 128,
+    "photonSide": 384,
+    "photonExtent": 4,
+    "settleMs": 350,
+    "exposure": 3,
+    "movingWidth": 256,
+    "pixelBudget": 524288,
+    "maxSampleRadiance": 8,
+    "photonMargin": 0.5,
+    "maskSides": 128,
+    "segmentCullingEnabled": true
+  }
 }
