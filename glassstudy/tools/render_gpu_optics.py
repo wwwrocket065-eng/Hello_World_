@@ -11,7 +11,7 @@ from test_gpu_optics import context,proc,compile_program
 from glass_optical_reference import HollowLathe
 
 
-def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,distance=7.0,reference=False):
+def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,distance=7.0,reference=False,analytic=False):
     context()
     root=Path(__file__).parents[1]/'app/src/main/assets'
     kernel=((Path(__file__).parent/'fixtures/optics_kernel_0_2_83.glsl') if reference else (root/'optics/kernel.glsl')).read_text()
@@ -19,7 +19,7 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
     path=compile_program(source('quad.vert'),source('path.frag'))
     photon=compile_program(source('photon.vert'),source('photon.frag'))
     display=compile_program(source('quad.vert'),source('display.frag'))
-    mask_program=compile_program(source('mask.vert'),source('mask.frag'))
+    mask_program=compile_program(source('quad.vert'),source('analytic_mask.frag')) if analytic else compile_program(source('mask.vert'),source('mask.frag'))
     extent=6.5;map_size=208;launch_side=624
     gl={
         'use':proc('glUseProgram',None,C.c_uint),
@@ -70,7 +70,7 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
     eye=np.array([distance*math.cos(.34)*math.sin(.56),1+distance*math.sin(.34),distance*math.cos(.34)*math.cos(.56)])
     def common(p):
         bind(textures[0],0,p,'uProfile')
-        uniform(p,'uCullSegments',1,'i')
+        uniform(p,'uCullSegments',1,'i');uniform(p,'uAnalyticSurface',int(analytic),'i')
         uniform(p,'uProfileCount',len(points),'i');uniform(p,'uIor',1.52)
         uniform(p,'uBoundsMin',(-.86,0.,-.86),'v3');uniform(p,'uBoundsMax',(.86,3.4,.86),'v3')
         uniform(p,'uSun',sun,'v3');uniform(p,'uBounces',16,'i');uniform(p,'uPhotonExtent',extent);uniform(p,'uSmoothSurface',int(smooth),'i')
@@ -81,14 +81,14 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
     gl['draw'](0,0,launch_side*launch_side);proc('glDisable',None,C.c_uint)(0x0BE2)
     print('GPU photon pass submitted',flush=True)
     result=[]
-    gl['use'](mask_program);bind(textures[0],0,mask_program,'uProfile')
+    gl['use'](mask_program);common(mask_program);uniform(mask_program,'uResolution',(width,height),'v2');bind(textures[0],0,mask_program,'uProfile')
     uniform(mask_program,'uMaskSides',128,'i');uniform(mask_program,'uEye',tuple(eye),'v3')
     uniform(mask_program,'uAspect',width/height);uniform(mask_program,'uTanFov',math.tan(math.radians(45)*.5))
     uniform(mask_program,'uFloorMode',1,'i');uniform(mask_program,'uFloorWidth',12.)
     gl['fbo'](0x8D40,fbos[4]);gl['viewport'](0,0,width,height)
     proc('glClearColor',None,C.c_float,C.c_float,C.c_float,C.c_float)(0,0,0,0)
     proc('glClear',None,C.c_uint)(0x4000)
-    gl['draw'](4,0,(len(points)-1)*128*6)
+    gl['draw'](4,0,3 if analytic else (len(points)-1)*128*6)
     mask=np.zeros((height,width,4),np.uint8)
     proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,width,height,0x1908,0x1401,mask.ctypes.data)
     assert mask[:,:,0].max()==255 and mask[:,:,0].min()==0

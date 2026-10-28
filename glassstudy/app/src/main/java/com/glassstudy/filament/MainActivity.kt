@@ -263,7 +263,7 @@ class MainActivity : Activity() {
     private fun d(v: Float): Int = (v * resources.displayMetrics.density).toInt()
     private fun updateOpticalSurface() {
         if(!::opticalSurface.isInitialized)return
-        val contour=modelAssets.opticalContour
+        val contour=if(analyticSurface)modelAssets.analyticOpticalContour else modelAssets.opticalContour
         val enabled=renderEnvironment.configuration.optics.enabled && !modelAssets.wireframe &&
             contour!=null && opticalSurface.failed==null
         val visibility=if(enabled)View.VISIBLE else View.GONE
@@ -273,7 +273,7 @@ class MainActivity : Activity() {
         opticalSurface.update(GlassOpticsSurface.State(cameraLight.yaw,cameraLight.pitch,cameraLight.distance,
             cameraLight.config.fieldOfView,cameraLight.lightAz,cameraLight.lightElevation,cameraLight.brightness,
             sceneEnvironment.lightingMode,sceneEnvironment.floorMode,sceneEnvironment.module,
-            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled))
+            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled,analyticSurface))
     }
     /**
      * All patch-defined windows, including their interactive controls, use one
@@ -296,22 +296,38 @@ class MainActivity : Activity() {
         sceneSettings.show()
     }
 
+    private var analyticSurface=false
+
     private fun openMenu() {
         diagnosticsPopup.dismiss()
-        // There is no user-visible sun color/style editor: only the verified
-        // .pupdate asset module may change the unified technical appearance.
-        GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles.getValue("mainMenu"),
-            GlassDialogFactory.theme.menuOrder.map { "Обновления" }) {
-                GlassDialogFactory.message(this,"Обновления",
-                    "Подписанные патчи проверяются автоматически через интернет. " +
-                    "Локальный патч можно открыть из «Загрузок» через «Поделиться» → GlassStudy.")
+        val panel=GlassDialogFactory.panel(this,"Настройки")
+        panel.addView(GlassDialogFactory.option(this,"Гладкая поверхность для лучей · эксперимент",analyticSurface).apply {
+            setOnClickListener {
+                analyticSurface=!analyticSurface
+                getPreferences(MODE_PRIVATE).edit().putBoolean("analyticSurface",analyticSurface).apply()
+                GlassDialogFactory.closeCurrent()
+                updateOpticalSurface()
+                openMenu()
             }
+        })
+        panel.addView(TextView(this).apply {
+            text="Выкл.: исходный профиль. Вкл.: пересечения и нормали по одной плавной кривой. Свет, качество и FXAA сохраняются. Расчёт может быть медленнее."
+            textSize=12f;setTextColor(GlassDialogFactory.theme.hint)
+        })
+        panel.addView(GlassDialogFactory.option(this,"Обновления",false).apply {
+            setOnClickListener {
+                GlassDialogFactory.message(this@MainActivity,"Обновления",
+                    "Подписанные патчи проверяются автоматически. Локальный патч: «Поделиться» → GlassStudy.")
+            }
+        })
+        GlassDialogFactory.show(this,android.widget.ScrollView(this).apply { addView(panel) },key="menu")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         updater = PatchManager(this)
         updater.reconcileAfterCrash()
+        analyticSurface=getPreferences(MODE_PRIVATE).getBoolean("analyticSurface",false)
         initialWireframe=getPreferences(MODE_PRIVATE).getBoolean("wireframe",false)
         window.statusBarColor = Color.rgb(101,103,103)
         window.navigationBarColor = Color.rgb(101,103,103)

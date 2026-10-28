@@ -24,7 +24,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         val yaw:Double,val pitch:Double,val distance:Double,val fov:Double,
         val azimuth:Double,val elevation:Double,val brightness:Double,
         val mode:LightEnvironmentMode,val floor:String,val scene:SceneModuleConfig,
-        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean
+        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean,val analyticSurface:Boolean=false
     )
     @Volatile var failed:String?=null
         private set
@@ -90,6 +90,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var photonProgram=0
         private var displayProgram=0
         private var maskProgram=0
+        private var analyticMaskProgram=0
         private var maskTexture=0
         private var maskFbo=0
         private var profile=0
@@ -164,15 +165,17 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             if(previous==null || previous.yaw!=next.yaw || previous.pitch!=next.pitch ||
                 previous.distance!=next.distance || previous.fov!=next.fov || previous.floor!=next.floor ||
                 previous.scene.floorWidth!=next.scene.floorWidth ||
-                previous.render.optics.maskSides!=next.render.optics.maskSides)maskDirty=true
+                previous.render.optics.maskSides!=next.render.optics.maskSides ||
+                previous.analyticSurface!=next.analyticSurface)maskDirty=true
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
-                next.scene,next.render,next.camera.lightIntensity,next.antialias)
+                next.scene,next.render,next.camera.lightIntensity,next.antialias,next.analyticSurface)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
             val reason=when {
                 previous==null -> "начальный рендер"
+                previous.analyticSurface!=next.analyticSurface -> "смена поверхности лучей"
                 previous.antialias!=next.antialias -> "переключение сглаживания"
                 light!=listOf(previous.azimuth,previous.elevation,previous.brightness,previous.mode,previous.ior,
-                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias) -> "изменение света/сцены"
+                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias,previous.analyticSurface) -> "изменение света/сцены"
                 else -> "движение камеры"
             }
             restartMeasurement(reason,requestedAtNs)
@@ -216,6 +219,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 photonProgram=program("photon.vert","photon.frag")
                 displayProgram=program("quad.vert","display.frag")
                 maskProgram=program("mask.vert","mask.frag")
+                analyticMaskProgram=program("quad.vert","analytic_mask.frag")
                 val ids=IntArray(1);GL.glGenTextures(1,ids,0);profile=ids[0]
                 GL.glGenTextures(1,ids,0);maskTexture=ids[0]
                 GL.glGenFramebuffers(1,ids,0);maskFbo=ids[0]
@@ -267,7 +271,9 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,maskFbo);GL.glViewport(0,0,w,h)
             GL.glDisable(GL.GL_SCISSOR_TEST);GL.glDisable(GL.GL_DEPTH_TEST);GL.glDisable(GL.GL_CULL_FACE)
             GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-            GL.glUseProgram(maskProgram);texture(profile,0,maskProgram,"uProfile")
+            val maskProgram=if(s.analyticSurface)analyticMaskProgram else this.maskProgram
+            GL.glUseProgram(maskProgram);common(maskProgram,s)
+            GL.glUniform2f(location(maskProgram,"uResolution"),w.toFloat(),h.toFloat())
             i(maskProgram,"uMaskSides",s.render.optics.maskSides)
             val cy=cos(s.pitch)
             v(maskProgram,"uEye",(s.distance*cy*sin(s.yaw)).toFloat(),(1+s.distance*sin(s.pitch)).toFloat(),
@@ -276,7 +282,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             f(maskProgram,"uAspect",width.toFloat()/height)
             f(maskProgram,"uFloorWidth",s.scene.floorWidth)
             i(maskProgram,"uFloorMode",if(s.floor=="none")0 else 1)
-            GL.glDrawArrays(GL.GL_TRIANGLES,0,(contour.size/2-1)*s.render.optics.maskSides*6)
+            GL.glDrawArrays(GL.GL_TRIANGLES,0,if(s.analyticSurface)3 else (contour.size/2-1)*s.render.optics.maskSides*6)
             maskDirty=false
         }
         private fun receiverExtent(s:State):Float=max(s.render.optics.photonExtent,
@@ -291,6 +297,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             v(p,"uSun",sun.x,sun.y,sun.z)
             f(p,"uPhotonExtent",receiverExtent(s))
             i(p,"uSmoothSurface",if(s.antialias)1 else 0)
+            i(p,"uAnalyticSurface",if(s.analyticSurface)1 else 0)
         }
         override fun onDrawFrame(gl:GL10?) {
             val s=state ?: return
@@ -446,6 +453,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 val parameters=if(rebuildParameters) "Цель: ${min(c.width,width)}px · ${c.samples} spp · ${c.bounces} границ; preview ${c.movingWidth}px; settle ${c.settleMs} мс; бюджет ${c.pixelBudget} px/подачу\n"+
                     "Отсечение сегментов ${s.render.optics.segmentCullingEnabled}; профиль ${contour.size/2} точек; маска ${c.maskSides} сторон; scissor ${regionInfo?.width}×${regionInfo?.height} (прямоугольник планирования, не площадь стекла)\n"+
                     "Карта каустики ${mapSize}×${mapSize}; запуск ${launchSide}² (${launchSide.toLong()*launchSide}) фотонов; полуразмер ${receiverExtent(s)}; готова=$photonReady\n"+
+                    "Поверхность лучей: ${if(s.analyticSurface)"гладкий кубический профиль" else "исходные отрезки"}\n"+
                     "IOR ${s.ior}; сглаживание/FXAA ${s.antialias}; отсечение выбросов ${c.maxSampleRadiance}" else previousMetrics.parameters
                 metrics.progress(phase,w,h,sampleCount,c.samples,finalQuality,parameters,gpuDescription,
                     17L*w*h+8L*mapSize*mapSize+contour.size*4L)

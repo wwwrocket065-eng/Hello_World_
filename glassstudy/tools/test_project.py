@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.84' in props and 'GLASSSTUDY_VERSION_CODE=20084' in props
+assert 'GLASSSTUDY_VERSION=0.2.85' in props and 'GLASSSTUDY_VERSION_CODE=20085' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -352,7 +352,10 @@ scene_module=(root/'app/src/main/java/com/glassstudy/filament/SceneModuleConfig.
 dialog_factory=(root/'app/src/main/java/com/glassstudy/filament/GlassDialogFactory.kt').read_text()
 assert 'state.module.floorOrder.forEach' in panel
 assert 'order("sectionOrder",listOf("skybox","floor"))' in scene_module
-assert 'GlassDialogFactory.menu(this,GlassDialogFactory.theme.titles' in activity
+assert 'Гладкая поверхность для лучей' in activity
+assert 'putBoolean("analyticSurface",analyticSurface)' in activity
+assert 'key="menu"' in activity
+assert 'Подписанные патчи проверяются автоматически' in activity
 assert 'theme.titles.getValue("patchRejected")' in activity
 assert 'fun menu(activity:Activity' in dialog_factory
 assert 'fun panel(activity:Activity' in dialog_factory
@@ -1048,7 +1051,7 @@ assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
 assert 'modelAssets.glassMaterialDiagnostics()' in activity and 'opticalSurface.diagnostics()' in activity
 assert 'else renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.84' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.85' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
 
 # 0.2.78: use the stock Filament / glTF material; never cover the floor with

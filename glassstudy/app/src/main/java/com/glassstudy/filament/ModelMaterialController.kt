@@ -26,6 +26,8 @@ class ModelMaterialController(
         private set
     var opticalContour:FloatArray?=null
         private set
+    var analyticOpticalContour:FloatArray?=null
+        private set
     var opticalIor=1.52f
         private set
 
@@ -72,6 +74,11 @@ class ModelMaterialController(
                     ParametricGoblet.opticalContour(it,requested.lod,adaptive)
                 }
             } else null
+            // Fixed reference curve: independent of visible mesh LOD/adaptivity.
+            analyticOpticalContour=if(opticalContour!=null)
+                updater.readResourceOrNull(ParametricGoblet.PATH,candidate)?.let {
+                    ParametricGoblet.opticalContour(it,"ultra",0)
+                } else null
             opticalIor=overrides.ior ?: 1.52f
             selection=requested
             wireframe=debug

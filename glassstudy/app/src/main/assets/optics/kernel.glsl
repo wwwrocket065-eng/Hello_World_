@@ -3,6 +3,7 @@ uniform highp sampler2D uProfile;
 uniform int uProfileCount;
 uniform int uCullSegments;
 uniform int uSmoothSurface;
+uniform int uAnalyticSurface;
 uniform float uIor;
 uniform vec3 uBoundsMin,uBoundsMax;
 const float EPS=0.00008;
@@ -82,6 +83,110 @@ void segmentHit(int j,vec3 o,vec3 d,inout float best,inout int bestSegment,inout
         }
     }
 }
+
+// Shape-preserving C1 meridian: the SAME cubic defines hits and normals.
+// Height reversals / horizontal annuli keep their actual geometric crease.
+float sharedSlope(vec2 previous,vec2 center,vec2 next) {
+    vec2 a=center-previous,b=next-center;
+    if(a.x*b.x<=0.0 || abs(a.x)<1e-8 || abs(b.x)<1e-8)return 0.0;
+    float left=a.y/a.x,right=b.y/b.x;
+    if(left*right<=0.0)return 0.0;
+    float h0=abs(a.x),h1=abs(b.x);
+    float w0=2.0*h1+h0,w1=h1+2.0*h0;
+    return (w0+w1)/(w0/left+w1/right);
+}
+vec4 curveAt(int j) {
+    vec2 a=ringAt(j),b=ringAt(j+1);float dy=b.x-a.x,delta=b.y-a.y;
+    float low=delta,high=delta;
+    if(j>0 && (a.x-ringAt(j-1).x)*dy>0.0)
+        low=dy*sharedSlope(ringAt(j-1),a,b);
+    if(j+2<uProfileCount && (ringAt(j+2).x-b.x)*dy>0.0)
+        high=dy*sharedSlope(a,b,ringAt(j+2));
+    return vec4(a.y,low,3.0*delta-2.0*low-high,-2.0*delta+low+high);
+}
+float curveRadius(vec4 c,float u) { return ((c.w*u+c.z)*u+c.y)*u+c.x; }
+float polynomial(float c[49],int row,int degree,float x) {
+    float y=c[row*7+degree];
+    for(int k=5;k>=0;k--)if(k<degree)y=y*x+c[row*7+k];
+    return y;
+}
+// Isolate all real roots in [0,1] by the roots of successive derivatives.
+// Each interval is monotone; bisection also handles multiple intersections.
+float firstRoot(float coefficients[7]) {
+    float c[49];for(int k=0;k<49;k++)c[k]=0.0;
+    float scale=0.0;for(int k=0;k<7;k++)scale=max(scale,abs(coefficients[k]));
+    if(scale<1e-25)return 0.0;
+    int degree=6;
+    for(int k=6;k>0;k--) { if(abs(coefficients[k])<scale*1e-8)degree=k-1;else break; }
+    if(degree==0)return FAR;
+    for(int k=0;k<7;k++)c[k]=coefficients[k]/scale;
+    for(int row=1;row<6;row++)for(int k=0;k<6;k++)
+        c[row*7+k]=float(k+1)*c[(row-1)*7+k+1];
+    float roots[7];int count=0;
+    for(int d=1;d<=6;d++) {
+        if(d>degree)break;
+        int row=degree-d;
+        float found[7];int n=0;float left=0.0;
+        for(int interval=0;interval<7;interval++) {
+            if(interval>count)break;
+            float right=interval<count ? roots[interval] : 1.0;
+            float fl=polynomial(c,row,d,left),fr=polynomial(c,row,d,right);
+            if(abs(fl)<1e-7 && (n==0 || left-found[n-1]>1e-6))found[n++]=left;
+            if(fl*fr<0.0) {
+                float lo=left,hi=right;
+                for(int step=0;step<25;step++) {
+                    float mid=.5*(lo+hi),fm=polynomial(c,row,d,mid);
+                    if((fm<0.0)==(fl<0.0))lo=mid;else hi=mid;
+                }
+                float hit=.5*(lo+hi);
+                if(n==0 || hit-found[n-1]>1e-6)found[n++]=hit;
+            }
+            if(interval==count && abs(fr)<1e-7 && (n==0 || right-found[n-1]>1e-6))found[n++]=right;
+            left=right;
+        }
+        count=n;for(int k=0;k<7;k++)if(k<count)roots[k]=found[k];
+    }
+    return count>0 ? roots[0] : FAR;
+}
+void curvedHit(int j,vec3 o,vec3 d,inout float best,inout int bestSegment,inout vec3 normal) {
+    vec2 a=ringAt(j),b=ringAt(j+1);float dy=b.x-a.x;
+    if(abs(dy)<1e-8) { segmentHit(j,o,d,best,bestSegment,normal);return; }
+    float lo=EPS*1.001,hi=min(best,1e5);
+    float rmax=max(a.y,b.y)+EPS;
+    float aa=dot(d.xz,d.xz),bb=dot(o.xz,d.xz),cc=dot(o.xz,o.xz)-rmax*rmax;
+    if(aa>1e-12) {
+        float disc=bb*bb-aa*cc;if(disc<0.0)return;
+        float root=sqrt(disc);lo=max(lo,(-bb-root)/aa);hi=min(hi,(-bb+root)/aa);
+    } else if(cc>0.0)return;
+    if(abs(d.y)>1e-10) {
+        float t0=(a.x-o.y)/d.y,t1=(b.x-o.y)/d.y;
+        lo=max(lo,min(t0,t1));hi=min(hi,max(t0,t1));
+    } else if(o.y<min(a.x,b.x) || o.y>max(a.x,b.x))return;
+    if(hi<=lo)return;
+    vec4 curve=curveAt(j);
+    // Compose r(u0+du*s), with ray distance lo+(hi-lo)*s.
+    float span=hi-lo,u0=(o.y+d.y*lo-a.x)/dy,du=d.y*span/dy;
+    float radial[4];
+    radial[0]=curveRadius(curve,u0);
+    radial[1]=du*(curve.y+u0*(2.0*curve.z+3.0*curve.w*u0));
+    radial[2]=du*du*(curve.z+3.0*curve.w*u0);
+    radial[3]=du*du*du*curve.w;
+    float c[7];for(int k=0;k<7;k++)c[k]=0.0;
+    for(int x=0;x<4;x++)for(int y=0;y<4;y++)c[x+y]-=radial[x]*radial[y];
+    vec2 pos=(o+lo*d).xz,step=d.xz*span;
+    c[0]+=dot(pos,pos);c[1]+=2.0*dot(pos,step);c[2]+=dot(step,step);
+    float fraction=firstRoot(c);if(fraction>1.0)return;
+    float t=lo+span*fraction;vec3 p=o+t*d;
+    float u=clamp((p.y-a.x)/dy,0.0,1.0);
+    float radius=curveRadius(curve,u),slope=(curve.y+u*(2.0*curve.z+3.0*curve.w*u))/dy;
+    // Reject numerical near-zero extrema that are not on the actual surface.
+    if(abs(length(p.xz)-radius)>2.0*EPS)return;
+    if(t>EPS && (t<best || (t==best && j<bestSegment))) {
+        best=t;bestSegment=j;
+        normal=normalize(vec3(p.x,-slope*radius,p.z))*sign(dy);
+    }
+}
+
 float wallHit(vec3 o,vec3 d,out vec3 normal) {
     // Conservative canonical bound avoids walking the contour for most pixels.
     float nearT=0.0, farT=1e5;
@@ -97,11 +202,12 @@ float wallHit(vec3 o,vec3 d,out vec3 normal) {
     float best=FAR;int bestSegment=2147483647;normal=vec3(0);
     for(int j=0;j<281;j++) {
         if(j>=uProfileCount-1)break;
-        segmentHit(j,o,d,best,bestSegment,normal);
+        if(uAnalyticSurface==1)curvedHit(j,o,d,best,bestSegment,normal);
+        else segmentHit(j,o,d,best,bestSegment,normal);
     }
 
     // Interpolate the shading normal ONCE, at the nearest hit only.
-    if(best<FAR && abs(ringAt(bestSegment+1).x-ringAt(bestSegment).x)>=1e-8)
+    if(uAnalyticSurface==0 && best<FAR && abs(ringAt(bestSegment+1).x-ringAt(bestSegment).x)>=1e-8)
         normal=opticalNormal(bestSegment,o+best*d,d,normal);
     return best;
 }

@@ -122,6 +122,14 @@ void main() {
     expected=[((1.52-1)/(1.52+1))**2,-1,0,1,1,0,0,1,1,1,0,1,.8,-1,0,1,8,4,2,1,0,0,0,1]
     assert all(math.isclose(a,b,abs_tol=2e-5) for a,b in zip(output,expected)),list(output)
     print('PASS actual ES3 output: Fresnel, TIR, both walls, radiance outlier cap and nonfinite rejection')
+    # The analytic path preserves the cylinder and planar caps exactly.
+    proc('glUniform1i',None,C.c_int,C.c_int)(location(p,b'uAnalyticSurface'),1)
+    proc('glDrawArrays',None,C.c_uint,C.c_int,C.c_int)(4,0,3)
+    proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,6,1,0x1908,0x1406,output)
+    assert all(math.isclose(a,b,abs_tol=2e-5) for a,b in zip(output,expected)),list(output)
+    proc('glUniform1i',None,C.c_int,C.c_int)(location(p,b'uAnalyticSurface'),0)
+    print('PASS analytic cylinder: inside/outside horizontal rays preserve both wall distances and normals')
+
     # Replace the cylinder with a genuinely faceted curved meridian. Query
     # either side of a shared ring using the production wallHit/normal code.
     active=proc('glActiveTexture',None,C.c_uint)
