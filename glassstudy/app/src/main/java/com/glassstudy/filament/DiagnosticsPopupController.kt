@@ -33,7 +33,7 @@ class DiagnosticsPopupController(
     private fun dp(v:Float):Int=(v*activity.resources.displayMetrics.density).toInt()
     fun dismiss() { popup?.dismiss() }
 
-    fun show(report:String,style:DiagnosticsPopupStyle) {
+    fun show(report:String,style:DiagnosticsPopupStyle,onTest:()->Unit={},onCopyImage:()->Unit={},testRunning:Boolean=false) {
         if(isShowing)return
         val theme=GlassDialogFactory.theme
         val nums=theme.diagnosticsPopup
@@ -75,6 +75,18 @@ class DiagnosticsPopupController(
             }
         }
         outer.addView(header)
+        val actions=LinearLayout(activity).apply { orientation=LinearLayout.HORIZONTAL }
+        fun action(label:String,listener:()->Unit) {
+            actions.addView(TextView(activity).apply {
+                text=label;textSize=nums.reportTextSizeSp;setTextColor(theme.accent)
+                gravity=Gravity.CENTER;isClickable=true;isFocusable=true
+                background=GlassDialogFactory.windowBackground(activity,style.fill,style.border,theme.controlCornerDp)
+                setOnClickListener { listener() }
+            },LinearLayout.LayoutParams(0,dp(nums.headerHeightDp),1f))
+        }
+        action(if(testRunning)"Тест выполняется…" else "Тест оптики",onTest)
+        action("Скопировать картинку",onCopyImage)
+        outer.addView(actions)
         val reportView=TextView(activity).apply {
             text=report
             setTextColor(theme.text)

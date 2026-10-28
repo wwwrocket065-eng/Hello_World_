@@ -48,7 +48,37 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         setRenderer(renderer)
         renderMode=RENDERMODE_WHEN_DIRTY
     }
+    var testOwnsState=false
+        private set
+    fun beginTest():State? {
+        if(testOwnsState || failed!=null)return null
+        val saved=lastState ?: return null
+        testOwnsState=true
+        return saved
+    }
+    fun testState(state:State,points:FloatArray) {
+        check(testOwnsState)
+        val at=System.nanoTime()
+        queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons();renderer.accept(state,at) };requestRender()
+    }
+    fun endTest(saved:State) {
+        testOwnsState=false
+        lastContour?.let { points -> queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() } }
+        lastState=null
+        update(saved)
+    }
+    data class TestCapture(val bitmap:android.graphics.Bitmap,val rays:String)
+    fun captureTestImage(callback:(Result<TestCapture>)->Unit) {
+        queueEvent {
+            val result=runCatching {
+                val rays=runCatching { renderer.probeRays() }.getOrElse { "Проба лучей недоступна: ${it.message}" }
+                TestCapture(renderer.captureImage(),rays)
+            }
+            post { callback(result) }
+        }
+    }
     fun update(state:State) {
+        if(testOwnsState)return
         if(state==lastState || failed!=null)return
         lastState=state
         val requestedAtNs=System.nanoTime()
@@ -56,6 +86,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         requestRender()
     }
     fun setContour(points:FloatArray) {
+        if(testOwnsState)return
         if(lastContour?.contentEquals(points)==true)return
         lastContour=points.copyOf()
         val requestedAtNs=System.nanoTime()
@@ -180,6 +211,88 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             }
             restartMeasurement(reason,requestedAtNs)
             state=next;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
+        }
+        fun probeRays():String {
+            val s=state ?: error("Нет состояния")
+            val w=s.render.optics.bounces*4;val h=9
+            val fbo=IntArray(1);val tex=IntArray(1);var programId=0
+            GL.glGenFramebuffers(1,fbo,0);GL.glGenTextures(1,tex,0)
+            try {
+                programId=program("quad.vert","probe.frag")
+                GL.glBindTexture(GL.GL_TEXTURE_2D,tex[0])
+                GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RGBA32F,w,h,0,GL.GL_RGBA,GL.GL_FLOAT,null)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
+                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbo[0])
+                GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER,GL.GL_COLOR_ATTACHMENT0,GL.GL_TEXTURE_2D,tex[0],0)
+                check(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)==GL.GL_FRAMEBUFFER_COMPLETE) { "RGBA32F не поддерживается" }
+                GL.glViewport(0,0,w,h);GL.glDisable(GL.GL_SCISSOR_TEST);GL.glDisable(GL.GL_BLEND)
+                GL.glUseProgram(programId);common(programId,s)
+                val cy=cos(s.pitch)
+                v(programId,"uEye",(s.distance*cy*sin(s.yaw)).toFloat(),(1+s.distance*sin(s.pitch)).toFloat(),(s.distance*cy*cos(s.yaw)).toFloat())
+                f(programId,"uTanFov",tan(Math.toRadians(s.fov)*.5).toFloat())
+                f(programId,"uAspect",width.toFloat()/height);f(programId,"uFloorWidth",s.scene.floorWidth)
+                GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                val buffer=ByteBuffer.allocateDirect(w*h*16).order(ByteOrder.nativeOrder()).asFloatBuffer()
+                GL.glReadPixels(0,0,w,h,GL.GL_RGBA,GL.GL_FLOAT,buffer)
+                check(GL.glGetError()==GL.GL_NO_ERROR) { "Ошибка чтения RGBA32F" }
+                return buildString {
+                    append("ПРОБА ЛУЧЕЙ: 9 лучей NDC x=-0.4/0/0.4 y=0.05/0.25/0.45; без jitter.\n")
+                    append("Детерминированная передача, отражение только при TIR; это НЕ все случайные пути изображения.\n")
+                    append("На шаг: hit.xyz/status (0=после выхода/лимит,1=стенка,2=пол,3=фон), normal.xyz/t, next.xyz/Fresnel, dot(d,n)/IOR/analytic/cull.\n")
+                    for(ray in 0 until h)for(step in 0 until s.render.optics.bounces) {
+                        append("ray=$ray step=$step ")
+                        for(field in 0..3) {
+                            val offset=(ray*w+step*4+field)*4
+                            for(k in 0..3)append(String.format(java.util.Locale.US,"%.6g,",buffer.get(offset+k)))
+                            append(" | ")
+                        }
+                        append('\n')
+                    }
+                }
+            } finally {
+                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
+                GL.glDeleteFramebuffers(1,fbo,0);GL.glDeleteTextures(1,tex,0)
+                if(programId!=0) { uniformLocations.remove(programId);GL.glDeleteProgram(programId) }
+                repeat(8) { GL.glGetError() }
+            }
+        }
+        fun captureImage():android.graphics.Bitmap {
+            check(metrics.snapshot().complete) { "Рендер не завершён GPU" }
+            val s=state ?: error("Нет сцены")
+            val w=bufferWidth;val h=bufferHeight
+            check(w>0 && h>0)
+            val target=IntArray(1);val textureId=IntArray(1)
+            GL.glGenFramebuffers(1,target,0);GL.glGenTextures(1,textureId,0)
+            try {
+                GL.glBindTexture(GL.GL_TEXTURE_2D,textureId[0])
+                GL.glTexImage2D(GL.GL_TEXTURE_2D,0,GL.GL_RGBA8,w,h,0,GL.GL_RGBA,GL.GL_UNSIGNED_BYTE,null)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MIN_FILTER,GL.GL_NEAREST)
+                GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_MAG_FILTER,GL.GL_NEAREST)
+                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,target[0])
+                GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER,GL.GL_COLOR_ATTACHMENT0,GL.GL_TEXTURE_2D,textureId[0],0)
+                check(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)==GL.GL_FRAMEBUFFER_COMPLETE)
+                GL.glViewport(0,0,w,h);GL.glDisable(GL.GL_SCISSOR_TEST);GL.glDisable(GL.GL_BLEND)
+                GL.glUseProgram(displayProgram)
+                texture(accum[shownIndex],0,displayProgram,"uImage")
+                GL.glUniform2f(location(displayProgram,"uScreen"),w.toFloat(),h.toFloat())
+                f(displayProgram,"uExposure",s.render.optics.exposure)
+                i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
+                GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                val bytes=ByteBuffer.allocateDirect(w*h*4)
+                GL.glReadPixels(0,0,w,h,GL.GL_RGBA,GL.GL_UNSIGNED_BYTE,bytes)
+                check(GL.glGetError()==GL.GL_NO_ERROR) { "Ошибка чтения изображения" }
+                val pixels=IntArray(w*h)
+                for(y in 0 until h)for(x in 0 until w) {
+                    val k=(y*w+x)*4
+                    pixels[(h-1-y)*w+x]=android.graphics.Color.argb(255,
+                        bytes.get(k).toInt() and 255,bytes.get(k+1).toInt() and 255,bytes.get(k+2).toInt() and 255)
+                }
+                return android.graphics.Bitmap.createBitmap(pixels,w,h,android.graphics.Bitmap.Config.ARGB_8888)
+            } finally {
+                GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
+                GL.glDeleteFramebuffers(1,target,0);GL.glDeleteTextures(1,textureId,0)
+            }
         }
         private fun source(name:String):String=context.assets.open("optics/$name")
             .bufferedReader().use { it.readText() }.replace("/*OPTICS_KERNEL*/",

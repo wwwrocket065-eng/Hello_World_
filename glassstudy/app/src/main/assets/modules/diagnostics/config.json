@@ -6,5 +6,9 @@
   "includeCameraParameters": false,
   "sampleIntervalMs": 1000,
   "historySeconds": 180,
-  "gpuTimingEnabled": true
+  "gpuTimingEnabled": true,
+  "testWidth": 640,
+  "testSamples": 16,
+  "testTimeoutSeconds": 600,
+  "testPitchOffsetDegrees": 10
 }
