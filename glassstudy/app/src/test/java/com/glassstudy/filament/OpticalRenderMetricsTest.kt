@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OpticalRenderMetricsTest {
+    @Test fun includesGlQueueDelayFromUserChange() {
+        var time=1_000_000_000L
+        val request=time
+        time+=2_000_000_000
+        val m=OpticalRenderMetrics { time }
+        m.begin("камера",request)
+        time+=3_000_000_000
+        m.complete()
+        assertEquals(5_000_000_000L,m.snapshot().elapsedNs)
+    }
     @Test(expected=IllegalArgumentException::class) fun rejectsExcessiveSampling() {
         OpticalRenderMetrics().configure(1,180)
     }

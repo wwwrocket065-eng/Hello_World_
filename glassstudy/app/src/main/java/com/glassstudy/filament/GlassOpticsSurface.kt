@@ -51,13 +51,15 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
     fun update(state:State) {
         if(state==lastState || failed!=null)return
         lastState=state
-        queueEvent { renderer.accept(state) }
+        val requestedAtNs=System.nanoTime()
+        queueEvent { renderer.accept(state,requestedAtNs) }
         requestRender()
     }
     fun setContour(points:FloatArray) {
         if(lastContour?.contentEquals(points)==true)return
         lastContour=points.copyOf()
-        queueEvent { renderer.startProfileMeasurement();renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
+        val requestedAtNs=System.nanoTime()
+        queueEvent { renderer.startProfileMeasurement(requestedAtNs);renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
         requestRender()
     }
     fun configureDiagnostics(config:DiagnosticsModuleConfig) {
@@ -127,7 +129,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private fun clearFence() {
             if(completionFence!=0L) { GL.glDeleteSync(completionFence);completionFence=0L }
         }
-        private fun restartMeasurement(reason:String) { clearFence();metrics.begin(reason) }
+        private fun restartMeasurement(reason:String,requestedAtNs:Long=System.nanoTime()) { clearFence();metrics.begin(reason,requestedAtNs) }
         fun pauseMeasurement() { clearFence();gpuTimer.pause() }
         fun resumeMeasurement() {
             if(state==null)return
@@ -148,12 +150,12 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             }
         }
 
-        fun startProfileMeasurement() = restartMeasurement("изменение профиля")
+        fun startProfileMeasurement(requestedAtNs:Long) = restartMeasurement("изменение профиля",requestedAtNs)
         fun invalidatePhotons() {
             dirtyPhotons=true;photonReady=false;sampleCount=0
             changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0;baseDirty=true
         }
-        fun accept(next:State) {
+        fun accept(next:State,requestedAtNs:Long) {
             val previous=state
             if(previous==null || previous.yaw!=next.yaw || previous.pitch!=next.pitch ||
                 previous.distance!=next.distance || previous.fov!=next.fov || previous.floor!=next.floor ||
@@ -169,7 +171,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias) -> "изменение света/сцены"
                 else -> "движение камеры"
             }
-            restartMeasurement(reason)
+            restartMeasurement(reason,requestedAtNs)
             state=next;sampleCount=0;rowCursor=0;baseDirty=true;motionTime=SystemClock.uptimeMillis()
         }
         private fun source(name:String):String=context.assets.open("optics/$name")

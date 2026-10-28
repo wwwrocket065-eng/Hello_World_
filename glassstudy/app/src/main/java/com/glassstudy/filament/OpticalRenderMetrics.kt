@@ -51,8 +51,8 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
         intervalNs=intervalMs.toLong()*1_000_000L
         retentionNs=historySeconds.toLong()*1_000_000_000L
     }
-    @Synchronized fun begin(reason:String) {
-        started=now();ended=0L;run++;qualityStarted=0L;firstSample=0L;runCosts.clear();runGpuCosts.clear()
+    @Synchronized fun begin(reason:String,requestedAtNs:Long=now()) {
+        started=requestedAtNs.coerceAtMost(now());ended=0L;run++;qualityStarted=0L;firstSample=0L;runCosts.clear();runGpuCosts.clear()
         events.add(reason)
         view=view.copy(run=run,elapsedNs=0,complete=false,spp=0,phase=reason,
             qualityStartNs=0,firstSampleNs=0,costs=emptyMap(),gpuCosts=emptyMap())
@@ -142,7 +142,7 @@ class OpticalRenderMetrics(private val now:()->Long = System::nanoTime) {
             appendLine("Рендер #${v.run}: ${v.phase}; ${v.width}×${v.height}; ${v.spp}/${v.targetSpp} spp")
             appendLine("От последнего изменения: ${ms(v.elapsedNs)} мс${if(v.complete) " (завершение GPU подтверждено fence)" else " (в процессе)"}")
             appendLine("Отчёт — снимок на момент открытия; история продолжает собираться независимо от окна.")
-            appendLine("Отсчёт включает ожидание стабилизации, preview, каустику и накопление; пауза прерывает замер.")
+            appendLine("Отсчёт включает очередь GL после изменения, стабилизацию, preview, каустику и накопление; пауза прерывает замер.")
             appendLine("Начало финального качества: ${if(v.qualityStartNs>0)ms(v.qualityStartNs) else "—"} мс; первый полный spp: ${if(v.firstSampleNs>0)ms(v.firstSampleNs) else "—"} мс от изменения (подача команд)")
             appendLine(v.parameters)
             appendLine("GPU: ${v.gpu}")
