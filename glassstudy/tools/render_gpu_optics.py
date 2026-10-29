@@ -11,7 +11,7 @@ from test_gpu_optics import context,proc,compile_program
 from glass_optical_reference import HollowLathe
 
 
-def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,distance=7.0,reference=False,analytic=False):
+def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,distance=7.0,reference=False,analytic=False,photon_batch=None,mask_rows=None,path_rows=11):
     context()
     root=Path(__file__).parents[1]/'app/src/main/assets'
     kernel=((Path(__file__).parent/'fixtures/optics_kernel_0_2_83.glsl') if reference else (root/'optics/kernel.glsl')).read_text()
@@ -78,7 +78,10 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
     uniform(photon,'uPhotonSide',launch_side,'i');uniform(photon,'uPhotonMapSize',map_size,'i')
     gl['fbo'](0x8D40,fbos[2]);gl['viewport'](0,0,map_size,map_size)
     proc('glEnable',None,C.c_uint)(0x0BE2);proc('glBlendFunc',None,C.c_uint,C.c_uint)(1,1)
-    gl['draw'](0,0,launch_side*launch_side);proc('glDisable',None,C.c_uint)(0x0BE2)
+    total=launch_side*launch_side
+    batch=photon_batch or total
+    for first in range(0,total,batch):gl['draw'](0,first,min(batch,total-first))
+    proc('glDisable',None,C.c_uint)(0x0BE2)
     print('GPU photon pass submitted',flush=True)
     result=[]
     gl['use'](mask_program);common(mask_program);uniform(mask_program,'uResolution',(width,height),'v2');bind(textures[0],0,mask_program,'uProfile')
@@ -88,7 +91,13 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
     gl['fbo'](0x8D40,fbos[4]);gl['viewport'](0,0,width,height)
     proc('glClearColor',None,C.c_float,C.c_float,C.c_float,C.c_float)(0,0,0,0)
     proc('glClear',None,C.c_uint)(0x4000)
-    gl['draw'](4,0,3 if analytic else (len(points)-1)*128*6)
+    if analytic and mask_rows:
+        proc('glEnable',None,C.c_uint)(0x0C11)
+        for row in range(0,height,mask_rows):
+            proc('glScissor',None,C.c_int,C.c_int,C.c_int,C.c_int)(0,row,width,min(mask_rows,height-row))
+            gl['draw'](4,0,3)
+        proc('glDisable',None,C.c_uint)(0x0C11)
+    else:gl['draw'](4,0,3 if analytic else (len(points)-1)*128*6)
     mask=np.zeros((height,width,4),np.uint8)
     proc('glReadPixels',None,C.c_int,C.c_int,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p)(0,0,width,height,0x1908,0x1401,mask.ctypes.data)
     assert mask[:,:,0].max()==255 and mask[:,:,0].min()==0
@@ -134,8 +143,8 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
                 bind(textures[2-frame%2],1,path,'uPrevious')
             gl['fbo'](0x8D40,fbos[frame%2])
             proc('glEnable',None,C.c_uint)(0x0C11)
-            for row in range(0,box[3],11):
-                proc('glScissor',None,C.c_int,C.c_int,C.c_int,C.c_int)(box[0],box[1]+row,box[2],min(11,box[3]-row))
+            for row in range(0,box[3],path_rows):
+                proc('glScissor',None,C.c_int,C.c_int,C.c_int,C.c_int)(box[0],box[1]+row,box[2],min(path_rows,box[3]-row))
                 gl['draw'](4,0,3)
             proc('glDisable',None,C.c_uint)(0x0C11)
         final_linear=np.zeros((height,width,4),np.float32)
@@ -156,3 +165,4 @@ def render(output,width=160,height=240,samples=64,smooth=True,elevation=.6,dista
 
 
 if __name__=='__main__':render(Path(sys.argv[1]),smooth='--flat' not in sys.argv[2:])
+

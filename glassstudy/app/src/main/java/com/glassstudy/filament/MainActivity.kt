@@ -303,6 +303,29 @@ class MainActivity : Activity() {
     private fun openMenu() {
         diagnosticsPopup.dismiss()
         val panel=GlassDialogFactory.panel(this,"Настройки")
+        val limitLabel=TextView(this).apply {
+            text="Лимит нагрузки: ${opticalSurface.resourceLimitPercent}%"
+            setTextColor(GlassDialogFactory.theme.hint);textSize=14f
+        }
+        panel.addView(limitLabel)
+        panel.addView(SeekBar(this).apply {
+            max=90;progress=opticalSurface.resourceLimitPercent-10
+            setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean) {
+                    if(!fromUser)return
+                    val percent=value+10
+                    opticalSurface.setResourceLimit(percent)
+                    limitLabel.text="Лимит нагрузки: $percent%"
+                    getPreferences(MODE_PRIVATE).edit().putInt("resourceLimitPercent",percent).apply()
+                }
+                override fun onStartTrackingTouch(bar:SeekBar?) {}
+                override fun onStopTrackingTouch(bar:SeekBar?) {}
+            })
+        })
+        panel.addView(TextView(this).apply {
+            text="Меньше — короче порции расчёта и больше паузы. Качество сохраняется, расчёт дольше. Это не процент загрузки GPU и не лимит памяти."
+            textSize=12f;setTextColor(GlassDialogFactory.theme.hint)
+        })
         panel.addView(GlassDialogFactory.option(this,"Гладкая поверхность для лучей · эксперимент",analyticSurface).apply {
             setOnClickListener {
                 analyticSurface=!analyticSurface
@@ -388,6 +411,7 @@ class MainActivity : Activity() {
             visibility=View.GONE
             setOnTouchListener { _, event -> if(opticsTest.running)true else cameraLight.onTouch(event) }
         }
+        opticalSurface.setResourceLimit(getPreferences(MODE_PRIVATE).getInt("resourceLimitPercent",50))
         root.addView(opticalSurface,1,FrameLayout.LayoutParams(-1,-1))
 
         // Floating header, modeled on GlassStudy 3D LAB v0.1.22.
@@ -924,3 +948,4 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
+

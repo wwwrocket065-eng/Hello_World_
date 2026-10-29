@@ -52,7 +52,10 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
             "Гладкая поверхность, отсечение ВЫКЛ" to base.copy(analyticSurface=true,
                 render=render.copy(optics=render.optics.copy(segmentCullingEnabled=false))),
             "Полигональная поверхность" to base.copy(analyticSurface=false),
-            "Гладкая поверхность, другой угол камеры" to base.copy(analyticSurface=true,pitch=(base.pitch+Math.toRadians(config.testPitchOffsetDegrees.toDouble())).coerceIn(-1.3,1.3)))
+            "Гладкая поверхность, другой угол камеры" to base.copy(analyticSurface=true,pitch=(base.pitch+Math.toRadians(config.testPitchOffsetDegrees.toDouble())).coerceIn(-1.3,1.3)),
+            "Гладкая поверхность, платформа увеличена" to base.copy(analyticSurface=true,
+                scene=base.scene.copy(floorWidth=(base.scene.floorWidth*4f).coerceAtMost(100f))),
+            "Гладкая поверхность, без пола" to base.copy(analyticSurface=true,floor="none"))
         // Old files stay readable until a successful new result replaces them.
         next()
     }
@@ -174,3 +177,4 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
     fun close() { cancel();closed=true;worker.shutdown() }
     private fun toast(text:String) { Toast.makeText(activity,text,Toast.LENGTH_LONG).show() }
 }
+

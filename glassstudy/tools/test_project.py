@@ -14,7 +14,7 @@ build=(root/'app/build.gradle').read_text()
 manifest=ElementTree.parse(root/'app/src/main/AndroidManifest.xml')
 assert "applicationId 'com.glassstudy.filament.stable'" in build
 props=(root/'gradle.properties').read_text()
-assert 'GLASSSTUDY_VERSION=0.2.86' in props and 'GLASSSTUDY_VERSION_CODE=20086' in props
+assert 'GLASSSTUDY_VERSION=0.2.87' in props and 'GLASSSTUDY_VERSION_CODE=20087' in props
 assert "project.property('GLASSSTUDY_VERSION_CODE')" in build and "project.property('GLASSSTUDY_VERSION')" in build
 assert 'BuildConfig.VERSION_NAME' in activity
 assert 'BuildConfig.VERSION_NAME' in (root/'app/src/main/java/com/glassstudy/filament/DiagnosticsReportService.kt').read_text()
@@ -1051,7 +1051,7 @@ assert 'lastReflectionError=error.javaClass.simpleName' in env_controller
 assert 'modelAssets.glassMaterialDiagnostics()' in activity and 'opticalSurface.diagnostics()' in activity
 assert 'else renderEnvironment.reflectionDiagnostics()' in activity
 assert 'Материал gltfio (фактически)' in diagnostics_src
-assert 'GLASSSTUDY_VERSION=0.2.86' in (root/'gradle.properties').read_text()
+assert 'GLASSSTUDY_VERSION=0.2.87' in (root/'gradle.properties').read_text()
 print('PASS: glTF runtime refraction / IBL diagnostics, no fake opaque shadows for refractive glass')
 
 # 0.2.78: use the stock Filament / glTF material; never cover the floor with
@@ -1078,3 +1078,4 @@ assert 'minOf(visualNumbers.buttonCornerDp,it*0.5f)' in chrome_src
 assert 'minOf(visualNumbers.buttonCornerDp,it*0.30f)' not in chrome_src
 assert 'visualNumbers.buttonCornerDp' in chrome_src
 print('PASS: patch-controlled toolbar corner radius is no longer flattened')
+
