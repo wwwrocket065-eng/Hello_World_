@@ -398,7 +398,7 @@ public final class FactoryView extends View {
     private void drawMachineMenu(Canvas c) {
         float d=density,w=getWidth(),top=getHeight()-(TOOLBAR_DP+BELT_MENU_DP)*d;
         box(c,6*d,top,w-6*d,top+BELT_MENU_DP*d,12*d,0xff173448);
-        float cell=w/OPERATORS.length;
+        float cell=w/(OPERATORS.length+1);
         for(int i=0;i<OPERATORS.length;i++) {
             float left=cell*i,mid=left+cell*.5f;
             boolean unlocked=operatorUnlocked(OPERATORS[i]);
@@ -409,6 +409,11 @@ public final class FactoryView extends View {
             label(c,unlocked?"":"ур."+OP_LEVELS[i],mid,top+37*d,8*d,
                 0xffffbd85,false,Paint.Align.CENTER);
         }
+        float mid=w-cell*.5f;
+        box(c,w-cell+3*d,top+3*d,w-3*d,top+41*d,9*d,0xff285268);
+        label(c,"↻",mid,top+24*d,21*d,0xffdafff5,true,Paint.Align.CENTER);
+        label(c,Integer.toString(machineRotation*90)+"°",mid,top+37*d,9*d,
+              0xff9dd7d3,false,Paint.Align.CENTER);
     }
     private boolean upgradeUnlocked(int kind) {
         return kind>=0&&kind<2||kind==2||kind==3&&level>=7||
@@ -538,9 +543,9 @@ public final class FactoryView extends View {
         for(Map.Entry<Long,Node> entry:cells.entrySet()) {
             long key=entry.getKey();
             Node n=entry.getValue();
-            if(n.item!=EMPTY)
+            if(n.item!=EMPTY&&!n.multi)
                 drawTravellingNumber(c,(int)(key>>32),(int)key,n,false);
-            if(n.crossItem!=EMPTY && (n.type==BRIDGE||n.type==DIVIDE))
+            if(n.crossItem!=EMPTY&&!n.multi && (n.type==BRIDGE||n.type==DIVIDE))
                 drawTravellingNumber(c,(int)(key>>32),(int)key,n,true);
         }
         drawRoutePreview(c);
@@ -991,7 +996,54 @@ public final class FactoryView extends View {
         token(c,px,py,size,value);
     }
 
+    private void drawMultiMachine(Canvas c,Node controller) {
+        MachineLayout.Shape shape=MachineLayout.shape(controller.type,controller.rotation);
+        if(shape==null)return;
+        float s=sz();
+        int outer=controller.type==ADD?0xff58348c:controller.type==MULTIPLY?
+                  0xff2a5695:controller.type==STORAGE?0xff3b6277:
+                  controller.type==SUBTRACT?0xff754569:0xff415879;
+        int inner=controller.type==ADD?0xff855db8:controller.type==MULTIPLY?
+                  0xff4079bb:controller.type==STORAGE?0xff286179:
+                  controller.type==SUBTRACT?0xff965378:0xff5486a4;
+        for(MachineLayout.Cell part:shape.cells) {
+            float left=panX+(controller.originX+part.x)*s;
+            float top=panY+(controller.originY+part.y)*s;
+            if(left>getWidth()+s||top>getHeight()+s||
+               left+s< -s||top+s< -s)continue;
+            box(c,left+s*.015f,top+s*.015f,left+s*.985f,top+s*.985f,s*.10f,outer);
+            box(c,left+s*.06f,top+s*.06f,left+s*.94f,top+s*.94f,s*.075f,inner);
+            String name;
+            switch(part.port) {
+                case MachineLayout.A:name="A";break;
+                case MachineLayout.B:name="B";break;
+                case MachineLayout.OUTPUT:
+                    name=controller.type==ADD?"A+B":controller.type==MULTIPLY?"A×B":
+                         controller.type==SUBTRACT?"A−B":
+                         controller.type==DIVIDE?"÷":controller.type==EXPONENT?"A^B":"→";
+                    break;
+                case MachineLayout.REMAINDER:name="R";break;
+                default:name="";break;
+            }
+            if(!name.isEmpty())label(c,name,left+s*.50f,top+s*.60f,
+                  Math.max(7*density,s*(name.length()>1?.23f:.48f)),
+                  part.port==MachineLayout.OUTPUT?0xffeffff5:0xfff9e3dd,
+                  true,Paint.Align.CENTER);
+        }
+        if(controller.type==STORAGE) {
+            float cx=panX+(controller.originX+shape.width*.5f)*s;
+            float cy=panY+(controller.originY+shape.height*.5f)*s;
+            box(c,cx-s*1.12f,cy-s*.48f,cx+s*1.12f,cy+s*.48f,
+                s*.15f,0xff143545);
+            label(c,"▣",cx,cy-s*.09f,s*.65f,0xffd6fff7,true,Paint.Align.CENTER);
+            label(c,controller.storedCount+" / 10000",cx,cy+s*.29f,
+                  s*.27f,0xffedfff7,true,Paint.Align.CENTER);
+        }
+    }
+
     private void drawNode(Canvas c,int x,int y,Node n) {
+        if(n.type==PART)return;
+        if(n.multi){drawMultiMachine(c,n);return;}
         float s=sz(),cx=panX+(x+.5f)*s,cy=panY+(y+.5f)*s;
         if(cx<-s || cy<-s || cx>getWidth()+s || cy>getHeight()+s)return;
         if(n.type==BELT) {
@@ -1585,9 +1637,10 @@ public final class FactoryView extends View {
                         beltMode=mode;
                     }
                 } else if(machineMenuGesture&&machineMenuVisible()&&!pinching) {
-                    int i=(int)(e.getX()/Math.max(1f,getWidth()/6f));
-                    i=Math.max(0,Math.min(OPERATORS.length-1,i));
-                    if(operatorUnlocked(OPERATORS[i]))operatorChoice=OPERATORS[i];
+                    int i=(int)(e.getX()/Math.max(1f,getWidth()/(float)(OPERATORS.length+1)));
+                    if(i>=OPERATORS.length)machineRotation=(machineRotation+1)&3;
+                    else if(i>=0 && operatorUnlocked(OPERATORS[i]))
+                        operatorChoice=OPERATORS[i];
                 } else if(selectionMenuGesture&&selected==5&&!pinching) {
                     int index=(int)(e.getX()/Math.max(1f,getWidth()/3f));
                     if(index==0&&selectionReady)copySelection();
