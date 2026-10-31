@@ -24,7 +24,7 @@ import java.util.Collections;
  */
 public final class FactoryView extends View {
     private static final int EMPTY = Integer.MIN_VALUE;
-    private static final int BELT=1, SOURCE=2, ADD=3, MULTIPLY=4, HUB=5;
+    private static final int BELT=1, SOURCE=2, ADD=3, MULTIPLY=4, HUB=5, BRIDGE=6;
     private static final int[] DX={1,0,-1,0}, DY={0,1,0,-1};
     private static final int BG=0xff071420, CYAN=0xff37c8c2, GOLD=0xffffc77c;
     private static final int PURPLE=0xffb08aff, BLUE=0xff6ca9ff;
@@ -55,6 +55,7 @@ public final class FactoryView extends View {
     private int selected=7, level=1,goal=1,required=10,delivered,allDelivered;
     private int beltMode=0, selectX0,selectY0,selectX1,selectY1,clipboardCount;
     private boolean initialized,pinching,dragged,toolbarGesture,beltMenuGesture,routeGesture,paintGesture;
+    private boolean paintStartedOnBelt;
     private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture;
     private float lastX,lastY,lastSpan,downX,downY,gestureX,gestureY;
     private int priorGridX,priorGridY;
@@ -74,6 +75,7 @@ public final class FactoryView extends View {
 
     private static final class Node {
         int type,dir,value,item=EMPTY,a=EMPTY,b=EMPTY,upgrade=1,extracted;
+        int crossDir=-1,crossItem=EMPTY; // Independent overpass lane, not a belt merge.
         float progress;
         Node(int type,int dir,int value) {
             this.type=type;this.dir=dir;this.value=value;
@@ -248,6 +250,7 @@ public final class FactoryView extends View {
                 int xx=Integer.parseInt(v[0]),yy=Integer.parseInt(v[1]);
                 put(xx,yy,Integer.parseInt(v[2]),Integer.parseInt(v[3]),Integer.parseInt(v[4]));
                 if(v.length>5) get(xx,yy).upgrade=Integer.parseInt(v[5]);
+                if(v.length>6) get(xx,yy).crossDir=Integer.parseInt(v[6]);
             }
             if(cells.isEmpty()) seed();
             for(int y=HUB_Y;y<HUB_Y+HUB_SIZE;y++)
@@ -338,7 +341,8 @@ public final class FactoryView extends View {
             Node n=entry.getValue();
             b.append((int)(key>>32)).append(',').append((int)key).append(',')
                 .append(n.type).append(',').append(n.dir).append(',')
-                .append(n.value).append(',').append(n.upgrade).append(';');
+                .append(n.value).append(',').append(n.upgrade).append(',')
+                 .append(n.crossDir).append(';');
         }
         prefs.edit().putString("world",b.toString())
             .putString("upgrades",saveUpgrades()).apply();
@@ -405,50 +409,88 @@ public final class FactoryView extends View {
         postInvalidateOnAnimation();
     }
 
+    private void deliverToHub(int number) {
+        recordNumber(number);
+        allDelivered++;
+        if(number==goal) {
+            delivered++;
+            flash=1f;
+            if(delivered>=required) {
+                level++;
+                int index=level-1;
+                if(index<GOAL_SEQUENCE.length) {
+                    goal=GOAL_SEQUENCE[index];
+                    required=GOAL_COUNTS[index];
+                } else {
+                    // Extension after hand-authored progression; do not loop to level 1.
+                    goal=(int)Math.min(999999999L,(long)goal+Math.max(100,goal/3));
+                    required=Math.min(20000,required+500);
+                }
+                delivered=0;
+            }
+        }
+        if((allDelivered&31)==0)save();
+    }
+
+    private void moveLane(Node source, boolean upper, int x,int y,
+                          HashSet<Long> entered,HashSet<Long> enteredUpper) {
+        int number=upper?source.crossItem:source.item;
+        if(number==EMPTY || source.type==SOURCE || source.type==HUB)return;
+        int dir=upper?source.crossDir:source.dir;
+        if(dir<0||dir>3)return;
+        int nx=x+DX[dir],ny=y+DY[dir];
+        long next=id(nx,ny);
+        Node target=get(nx,ny);
+        if(target==null)return;
+        boolean accepted=false;
+        if(target.type==HUB) {
+            deliverToHub(number);
+            accepted=true;
+        } else if(target.type==BELT && target.item==EMPTY && !entered.contains(next)) {
+            target.item=number;
+            entered.add(next);
+            accepted=true;
+        } else if(target.type==BRIDGE) {
+            if(target.dir==dir && target.item==EMPTY && !entered.contains(next)) {
+                target.item=number;
+                entered.add(next);
+                accepted=true;
+            } else if(target.crossDir==dir && target.crossItem==EMPTY
+                      && !enteredUpper.contains(next)) {
+                target.crossItem=number;
+                enteredUpper.add(next);
+                accepted=true;
+            }
+        } else if(target.type==ADD || target.type==MULTIPLY) {
+            if(y<ny && target.a==EMPTY) {target.a=number;accepted=true;}
+            else if(y>ny && target.b==EMPTY) {target.b=number;accepted=true;}
+            else if(target.a==EMPTY) {target.a=number;accepted=true;}
+            else if(target.b==EMPTY) {target.b=number;accepted=true;}
+        }
+        if(accepted) {
+            if(upper)source.crossItem=EMPTY;
+            else source.item=EMPTY;
+        }
+    }
+
     private void step() {
+        // Each overpass has two independent channels, each accepting at most one
+        // item per tick. A perpendicular stream never replaces the first one.
         ArrayList<Long> keys=new ArrayList<>(cells.keySet());
-        HashSet<Long> entered=new HashSet<>();
+        HashSet<Long> entered=new HashSet<>(), enteredUpper=new HashSet<>();
         for(long key:keys) {
             Node n=cells.get(key);
-            if(n==null || n.item==EMPTY || n.type==HUB)continue;
+            if(n==null || n.type==SOURCE || n.type==HUB)continue;
             int x=(int)(key>>32),y=(int)key;
-            int d=n.dir;
-            if(n.type==SOURCE)continue; // Miners output from the edge of the 3x3 field.
-            int nx=x+DX[d],ny=y+DY[d];
-            long next=id(nx,ny);
-            Node dest=cells.get(next);
-            if(dest==null)continue;
-            if(dest.type==HUB) {
-                recordNumber(n.item);
-                allDelivered++;
-                if(n.item==goal) {
-                    delivered++;flash=1f;
-                    if(delivered>=required) {
-                        level++;
-                        goal=GOAL_SEQUENCE[(level-1)%GOAL_SEQUENCE.length];
-                        required=GOAL_COUNTS[(level-1)%GOAL_COUNTS.length];
-                        delivered=0;
-                    }
-                }
-                n.item=EMPTY;
-                if((allDelivered&31)==0)save();
-            } else if(dest.type==BELT && dest.item==EMPTY && !entered.contains(next)) {
-                dest.item=n.item;
-                n.item=EMPTY;
-                entered.add(next);
-            } else if(dest.type==ADD || dest.type==MULTIPLY) {
-                if(y<ny && dest.a==EMPTY) {dest.a=n.item;n.item=EMPTY;}
-                else if(y>ny && dest.b==EMPTY) {dest.b=n.item;n.item=EMPTY;}
-                else if(dest.a==EMPTY) {dest.a=n.item;n.item=EMPTY;}
-                else if(dest.b==EMPTY) {dest.b=n.item;n.item=EMPTY;}
-            }
+            moveLane(n,false,x,y,entered,enteredUpper);
+            if(n.type==BRIDGE)moveLane(n,true,x,y,entered,enteredUpper);
         }
         for(Map.Entry<Long,Node> entry:cells.entrySet()) {
             Node n=entry.getValue();
             if(n.type!=SOURCE)continue;
             int x=(int)(entry.getKey()>>32),y=(int)(long)entry.getKey();
-            // 3x3 field, 12 perimeter output slots. Global upgrade controls
-            // total throughput; one stream's worth at the initial level.
+            // One valid tap creates exactly one miner, with twelve potential
+            // perimeter connections and upgrade-limited total throughput.
             int maxOutputs=Math.min(12,upgradeLevels[1]);
             int produced=0;
             for(int scan=0;scan<MINE_OUTPUTS.length && produced<maxOutputs;scan++) {
@@ -762,6 +804,7 @@ public final class FactoryView extends View {
             if(n.type==SOURCE && depositValue(xx,yy)!=n.value)continue;
             put(xx,yy,n.type,n.dir,n.value);
             get(xx,yy).upgrade=n.upgrade;
+            get(xx,yy).crossDir=n.crossDir;
         }
     }
     private void eraseCell(int x,int y) {
@@ -816,29 +859,43 @@ public final class FactoryView extends View {
             Node n=e.getValue();
             Node clone=new Node(n.type,n.dir,n.value);
             clone.upgrade=n.upgrade;
+            clone.crossDir=n.crossDir;
             clipboard.put(id(x-minX,y-minY),clone);
         }
         clipboardCount=clipboard.size();
     }
+    private void placeBeltSegment(int x,int y,int dir,boolean turnAnchor) {
+        if(!within(x,y)||isHub(x,y)||depositUnder(x,y)>0)return;
+        Node n=get(x,y);
+        if(n==null) {
+            put(x,y,BELT,dir,0);
+        } else if(n.type==BELT) {
+            if(n.dir==dir)return;
+            // The start of a new route leg is an elbow, not an overpass.
+            if(turnAnchor || (n.dir&1)==(dir&1)) {
+                n.dir=dir;
+            } else if(level>=5) { // Complete level 4 to unlock bridges.
+                n.type=BRIDGE;
+                n.crossDir=dir;
+            } // Otherwise keep the existing belt intact.
+        }
+        // An existing bridge retains both routes when another line is drawn.
+    }
+
     private void drawBeltPath(int x0,int y0,int x1,int y1) {
         if(!within(x0,y0)||!within(x1,y1))return;
-        int x=x0,y=y0, lastDir=0,guard=0;
+        int x=x0,y=y0,lastDir=0,guard=0;
+        boolean start=true;
         while((x!=x1||y!=y1)&&guard++<3000) {
             int dx=0,dy=0;
             if(x!=x1)dx=Integer.signum(x1-x);
             else dy=Integer.signum(y1-y);
             int dir=dx==1?0:dx==-1?2:dy==1?1:3;
-            if(!isHub(x,y)&&depositUnder(x,y)<0) {
-                Node n=get(x,y);
-                if(n==null||n.type==BELT)put(x,y,BELT,dir,0);
-            }
+            placeBeltSegment(x,y,dir,start);
             lastDir=dir;
-            x+=dx;y+=dy;
+            x+=dx;y+=dy;start=false;
         }
-        if(!isHub(x1,y1)&&depositUnder(x1,y1)<0) {
-            Node n=get(x1,y1);
-            if(n==null||n.type==BELT)put(x1,y1,BELT,lastDir,0);
-        }
+        if(guard<3001)placeBeltSegment(x1,y1,lastDir,start);
     }
     private void routeTo(Point end) {
         if(end==null)return;
@@ -985,7 +1042,9 @@ public final class FactoryView extends View {
                     if(selected==0) {
                         if(beltMode==0) {
                             paintGesture=true;
-                            place(priorGridX,priorGridY);
+                            Node existing=get(priorGridX,priorGridY);
+                            paintStartedOnBelt=existing!=null && (existing.type==BELT || existing.type==BRIDGE);
+                            if(!paintStartedOnBelt)place(priorGridX,priorGridY);
                         } else {
                             routeGesture=true;
                             if(route.isEmpty())
@@ -1080,7 +1139,9 @@ public final class FactoryView extends View {
                     routeTo(new Point(gridX(e.getX()),gridY(e.getY())));
                     routeLive=null; // Remains preview until Confirm.
                 } else if(!pinching&&paintGesture) {
-                    save();
+                    if(!dragged && paintStartedOnBelt)
+                        place(gridX(e.getX()),gridY(e.getY()));
+                    else save();
                 } else if(!pinching&&eraseGesture) {
                     erasePath(priorGridX,priorGridY,gridX(e.getX()),gridY(e.getY()));
                     save();
