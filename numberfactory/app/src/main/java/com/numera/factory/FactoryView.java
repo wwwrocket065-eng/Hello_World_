@@ -866,25 +866,25 @@ public final class FactoryView extends View {
     }
     private void drawUpgradePanel(Canvas c) {
         float d=density,w=getWidth(),top=120*d;
-        float bottom=Math.min(getHeight()-100*d,top+322*d);
+        float bottom=Math.min(getHeight()-100*d,top+338*d);
         box(c,8*d,top,w-8*d,bottom,18*d,0xf5092639);
         label(c,"УЛУЧШЕНИЯ  ·  нажми для покупки",20*d,top+25*d,14*d,
               0xffd6fff5,true,Paint.Align.LEFT);
-        int maxKinds=Math.min(4,(int)((bottom-top-32*d)/(70*d)));
+        int maxKinds=Math.min(upgradeLevels.length,(int)((bottom-top-32*d)/(50*d)));
         for(int i=0;i<maxKinds;i++) {
-            float y=top+(32+70*i)*d;
-            if(i%2==0)box(c,14*d,y,w-14*d,y+66*d,9*d,0xff183d4b);
+            float y=top+(32+50*i)*d;
+            if(i%2==0)box(c,14*d,y,w-14*d,y+47*d,9*d,0xff183d4b);
             boolean available=upgradeUnlocked(i);
             int[][] req=requirements(i);
             String name=UPGRADE_NAMES[i]+"   ур. "+upgradeLevels[i];
-            label(c,name,23*d,y+23*d,15*d,available?0xffe6fff8:0xff708c9b,true,Paint.Align.LEFT);
+            label(c,name,23*d,y+18*d,13*d,available?0xffe6fff8:0xff708c9b,true,Paint.Align.LEFT);
             if(!available) {
-                label(c,"Откроется на уровне "+7,23*d,y+48*d,10*d,
+                label(c,"Откроется на уровне "+7,23*d,y+38*d,10*d,
                       0xffd0aebd,false,Paint.Align.LEFT);
                 continue;
             }
             if(req.length==0) {
-                label(c,"Следующие ступени в разработке",23*d,y+48*d,10*d,
+                label(c,"Следующие ступени в разработке",23*d,y+38*d,10*d,
                       0xffa0c4d0,false,Paint.Align.LEFT);
                 continue;
             }
@@ -897,16 +897,16 @@ public final class FactoryView extends View {
                      .append("/").append(pair[1]);
                 if(have<pair[1])all=false;
             }
-            label(c,parts.toString(),23*d,y+48*d,Math.max(8f,10f-req.length*.5f)*d,
+            label(c,parts.toString(),23*d,y+38*d,Math.max(8f,10f-req.length*.5f)*d,
                   all?0xff79f0c9:0xffaac9d1,false,Paint.Align.LEFT);
-            label(c,all?"ГОТОВО":"",w-22*d,y+23*d,10*d,
+            label(c,all?"ГОТОВО":"",w-22*d,y+18*d,10*d,
                   0xff7df1c6,true,Paint.Align.RIGHT);
         }
     }
     private void tapUpgradePanel(float x,float y) {
         float top=120*density;
-        if(y<top||y>top+322*density){upgradePanel=false;return;}
-        int row=(int)((y-top-32*density)/(70*density));
+        if(y<top||y>top+338*density){upgradePanel=false;return;}
+        int row=(int)((y-top-32*density)/(50*density));
         if(row>=0&&row<4&&y>=top+32*density)buyUpgrade(row);
     }
 
