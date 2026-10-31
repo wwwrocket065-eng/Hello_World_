@@ -1863,6 +1863,9 @@ public final class FactoryView extends View {
             case MotionEvent.ACTION_POINTER_DOWN:
                 removeCallbacks(machineLongPress);
                 machinePressActive=false;
+                pressedMachine=null;
+                longPressTriggered=false;
+                editDragGesture=false;
                 if(e.getPointerCount()>=2) {
                     pinching=true;dragged=true;lastSpan=span(e);
                     paintGesture=false;routeGesture=false;eraseGesture=false;
