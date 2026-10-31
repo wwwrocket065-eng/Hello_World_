@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -31,8 +31,17 @@ jobs:
       - name: Build Numera debug APK
         working-directory: numberfactory
         run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: numera-v0.1.0-debug-apk
           path: numberfactory/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish preview release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: numera-v0.1.0-preview
+          name: Numera 0.1.0 Android preview
+          target_commitish: numberfactory-android
+          prerelease: true
+          files: numberfactory/app/build/outputs/apk/debug/app-debug.apk
+          body: "Independent Android prototype: animated number factory, conveyors, arithmetic, touch placement and a new dark graphical style. Debug signed for testing."
