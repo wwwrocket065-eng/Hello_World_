@@ -22,4 +22,20 @@ class OpticalWorkBudgetTest {
         assertEquals(1,b.units(32768))
         assertTrue(b.pauseMs(Long.MAX_VALUE)<=2000)
     }
+    @Test fun slowRowsCannotCollapsePhotonWorkOrSubdivideRows() {
+        val mask=OpticalWorkBudget()
+        val photons=OpticalWorkBudget()
+        repeat(40) {
+            assertTrue(mask.units(16384,1280)>=1280)
+            // Reporting the nominal budget must not forget the raster row floor.
+            mask.units(32768)
+            mask.observeCompletion(200)
+        }
+        assertEquals(1280,mask.units(16384,1280))
+        assertEquals(8192,photons.units(16384))
+        // A one-row batch can recover after transient stalls instead of requiring
+        // thousands of multiplicative increases from a fictitious one-pixel size.
+        repeat(20) { mask.observeCompletion(1) }
+        assertTrue(mask.units(16384,1280)>1280)
+    }
 }

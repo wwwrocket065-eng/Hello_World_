@@ -226,7 +226,7 @@ class MainActivity : Activity() {
             updateOpticalSurface()
             // Preserve the existing four actual Filament frames that confirm an
             // activated patch; after that the opaque optical surface covers it.
-            val renderFilament=opticalSurface.visibility!=View.VISIBLE || stableFrames<4
+            val renderFilament=opticalSurface.visibility!=View.VISIBLE || !opticalSurface.hasPresentedFrame || stableFrames<4
             if(filamentSuspended==renderFilament) {
                 filamentSuspended=!renderFilament
                 opticalSurface.metrics.event(if(filamentSuspended) "Filament: скрытая отрисовка приостановлена" else "Filament: отрисовка возобновлена")
