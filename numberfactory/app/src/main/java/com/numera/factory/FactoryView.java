@@ -1159,7 +1159,7 @@ public final class FactoryView extends View {
         float actionsTop=routeActionsTop();
         float boardBottom=selected==0?
                 (hasRouteActions()?actionsTop:menuTop):
-                (selected==5?menuTop:toolbarTop);
+                (selected==5||machineMenuVisible()?menuTop:toolbarTop);
         switch(action) {
             case MotionEvent.ACTION_DOWN:
                 downX=lastX=gestureX=e.getX();
@@ -1170,6 +1170,7 @@ public final class FactoryView extends View {
                 routeMenuGesture=hasRouteActions()&&gestureY>=actionsTop
                     &&gestureY<menuTop&&!toolbarGesture;
                 selectionMenuGesture=selected==5&&gestureY>=menuTop&&!toolbarGesture;
+                machineMenuGesture=machineMenuVisible()&&gestureY>=menuTop&&!toolbarGesture;
                 headerGesture=gestureY<116*density;
                 upgradeGesture=upgradePanel&&gestureY>=120*density
                     &&gestureY<toolbarTop;
@@ -1177,7 +1178,7 @@ public final class FactoryView extends View {
                 routeGesture=false;paintGesture=false;eraseGesture=false;
                 selectionGesture=false;
                 if(!toolbarGesture&&!beltMenuGesture&&!routeMenuGesture
-                    &&!selectionMenuGesture&&!headerGesture&&!upgradeGesture
+                    &&!selectionMenuGesture&&!machineMenuGesture&&!headerGesture&&!upgradeGesture
                     &&gestureY>=124*density&&gestureY<boardBottom) {
                     if(selected==0) {
                         if(beltMode==0) {
@@ -1222,7 +1223,7 @@ public final class FactoryView extends View {
                     lastSpan=current;return true;
                 }
                 if(toolbarGesture||beltMenuGesture||routeMenuGesture
-                    ||selectionMenuGesture||pinching||upgradeGesture
+                    ||selectionMenuGesture||machineMenuGesture||pinching||upgradeGesture
                     ||headerGesture)return true;
                 gestureX=e.getX();gestureY=e.getY();
                 if(selected==7) {
@@ -1260,6 +1261,8 @@ public final class FactoryView extends View {
                 } else if(toolbarGesture&&e.getY()>=toolbarTop) {
                     int index=(int)(e.getX()/Math.max(1f,getWidth()/8f));
                     selected=Math.max(0,Math.min(7,index));
+                    if(selected==2)operatorChoice=ADD;
+                    else if(selected==3)operatorChoice=MULTIPLY;
                     if(selected!=5)selectionReady=false;
                 } else if(routeMenuGesture&&selected==0&&!pinching) {
                     if(e.getX()<getWidth()*.5f)confirmRoute();
@@ -1270,6 +1273,10 @@ public final class FactoryView extends View {
                         if(mode==0){route.clear();routeLive=null;}
                         beltMode=mode;
                     }
+                } else if(machineMenuGesture&&machineMenuVisible()&&!pinching) {
+                    int i=(int)(e.getX()/Math.max(1f,getWidth()/6f));
+                    i=Math.max(0,Math.min(OPERATORS.length-1,i));
+                    if(operatorUnlocked(OPERATORS[i]))operatorChoice=OPERATORS[i];
                 } else if(selectionMenuGesture&&selected==5&&!pinching) {
                     int index=(int)(e.getX()/Math.max(1f,getWidth()/3f));
                     if(index==0&&selectionReady)copySelection();
@@ -1293,13 +1300,13 @@ public final class FactoryView extends View {
                     place(gridX(e.getX()),gridY(e.getY()));
                 }
                 toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
-                selectionMenuGesture=false;headerGesture=false;upgradeGesture=false;
+                selectionMenuGesture=false;machineMenuGesture=false;headerGesture=false;upgradeGesture=false;
                 paintGesture=false;routeGesture=false;eraseGesture=false;
                 selectionGesture=false;pinching=false;
                 return true;
             case MotionEvent.ACTION_CANCEL:
                 toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
-                selectionMenuGesture=false;headerGesture=false;upgradeGesture=false;
+                selectionMenuGesture=false;machineMenuGesture=false;headerGesture=false;upgradeGesture=false;
                 paintGesture=false;routeGesture=false;eraseGesture=false;
                 selectionGesture=false;pinching=false;routeLive=null;
                 return true;
