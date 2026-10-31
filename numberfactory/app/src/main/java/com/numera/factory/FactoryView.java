@@ -611,14 +611,25 @@ public final class FactoryView extends View {
                                HashSet<Long> lowerClaims,HashSet<Long> upperClaims,
                                HashSet<Long> aClaims,HashSet<Long> bClaims,
                                HashSet<Long> storageClaims) {
+        offerTransferFrom(fromKey,source,upper,x,y,
+            upper?source.crossDir:source.dir,proposals,
+            lowerClaims,upperClaims,aClaims,bClaims,storageClaims);
+    }
+
+    private void offerTransferFrom(long fromKey,Node source,boolean upper,
+                                   int x,int y,int dir,ArrayList<Transfer> proposals,
+                                   HashSet<Long> lowerClaims,HashSet<Long> upperClaims,
+                                   HashSet<Long> aClaims,HashSet<Long> bClaims,
+                                   HashSet<Long> storageClaims) {
         int number=upper?source.crossItem:source.item;
-        if(number==EMPTY)return;
-        int dir=upper?source.crossDir:source.dir;
-        if(dir<0||dir>3)return;
+        if(number==EMPTY||dir<0||dir>3)return;
         int nx=x+DX[dir],ny=y+DY[dir];
         long key=id(nx,ny);
-        Node target=get(nx,ny);
+        Node owner=machineAt(nx,ny);
+        Node target=owner==null?get(nx,ny):owner;
         if(target==null)return;
+        int machineInput=owner==null?0:machinePort(nx,ny);
+        long claimKey=owner==null?key:id(owner.ownerX,owner.ownerY);
         int port=-1;
         if(target.type==HUB) {
             port=2;
@@ -630,19 +641,53 @@ public final class FactoryView extends View {
             else if(target.crossDir==dir && upperClaims.add(key))port=1;
             if(port<0)return;
         } else if(target.type==STORAGE) {
-            if(target.storedCount>=10000 || (target.storedCount>0&&target.value!=number)
-                    || !storageClaims.add(key))return;
+            if(owner!=null && machineInput!=MachineLayout.STORAGE)return;
+            if(target.storedCount>=10000 ||
+                (target.storedCount>0&&target.value!=number) ||
+                !storageClaims.add(claimKey))return;
             port=5;
         } else if(target.type==ADD||target.type==MULTIPLY||
                   target.type==SUBTRACT||target.type==DIVIDE||
                   target.type==EXPONENT) {
-            if(y<ny && target.a==EMPTY && aClaims.add(key))port=3;
-            else if(y>ny && target.b==EMPTY && bClaims.add(key))port=4;
-            else if(target.a==EMPTY && aClaims.add(key))port=3;
-            else if(target.b==EMPTY && bClaims.add(key))port=4;
+            if(owner!=null) {
+                if(machineInput==MachineLayout.A &&
+                    target.a==EMPTY && aClaims.add(claimKey))port=3;
+                else if(machineInput==MachineLayout.B &&
+                    target.b==EMPTY && bClaims.add(claimKey))port=4;
+            } else {
+                // Older saved one-cell operators keep their old behaviour.
+                if(y<ny && target.a==EMPTY && aClaims.add(claimKey))port=3;
+                else if(y>ny && target.b==EMPTY && bClaims.add(claimKey))port=4;
+                else if(target.a==EMPTY && aClaims.add(claimKey))port=3;
+                else if(target.b==EMPTY && bClaims.add(claimKey))port=4;
+            }
             if(port<0)return;
         } else return;
-        proposals.add(new Transfer(fromKey,source,upper,x,y,key,target,number,port));
+        proposals.add(new Transfer(fromKey,source,upper,x,y,claimKey,target,number,port));
+    }
+
+    private void offerMachineOutput(long key,Node machine,boolean remainder,
+                                     ArrayList<Transfer> proposals,
+                                     HashSet<Long> lowerClaims,HashSet<Long> upperClaims,
+                                     HashSet<Long> aClaims,HashSet<Long> bClaims,
+                                     HashSet<Long> storageClaims) {
+        if((remainder?machine.crossItem:machine.item)==EMPTY)return;
+        MachineLayout.Shape shape=MachineLayout.shape(machine.type,machine.rotation);
+        if(shape==null)return;
+        int wanted=remainder?MachineLayout.REMAINDER:MachineLayout.OUTPUT;
+        int preferred[]={0,1,3,2}; // right, down, up, left
+        for(MachineLayout.Cell part:shape.cells) {
+            if(part.port!=wanted)continue;
+            int px=machine.originX+part.x,py=machine.originY+part.y;
+            for(int dir:preferred) {
+                int tx=px+DX[dir],ty=py+DY[dir];
+                if(machineAt(tx,ty)==machine)continue; // inner face
+                int before=proposals.size();
+                offerTransferFrom(key,machine,remainder,px,py,dir,proposals,
+                                  lowerClaims,upperClaims,aClaims,bClaims,storageClaims);
+                if(proposals.size()>before)return;
+            }
+        }
     }
 
     private void transportTick() {
@@ -656,14 +701,24 @@ public final class FactoryView extends View {
         HashSet<Long> storageClaims=new HashSet<>();
         for(long key:keys) {
             Node n=cells.get(key);
-            if(n==null||n.type==SOURCE||n.type==HUB||n.type==STORAGE)continue;
+            if(n==null||n.type==SOURCE||n.type==HUB||
+               n.type==STORAGE||n.type==PART)continue;
             int x=(int)(key>>32),y=(int)key;
-            if(n.item!=EMPTY)
-                offerTransfer(key,n,false,x,y,proposals,lowerClaims,upperClaims,
-                              aClaims,bClaims,storageClaims);
-            if((n.type==BRIDGE||n.type==DIVIDE)&&n.crossItem!=EMPTY)
-                offerTransfer(key,n,true,x,y,proposals,lowerClaims,upperClaims,
-                              aClaims,bClaims,storageClaims);
+            if(n.multi) {
+                // Cargo leaves ONLY via the actual O / R port tiles.
+                offerMachineOutput(key,n,false,proposals,lowerClaims,upperClaims,
+                                   aClaims,bClaims,storageClaims);
+                if(n.type==DIVIDE)
+                    offerMachineOutput(key,n,true,proposals,lowerClaims,upperClaims,
+                                       aClaims,bClaims,storageClaims);
+            } else {
+                if(n.item!=EMPTY)
+                    offerTransfer(key,n,false,x,y,proposals,lowerClaims,upperClaims,
+                                  aClaims,bClaims,storageClaims);
+                if((n.type==BRIDGE||n.type==DIVIDE)&&n.crossItem!=EMPTY)
+                    offerTransfer(key,n,true,x,y,proposals,lowerClaims,upperClaims,
+                                  aClaims,bClaims,storageClaims);
+            }
         }
         // Each target has at most one reservation on each bridge lane.
         // Store the incoming edge, not the outgoing one, so vacancy can
