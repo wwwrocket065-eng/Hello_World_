@@ -554,6 +554,31 @@ public final class FactoryView extends View {
               s*.23f,0xff242332,true,Paint.Align.CENTER);
     }
 
+
+    // Two visible tiers at an overpass: each has its own directional arrows.
+    private void drawBridgeLane(Canvas c,float cx,float cy,float s,
+                                int dir,boolean raised) {
+        c.save();
+        c.rotate(dir*90f,cx,cy);
+        box(c,cx-s*.49f,cy-s*(raised?.275f:.245f),
+              cx+s*.49f,cy+s*(raised?.275f:.245f),
+              s*.10f,raised?0xff224d61:0xff122a3d);
+        box(c,cx-s*.47f,cy-s*.19f,cx+s*.47f,cy+s*.19f,
+              s*.08f,raised?0xff237b89:0xff195263);
+        p.setColor(raised?0xff7ef4dc:0xff47d1c8);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1f,s*.028f));
+        float shift=((clock*1.5f)%1f)*s*.24f;
+        for(int a=-2;a<=2;a++) {
+            float tx=cx+a*s*.24f+shift;
+            if(tx>cx+s*.40f||tx<cx-s*.40f)continue;
+            c.drawLine(tx-s*.058f,cy-s*.074f,tx,cy,p);
+            c.drawLine(tx,cy,tx-s*.058f,cy+s*.074f,p);
+        }
+        p.setStyle(Paint.Style.FILL);
+        c.restore();
+    }
+
     private void drawNode(Canvas c,int x,int y,Node n) {
         float s=sz(),cx=panX+(x+.5f)*s,cy=panY+(y+.5f)*s;
         if(cx<-s || cy<-s || cx>getWidth()+s || cy>getHeight()+s)return;
@@ -561,7 +586,8 @@ public final class FactoryView extends View {
             int incoming=n.dir;
             for(int d=0;d<4;d++) {
                 Node prev=get(x-DX[d],y-DY[d]);
-                if(prev!=null && prev.dir==d && prev.type==BELT) {
+                if(prev!=null && ((prev.type==BELT && prev.dir==d) ||
+                    (prev.type==BRIDGE && (prev.dir==d||prev.crossDir==d)))) {
                     incoming=d;
                     break;
                 }
@@ -621,6 +647,9 @@ public final class FactoryView extends View {
                 c.restore();
     
             }
+        } else if(n.type==BRIDGE) {
+            drawBridgeLane(c,cx,cy,s,n.dir,false);
+            if(n.crossDir>=0)drawBridgeLane(c,cx,cy,s,n.crossDir,true);
         } else if(n.type==SOURCE) {
             // A built extractor occupies the visible 3x3 number field.
             box(c,cx-s*1.40f,cy-s*1.40f,cx+s*1.40f,cy+s*1.40f,
@@ -668,7 +697,13 @@ public final class FactoryView extends View {
             label(c,"ХАБ",cx,cy+s*.66f,s*.15f,
                   0xff88eee4,true,Paint.Align.CENTER);
         }
-        if(n.item!=EMPTY) token(c,cx,cy,s,n.item);
+        if(n.type==BRIDGE) {
+            if(n.item!=EMPTY) token(c,cx+DX[n.dir]*s*.18f,
+                                   cy+DY[n.dir]*s*.18f,s*.68f,n.item);
+            if(n.crossItem!=EMPTY && n.crossDir>=0)
+                token(c,cx-DX[n.crossDir]*s*.18f,
+                      cy-DY[n.crossDir]*s*.18f,s*.68f,n.crossItem);
+        } else if(n.item!=EMPTY)token(c,cx,cy,s,n.item);
     }
 
     private void drawHud(Canvas c) {
