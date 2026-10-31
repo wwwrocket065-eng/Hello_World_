@@ -72,3 +72,11 @@
 - Save compatibility: persistent SharedPreferences name `numera_world_v2` and existing world records are kept. Newly saved machine records append a `storedCount` field after `crossDir`, while loading old records still accepts records lacking it. Upgrades now serialize six tracks while the loader accepts legacy four-track saves.
 - Built-in tests: GitHub Actions compiles `:app:assembleDebug`, but no Android emulator/UI interaction test. **Do not call the candidate a verified finished game, in-place update, or an official release** based only on Gradle compilation. Current CI after `e1e1f67` must be checked before distributing.
 - Remaining critical QA: simulate real phone touch, test long belt drafts/elbows and crosses with opposing streams, validate arithmetic A/B port ordering, storage buffering and persistence after restart, large factories/performance. Production stable signing and in-app patch/updater are not implemented. Public releases intentionally disabled for unfinished builds; GitHub Actions keeps debug artifacts for QA only.
+
+### Safe QA packaging / confirmed CI
+
+- `9a6a790`, `e1e1f67`, and `168312f` compiled successfully in GitHub Actions (run IDs 41220621014, 41220677013, 41220724011). The APK was extracted and checked as a valid Android package.
+- Signature comparison from the CI build confirmed `Numera-0.1.0-Android.apk` was signed with certificate SHA-256 `dbb3a76f...`, but debug CI build signatures differ between runs. Do **not** recommend installing CI builds over the original, uninstalling the old app, or losing saves.
+- `edf69b8` adds a `.qa` application ID suffix to debug builds only, preserving the release package. `e9edbb0` adds a debug-only manifest label `Numera Test`. Both passed CI; final run `41221028436` completed with success.
+- Confirmed the packaged QA APK has application ID `com.numera.factory.qa`, visible label `Numera Test`, versionName `0.4.0-test`, and valid ZIP structure. QA APK SHA-256: `9abc6e52e7fd17f855e7f1486f76196a01f3f0dae11001270863b4e58e7cb573`. Local artifact filename: `Numera_Test_v0.4.0.apk`.
+- QA can be installed side-by-side without altering the previously installed Numera app or its app-private saves. This is a **test artifact**, not a production APK or completed parity with Beltmatic. Stable release signing and real phone interaction/performance remain outstanding.
