@@ -526,12 +526,22 @@ public final class FactoryView extends View {
         // item per tick. A perpendicular stream never replaces the first one.
         ArrayList<Long> keys=new ArrayList<>(cells.keySet());
         HashSet<Long> entered=new HashSet<>(), enteredUpper=new HashSet<>();
+        HashSet<Long> readyMain=new HashSet<>(),readyCross=new HashSet<>();
+        // Snapshot occupancy before transfers: one number travels at most one
+        // world tile per tick, independent of HashMap iteration order.
+        for(long key:keys) {
+            Node n=cells.get(key);
+            if(n==null)continue;
+            if(n.item!=EMPTY)readyMain.add(key);
+            if(n.crossItem!=EMPTY)readyCross.add(key);
+        }
         for(long key:keys) {
             Node n=cells.get(key);
             if(n==null || n.type==SOURCE || n.type==HUB)continue;
             int x=(int)(key>>32),y=(int)key;
-            moveLane(n,false,x,y,entered,enteredUpper);
-            if(n.type==BRIDGE||n.type==DIVIDE)moveLane(n,true,x,y,entered,enteredUpper);
+            if(readyMain.contains(key))moveLane(n,false,x,y,entered,enteredUpper);
+            if(readyCross.contains(key)&&(n.type==BRIDGE||n.type==DIVIDE))
+                moveLane(n,true,x,y,entered,enteredUpper);
         }
         for(Map.Entry<Long,Node> entry:cells.entrySet()) {
             Node n=entry.getValue();
@@ -541,14 +551,16 @@ public final class FactoryView extends View {
             // perimeter connections and upgrade-limited total throughput.
             int maxOutputs=Math.min(12,upgradeLevels[1]);
             int produced=0;
+            int start=Math.floorMod(n.extracted,MINE_OUTPUTS.length);
             for(int scan=0;scan<MINE_OUTPUTS.length && produced<maxOutputs;scan++) {
-                int i=Math.floorMod(n.extracted+scan,MINE_OUTPUTS.length);
+                int i=(start+scan)%MINE_OUTPUTS.length;
                 int xx=x+MINE_OUTPUTS[i][0],yy=y+MINE_OUTPUTS[i][1];
                 Node out=get(xx,yy);
                 if(out!=null&&out.type==BELT&&out.item==EMPTY) {
-                    out.item=n.value;n.extracted++;produced++;
+                    out.item=n.value;produced++;
                 }
             }
+            n.extracted+=Math.max(1,produced);
         }
         for(Node n:cells.values()) {
             if((n.type==ADD || n.type==MULTIPLY || n.type==SUBTRACT ||
