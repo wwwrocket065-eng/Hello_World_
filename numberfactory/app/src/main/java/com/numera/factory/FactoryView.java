@@ -66,8 +66,8 @@ public final class FactoryView extends View {
     // Amounts for the first eight tiers follow published Beltmatic upgrade tables.
     // The original varies some requested number IDs between worlds.
     private static final int[][][][] UPGRADE_REQ={{{{1,200}},{{1,1000},{16,500}},{{1,4000},{16,3000},{22,1500}},{{34,9000},{121,7000},{839,6000}},{{94,9000},{247,7000},{562,6000}},{{291,11000},{791,9000},{2319,8000}},{{854,15000},{1526,12000},{7891,10000}},{{1526,20000},{7891,16000},{4294,12000}}},{{{2,300}},{{2,2000},{18,1000}},{{2,5000},{18,2000},{23,1000}},{{16,8000},{22,3000},{438,2000}},{{89,10000},{378,4000},{787,3000}},{{291,12000},{791,8000},{2319,4000}},{{791,15000},{2319,12000},{7774,6000}},{{2319,20000},{7774,17000},{929,20000}}},{{{3,450}},{{3,3000},{11,1500}},{{3,5000},{11,4000},{75,3000}},{{11,7000},{91,5000},{193,4000}},{{91,12000},{193,10000},{625,5000}},{{193,15000},{625,12000},{3447,8000}},{{625,20000},{3447,17000},{9423,10000}},{{3447,30000},{9423,20000},{44031,16000}}},{{{15,500}},{{15,5000},{20,2500}},{{15,10000},{20,7000},{257,4000}},{{20,11000},{257,6000},{690,5000}},{{257,17000},{690,13000},{3644,6000}},{{690,22000},{3644,17000},{6433,10000}},{{3644,35000},{6433,25000},{49514,17000}},{{6433,37000},{49514,30000},{97001,20000}}}};
-    private static final int[] GOAL_SEQUENCE={1,2,3,5,10,19,27,36,47,50,82,174,248,324,466,594,631,727,891,928};
-    private static final int[] GOAL_COUNTS={10,20,35,40,50,100,150,300,450,500,600,800,1000,2000,3000,4000,5000,6000,7000,8000};
+    private static final int[] GOAL_SEQUENCE={1,2,3,5,10,19,27,36,47,50,82,174,248,324,466,594,631,727,891,928,1779,2805,3366,4860,5445,6667,7512,8133,9646,10904};
+    private static final int[] GOAL_COUNTS={10,20,35,40,50,100,150,300,450,500,600,800,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,10500,11000,11500,12000,12500,13000,13500,14000};
     private final int[] upgradeLevels={1,1,1,1};
     private final ArrayList<Map<Integer,Long>> upgradeBanks=new ArrayList<>();
     private boolean upgradePanel,upgradeGesture,headerGesture;
@@ -324,12 +324,22 @@ public final class FactoryView extends View {
         return type==ADD?adder[i]:multiplier[i];
     }
     private int extractionMax() {
+        // Extraction rewards apply after the matching level is completed.
         if(level<=3)return 1;
         if(level<=5)return 2;
         if(level==6)return 3;
         if(level<=8)return 4;
-        if(level<=10)return 5;
-        return Math.min(999,Math.max(5,level-6));
+        if(level==9)return 5;
+        if(level<=11)return 6;
+        if(level==12)return 7;
+        if(level<=14)return 8;
+        if(level==15)return 9;
+        if(level<=17)return 11;
+        if(level==18)return 12;
+        if(level<=20)return 13;
+        if(level==21)return 14;
+        if(level<=23)return 15;
+        return Math.min(999,level-8);
     }
     public void save() {
         StringBuilder b=new StringBuilder();
