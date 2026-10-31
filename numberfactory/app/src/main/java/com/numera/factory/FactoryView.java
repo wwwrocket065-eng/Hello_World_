@@ -175,6 +175,15 @@ public final class FactoryView extends View {
                 if(depositValue(x+dx,y+dy)>0)return 1;
         return -1;
     }
+    // Every visible cell of a 3x3 deposit is a valid touch target. Its
+    // extractor still lives at the single canonical centre tile.
+    private Point depositCenterAt(int x,int y) {
+        for(int dy=-1;dy<=1;dy++)
+            for(int dx=-1;dx<=1;dx++)
+                if(depositValue(x+dx,y+dy)>0)
+                    return new Point(x+dx,y+dy);
+        return null;
+    }
     private void drawDeposit(Canvas c,int x,int y,int value) {
         float s=sz(),left=panX+(x-1)*s,top=panY+(y-1)*s;
         if(left>getWidth()+s||top>getHeight()+s||left+3*s<0||top+3*s<0)return;
@@ -724,11 +733,15 @@ public final class FactoryView extends View {
             if(old!=null && old.type==BELT) old.dir=(old.dir+1)%4;
             else if(old==null)put(x,y,BELT,0,0);
         } else if(selected==1) {
-            int value=depositValue(x,y);
+            Point centre=depositCenterAt(x,y);
+            if(centre==null||!within(centre.x,centre.y)||isHub(centre.x,centre.y))
+                return;
+            int value=depositValue(centre.x,centre.y);
             if(value<1||value>extractionMax())return; // Only unlocked numbers can be extracted.
-            if(old!=null&&old.type==SOURCE) {
-                // Extractor upgrades are global, not purchased per deposit.
-            } else if(old==null)put(x,y,SOURCE,0,value);
+            Node miner=get(centre.x,centre.y);
+            if(miner==null)put(centre.x,centre.y,SOURCE,0,value);
+            // A repeated touch anywhere in the same 3x3 field reuses
+            // its existing extractor, never creating a second one.
         } else if(selected==2) {
             if(old==null && depositUnder(x,y)<0)put(x,y,ADD,0,0);
         } else if(selected==3) {
