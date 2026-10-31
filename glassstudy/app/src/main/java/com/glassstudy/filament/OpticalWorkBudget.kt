@@ -14,9 +14,12 @@ class OpticalWorkBudget {
         return (maximum*percent/100.0*scale).toInt().coerceIn(floor,maximum)
     }
     fun observeCompletion(elapsedMs:Long) {
-        if(elapsedMs>24)scale=(scale*12.0/elapsedMs).coerceAtLeast(minimumScale)
-        // Conservative growth avoids immediately repeating a long driver stall.
-        else if(elapsedMs<10)scale=(scale*1.05).coerceAtMost(1.0)
+        // Wall time includes scheduling, not just shader work. Never let one
+        // compile/driver stall collapse the next batch by orders of magnitude.
+        if(elapsedMs>32)scale=(scale*maxOf(.5,24.0/elapsedMs)).coerceAtLeast(minimumScale)
+        // Recover through normal 10..23 ms scheduling intervals too. The old
+        // <10 ms gate could permanently trap one-photon batches on the phone.
+        else if(elapsedMs<24)scale=(scale*1.25).coerceAtMost(1.0)
     }
     fun pauseMs(elapsedMs:Long):Long=(elapsedMs.coerceIn(1,10000)*(100-percent)/percent).coerceAtMost(2000)
 }

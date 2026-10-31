@@ -38,4 +38,16 @@ class OpticalWorkBudgetTest {
         repeat(20) { mask.observeCompletion(1) }
         assertTrue(mask.units(16384,1280)>1280)
     }
+    @Test fun phoneSchedulingFloorDoesNotTrapOnePhotonBatches() {
+        val b=OpticalWorkBudget();b.percent=90
+        repeat(30) { b.units(16384);b.observeCompletion(10000) }
+        assertEquals(1,b.units(16384))
+        repeat(60) { b.units(16384);b.observeCompletion(14) }
+        assertTrue("Normal phone scheduling must recover throughput",b.units(16384)>=8192)
+    }
+    @Test fun oneDriverStallDoesNotCollapseThroughput() {
+        val b=OpticalWorkBudget();val initial=b.units(16384)
+        b.observeCompletion(10000)
+        assertTrue(b.units(16384)>=initial/2)
+    }
 }
