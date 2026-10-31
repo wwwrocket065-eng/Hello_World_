@@ -801,46 +801,114 @@ public final class FactoryView extends View {
         c.restore();
     }
 
+    // A belt corner is a quadratic with start = centre - incoming*0.5,
+    // control = centre and end = centre + outgoing*0.5.
+    // One cargo position per tile is placed at the exact midpoint of that
+    // SAME quadratic; two half-curves connect adjacent belt stations.
+    // The previous arbitrary cubic bent the incoming number OUTSIDE the belt.
+    private static boolean isElbow(int incoming,int outgoing) {
+        return incoming!=outgoing && incoming!=(outgoing+2)%4;
+    }
+
+    private int beltIncomingDir(int x,int y,Node n) {
+        int incoming=n.dir;
+        for(int d=0;d<4;d++) {
+            Node prev=get(x-DX[d],y-DY[d]);
+            if(prev!=null && ((prev.type==BELT && prev.dir==d) ||
+                (prev.type==BRIDGE && (prev.dir==d || prev.crossDir==d)))) {
+                incoming=d;
+                break;
+            }
+        }
+        return incoming;
+    }
+
+    private static float quad(float a,float control,float end,float t) {
+        float u=1f-t;
+        return u*u*a+2f*u*t*control+t*t*end;
+    }
+
+    private static float lerp(float a,float b,float t) {
+        return a+(b-a)*t;
+    }
+
     /**
-     * Moves the number independently of the logical grid. The cubic arrives
-     * tangent to the receiving belt direction so corner motion is curved,
-     * while its starting tangent follows the sending lane.
+     * Each transfer runs from the source tile's centreline midpoint to the
+     * destination's midpoint. A bent tile uses two halves of the very same
+     * quadratic that draws its body, so numbers never cross outside the
+     * turquoise belt. All positions are render-only.
      */
     private void drawTravellingNumber(Canvas c,int x,int y,Node n,boolean upper) {
         int value=upper?n.crossItem:n.item;
         if(value==EMPTY)return;
         float s=sz();
         Travel v=upper?n.upperTravel:n.lowerTravel;
-        float tx=x+.5f,ty=y+.5f;
-        float wx=tx,wy=ty;
+        float cx=x+.5f,cy=y+.5f,wx=cx,wy=cy;
+        int incoming=n.type==BELT?beltIncomingDir(x,y,n):n.dir;
+        boolean targetTurn=n.type==BELT && isElbow(incoming,n.dir);
+        if(targetTurn) {
+            wx=cx+(DX[n.dir]-DX[incoming])*.125f;
+            wy=cy+(DY[n.dir]-DY[incoming])*.125f;
+        }
+        float scale=targetTurn?.82f:1f;
         if(v.start>=0f) {
             float t=Math.max(0f,Math.min(1f,(clock-v.start)/v.duration));
-            if(t<1f) {
-                float x0=v.fromX+.5f,y0=v.fromY+.5f;
-                float vx=tx-x0,vy=ty-y0;
-                float len=(float)Math.hypot(vx,vy);
-                if(len>.0001f) {
-                    vx/=len;vy/=len;
-                    int outDir=upper?n.crossDir:n.dir;
-                    // Machines do not have rotating transport lanes.
-                    if(n.type!=BELT && n.type!=BRIDGE)outDir=-1;
-                    float ex=outDir<0?vx:DX[outDir];
-                    float ey=outDir<0?vy:DY[outDir];
-                    // Avoid a backwards tangent on deliberately misaligned
-                    // user belts; such layouts still animate safely.
-                    if(vx*ex+vy*ey<-.5f){ex=vx;ey=vy;}
-                    float bend=Math.min(.37f,len*.38f);
-                    float x1=x0+vx*bend,y1=y0+vy*bend;
-                    float x2=tx-ex*bend,y2=ty-ey*bend;
-                    float inv=1f-t;
-                    wx=inv*inv*inv*x0+3f*inv*inv*t*x1+
-                       3f*inv*t*t*x2+t*t*t*tx;
-                    wy=inv*inv*inv*y0+3f*inv*inv*t*y1+
-                       3f*inv*t*t*y2+t*t*t*ty;
+            Node source=get((int)v.fromX,(int)v.fromY);
+            float sx=v.fromX+.5f,sy=v.fromY+.5f;
+            float dx=cx-sx,dy=cy-sy;
+            if(t<1f && Math.abs(dx)+Math.abs(dy)>.001f) {
+                // Mine outputs may be two tiles away from their centre; they
+                // start at the perimeter instead of interpolating across the
+                // 3x3 deposit and the empty ground outside its conveyors.
+                if(source!=null && source.type==SOURCE) {
+                    int travelDir=Math.abs(dx)>Math.abs(dy)?
+                        (dx>0f?0:2):(dy>0f?1:3);
+                    sx=cx-DX[travelDir]*.5f;
+                    sy=cy-DY[travelDir]*.5f;
+                    wx=lerp(sx,cx,t);
+                    wy=lerp(sy,cy,t);
+                } else if(Math.abs(dx)+Math.abs(dy)!=1f) {
+                    // Guard against imported/older save layouts with
+                    // non-neighbour transport: never extrapolate a bend.
+                    wx=lerp(sx,cx,t);
+                    wy=lerp(sy,cy,t);
+                } else {
+                    int d=dx>0f?0:dx<0f?2:dy>0f?1:3;
+                    boolean sourceTurn=false;
+                    int si=d;
+                    if(source!=null && source.type==BELT) {
+                        si=beltIncomingDir((int)v.fromX,(int)v.fromY,source);
+                        sourceTurn=isElbow(si,source.dir)&&source.dir==d;
+                    }
+                    float sourceScale=sourceTurn?.82f:1f;
+                    scale=lerp(sourceScale,scale,t);
+                    if(t<.5f) {
+                        float u=t*2f;
+                        if(sourceTurn) {
+                            float midX=sx+(DX[d]-DX[si])*.125f;
+                            float midY=sy+(DY[d]-DY[si])*.125f;
+                            wx=quad(midX,sx+DX[d]*.25f,sx+DX[d]*.5f,u);
+                            wy=quad(midY,sy+DY[d]*.25f,sy+DY[d]*.5f,u);
+                        } else {
+                            wx=sx+DX[d]*(.5f*u);
+                            wy=sy+DY[d]*(.5f*u);
+                        }
+                    } else {
+                        float u=t*2f-1f;
+                        if(targetTurn && incoming==d) {
+                            float midX=cx+(DX[n.dir]-DX[d])*.125f;
+                            float midY=cy+(DY[n.dir]-DY[d])*.125f;
+                            wx=quad(cx-DX[d]*.5f,cx-DX[d]*.25f,midX,u);
+                            wy=quad(cy-DY[d]*.5f,cy-DY[d]*.25f,midY,u);
+                        } else {
+                            wx=cx-DX[d]*(.5f*(1f-u));
+                            wy=cy-DY[d]*(.5f*(1f-u));
+                        }
+                    }
                 }
             }
         }
-        // Separate simultaneous bridge streams slightly for legibility.
+        // Independent bridge lanes retain their small lateral separation.
         if(n.type==BRIDGE) {
             int d=upper?n.crossDir:n.dir;
             if(d>=0&&d<4) {
@@ -850,24 +918,17 @@ public final class FactoryView extends View {
             }
         }
         float px=panX+wx*s,py=panY+wy*s;
-        if(px< -s || px>getWidth()+s || py< -s || py>getHeight()+s)return;
-        token(c,px,py,upper?s*.68f:(n.type==BRIDGE?s*.68f:s),value);
+        if(px< -s||px>getWidth()+s||py< -s||py>getHeight()+s)return;
+        float size=(upper||n.type==BRIDGE)?s*.68f:s*scale;
+        token(c,px,py,size,value);
     }
 
     private void drawNode(Canvas c,int x,int y,Node n) {
         float s=sz(),cx=panX+(x+.5f)*s,cy=panY+(y+.5f)*s;
         if(cx<-s || cy<-s || cx>getWidth()+s || cy>getHeight()+s)return;
         if(n.type==BELT) {
-            int incoming=n.dir;
-            for(int d=0;d<4;d++) {
-                Node prev=get(x-DX[d],y-DY[d]);
-                if(prev!=null && ((prev.type==BELT && prev.dir==d) ||
-                    (prev.type==BRIDGE && (prev.dir==d||prev.crossDir==d)))) {
-                    incoming=d;
-                    break;
-                }
-            }
-            if(incoming!=n.dir && incoming!=(n.dir+2)%4) {
+            int incoming=beltIncomingDir(x,y,n);
+            if(isElbow(incoming,n.dir)) {
                 // Same wide turquoise belt material as v0.1.0, now following a bend.
                 Path corner=new Path();
                 corner.moveTo(cx-DX[incoming]*s*.50f,cy-DY[incoming]*s*.50f);
