@@ -38,6 +38,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private set
     @Volatile var hasPresentedFrame=false
         private set
+    @Volatile private var opticsPaused=false
     @Volatile private var workSurfaceReady=false
     val metrics=OpticalRenderMetrics()
     private val renderer=OpticalRenderer()
@@ -109,12 +110,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         queueEvent { renderer.configureGpuTiming(config.gpuTimingEnabled) }
     }
     override fun onPause() {
+        opticsPaused=true
         workSurfaceReady=false
         queueEvent { renderer.pauseMeasurement() }
         super.onPause()
         metrics.pause()
     }
     override fun onResume() {
+        opticsPaused=false
         super.onResume()
         queueEvent { renderer.resumeMeasurement() }
         requestRender()
@@ -514,13 +517,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 gpuDescription,17L*w*h+8L*mapSize*mapSize+contour.size*4L)
         }
         override fun onDrawFrame(gl:GL10?) {
+            if(opticsPaused)return
             workSurfaceReady=true
             val s=state ?: return
             if(!initialized || failed!=null || width<1 || height<1)return
             try { present(s);wakeWork(1L) } catch(e:Exception) { fail(e) }
         }
         private fun runWork() {
-            if(!workSurfaceReady)return
+            if(opticsPaused || !workSurfaceReady)return
             val s=state ?: return
             if(!initialized || failed!=null || width<1 || height<1)return
             val admitted=try { admitWork() } catch(e:Exception) { fail(e);false }
