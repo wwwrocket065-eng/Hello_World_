@@ -1840,13 +1840,12 @@ public final class FactoryView extends View {
         float boardBottom=selected==0?
                 (hasRouteActions()?actionsTop:menuTop):
                 (selected==5||machineMenuVisible()?menuTop:toolbarTop);
-        if(focusedMachine!=null)boardBottom=Math.min(boardBottom,machineEditMenuTop());
         switch(action) {
             case MotionEvent.ACTION_DOWN:
                 removeCallbacks(machineLongPress);
                 machinePressActive=false;
                 pressedMachine=null;
-                editMenuGesture=false;editDragGesture=false;
+                rotateIconGesture=false;editDragGesture=false;
                 longPressTriggered=false;
                 downX=lastX=gestureX=e.getX();
                 downY=lastY=gestureY=e.getY();
@@ -1863,23 +1862,11 @@ public final class FactoryView extends View {
                 dragged=false;pinching=false;
                 routeGesture=false;paintGesture=false;eraseGesture=false;
                 selectionGesture=false;
-                if(focusedMachine!=null && !toolbarGesture &&
-                   gestureY>=machineEditMenuTop() &&
-                   gestureY<machineEditMenuTop()+BELT_MENU_DP*density) {
-                    editMenuGesture=true;
-                    return true;
-                }
-                if(focusedMachine!=null && editMoveMode &&
-                   gestureY>=124*density &&
-                   gestureY<machineEditMenuTop()) {
-                    editDragGesture=true;
-                    Node hit=machineAt(priorGridX,priorGridY);
-                    editFingerDX=hit==focusedMachine?
-                        priorGridX-focusedMachine.originX:0;
-                    editFingerDY=hit==focusedMachine?
-                        priorGridY-focusedMachine.originY:0;
-                    editTargetX=priorGridX-editFingerDX;
-                    editTargetY=priorGridY-editFingerDY;
+                // Only a single floating rotate icon. It can be tapped after
+                // the first hold/drag without opening any bottom controls.
+                if(focusedMachine!=null &&
+                   hitRotationIcon(gestureX,gestureY)) {
+                    rotateIconGesture=true;
                     return true;
                 }
                 Node touched=gestureY>=124*density&&gestureY<boardBottom?
@@ -1956,7 +1943,7 @@ public final class FactoryView extends View {
                     lastX=mx;lastY=my;
                     return true;
                 }
-                if(editMenuGesture)return true;
+                if(rotateIconGesture)return true;
                 if(e.getPointerCount()>=2) {
                     float current=span(e);
                     if(lastSpan>5f&&current>5f) {
@@ -2001,32 +1988,34 @@ public final class FactoryView extends View {
                 pinching=true;return true;
             case MotionEvent.ACTION_UP:
                 removeCallbacks(machineLongPress);
-                if(editMenuGesture&&!pinching&&focusedMachine!=null) {
-                    if(e.getX()<getWidth()*.5f) {
-                        editMoveMode=true;
-                        editTargetX=focusedMachine.originX;
-                        editTargetY=focusedMachine.originY;
-                        setMachineMessage("Перетащи объект или нажми на новое место");
-                    } else {
-                        // Rotate at its saved anchor, never through belts.
-                        if(relocateMachine(focusedMachine,focusedMachine.originX,
-                           focusedMachine.originY,(focusedMachine.rotation+1)&3)) {
-                            editMoveMode=false;
-                            setMachineMessage("Поворот на 90°");
-                        } else setMachineMessage("Нет места для поворота");
+                if(rotateIconGesture) {
+                    rotateIconGesture=false;
+                    if(!pinching&&focusedMachine!=null &&
+                       Math.hypot(e.getX()-downX,e.getY()-downY)<15*density &&
+                       hitRotationIcon(e.getX(),e.getY())) {
+                        if(relocateMachine(focusedMachine,
+                           focusedMachine.originX,focusedMachine.originY,
+                           (focusedMachine.rotation+1)&3))
+                            setMachineMessage("");
+                        else setMachineMessage("Нет места для поворота");
                     }
-                    editMenuGesture=false;
                     return true;
                 }
                 if(editDragGesture&&!pinching&&focusedMachine!=null) {
                     editTargetX=gridX(e.getX())-editFingerDX;
                     editTargetY=gridY(e.getY())-editFingerDY;
-                    if(relocateMachine(focusedMachine,editTargetX,editTargetY,
-                                       focusedMachine.rotation)) {
-                        focusedMachine=null;
-                        editMoveMode=false;
-                    } else setMachineMessage("Место занято — выбери другое");
+                    if(editTargetX!=focusedMachine.originX||
+                       editTargetY!=focusedMachine.originY) {
+                        if(!relocateMachine(focusedMachine,editTargetX,
+                                            editTargetY,focusedMachine.rotation))
+                            setMachineMessage("Место занято");
+                    }
+                    // Keep one rotate icon above the placed object.
                     editDragGesture=false;
+                    editMoveMode=false;
+                    longPressTriggered=false;
+                    machinePressActive=false;
+                    pressedMachine=null;
                     return true;
                 }
                 if(longPressTriggered) {
@@ -2098,7 +2087,7 @@ public final class FactoryView extends View {
             case MotionEvent.ACTION_CANCEL:
                 removeCallbacks(machineLongPress);
                 machinePressActive=false;pressedMachine=null;
-                editMenuGesture=false;editDragGesture=false;
+                rotateIconGesture=false;editDragGesture=false;
                 longPressTriggered=false;
                 toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
                 selectionMenuGesture=false;machineMenuGesture=false;headerGesture=false;upgradeGesture=false;
