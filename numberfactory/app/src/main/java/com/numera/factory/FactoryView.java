@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PathMeasure;
 import android.graphics.Point;
 import android.graphics.RectF;
 import android.graphics.Typeface;
@@ -526,16 +527,29 @@ public final class FactoryView extends View {
                 p.setStrokeWidth(s*.38f);p.setColor(0xff195263);c.drawPath(corner,p);
                 p.setStrokeWidth(Math.max(1f,s*.025f));p.setColor(0xff47d1c8);
                 c.drawPath(corner,p);
-                p.setStyle(Paint.Style.FILL);
-                c.save();
-                c.rotate(n.dir*90f,cx,cy);
-                float tx=cx+s*.22f;
+                // Animate the same repeating chevrons as straight belts.
+                // Follow the actual quadratic bend rather than a static arrow
+                // oriented only in the outgoing direction.
+                PathMeasure measure=new PathMeasure(corner,false);
+                float length=measure.getLength();
+                float spacing=s*.24f;
+                float shift=((clock*1.5f)%1f)*spacing;
+                float[] pos=new float[2],tangent=new float[2];
                 p.setColor(0xff47d1c8);p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(Math.max(1f,s*.028f));
-                c.drawLine(tx-s*.058f,cy-s*.074f,tx,cy,p);
-                c.drawLine(tx,cy,tx-s*.058f,cy+s*.074f,p);
+                for(float dist=shift;dist<length;dist+=spacing) {
+                    // Keep full arrows inside the current tile, just as
+                    // the straight-belt renderer clips at its two ends.
+                    if(dist<s*.09f||dist>length-s*.09f)continue;
+                    if(!measure.getPosTan(dist,pos,tangent))continue;
+                    float tailX=pos[0]-tangent[0]*s*.058f;
+                    float tailY=pos[1]-tangent[1]*s*.058f;
+                    float normalX=-tangent[1]*s*.074f;
+                    float normalY=tangent[0]*s*.074f;
+                    c.drawLine(tailX+normalX,tailY+normalY,pos[0],pos[1],p);
+                    c.drawLine(tailX-normalX,tailY-normalY,pos[0],pos[1],p);
+                }
                 p.setStyle(Paint.Style.FILL);
-                c.restore();
             } else {
                 c.save();
                 c.rotate(n.dir*90f,cx,cy);
