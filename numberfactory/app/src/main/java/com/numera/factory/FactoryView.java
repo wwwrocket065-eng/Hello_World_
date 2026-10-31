@@ -30,7 +30,16 @@ public final class FactoryView extends View {
     private static final String[] TOOLS={"Лента","Добыча","Сумма","Умнож.","Удалить","Выдел.","Вставить","Камера"};
     private static final String[] ICONS={"➜","◈","+","×","⌫","▧","▣","✥"};
     private static final int HUB_X=10, HUB_Y=9, HUB_SIZE=6;
-    private static final int[][] DEPOSITS={{5,12,1},{5,25,2},{23,8,3},{21,23,4},{-12,8,1},{-12,-8,2},{10,-14,3},{31,-13,5},{-27,22,4}};
+    // Starter deposits are irregularly spaced outside the hub safety radius.
+    // Number fields occupy 3x3 visually; the mineral source is the centre tile.
+    private static final int[][] START_DEPOSITS={
+        {-11,17,1},{36,14,1},{13,45,1},{-22,-13,1},
+        {35,-10,2},{-9,43,2},{46,32,2},{6,-26,2},
+        {-32,25,3},{49,-9,3},{32,52,3},
+        {-19,-33,4},{42,42,4},{-39,48,4},
+        {68,28,8},{-44,-17,8}
+    };
+    private static final int DEPOSIT_REGION=27;
     private static final float TOOLBAR_DP=94f, BELT_MENU_DP=44f;
     private static final int[][] MINE_OUTPUTS={{2,-1},{2,0},{2,1},{1,2},{0,2},{-1,2},{-2,1},{-2,0},{-2,-1},{-1,-2},{0,-2},{1,-2}};
     private final Map<Long,Node> cells = new HashMap<>();
@@ -94,20 +103,68 @@ public final class FactoryView extends View {
     private boolean isHub(int x,int y) {
         return x>=HUB_X && x<HUB_X+HUB_SIZE && y>=HUB_Y && y<HUB_Y+HUB_SIZE;
     }
+    private int terrainHash(int gx,int gy,int slot) {
+        int h=gx*0x632be5ab ^ gy*0x85157af5 ^ slot*0x6c8e9cf5 ^ 0x5a726194;
+        h^=h>>>16;h*=0x7feb352d;h^=h>>>15;h*=0x846ca68b;
+        return (h^(h>>>16))&Integer.MAX_VALUE;
+    }
+    private int[] depositCandidate(int gx,int gy,int slot) {
+        int h=terrainHash(gx,gy,slot);
+        if(slot==0 && h%100>=92)return null;
+        if(slot==1 && h%100>=56)return null;
+        int x=gx*DEPOSIT_REGION+3+Math.floorMod(h>>>6,20);
+        int y=gy*DEPOSIT_REGION+3+Math.floorMod(h>>>14,20);
+        return new int[]{x,y,h};
+    }
+    private int numberForDeposit(int x,int y,int h) {
+        float dist=(float)Math.hypot(x-(HUB_X+3),y-(HUB_Y+3));
+        if(dist<85f) {
+            int[] common={1,1,1,1,2,2,2,3,3,4,4,8};
+            return common[Math.floorMod(h>>>21,common.length)];
+        }
+        if(dist<240f) {
+            int[] mid={1,2,3,4,5,6,7,8,9,10,12,15};
+            return mid[Math.floorMod(h>>>19,mid.length)];
+        }
+        return 1+Math.floorMod(h>>>19,Math.min(999,15+(int)(dist/90f)));
+    }
+    private boolean depositAccepted(int gx,int gy,int slot,int[] c) {
+        if(c==null)return false;
+        int x=c[0],y=c[1];
+        int hubDx=x-(HUB_X+3),hubDy=y-(HUB_Y+3);
+        if(hubDx*hubDx+hubDy*hubDy<21*21)return false;
+        for(int[] fixed:START_DEPOSITS) {
+            int dx=x-fixed[0],dy=y-fixed[1];
+            if(dx*dx+dy*dy<11*11)return false;
+        }
+        // Local hash-priority filter removes regularly spaced clumps.
+        for(int ry=gy-1;ry<=gy+1;ry++)
+            for(int rx=gx-1;rx<=gx+1;rx++)
+                for(int t=0;t<2;t++) {
+                    if(rx==gx&&ry==gy&&t==slot)continue;
+                    int[] other=depositCandidate(rx,ry,t);
+                    if(other==null)continue;
+                    int dx=x-other[0],dy=y-other[1];
+                    if(dx*dx+dy*dy<11*11 && other[2]>c[2])return false;
+                }
+        return true;
+    }
     private int depositValue(int x,int y) {
-        for(int[] dep:DEPOSITS) if(dep[0]==x && dep[1]==y) return dep[2];
-        int gx=Math.floorDiv(x,24),gy=Math.floorDiv(y,24);
-        if(Math.abs(gx)<2 && Math.abs(gy)<2) return -1;
-        int h=(gx*73856093)^(gy*19349663)^0x13579bdf;
-        int cx=gx*24+7+Math.floorMod(h,9);
-        int cy=gy*24+7+Math.floorMod(h>>8,9);
-        return x==cx && y==cy?1+Math.floorMod(h>>16,9):-1;
+        for(int[] field:START_DEPOSITS)
+            if(field[0]==x&&field[1]==y)return field[2];
+        int gx=Math.floorDiv(x,DEPOSIT_REGION);
+        int gy=Math.floorDiv(y,DEPOSIT_REGION);
+        for(int t=0;t<2;t++) {
+            int[] c=depositCandidate(gx,gy,t);
+            if(c!=null&&c[0]==x&&c[1]==y&&depositAccepted(gx,gy,t,c))
+                return numberForDeposit(x,y,c[2]);
+        }
+        return -1;
     }
     private int depositUnder(int x,int y) {
-        for(int dy=-1;dy<=1;dy++) for(int dx=-1;dx<=1;dx++) {
-            int val=depositValue(x+dx,y+dy);
-            if(val>0)return val;
-        }
+        for(int dy=-1;dy<=1;dy++)
+            for(int dx=-1;dx<=1;dx++)
+                if(depositValue(x+dx,y+dy)>0)return 1;
         return -1;
     }
     private void drawDeposit(Canvas c,int x,int y,int value) {
@@ -125,19 +182,22 @@ public final class FactoryView extends View {
               s*1.1f,0xff31291f,true,Paint.Align.CENTER);
     }
     private void drawDeposits(Canvas c) {
-        for(int[] dep:DEPOSITS)drawDeposit(c,dep[0],dep[1],dep[2]);
-        float s=sz();
-        int gxMin=Math.max(-100,Math.floorDiv(gridX(0)-24,24));
-        int gxMax=Math.min(100,Math.floorDiv(gridX(getWidth())+24,24));
-        int gyMin=Math.max(-100,Math.floorDiv(gridY(0)-24,24));
-        int gyMax=Math.min(100,Math.floorDiv(gridY(getHeight())+24,24));
-        for(int gy=gyMin;gy<=gyMax;gy++)for(int gx=gxMin;gx<=gxMax;gx++) {
-            if(Math.abs(gx)<2&&Math.abs(gy)<2)continue;
-            int h=(gx*73856093)^(gy*19349663)^0x13579bdf;
-            drawDeposit(c,gx*24+7+Math.floorMod(h,9),
-                    gy*24+7+Math.floorMod(h>>8,9),
-                    1+Math.floorMod(h>>16,9));
-        }
+        for(int[] field:START_DEPOSITS)
+            drawDeposit(c,field[0],field[1],field[2]);
+        int minX=Math.floorDiv(gridX(0)-DEPOSIT_REGION,DEPOSIT_REGION);
+        int maxX=Math.floorDiv(gridX(getWidth())+DEPOSIT_REGION,DEPOSIT_REGION);
+        int minY=Math.floorDiv(gridY(0)-DEPOSIT_REGION,DEPOSIT_REGION);
+        int maxY=Math.floorDiv(gridY(getHeight())+DEPOSIT_REGION,DEPOSIT_REGION);
+        minX=Math.max(-116,minX);maxX=Math.min(116,maxX);
+        minY=Math.max(-116,minY);maxY=Math.min(116,maxY);
+        for(int gy=minY;gy<=maxY;gy++)
+            for(int gx=minX;gx<=maxX;gx++)
+                for(int t=0;t<2;t++) {
+                    int[] cnd=depositCandidate(gx,gy,t);
+                    if(depositAccepted(gx,gy,t,cnd))
+                        drawDeposit(c,cnd[0],cnd[1],
+                            numberForDeposit(cnd[0],cnd[1],cnd[2]));
+                }
     }
     private void drawHub(Canvas c) {
         float s=sz(),left=panX+HUB_X*s,top=panY+HUB_Y*s,side=HUB_SIZE*s;
