@@ -1365,15 +1365,35 @@ public final class FactoryView extends View {
     }
     private void pasteClipboard(int x,int y) {
         if(clipboard.isEmpty())return;
-        for(Map.Entry<Long,Node> e:clipboard.entrySet()) {
-            int xx=x+(int)(e.getKey()>>32), yy=y+(int)(long)e.getKey();
-            Node n=e.getValue();
-            if(!within(xx,yy)||isHub(xx,yy)||get(xx,yy)!=null||depositUnder(xx,yy)>0)continue;
+        // A machine is always copied from its controller, never as detached
+        // parts; placement atomically reserves its full rotated footprint.
+        ArrayList<Long> keys=new ArrayList<>(clipboard.keySet());
+        Collections.sort(keys);
+        for(long key:keys) {
+            Node n=clipboard.get(key);
+            if(n==null||n.type==PART)continue;
+            int xx=x+(int)(key>>32), yy=y+(int)key;
+            if(n.multi) {
+                int ox=x+n.originX,oy=y+n.originY;
+                if(putMachine(ox,oy,n.type,n.rotation)) {
+                    Node owner=machineAt(ox,oy);
+                    if(owner==null) {
+                        MachineLayout.Shape sh=MachineLayout.shape(n.type,n.rotation);
+                        MachineLayout.Cell first=sh.cells[0];
+                        owner=machineAt(ox+first.x,oy+first.y);
+                    }
+                    if(owner!=null)owner.upgrade=n.upgrade;
+                }
+                continue;
+            }
+            if(!within(xx,yy)||isHub(xx,yy)||get(xx,yy)!=null||
+               depositUnder(xx,yy)>0)continue;
             if(n.type==SOURCE && depositValue(xx,yy)!=n.value)continue;
             put(xx,yy,n.type,n.dir,n.value);
             get(xx,yy).upgrade=n.upgrade;
             get(xx,yy).crossDir=n.crossDir;
-            get(xx,yy).storedCount=n.storedCount;
+            // Never duplicate production inventory when pasting a building.
+            get(xx,yy).storedCount=0;
         }
     }
     private void eraseCell(int x,int y) {
@@ -1426,10 +1446,24 @@ public final class FactoryView extends View {
             int x=(int)(e.getKey()>>32),y=(int)(long)e.getKey();
             if(x<minX||x>maxX||y<minY||y>maxY||e.getValue().type==HUB)continue;
             Node n=e.getValue();
+            if(n.type==PART)continue;
+            if(n.multi) {
+                MachineLayout.Shape shape=MachineLayout.shape(n.type,n.rotation);
+                boolean entirelySelected=true;
+                for(MachineLayout.Cell cell:shape.cells) {
+                    int xx=n.originX+cell.x,yy=n.originY+cell.y;
+                    if(xx<minX||xx>maxX||yy<minY||yy>maxY) {
+                        entirelySelected=false;break;
+                    }
+                }
+                if(!entirelySelected)continue;
+            }
             Node clone=new Node(n.type,n.dir,n.value);
             clone.upgrade=n.upgrade;
             clone.crossDir=n.crossDir;
-            clone.storedCount=n.storedCount;
+            clone.multi=n.multi;clone.rotation=n.rotation;
+            clone.originX=n.originX-minX;clone.originY=n.originY-minY;
+            clone.storedCount=0;
             clipboard.put(id(x-minX,y-minY),clone);
         }
         clipboardCount=clipboard.size();
