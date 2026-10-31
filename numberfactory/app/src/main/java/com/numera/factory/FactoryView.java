@@ -729,8 +729,8 @@ public final class FactoryView extends View {
                 p.setStrokeJoin(Paint.Join.ROUND);
                 p.setStrokeWidth(s*.49f);p.setColor(0xff122a3d);c.drawPath(corner,p);
                 p.setStrokeWidth(s*.38f);p.setColor(0xff195263);c.drawPath(corner,p);
-                p.setStrokeWidth(Math.max(1f,s*.025f));p.setColor(0xff47d1c8);
-                c.drawPath(corner,p);
+                // No continuous centre stripe on elbows: moving chevrons
+                // alone indicate flow, matching the original straight belts.
                 // Animate the same repeating chevrons as straight belts.
                 // Follow the actual quadratic bend rather than a static arrow
                 // oriented only in the outgoing direction.
@@ -1160,15 +1160,22 @@ public final class FactoryView extends View {
     }
     private void updateEdgeScroll(float dt) {
         if(!(paintGesture||routeGesture||eraseGesture)||pinching||toolbarGesture)return;
-        float band=42*density,top=124*density,bottom=getHeight()-
+        // Wider active margins make long-distance belt placement manageable.
+        // Scroll starts gradually before the finger hits the physical edge.
+        float bandX=Math.min(94*density,getWidth()*.24f);
+        float bandY=Math.min(104*density,getHeight()*.18f);
+        float top=124*density,bottom=getHeight()-
                       (selected==0?(TOOLBAR_DP+BELT_MENU_DP*
                           (hasRouteActions()?2f:1f)):TOOLBAR_DP)*density;
-        float speed=sz()*7f*dt;
+        float speed=sz()*11f*dt;
         float sx=gestureX,sy=gestureY;
-        if(sx<band)panX+=speed*(1f-sx/band);
-        else if(sx>getWidth()-band)panX-=speed*(1f-(getWidth()-sx)/band);
-        if(sy<top+band)panY+=speed*(1f-(sy-top)/band);
-        else if(sy>bottom-band)panY-=speed*(1f-(bottom-sy)/band);
+        float left=Math.max(0f,Math.min(1f,(bandX-sx)/bandX));
+        float right=Math.max(0f,Math.min(1f,(sx-(getWidth()-bandX))/bandX));
+        float up=Math.max(0f,Math.min(1f,(top+bandY-sy)/bandY));
+        float down=Math.max(0f,Math.min(1f,(sy-(bottom-bandY))/bandY));
+        // Quadratic ramp: little movement upon entry, full speed at the edge.
+        panX+=speed*(left*left-right*right);
+        panY+=speed*(up*up-down*down);
         int gx=gridX(gestureX),gy=gridY(gestureY);
         if(selected==0 && beltMode==0 && paintGesture &&
                 (gx!=priorGridX||gy!=priorGridY)) {
