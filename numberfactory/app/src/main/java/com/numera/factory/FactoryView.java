@@ -33,11 +33,10 @@ public final class FactoryView extends View {
     // Starter deposits are irregularly spaced outside the hub safety radius.
     // Number fields occupy 3x3 visually; the mineral source is the centre tile.
     private static final int[][] START_DEPOSITS={
-        {-11,17,1},{36,14,1},{13,45,1},{-22,-13,1},
-        {35,-10,2},{-9,43,2},{46,32,2},{6,-26,2},
-        {-32,25,3},{49,-9,3},{32,52,3},
-        {-19,-33,4},{42,42,4},{-39,48,4},
-        {68,28,8},{-44,-17,8}
+        {28,14,1},{2,31,1},{-5,18,1},{20,-5,1},{34,29,1},
+        {-16,-8,1},{3,-21,1},{9,47,1},{44,-8,1},{-24,31,1},
+        {42,12,2},{-11,42,2},{28,-29,2},
+        {45,43,3},{-31,-13,3},{22,51,4},{63,25,8}
     };
     private static final int DEPOSIT_REGION=27;
     private static final float TOOLBAR_DP=94f, BELT_MENU_DP=44f;
@@ -46,12 +45,13 @@ public final class FactoryView extends View {
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final SharedPreferences prefs;
     private final float density;
-    private float panX,panY,tile,zoom=.70f;
+    private float panX,panY,tile,zoom=.38f;
     private float clock,stepAccumulator,sourceAccumulator,flash;
     private long lastFrame;
     private int selected=7, level=1,goal=1,required=10,delivered,allDelivered;
     private int beltMode=0, selectX0,selectY0,selectX1,selectY1,clipboardCount;
     private boolean initialized,pinching,dragged,toolbarGesture,beltMenuGesture,routeGesture,paintGesture;
+    private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture;
     private float lastX,lastY,lastSpan,downX,downY,gestureX,gestureY;
     private int priorGridX,priorGridY;
     private final ArrayList<Point> route=new ArrayList<>();
@@ -119,7 +119,7 @@ public final class FactoryView extends View {
     private int numberForDeposit(int x,int y,int h) {
         float dist=(float)Math.hypot(x-(HUB_X+3),y-(HUB_Y+3));
         if(dist<85f) {
-            int[] common={1,1,1,1,2,2,2,3,3,4,4,8};
+            int[] common={1,1,1,1,1,1,1,1,2,2,3,4,8};
             return common[Math.floorMod(h>>>21,common.length)];
         }
         if(dist<240f) {
@@ -132,7 +132,7 @@ public final class FactoryView extends View {
         if(c==null)return false;
         int x=c[0],y=c[1];
         int hubDx=x-(HUB_X+3),hubDy=y-(HUB_Y+3);
-        if(hubDx*hubDx+hubDy*hubDy<21*21)return false;
+        if(hubDx*hubDx+hubDy*hubDy<16*16)return false;
         for(int[] fixed:START_DEPOSITS) {
             int dx=x-fixed[0],dy=y-fixed[1];
             if(dx*dx+dy*dy<11*11)return false;
@@ -383,6 +383,7 @@ public final class FactoryView extends View {
         drawHud(c);
         drawToolbar(c);
         if(selected==0)drawBeltMenu(c);
+        if(selected==5)drawSelectionMenu(c);
         if(upgradePanel)drawUpgradePanel(c);
         postInvalidateOnAnimation();
     }
@@ -549,16 +550,17 @@ public final class FactoryView extends View {
     
             }
         } else if(n.type==SOURCE) {
-            box(c,cx-s*.45f,cy-s*.45f,cx+s*.45f,cy+s*.45f,
-                s*.13f,0xff5d3e37);
-            box(c,cx-s*.40f,cy-s*.40f,cx+s*.40f,cy+s*.40f,
-                s*.11f,0xffd98b4a);
-            box(c,cx-s*.33f,cy-s*.31f,cx+s*.33f,cy+s*.04f,
-                s*.08f,0xfff7c478);
-            label(c,Integer.toString(n.value),cx,cy+s*.01f,
-                  s*.39f,0xff302331,true,Paint.Align.CENTER);
-            label(c,"ДОБЫЧА "+upgradeLevels[1], cx,cy+s*.25f,s*.115f,
-                  0xff432b27,true,Paint.Align.CENTER);
+            // A built extractor occupies the visible 3x3 number field.
+            box(c,cx-s*1.40f,cy-s*1.40f,cx+s*1.40f,cy+s*1.40f,
+                s*.27f,0xff634c37);
+            box(c,cx-s*1.22f,cy-s*1.22f,cx+s*1.22f,cy+s*1.22f,
+                s*.21f,0xffdcaa63);
+            box(c,cx-s*.88f,cy-s*.85f,cx+s*.88f,cy+s*.55f,
+                s*.16f,0xfff7d18c);
+            label(c,Integer.toString(n.value),cx,cy+s*.32f,
+                  s*1.05f,0xff302331,true,Paint.Align.CENTER);
+            label(c,"ДОБЫЧА "+upgradeLevels[1],cx,cy+s*1.02f,
+                  s*.32f,0xff432b27,true,Paint.Align.CENTER);
         } else if(n.type==ADD||n.type==MULTIPLY) {
             int color=n.type==ADD?PURPLE:BLUE;
             box(c,cx-s*.50f,cy-s*.50f,cx+s*.50f,cy+s*.50f,
@@ -682,6 +684,9 @@ public final class FactoryView extends View {
                   on?0xffd3ffef:0xffa8c0cd,true,Paint.Align.CENTER);
             label(c,TOOLS[i],mid,top+69*d,8*d,
                   on?0xffd4fff9:0xff8ba6b3,false,Paint.Align.CENTER);
+            if((i==2&&level<2)||(i==3&&level<7))
+                label(c,"ур. "+(i==2?2:7),mid,top+83*d,8*d,
+                    0xffffbd85,false,Paint.Align.CENTER);
         }
     }
 
@@ -708,7 +713,7 @@ public final class FactoryView extends View {
         } else if(selected==3) {
             if(level>=7 && old==null && depositUnder(x,y)<0)put(x,y,MULTIPLY,0,0);
         } else if(selected==4) {
-            cells.remove(id(x,y));
+            eraseCell(x,y);
         } else if(selected==6) {
             pasteClipboard(x,y);
         }
@@ -723,6 +728,47 @@ public final class FactoryView extends View {
             if(n.type==SOURCE && depositValue(xx,yy)!=n.value)continue;
             put(xx,yy,n.type,n.dir,n.value);
             get(xx,yy).upgrade=n.upgrade;
+        }
+    }
+    private void eraseCell(int x,int y) {
+        if(!within(x,y)||isHub(x,y))return;
+        cells.remove(id(x,y));
+    }
+    private void erasePath(int x0,int y0,int x1,int y1) {
+        if(!within(x0,y0)||!within(x1,y1))return;
+        int x=x0,y=y0,iter=0;
+        eraseCell(x,y);
+        while((x!=x1||y!=y1)&&iter++<6000) {
+            if(x!=x1)x+=Integer.signum(x1-x);
+            else y+=Integer.signum(y1-y);
+            eraseCell(x,y);
+        }
+    }
+    private void eraseSelection() {
+        if(!selectionReady)return;
+        int lowX=Math.min(selectX0,selectX1),highX=Math.max(selectX0,selectX1);
+        int lowY=Math.min(selectY0,selectY1),highY=Math.max(selectY0,selectY1);
+        ArrayList<Long> erase=new ArrayList<>();
+        for(Map.Entry<Long,Node> e:cells.entrySet()) {
+            long key=e.getKey();int x=(int)(key>>32),y=(int)key;
+            if(x>=lowX&&x<=highX&&y>=lowY&&y<=highY&&e.getValue().type!=HUB)
+                erase.add(key);
+        }
+        for(long key:erase)cells.remove(key);
+        selectionReady=false;
+        save();
+    }
+    private void drawSelectionMenu(Canvas c) {
+        float d=density,w=getWidth();
+        float top=getHeight()-(TOOLBAR_DP+BELT_MENU_DP)*d;
+        box(c,6*d,top,w-6*d,top+BELT_MENU_DP*d,12*d,0xff173448);
+        String[] options={"Копировать","Удалить","Отмена"};
+        for(int i=0;i<3;i++) {
+            float l=w*i/3f,right=w*(i+1)/3f;
+            if(selectionReady)box(c,l+4*d,top+4*d,right-4*d,top+39*d,
+                8*d,i==1?0xff603f50:0xff22525c);
+            label(c,options[i],(l+right)*.5f,top+27*d,11*d,
+                selectionReady?0xffe1fff9:0xff7999a4,true,Paint.Align.CENTER);
         }
     }
     private void copySelection() {
@@ -805,7 +851,7 @@ public final class FactoryView extends View {
                      Math.max(3*density,s*.16f),p);
     }
     private void drawSelection(Canvas c) {
-        if(selected!=5)return;
+        if(selected!=5||(!selectionReady&&!selectionGesture))return;
         float s=sz();
         float left=panX+Math.min(selectX0,selectX1)*s;
         float top=panY+Math.min(selectY0,selectY1)*s;
