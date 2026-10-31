@@ -345,7 +345,7 @@ public final class FactoryView extends View {
     }
     private int[][] requirements(int kind) {
         int step=upgradeLevels[kind]-1;
-        int[][] track=kind<4?UPGRADE_REQ[kind]:ADV_UPGRADE_REQ[kind-4];
+        int[][][] track=kind<4?UPGRADE_REQ[kind]:ADV_UPGRADE_REQ[kind-4];
         return step<track.length?track[step]:new int[0][];
     }
     private boolean buyUpgrade(int kind) {
