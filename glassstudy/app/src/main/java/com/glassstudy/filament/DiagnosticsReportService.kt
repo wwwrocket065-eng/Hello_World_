@@ -31,7 +31,8 @@ data class DiagnosticsReportState(
     val pitch:Double,
     val lightAz:Double,
     val lightElevation:Double,
-    val brightness:Double
+    val brightness:Double,
+    val adaptivity:Int=0
 )
 
 /** Measures real metrics on demand; never reports unmeasured GPU utilization. */
@@ -47,9 +48,16 @@ class DiagnosticsReportService(
         val perf=profiler.metrics()
         val ram=try { MemoryMetrics.capture(context) } catch (_:Exception) { null }
         val mesh=try {
-            val profile=updater.readResourceOrNull(ParametricGoblet.PATH)
-                ?: error("Missing goblet profile")
-            GlbMetrics.inspect(ParametricGoblet.create(profile,state.modelLod,state.wireframe))
+            val config=MaterialModuleConfig.parse(updater.readModuleConfig("materials"))
+            val variant=config.resolve(state.modelId,state.modelLod,state.wireframe)
+            if(variant!=null)GlbMetrics.inspect(updater.readResourceOrNull(variant) ?: error("Missing variant"))
+            else if(state.modelId in PrimitiveGeometry.ids)GlbMetrics.inspect(PrimitiveGeometry.create(
+                state.modelId,state.modelLod,state.wireframe,state.adaptivity,config.primitiveRadius,
+                config.primitiveHeight,config.primitiveWireWidth,config.primitiveWireOffset))
+            else {
+                val profile=updater.readResourceOrNull(ParametricGoblet.PATH) ?: error("Missing goblet profile")
+                GlbMetrics.inspect(ParametricGoblet.create(profile,state.modelLod,state.wireframe,state.adaptivity))
+            }
         } catch (_:Exception) { null }
         val server=updater.serverPatchVersion.takeIf { it>0 }?.toString() ?: "—"
         val active=updater.installedPatchVersion()

@@ -237,7 +237,7 @@ object ParametricGoblet {
         return toGlb(sides,actualRings,grid,positions,normals,indices)
     }
 
-    private fun toGlb(sides:Int,rings:Int,grid:Boolean,
+    internal fun toGlb(sides:Int,rings:Int,grid:Boolean,
                       positions:FloatArray,normals:FloatArray,indices:IntArray):ByteArray {
         val pSize=positions.size*4;val nSize=normals.size*4;val iSize=indices.size*4
         val bin=ByteBuffer.allocate(pSize+nSize+iSize).order(ByteOrder.LITTLE_ENDIAN)

@@ -2,5 +2,9 @@
   "schema": 1,
   "id": "materials",
   "variants": {},
-  "overrides": {}
+  "overrides": {},
+  "primitiveRadius": 0.8,
+  "primitiveHeight": 1.6,
+  "primitiveWireWidth": 0.0016,
+  "primitiveWireOffset": 0.003
 }

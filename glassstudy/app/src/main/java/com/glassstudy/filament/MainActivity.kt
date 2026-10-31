@@ -275,7 +275,8 @@ class MainActivity : Activity() {
         opticalSurface.update(GlassOpticsSurface.State(cameraLight.yaw,cameraLight.pitch,cameraLight.distance,
             cameraLight.config.fieldOfView,cameraLight.lightAz,cameraLight.lightElevation,cameraLight.brightness,
             sceneEnvironment.lightingMode,sceneEnvironment.floorMode,sceneEnvironment.module,
-            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled,analyticSurface))
+            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled,analyticSurface,PrimitiveGeometry.type(modelAssets.selection.modelId),
+            modelAssets.configuration.primitiveRadius,modelAssets.configuration.primitiveHeight))
     }
     /**
      * All patch-defined windows, including their interactive controls, use one
@@ -899,7 +900,7 @@ class MainActivity : Activity() {
             pitch=cameraLight.pitch,
             lightAz=cameraLight.lightAz,
             lightElevation=cameraLight.lightElevation,
-            brightness=cameraLight.brightness
+            brightness=cameraLight.brightness,adaptivity=modelAssets.adaptivePercent
         ))
     private fun showDiagnostic() {
         val report=diagnosticReport()+"\n\n"+opticsTest.report()

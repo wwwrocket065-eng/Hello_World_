@@ -8,8 +8,8 @@ data class ModelSelection(val modelId:String,val lod:String) {
     }
 }
 object ModelCatalog {
-    val ids=listOf("goblet")
-    val names=listOf("Бокал")
+    val ids=listOf("goblet","sphere","cone","cube","cylinder")
+    val names=listOf("Бокал","Шар","Конус","Куб","Цилиндр")
     val qualities=listOf("low","medium","high","ultra")
     val qualityNames=listOf("Low","Medium","High","Ultra")
     val defaultSelection=ModelSelection("goblet","medium")

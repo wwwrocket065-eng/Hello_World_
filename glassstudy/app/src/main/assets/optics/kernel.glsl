@@ -5,6 +5,8 @@ uniform int uCullSegments;
 uniform int uSmoothSurface;
 uniform int uAnalyticSurface;
 uniform float uIor;
+uniform int uPrimitiveType;
+uniform float uPrimitiveRadius,uPrimitiveHeight;
 uniform vec3 uBoundsMin,uBoundsMax;
 const float EPS=0.00008;
 const float FAR=1e20;
@@ -187,7 +189,59 @@ void curvedHit(int j,vec3 o,vec3 d,inout float best,inout int bestSegment,inout 
     }
 }
 
+// Closed solid primitives use the same dielectric/photon integrator as the goblet.
+float primitiveHit(vec3 o,vec3 d,out vec3 normal) {
+    normal=vec3(0);float r=uPrimitiveRadius,h=uPrimitiveHeight,best=FAR;
+    if(uPrimitiveType==1) {
+        vec3 scale=vec3(r,h*.5,r),q=(o-vec3(0,h*.5,0))/scale,v=d/scale;
+        float aa=dot(v,v),bb=dot(q,v),cc=dot(q,q)-1.0,disc=bb*bb-aa*cc;
+        if(disc<0.0)return FAR;
+        float a=(-bb-sqrt(disc))/aa,b=(-bb+sqrt(disc))/aa;
+        best=a>EPS ? a : (b>EPS ? b : FAR);
+        if(best<FAR)normal=normalize((o+best*d-vec3(0,h*.5,0))/(scale*scale));
+        return best;
+    }
+    if(uPrimitiveType==3) {
+        float nearT=-FAR,farT=FAR;vec3 nearN=vec3(0),farN=vec3(0);
+        for(int axis=0;axis<3;axis++) {
+            float low=axis==1 ? 0.0 : -r,high=axis==1 ? h : r;
+            if(abs(d[axis])<1e-9) { if(o[axis]<low || o[axis]>high)return FAR; }
+            else {
+                float a=(low-o[axis])/d[axis],b=(high-o[axis])/d[axis];
+                vec3 na=vec3(0),nb=vec3(0);na[axis]=-1.0;nb[axis]=1.0;
+                if(a>b){float tmp=a;a=b;b=tmp;vec3 nt=na;na=nb;nb=nt;}
+                if(a>nearT){nearT=a;nearN=na;}if(b<farT){farT=b;farN=nb;}
+            }
+        }
+        if(farT<nearT || farT<=EPS)return FAR;
+        normal=nearT>EPS ? nearN : farN;return nearT>EPS ? nearT : farT;
+    }
+    // Cone and cylinder: exact conic side plus closed disk caps.
+    float slope=uPrimitiveType==2 ? -r/h : 0.0;
+    float radius=r+slope*o.y,rd=slope*d.y;
+    float aa=dot(d.xz,d.xz)-rd*rd,bb=2.0*(dot(o.xz,d.xz)-radius*rd);
+    float cc=dot(o.xz,o.xz)-radius*radius,disc=bb*bb-4.0*aa*cc;
+    if(disc>=0.0)for(int k=0;k<2;k++) {
+        if(abs(aa)<1e-10 && abs(bb)<1e-10)continue;
+        float t=abs(aa)<1e-10 ? -cc/bb : (-bb+(k==0 ? -1.0 : 1.0)*sqrt(disc))/(2.0*aa);
+        vec3 p=o+t*d;
+        if(t>EPS && t<best && p.y>=0.0 && p.y<=h) {
+            best=t;vec3 n=vec3(p.x,-slope*(r+slope*p.y),p.z);
+            normal=dot(n,n)>1e-20 ? normalize(n) : vec3(0,1,0);
+        }
+    }
+    if(abs(d.y)>1e-9)for(int cap=0;cap<2;cap++) {
+        float y=cap==0 ? 0.0 : h,rr=r+slope*y,t=(y-o.y)/d.y;
+        vec3 p=o+t*d;
+        if(t>EPS && t<best && dot(p.xz,p.xz)<=rr*rr) {
+            best=t;normal=vec3(0,cap==0 ? -1.0 : 1.0,0);
+        }
+    }
+    return best;
+}
+
 float wallHit(vec3 o,vec3 d,out vec3 normal) {
+    if(uPrimitiveType!=0)return primitiveHit(o,d,normal);
     // Conservative canonical bound avoids walking the contour for most pixels.
     float nearT=0.0, farT=1e5;
     for(int axis=0;axis<3;axis++) {

@@ -1,7 +1,7 @@
 name: GlassStudy Android Build
 on:
   push:
-    branches: [glassstudy-filament-ci]
+    branches: [glassstudy-filament-ci, glassstudy-resource-limit-20261029]
     paths:
       - 'glassstudy/**'
       - '.github/workflows/glassstudy-build.yml'

@@ -24,7 +24,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         val yaw:Double,val pitch:Double,val distance:Double,val fov:Double,
         val azimuth:Double,val elevation:Double,val brightness:Double,
         val mode:LightEnvironmentMode,val floor:String,val scene:SceneModuleConfig,
-        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean,val analyticSurface:Boolean=false
+        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean,val analyticSurface:Boolean=false,
+        val primitiveType:Int=0,val primitiveRadius:Float=.8f,val primitiveHeight:Float=1.6f
     )
     @Volatile var failed:String?=null
         private set
@@ -264,16 +265,17 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 previous.distance!=next.distance || previous.fov!=next.fov || previous.floor!=next.floor ||
                 previous.scene.floorWidth!=next.scene.floorWidth ||
                 previous.render.optics.maskSides!=next.render.optics.maskSides ||
-                previous.analyticSurface!=next.analyticSurface)maskDirty=true
+                previous.analyticSurface!=next.analyticSurface || previous.primitiveType!=next.primitiveType ||
+                previous.primitiveRadius!=next.primitiveRadius || previous.primitiveHeight!=next.primitiveHeight)maskDirty=true
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
-                next.scene,next.render,next.camera.lightIntensity,next.antialias,next.analyticSurface)
+                next.scene,next.render,next.camera.lightIntensity,next.antialias,next.analyticSurface,next.primitiveType,next.primitiveRadius,next.primitiveHeight)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
             val reason=when {
                 previous==null -> "начальный рендер"
                 previous.analyticSurface!=next.analyticSurface -> "смена поверхности лучей"
                 previous.antialias!=next.antialias -> "переключение сглаживания"
                 light!=listOf(previous.azimuth,previous.elevation,previous.brightness,previous.mode,previous.ior,
-                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias,previous.analyticSurface) -> "изменение света/сцены"
+                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias,previous.analyticSurface,previous.primitiveType,previous.primitiveRadius,previous.primitiveHeight) -> "изменение света/сцены"
                 else -> "движение камеры"
             }
             restartMeasurement(reason,requestedAtNs)
@@ -454,7 +456,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,maskFbo);GL.glViewport(0,0,w,h)
             GL.glDisable(GL.GL_SCISSOR_TEST);GL.glDisable(GL.GL_DEPTH_TEST);GL.glDisable(GL.GL_CULL_FACE)
             if(maskRow==0) { GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT) }
-            val maskProgram=if(s.analyticSurface)analyticMaskProgram else this.maskProgram
+            val maskProgram=if(s.analyticSurface || s.primitiveType!=0)analyticMaskProgram else this.maskProgram
             GL.glUseProgram(maskProgram);common(maskProgram,s)
             GL.glUniform2f(location(maskProgram,"uResolution"),w.toFloat(),h.toFloat())
             i(maskProgram,"uMaskSides",s.render.optics.maskSides)
@@ -467,10 +469,10 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             i(maskProgram,"uFloorMode",if(s.floor=="none")0 else 1)
             issuedBudget=maskBudget
             val rows=min(h-maskRow,max(1,maskBudget.units(16384,w)/w))
-            if(s.analyticSurface) { GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(0,maskRow,w,rows) }
-            GL.glDrawArrays(GL.GL_TRIANGLES,0,if(s.analyticSurface)3 else (contour.size/2-1)*s.render.optics.maskSides*6)
+            if(s.analyticSurface || s.primitiveType!=0) { GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(0,maskRow,w,rows) }
+            GL.glDrawArrays(GL.GL_TRIANGLES,0,if(s.analyticSurface || s.primitiveType!=0)3 else (contour.size/2-1)*s.render.optics.maskSides*6)
             GL.glDisable(GL.GL_SCISSOR_TEST)
-            maskRow=if(s.analyticSurface)maskRow+rows else h
+            maskRow=if(s.analyticSurface || s.primitiveType!=0)maskRow+rows else h
             maskDirty=maskRow<h
             if(!maskDirty)maskRow=0
         }
@@ -487,6 +489,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             f(p,"uPhotonExtent",receiverExtent(s))
             i(p,"uSmoothSurface",if(s.antialias)1 else 0)
             i(p,"uAnalyticSurface",if(s.analyticSurface)1 else 0)
+            i(p,"uPrimitiveType",s.primitiveType)
+            f(p,"uPrimitiveRadius",s.primitiveRadius);f(p,"uPrimitiveHeight",s.primitiveHeight)
         }
         // GLSurfaceView swaps after EVERY onDrawFrame, including preparation and
         // limiter returns. Always populate the default framebuffer before that swap.
@@ -688,7 +692,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     "Лимит работы: ${resourceLimitPercent}% (не процент GPU); порция лучей ${budget.units(32768)} px; силуэт ${maskBudget.units(16384)} px; каустика ${photonBudget.units(16384)} фотонов; очередь GPU ≤1 порции\n"+
                     "Отсечение сегментов ${s.render.optics.segmentCullingEnabled}; профиль ${contour.size/2} точек; маска ${c.maskSides} сторон; scissor ${regionInfo?.width}×${regionInfo?.height} (прямоугольник планирования, не площадь стекла)\n"+
                     "Карта каустики ${mapSize}×${mapSize}; запуск ${launchSide}² (${launchSide.toLong()*launchSide}) фотонов; полуразмер ${receiverExtent(s)}; готова=$photonReady\n"+
-                    "Поверхность лучей: ${if(s.analyticSurface)"гладкий кубический профиль" else "исходные отрезки"}\n"+
+                    "Поверхность лучей: ${if(s.primitiveType!=0)"аналитическая фигура ${s.primitiveType}" else if(s.analyticSurface)"гладкий кубический профиль" else "исходные отрезки"}\n"+
                     "IOR ${s.ior}; сглаживание/FXAA ${s.antialias}; отсечение выбросов ${c.maxSampleRadiance}" else previousMetrics.parameters
                 metrics.progress(phase,w,h,sampleCount,c.samples,finalQuality,parameters,gpuDescription,
                     17L*w*h+8L*mapSize*mapSize+contour.size*4L)
