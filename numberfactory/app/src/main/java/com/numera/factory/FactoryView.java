@@ -863,22 +863,41 @@ public final class FactoryView extends View {
         p.setStrokeWidth(2*density);c.drawRect(left,top,right,bottom,p);
         p.setStyle(Paint.Style.FILL);
     }
+    private float routeActionsTop() {
+        return getHeight()-(TOOLBAR_DP+2*BELT_MENU_DP)*density;
+    }
+    private boolean hasRouteActions() {
+        return selected==0&&beltMode==1&&!route.isEmpty();
+    }
     private void drawBeltMenu(Canvas c) {
         float w=getWidth(),d=density,top=getHeight()-(TOOLBAR_DP+BELT_MENU_DP)*d;
         box(c,6*d,top,w-6*d,top+BELT_MENU_DP*d,12*d,0xff173448);
-        String[] captions={"Рисовать","Протяжка","Подтвердить","Отмена"};
-        for(int i=0;i<4;i++) {
-            float l=w*i/4f,r=w*(i+1)/4f;
-            if((i==0&&beltMode==0)||(i==1&&beltMode==1))
-                box(c,l+4*d,top+3*d,r-4*d,top+41*d,9*d,0xff297679);
-            label(c,captions[i],(l+r)*.5f,top+27*d,11*d,
+        String[] modes={"Рисование","Протяжка"};
+        for(int i=0;i<2;i++) {
+            float l=w*i*.5f,right=w*(i+1)*.5f;
+            if(i==beltMode)
+                box(c,l+4*d,top+3*d,right-4*d,top+41*d,10*d,0xff297679);
+            label(c,modes[i],(l+right)*.5f,top+28*d,13*d,
                 0xffe3fff7,true,Paint.Align.CENTER);
+        }
+        if(hasRouteActions()) {
+            float y=routeActionsTop();
+            box(c,6*d,y,w-6*d,y+BELT_MENU_DP*d,12*d,0xff173448);
+            String[] actions={"Подтвердить","Отменить"};
+            for(int i=0;i<2;i++) {
+                float l=w*i*.5f,right=w*(i+1)*.5f;
+                box(c,l+4*d,y+3*d,right-4*d,y+41*d,10*d,
+                    i==0?0xff21766a:0xff583a48);
+                label(c,actions[i],(l+right)*.5f,y+28*d,13*d,
+                    0xffeffff8,true,Paint.Align.CENTER);
+            }
         }
     }
     private void updateEdgeScroll(float dt) {
-        if(!(paintGesture||routeGesture)||pinching||toolbarGesture)return;
+        if(!(paintGesture||routeGesture||eraseGesture)||pinching||toolbarGesture)return;
         float band=42*density,top=124*density,bottom=getHeight()-
-                      (selected==0?(TOOLBAR_DP+BELT_MENU_DP):TOOLBAR_DP)*density;
+                      (selected==0?(TOOLBAR_DP+BELT_MENU_DP*
+                          (hasRouteActions()?2f:1f)):TOOLBAR_DP)*density;
         float speed=sz()*7f*dt;
         float sx=gestureX,sy=gestureY;
         if(sx<band)panX+=speed*(1f-sx/band);
@@ -892,6 +911,9 @@ public final class FactoryView extends View {
             priorGridX=gx;priorGridY=gy;
         } else if(selected==0 && beltMode==1 && routeGesture) {
             routeLive=new Point(gx,gy);
+        } else if(selected==4&&eraseGesture&&(gx!=priorGridX||gy!=priorGridY)) {
+            erasePath(priorGridX,priorGridY,gx,gy);
+            priorGridX=gx;priorGridY=gy;
         }
     }
     private static float span(MotionEvent e) {
@@ -901,32 +923,47 @@ public final class FactoryView extends View {
 
     @Override public boolean onTouchEvent(MotionEvent e) {
         int action=e.getActionMasked();
-        float toolTop=getHeight()-TOOLBAR_DP*density;
-        float menuTop=toolTop-BELT_MENU_DP*density;
-        float touchBottom=selected==0?menuTop:toolTop;
+        float toolbarTop=getHeight()-TOOLBAR_DP*density;
+        float menuTop=toolbarTop-BELT_MENU_DP*density;
+        float actionsTop=routeActionsTop();
+        float boardBottom=selected==0?
+                (hasRouteActions()?actionsTop:menuTop):
+                (selected==5?menuTop:toolbarTop);
         switch(action) {
             case MotionEvent.ACTION_DOWN:
                 downX=lastX=gestureX=e.getX();
                 downY=lastY=gestureY=e.getY();
                 priorGridX=gridX(gestureX);priorGridY=gridY(gestureY);
-                toolbarGesture=gestureY>=toolTop;
+                toolbarGesture=gestureY>=toolbarTop;
                 beltMenuGesture=selected==0&&gestureY>=menuTop&&!toolbarGesture;
-                pinching=false;dragged=false;routeGesture=false;paintGesture=false;
-                upgradeGesture=upgradePanel&&gestureY>=120*density;
+                routeMenuGesture=hasRouteActions()&&gestureY>=actionsTop
+                    &&gestureY<menuTop&&!toolbarGesture;
+                selectionMenuGesture=selected==5&&gestureY>=menuTop&&!toolbarGesture;
                 headerGesture=gestureY<116*density;
-                if(!upgradeGesture&&!headerGesture&&!toolbarGesture&&!beltMenuGesture&&gestureY>=124*density) {
+                upgradeGesture=upgradePanel&&gestureY>=120*density
+                    &&gestureY<toolbarTop;
+                dragged=false;pinching=false;
+                routeGesture=false;paintGesture=false;eraseGesture=false;
+                selectionGesture=false;
+                if(!toolbarGesture&&!beltMenuGesture&&!routeMenuGesture
+                    &&!selectionMenuGesture&&!headerGesture&&!upgradeGesture
+                    &&gestureY>=124*density&&gestureY<boardBottom) {
                     if(selected==0) {
                         if(beltMode==0) {
                             paintGesture=true;
                             place(priorGridX,priorGridY);
                         } else {
                             routeGesture=true;
-                            if(route.isEmpty())route.add(new Point(priorGridX,priorGridY));
-                            // Every new gesture extends from the LAST route endpoint,
-                            // never creates a new starting point on finger-down.
+                            if(route.isEmpty())
+                                route.add(new Point(priorGridX,priorGridY));
+                            // The next gesture extends the previous tail.
                             routeLive=new Point(priorGridX,priorGridY);
                         }
+                    } else if(selected==4) {
+                        eraseGesture=true;
+                        eraseCell(priorGridX,priorGridY);
                     } else if(selected==5) {
+                        selectionGesture=true;selectionReady=false;
                         selectX0=selectX1=priorGridX;
                         selectY0=selectY1=priorGridY;
                     }
@@ -935,7 +972,8 @@ public final class FactoryView extends View {
             case MotionEvent.ACTION_POINTER_DOWN:
                 if(e.getPointerCount()>=2) {
                     pinching=true;dragged=true;lastSpan=span(e);
-                    paintGesture=false;routeGesture=false;
+                    paintGesture=false;routeGesture=false;eraseGesture=false;
+                    selectionGesture=false;
                 }
                 return true;
             case MotionEvent.ACTION_MOVE:
@@ -950,26 +988,35 @@ public final class FactoryView extends View {
                     }
                     lastSpan=current;return true;
                 }
-                if(toolbarGesture||beltMenuGesture||pinching||upgradeGesture||headerGesture)return true;
+                if(toolbarGesture||beltMenuGesture||routeMenuGesture
+                    ||selectionMenuGesture||pinching||upgradeGesture
+                    ||headerGesture)return true;
                 gestureX=e.getX();gestureY=e.getY();
                 if(selected==7) {
                     panX+=gestureX-lastX;panY+=gestureY-lastY;dragged=true;
                 } else if(selected==0) {
                     int gx=gridX(gestureX),gy=gridY(gestureY);
-                    if(beltMode==0&&paintGesture&&(gx!=priorGridX||gy!=priorGridY)) {
+                    if(beltMode==0&&paintGesture
+                       &&(gx!=priorGridX||gy!=priorGridY)) {
                         drawBeltPath(priorGridX,priorGridY,gx,gy);
                         priorGridX=gx;priorGridY=gy;dragged=true;
                     } else if(beltMode==1&&routeGesture) {
                         routeLive=new Point(gx,gy);dragged=true;
                     }
-                } else if(selected==5) {
+                } else if(selected==4&&eraseGesture) {
+                    int gx=gridX(gestureX),gy=gridY(gestureY);
+                    if(gx!=priorGridX||gy!=priorGridY) {
+                        erasePath(priorGridX,priorGridY,gx,gy);
+                        priorGridX=gx;priorGridY=gy;
+                    }
+                    dragged=true;
+                } else if(selected==5&&selectionGesture) {
                     selectX1=gridX(gestureX);selectY1=gridY(gestureY);
                     dragged=true;
-                } else if(Math.hypot(gestureX-downX,gestureY-downY)>8*density){
+                } else if(Math.hypot(gestureX-downX,gestureY-downY)>8*density) {
                     dragged=true;panX+=gestureX-lastX;panY+=gestureY-lastY;
                 }
-                lastX=gestureX;lastY=gestureY;
-                return true;
+                lastX=gestureX;lastY=gestureY;return true;
             case MotionEvent.ACTION_POINTER_UP:
                 pinching=true;return true;
             case MotionEvent.ACTION_UP:
@@ -977,36 +1024,50 @@ public final class FactoryView extends View {
                     tapUpgradePanel(e.getX(),e.getY());
                 } else if(headerGesture&&!pinching) {
                     upgradePanel=!upgradePanel;
-                } else if(toolbarGesture&&e.getY()>=toolTop) {
+                } else if(toolbarGesture&&e.getY()>=toolbarTop) {
                     int index=(int)(e.getX()/Math.max(1f,getWidth()/8f));
                     selected=Math.max(0,Math.min(7,index));
-                } else if(beltMenuGesture&&selected==0) {
-                    int button=(int)(e.getX()/Math.max(1f,getWidth()/4f));
-                    if(button==0)beltMode=0;
-                    else if(button==1)beltMode=1;
-                    else if(button==2)confirmRoute();
-                    else if(button==3){route.clear();routeLive=null;}
-                } else if(!pinching && routeGesture && beltMode==1) {
+                    if(selected!=5)selectionReady=false;
+                } else if(routeMenuGesture&&selected==0&&!pinching) {
+                    if(e.getX()<getWidth()*.5f)confirmRoute();
+                    else {route.clear();routeLive=null;}
+                } else if(beltMenuGesture&&selected==0&&!pinching) {
+                    int mode=e.getX()<getWidth()*.5f?0:1;
+                    if(mode!=beltMode) {
+                        if(mode==0){route.clear();routeLive=null;}
+                        beltMode=mode;
+                    }
+                } else if(selectionMenuGesture&&selected==5&&!pinching) {
+                    int index=(int)(e.getX()/Math.max(1f,getWidth()/3f));
+                    if(index==0&&selectionReady)copySelection();
+                    else if(index==1&&selectionReady)eraseSelection();
+                    else if(index==2)selectionReady=false;
+                } else if(!pinching&&routeGesture&&beltMode==1) {
                     routeTo(new Point(gridX(e.getX()),gridY(e.getY())));
-                    routeLive=null; // Finger-up commits only a preview segment.
-                    // The next stroke extends this very same route until Confirm.
-                } else if(!pinching && paintGesture) {
+                    routeLive=null; // Remains preview until Confirm.
+                } else if(!pinching&&paintGesture) {
                     save();
-                } else if(!pinching && selected==5) {
+                } else if(!pinching&&eraseGesture) {
+                    erasePath(priorGridX,priorGridY,gridX(e.getX()),gridY(e.getY()));
+                    save();
+                } else if(!pinching&&selectionGesture) {
                     selectX1=gridX(e.getX());selectY1=gridY(e.getY());
-                    copySelection();
-                } else if(!pinching&&!dragged&&selected!=7 &&
-                          e.getY()>124*density&&e.getY()<touchBottom) {
+                    selectionReady=true;
+                } else if(!pinching&&!dragged&&selected!=7
+                    &&e.getY()>=124*density&&e.getY()<boardBottom) {
                     place(gridX(e.getX()),gridY(e.getY()));
                 }
-                toolbarGesture=false;beltMenuGesture=false;
-                upgradeGesture=false;headerGesture=false;
-                paintGesture=false;routeGesture=false;pinching=false;
+                toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
+                selectionMenuGesture=false;headerGesture=false;upgradeGesture=false;
+                paintGesture=false;routeGesture=false;eraseGesture=false;
+                selectionGesture=false;pinching=false;
                 return true;
             case MotionEvent.ACTION_CANCEL:
-                toolbarGesture=false;beltMenuGesture=false;
-                paintGesture=false;routeGesture=false;pinching=false;
-                routeLive=null;return true;
+                toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
+                selectionMenuGesture=false;headerGesture=false;upgradeGesture=false;
+                paintGesture=false;routeGesture=false;eraseGesture=false;
+                selectionGesture=false;pinching=false;routeLive=null;
+                return true;
             default:return true;
         }
     }
