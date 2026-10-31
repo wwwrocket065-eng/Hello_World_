@@ -1073,45 +1073,84 @@ public final class FactoryView extends View {
     private void drawMultiMachine(Canvas c,Node controller) {
         MachineLayout.Shape shape=MachineLayout.shape(controller.type,controller.rotation);
         if(shape==null)return;
-        float s=sz();
-        int outer=controller.type==ADD?0xff58348c:controller.type==MULTIPLY?
-                  0xff2a5695:controller.type==STORAGE?0xff3b6277:
-                  controller.type==SUBTRACT?0xff754569:0xff415879;
-        int inner=controller.type==ADD?0xff855db8:controller.type==MULTIPLY?
-                  0xff4079bb:controller.type==STORAGE?0xff286179:
-                  controller.type==SUBTRACT?0xff965378:0xff5486a4;
+        float s=sz(),ox=panX+controller.originX*s,oy=panY+controller.originY*s;
+        if(ox>getWidth()+s||oy>getHeight()+s||
+           ox+shape.width*s< -s||oy+shape.height*s< -s)return;
+        int outer=controller.type==ADD?0xff503080:controller.type==MULTIPLY?
+                  0xff254a80:controller.type==STORAGE?0xff31576a:
+                  controller.type==SUBTRACT?0xff6a405f:0xff344d70;
+        int inner=controller.type==ADD?0xff7950ae:controller.type==MULTIPLY?
+                  0xff3671ae:controller.type==STORAGE?0xff376777:
+                  controller.type==SUBTRACT?0xff8d5278:0xff4b799d;
+        // One connected silhouette, never separate squares. The occupied
+        // cells are used for routing/placement only, not individual panels.
+        Path silhouette=new Path();
+        boolean first=true;
         for(MachineLayout.Cell part:shape.cells) {
-            float left=panX+(controller.originX+part.x)*s;
-            float top=panY+(controller.originY+part.y)*s;
-            if(left>getWidth()+s||top>getHeight()+s||
-               left+s< -s||top+s< -s)continue;
-            box(c,left+s*.015f,top+s*.015f,left+s*.985f,top+s*.985f,s*.10f,outer);
-            box(c,left+s*.06f,top+s*.06f,left+s*.94f,top+s*.94f,s*.075f,inner);
-            String name;
-            switch(part.port) {
-                case MachineLayout.A:name="A";break;
-                case MachineLayout.B:name="B";break;
-                case MachineLayout.OUTPUT:
-                    name=controller.type==ADD?"A+B":controller.type==MULTIPLY?"A×B":
-                         controller.type==SUBTRACT?"A−B":
-                         controller.type==DIVIDE?"÷":controller.type==EXPONENT?"A^B":"→";
-                    break;
-                case MachineLayout.REMAINDER:name="R";break;
-                default:name="";break;
-            }
-            if(!name.isEmpty())label(c,name,left+s*.50f,top+s*.60f,
-                  Math.max(7*density,s*(name.length()>1?.23f:.48f)),
-                  part.port==MachineLayout.OUTPUT?0xffeffff5:0xfff9e3dd,
-                  true,Paint.Align.CENTER);
+            float l=ox+part.x*s,t=oy+part.y*s;
+            Path square=new Path();
+            square.addRect(l,t,l+s,t+s,Path.Direction.CW);
+            if(first){silhouette.addPath(square);first=false;}
+            else silhouette.op(square,Path.Op.UNION);
         }
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setStrokeWidth(Math.max(2*density,s*.13f));
+        p.setColor(0xff10202d);c.drawPath(silhouette,p);
+        p.setStyle(Paint.Style.FILL);p.setColor(outer);
+        c.drawPath(silhouette,p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1*density,s*.045f));
+        p.setColor(0xffa190ca);c.drawPath(silhouette,p);
+        p.setStyle(Paint.Style.FILL);
+        // A single face set inside the connected outer frame.
+        c.save();
+        c.clipPath(silhouette);
+        box(c,ox+s*.09f,oy+s*.09f,
+            ox+(shape.width-.09f)*s,oy+(shape.height-.09f)*s,
+            s*.12f,inner);
+        c.restore();
+        float fx=0f,fy=0f,portX=0f,portY=0f;
+        int count=0,outputs=0;
+        for(MachineLayout.Cell part:shape.cells) {
+            fx+=part.x+.5f;fy+=part.y+.5f;count++;
+            if(part.port==MachineLayout.OUTPUT) {
+                portX+=part.x+.5f;portY+=part.y+.5f;outputs++;
+            }
+            if(part.port==MachineLayout.A||part.port==MachineLayout.B||
+               part.port==MachineLayout.REMAINDER) {
+                String name=part.port==MachineLayout.A?"A":
+                    part.port==MachineLayout.B?"B":"R";
+                float px=ox+(part.x+.5f)*s,py=oy+(part.y+.68f)*s;
+                // Small port symbols sit on ONE shared machine surface.
+                p.setColor(0xff352b4a);
+                c.drawCircle(px,py-s*.13f,s*.24f,p);
+                label(c,name,px,py,s*.32f,0xffffe5b8,true,Paint.Align.CENTER);
+            }
+        }
+        fx/=Math.max(1,count);fy/=Math.max(1,count);
+        String symbol=controller.type==ADD?"+":controller.type==MULTIPLY?"×":
+                      controller.type==SUBTRACT?"−":controller.type==DIVIDE?"÷":
+                      controller.type==EXPONENT?"^":"▣";
         if(controller.type==STORAGE) {
-            float cx=panX+(controller.originX+shape.width*.5f)*s;
-            float cy=panY+(controller.originY+shape.height*.5f)*s;
-            box(c,cx-s*1.12f,cy-s*.48f,cx+s*1.12f,cy+s*.48f,
-                s*.15f,0xff143545);
-            label(c,"▣",cx,cy-s*.09f,s*.65f,0xffd6fff7,true,Paint.Align.CENTER);
-            label(c,controller.storedCount+" / 10000",cx,cy+s*.29f,
-                  s*.27f,0xffedfff7,true,Paint.Align.CENTER);
+            label(c,"▣",ox+shape.width*s*.5f,oy+shape.height*s*.48f,
+                  s*.83f,0xffedfff8,true,Paint.Align.CENTER);
+            label(c,controller.storedCount+" / 10000",
+                  ox+shape.width*s*.5f,oy+shape.height*s*.68f,
+                  s*.30f,0xffdefff6,true,Paint.Align.CENTER);
+        } else {
+            // Large central operation symbol plus one shared result label.
+            label(c,symbol,ox+fx*s,oy+fy*s+s*.23f,s*.70f,
+                  0xfff4f2ff,true,Paint.Align.CENTER);
+            if(outputs>0) {
+                String result=controller.type==ADD?"A+B":
+                              controller.type==MULTIPLY?"A×B":
+                              controller.type==SUBTRACT?"A−B":
+                              controller.type==DIVIDE?"A/B":"A^B";
+                label(c,result,ox+(portX/outputs)*s,
+                      oy+(portY/outputs)*s-s*.11f,s*.23f,
+                      0xffe4d9fc,true,Paint.Align.CENTER);
+            }
         }
     }
 
