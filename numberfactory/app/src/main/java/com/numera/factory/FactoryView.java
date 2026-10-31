@@ -33,12 +33,15 @@ public final class FactoryView extends View {
     // Starter deposits are irregularly spaced outside the hub safety radius.
     // Number fields occupy 3x3 visually; the mineral source is the centre tile.
     private static final int[][] START_DEPOSITS={
-        {28,14,1},{2,31,1},{-5,18,1},{20,-5,1},{34,29,1},
-        {-16,-8,1},{3,-21,1},{9,47,1},{44,-8,1},{-24,31,1},
-        {42,12,2},{-11,42,2},{28,-29,2},
-        {45,43,3},{-31,-13,3},{22,51,4},{63,25,8}
+        // Many number-1 options for the first level, but each field has
+        // a wide empty margin for conveyor routing.
+        {36,5,1},{3,38,1},{-19,0,1},{15,-25,1},{48,42,1},
+        {-38,46,1},{65,-23,1},{-34,-40,1},{6,82,1},
+        {78,52,2},{-58,2,2},{39,-56,2},{-29,82,2},
+        {80,12,3},{-8,-70,3},{84,-60,4},{-73,61,4},{43,90,8}
     };
-    private static final int DEPOSIT_REGION=27;
+    private static final int DEPOSIT_REGION=46;
+    private static final int MIN_DEPOSIT_SEPARATION=30;
     private static final float TOOLBAR_DP=94f, BELT_MENU_DP=44f;
     private static final int[][] MINE_OUTPUTS={{2,-1},{2,0},{2,1},{1,2},{0,2},{-1,2},{-2,1},{-2,0},{-2,-1},{-1,-2},{0,-2},{1,-2}};
     private final Map<Long,Node> cells = new HashMap<>();
@@ -111,9 +114,9 @@ public final class FactoryView extends View {
     private int[] depositCandidate(int gx,int gy,int slot) {
         int h=terrainHash(gx,gy,slot);
         if(slot==0 && h%100>=92)return null;
-        if(slot==1 && h%100>=56)return null;
-        int x=gx*DEPOSIT_REGION+3+Math.floorMod(h>>>6,20);
-        int y=gy*DEPOSIT_REGION+3+Math.floorMod(h>>>14,20);
+        if(slot==1 && h%100>=38)return null;
+        int x=gx*DEPOSIT_REGION+5+Math.floorMod(h>>>6,36);
+        int y=gy*DEPOSIT_REGION+5+Math.floorMod(h>>>14,36);
         return new int[]{x,y,h};
     }
     private int numberForDeposit(int x,int y,int h) {
@@ -132,10 +135,11 @@ public final class FactoryView extends View {
         if(c==null)return false;
         int x=c[0],y=c[1];
         int hubDx=x-(HUB_X+3),hubDy=y-(HUB_Y+3);
-        if(hubDx*hubDx+hubDy*hubDy<16*16)return false;
+        if(hubDx*hubDx+hubDy*hubDy<23*23)return false;
         for(int[] fixed:START_DEPOSITS) {
             int dx=x-fixed[0],dy=y-fixed[1];
-            if(dx*dx+dy*dy<11*11)return false;
+            if(dx*dx+dy*dy<MIN_DEPOSIT_SEPARATION*MIN_DEPOSIT_SEPARATION)
+                return false;
         }
         // Local hash-priority filter removes regularly spaced clumps.
         for(int ry=gy-1;ry<=gy+1;ry++)
@@ -145,7 +149,10 @@ public final class FactoryView extends View {
                     int[] other=depositCandidate(rx,ry,t);
                     if(other==null)continue;
                     int dx=x-other[0],dy=y-other[1];
-                    if(dx*dx+dy*dy<11*11 && other[2]>c[2])return false;
+                    if(dx*dx+dy*dy<MIN_DEPOSIT_SEPARATION*MIN_DEPOSIT_SEPARATION &&
+                       (other[2]>c[2] ||
+                        (other[2]==c[2]&&(rx<gx||(rx==gx&&ry<gy)))))
+                        return false;
                 }
         return true;
     }
