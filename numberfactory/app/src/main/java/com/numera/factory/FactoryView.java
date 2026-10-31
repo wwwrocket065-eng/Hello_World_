@@ -66,13 +66,29 @@ public final class FactoryView extends View {
     private final ArrayList<Point> route=new ArrayList<>();
     private Point routeLive;
     private final Map<Long,Node> clipboard=new HashMap<>();
-    private static final String[] UPGRADE_NAMES={"Ленты","Добытчики","Сумматоры","Умножители"};
+    private static final String[] UPGRADE_NAMES={"Ленты","Добытчики","Сумматоры","Умножители","Вычит./Делен.","Степени"};
     // Amounts for the first eight tiers follow published Beltmatic upgrade tables.
     // The original varies some requested number IDs between worlds.
     private static final int[][][][] UPGRADE_REQ={{{{1,200}},{{1,1000},{16,500}},{{1,4000},{16,3000},{22,1500}},{{34,9000},{121,7000},{839,6000}},{{94,9000},{247,7000},{562,6000}},{{291,11000},{791,9000},{2319,8000}},{{854,15000},{1526,12000},{7891,10000}},{{1526,20000},{7891,16000},{4294,12000}}},{{{2,300}},{{2,2000},{18,1000}},{{2,5000},{18,2000},{23,1000}},{{16,8000},{22,3000},{438,2000}},{{89,10000},{378,4000},{787,3000}},{{291,12000},{791,8000},{2319,4000}},{{791,15000},{2319,12000},{7774,6000}},{{2319,20000},{7774,17000},{929,20000}}},{{{3,450}},{{3,3000},{11,1500}},{{3,5000},{11,4000},{75,3000}},{{11,7000},{91,5000},{193,4000}},{{91,12000},{193,10000},{625,5000}},{{193,15000},{625,12000},{3447,8000}},{{625,20000},{3447,17000},{9423,10000}},{{3447,30000},{9423,20000},{44031,16000}}},{{{15,500}},{{15,5000},{20,2500}},{{15,10000},{20,7000},{257,4000}},{{20,11000},{257,6000},{690,5000}},{{257,17000},{690,13000},{3644,6000}},{{690,22000},{3644,17000},{6433,10000}},{{3644,35000},{6433,25000},{49514,17000}},{{6433,37000},{49514,30000},{97001,20000}}}};
     private static final int[] GOAL_SEQUENCE={1,2,3,5,10,19,27,36,47,50,82,174,248,324,466,594,631,727,891,928,1779,2805,3366,4860,5445,6667,7512,8133,9646,10904};
     private static final int[] GOAL_COUNTS={10,20,35,40,50,100,150,300,450,500,600,800,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,10500,11000,11500,12000,12500,13000,13500,14000};
-    private final int[] upgradeLevels={1,1,1,1};
+    // Extra progression tracks are isolated from the legacy four save columns.
+    // Early costs are provisional until verified against a game-world seed.
+    private static final int[][][][] ADV_UPGRADE_REQ={
+        {{{13,800}},{{13,6000},{75,3000}},{{13,10000},{75,7000},{147,4000}},
+         {{147,13000},{640,8000},{3103,6000}},
+         {{640,24000},{3103,16000},{8118,8000}},
+         {{3103,32000},{8118,21000},{30870,13000}},
+         {{8118,43000},{30870,33000},{61589,26000}},
+         {{30870,50000},{61589,40000},{227887,30000}}},
+        {{{64,800}},{{64,7000},{187,4000}},{{64,10000},{187,6000},{983,4000}},
+         {{187,15000},{983,9000},{4563,7000}},
+         {{983,29000},{4563,18000},{5684,9000}},
+         {{4563,37000},{5684,25000},{6605,15000}},
+         {{5684,40000},{11067,35000},{92927,26000}},
+         {{11067,60000},{92927,50000},{8312675,40000}}}
+    };
+    private final int[] upgradeLevels={1,1,1,1,1,1};
     private final ArrayList<Map<Integer,Long>> upgradeBanks=new ArrayList<>();
     private boolean upgradePanel,upgradeGesture,headerGesture;
 
@@ -92,7 +108,7 @@ public final class FactoryView extends View {
         density=getResources().getDisplayMetrics().density;
         prefs=ctx.getSharedPreferences("numera_world_v2",Context.MODE_PRIVATE);
         setLayerType(View.LAYER_TYPE_HARDWARE,null);
-        for(int i=0;i<4;i++)upgradeBanks.add(new HashMap<>());
+        for(int i=0;i<upgradeLevels.length;i++)upgradeBanks.add(new HashMap<>());
         load();
     }
 
@@ -106,7 +122,7 @@ public final class FactoryView extends View {
     private void seed() {
         cells.clear();
         level=1;goal=1;required=10;delivered=0;allDelivered=0;
-        for(int i=0;i<4;i++){upgradeLevels[i]=1;upgradeBanks.get(i).clear();}
+        for(int i=0;i<upgradeLevels.length;i++){upgradeLevels[i]=1;upgradeBanks.get(i).clear();}
         // Blank factory: only the protected 6x6 collection hub exists.
         for(int y=HUB_Y;y<HUB_Y+HUB_SIZE;y++)
             for(int x=HUB_X;x<HUB_X+HUB_SIZE;x++) put(x,y,HUB,0,0);
@@ -270,9 +286,10 @@ public final class FactoryView extends View {
         try {
             String[] parts=raw.split("#",2);
             String[] levels=parts[0].split(",");
-            for(int i=0;i<4;i++)upgradeLevels[i]=Math.max(1,Integer.parseInt(levels[i]));
+            for(int i=0;i<Math.min(upgradeLevels.length,levels.length);i++)
+                upgradeLevels[i]=Math.max(1,Integer.parseInt(levels[i]));
             String[] banks=parts[1].split(";",-1);
-            for(int i=0;i<Math.min(4,banks.length);i++) {
+            for(int i=0;i<Math.min(upgradeLevels.length,banks.length);i++) {
                 upgradeBanks.get(i).clear();
                 for(String entry:banks[i].split(",")) {
                     if(entry.isEmpty())continue;
@@ -281,17 +298,17 @@ public final class FactoryView extends View {
                 }
             }
         }catch(Exception ex){
-            for(int i=0;i<4;i++){upgradeLevels[i]=1;upgradeBanks.get(i).clear();}
+            for(int i=0;i<upgradeLevels.length;i++){upgradeLevels[i]=1;upgradeBanks.get(i).clear();}
         }
     }
     private String saveUpgrades() {
         StringBuilder b=new StringBuilder();
-        for(int i=0;i<4;i++) {
+        for(int i=0;i<upgradeLevels.length;i++) {
             if(i>0)b.append(',');
             b.append(upgradeLevels[i]);
         }
         b.append('#');
-        for(int i=0;i<4;i++) {
+        for(int i=0;i<upgradeLevels.length;i++) {
             if(i>0)b.append(';');
             for(Map.Entry<Integer,Long> e:upgradeBanks.get(i).entrySet())
                 b.append(e.getKey()).append(':').append(e.getValue()).append(',');
@@ -323,11 +340,13 @@ public final class FactoryView extends View {
         }
     }
     private boolean upgradeUnlocked(int kind) {
-        return kind<2||kind==2||(kind==3&&level>=7);
+        return kind>=0&&kind<2||kind==2||kind==3&&level>=7||
+               kind==4&&level>=13||kind==5&&level>=19;
     }
     private int[][] requirements(int kind) {
         int step=upgradeLevels[kind]-1;
-        return step<UPGRADE_REQ[kind].length?UPGRADE_REQ[kind][step]:new int[0][];
+        int[][] track=kind<4?UPGRADE_REQ[kind]:ADV_UPGRADE_REQ[kind-4];
+        return step<track.length?track[step]:new int[0][];
     }
     private boolean buyUpgrade(int kind) {
         if(!upgradeUnlocked(kind))return false;
@@ -345,10 +364,13 @@ public final class FactoryView extends View {
         return level<=8?level:8f+(level-8)*.1f;
     }
     private float operatorSpeed(int type) {
-        int i=Math.max(0,Math.min(7,upgradeLevels[type==ADD?2:3]-1));
-        float[] adder={.25f,1f/3f,.4f,.5f,2f/3f,1f,1.5f,2f};
-        float[] multiplier={.2f,.3f,.4f,.5f,.6f,.7f,.8f,1f};
-        return type==ADD?adder[i]:multiplier[i];
+        int group=type==ADD?2:type==MULTIPLY?3:
+                  type==SUBTRACT||type==DIVIDE?4:5;
+        int stage=Math.max(1,upgradeLevels[group]);
+        float[] add={.25f,1f/3f,.4f,.5f,2f/3f,1f,1.5f,2f};
+        float[] other={.2f,.3f,.4f,.5f,.6f,.7f,.8f,1f};
+        return stage<=8?(group==2?add[stage-1]:other[stage-1]):
+               (group==2?2f:1f)+(stage-8)*.02f;
     }
     private int extractionMax() {
         // Extraction rewards apply after the matching level is completed.
