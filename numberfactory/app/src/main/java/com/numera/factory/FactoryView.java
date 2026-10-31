@@ -284,7 +284,7 @@ public final class FactoryView extends View {
         for(Map<Integer,Long> bank:upgradeBanks)bank.put(number,bank.getOrDefault(number,0L)+1);
     }
     private boolean upgradeUnlocked(int kind) {
-        return kind<2||(kind==2&&level>=2)||(kind==3&&level>=7);
+        return kind<2||kind==2||(kind==3&&level>=7);
     }
     private int[][] requirements(int kind) {
         int step=upgradeLevels[kind]-1;
@@ -655,7 +655,7 @@ public final class FactoryView extends View {
             String name=UPGRADE_NAMES[i]+"   ур. "+upgradeLevels[i];
             label(c,name,23*d,y+23*d,15*d,available?0xffe6fff8:0xff708c9b,true,Paint.Align.LEFT);
             if(!available) {
-                label(c,"Откроется на уровне "+(i==2?2:7),23*d,y+48*d,10*d,
+                label(c,"Откроется на уровне "+7,23*d,y+48*d,10*d,
                       0xffd0aebd,false,Paint.Align.LEFT);
                 continue;
             }
@@ -705,8 +705,8 @@ public final class FactoryView extends View {
                   on?0xffd3ffef:0xffa8c0cd,true,Paint.Align.CENTER);
             label(c,TOOLS[i],mid,top+69*d,8*d,
                   on?0xffd4fff9:0xff8ba6b3,false,Paint.Align.CENTER);
-            if((i==2&&level<2)||(i==3&&level<7))
-                label(c,"ур. "+(i==2?2:7),mid,top+83*d,8*d,
+            if(i==3&&level<7)
+                label(c,"ур. "+7,mid,top+83*d,8*d,
                     0xffffbd85,false,Paint.Align.CENTER);
         }
     }
@@ -730,7 +730,7 @@ public final class FactoryView extends View {
                 // Extractor upgrades are global, not purchased per deposit.
             } else if(old==null)put(x,y,SOURCE,0,value);
         } else if(selected==2) {
-            if(level>=2 && old==null && depositUnder(x,y)<0)put(x,y,ADD,0,0);
+            if(old==null && depositUnder(x,y)<0)put(x,y,ADD,0,0);
         } else if(selected==3) {
             if(level>=7 && old==null && depositUnder(x,y)<0)put(x,y,MULTIPLY,0,0);
         } else if(selected==4) {
