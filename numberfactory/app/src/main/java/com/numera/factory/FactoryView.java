@@ -581,7 +581,6 @@ public final class FactoryView extends View {
         HashSet<Long> lowerClaims=new HashSet<>(),upperClaims=new HashSet<>();
         HashSet<Long> aClaims=new HashSet<>(),bClaims=new HashSet<>();
         HashSet<Long> storageClaims=new HashSet<>();
-        HashMap<Long,Transfer> lowerSources=new HashMap<>(),upperSources=new HashMap<>();
         for(long key:keys) {
             Node n=cells.get(key);
             if(n==null||n.type==SOURCE||n.type==HUB||n.type==STORAGE)continue;
@@ -593,32 +592,30 @@ public final class FactoryView extends View {
                 offerTransfer(key,n,true,x,y,proposals,lowerClaims,upperClaims,
                               aClaims,bClaims,storageClaims);
         }
-        for(Transfer transfer:proposals) {
-            if(transfer.fromUpper)upperSources.put(transfer.fromKey,transfer);
-            else lowerSources.put(transfer.fromKey,transfer);
-        }
+        // Each target has at most one reservation on each bridge lane.
+        // Store the incoming edge, not the outgoing one, so vacancy can
+        // propagate backwards from the exit to the start of a full belt.
+        HashMap<Long,Transfer> incomingLower=new HashMap<>(),incomingUpper=new HashMap<>();
         HashSet<Transfer> movable=new HashSet<>();
+        ArrayList<Transfer> queue=new ArrayList<>();
         for(Transfer t:proposals) {
+            if(t.port==0)incomingLower.put(t.toKey,t);
+            else if(t.port==1)incomingUpper.put(t.toKey,t);
             if(t.port>=2 || (t.port==0 && t.to.item==EMPTY) ||
-                (t.port==1 && t.to.crossItem==EMPTY))
+               (t.port==1 && t.to.crossItem==EMPTY)) {
                 movable.add(t);
-        }
-        // Propagate vacancy backward through the entire chain. A hundred
-        // adjacent numbers advance one tile in parallel, not every 2-3 ticks
-        // depending on whether HashMap happened to visit their cells first.
-        boolean changed;
-        do {
-            changed=false;
-            for(Transfer t:proposals) {
-                if(movable.contains(t)||t.port>1)continue;
-                Transfer downstream=t.port==0?
-                    lowerSources.get(t.toKey):upperSources.get(t.toKey);
-                if(downstream!=null&&movable.contains(downstream)) {
-                    movable.add(t);
-                    changed=true;
-                }
+                queue.add(t);
             }
-        } while(changed);
+        }
+        // Linear-time dependency walk: moving from a cell frees that cell's
+        // lane for its upstream neighbour. No hash-order stalls and no
+        // repeated whole-factory scans for long chains.
+        for(int i=0;i<queue.size();i++) {
+            Transfer leaving=queue.get(i);
+            Transfer upstream=leaving.fromUpper?
+                incomingUpper.get(leaving.fromKey):incomingLower.get(leaving.fromKey);
+            if(upstream!=null && movable.add(upstream))queue.add(upstream);
+        }
         // Clear only approved sources. This must happen before writing
         // destinations or queued numbers could be overwritten or duplicated.
         for(Transfer t:proposals) {
