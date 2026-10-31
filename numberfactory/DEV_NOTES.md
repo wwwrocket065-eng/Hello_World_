@@ -55,3 +55,20 @@
 - Prior development commits also animate chevrons through conveyor bends (`067953b`), allow the adder at level one (`39e68c6`), and stop GitHub Actions from automatically publishing unfinished preview releases (`4cabfea`).
 - **Status:** source commits recorded on branch `numera-ui-fixes-20261031`. Build and Android real-device validation are separate steps; neither full Beltmatic parity nor a finished APK is claimed here.
 - Still needed before final release: rigorous regression testing for miner placement, 12 output sockets and stream upgrades; conveyor intersections/bridges and other advanced mechanics; complete levels and technology unlocks; save migration and stable signing; device interaction and performance QA.
+
+
+## 2026-10-31 / v0.4.0 advanced machinery and conveyor checkpoint
+
+- Working branch: `numera-ui-fixes-20261031`; game in `numberfactory/`; no edits to Hello_World_, GlassStudy, Panspermia, or their update processes.
+- `2c1070b` and `d52cb96`: right-angle belt bridges, two independent lanes and animated crossing art. Bridges become available after completing level 4. This is a first-pass implementation, not on-device verified.
+- `f6c2c7e`: extended scripted goal/count list to 30 tiers and extraction thresholds.
+- `0ce0c7e`: core operations for subtraction, quotient/remainder, exponentiation, and a 10,000-item single-number storage. **CI success** on run 41219126781. At that stage the tools were not yet selectable.
+- `377475d` and `f9b4c13`: six-slot operator picker attached to the existing mathematical-machine toolbar; higher-tier tools only selectable after their unlock levels. Added visible symbols and storage content counter; CI success on run 41220233784.
+- Unlock stages: adder 1, multiplier 7, subtractor 13, divider 16, exponentiator 19, storage 22, per public Beltmatic wiki. Original textures/assets not copied.
+- `341588c`: item movement snapshot prevents a number from traversing multiple belt tiles in one tick due to hash iteration order; miner output scan rotates fairly. **CI success** on run 41220340194.
+- `65fa505` and `ecdda4c`: shared subtract/divide and independent exponent global upgrades; six rows in upgrade screen. First four historical upgrade tracks and saves remain in same order. Initial cost entries for subtract/divide are **provisional**, not verified original world-specific values; number IDs may vary by seed. Both commits failed CI due to type dimensionality, fixed in `9a6a790`.
+- `e1e1f67`: fix tapping rows five and six to actually buy their upgrades.
+- `0460177`: Android versionCode 5/versionName 0.4.0 (build metadata, not a released APK).
+- Save compatibility: persistent SharedPreferences name `numera_world_v2` and existing world records are kept. Newly saved machine records append a `storedCount` field after `crossDir`, while loading old records still accepts records lacking it. Upgrades now serialize six tracks while the loader accepts legacy four-track saves.
+- Built-in tests: GitHub Actions compiles `:app:assembleDebug`, but no Android emulator/UI interaction test. **Do not call the candidate a verified finished game, in-place update, or an official release** based only on Gradle compilation. Current CI after `e1e1f67` must be checked before distributing.
+- Remaining critical QA: simulate real phone touch, test long belt drafts/elbows and crosses with opposing streams, validate arithmetic A/B port ordering, storage buffering and persistence after restart, large factories/performance. Production stable signing and in-app patch/updater are not implemented. Public releases intentionally disabled for unfinished builds; GitHub Actions keeps debug artifacts for QA only.
