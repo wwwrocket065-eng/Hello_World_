@@ -8,14 +8,14 @@ android {
         applicationId 'com.numera.factory'
         minSdk 26
         targetSdk 35
-        versionCode 8
-        versionName '0.4.3'
+        versionCode 9
+        versionName '0.5.0'
     }
     // Debug previews use their own app ID: never replace a user's existing
     // Numera install with a differently signed ephemeral CI debug certificate.
     buildTypes {
         debug {
-            applicationIdSuffix '.qa3'
+            applicationIdSuffix '.qa4'
             versionNameSuffix '-test'
         }
     }
