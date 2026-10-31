@@ -907,7 +907,7 @@ public final class FactoryView extends View {
         float top=120*density;
         if(y<top||y>top+338*density){upgradePanel=false;return;}
         int row=(int)((y-top-32*density)/(50*density));
-        if(row>=0&&row<4&&y>=top+32*density)buyUpgrade(row);
+        if(row>=0&&row<upgradeLevels.length&&y>=top+32*density)buyUpgrade(row);
     }
 
     private void drawToolbar(Canvas c) {
