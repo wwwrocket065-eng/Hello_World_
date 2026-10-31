@@ -30,13 +30,13 @@ public final class FactoryView extends View {
     private static final String[] TOOLS={"Лента","Добыча","Сумма","Умнож.","Удалить","Выдел.","Вставить","Камера"};
     private static final String[] ICONS={"➜","◈","+","×","⌫","▧","▣","✥"};
     private static final int HUB_X=10, HUB_Y=9, HUB_SIZE=6;
-    private static final int[][] DEPOSITS={{4,9,1},{5,25,2},{23,8,3},{21,23,4},{-12,8,1},{-12,-8,2},{10,-14,3},{31,-13,5},{-27,22,4}};
+    private static final int[][] DEPOSITS={{4,12,1},{5,25,2},{23,8,3},{21,23,4},{-12,8,1},{-12,-8,2},{10,-14,3},{31,-13,5},{-27,22,4}};
     private static final float TOOLBAR_DP=94f, BELT_MENU_DP=44f;
     private final Map<Long,Node> cells = new HashMap<>();
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final SharedPreferences prefs;
     private final float density;
-    private float panX,panY,tile,zoom=1f;
+    private float panX,panY,tile,zoom=.70f;
     private float clock,stepAccumulator,sourceAccumulator,flash;
     private long lastFrame;
     private int selected=7, level=1,goal=1,required=10,delivered,allDelivered;
@@ -47,6 +47,16 @@ public final class FactoryView extends View {
     private final ArrayList<Point> route=new ArrayList<>();
     private Point routeLive;
     private final Map<Long,Node> clipboard=new HashMap<>();
+    private static final String[] UPGRADE_NAMES={"Ленты","Добытчики","Сумматоры","Умножители"};
+    // Amounts for the first eight tiers follow published Beltmatic upgrade tables.
+    // The original varies some requested number IDs between worlds.
+    private static final int[][][][] UPGRADE_REQ={{{{1,200}},{{1,1000},{16,500}},{{1,4000},{16,3000},{22,1500}},{{34,9000},{121,7000},{839,6000}},{{94,9000},{247,7000},{562,6000}},{{291,11000},{791,9000},{2319,8000}},{{854,15000},{1526,12000},{7891,10000}},{{1526,20000},{7891,16000},{4294,12000}}},{{{2,300}},{{2,2000},{18,1000}},{{2,5000},{18,2000},{23,1000}},{{16,8000},{22,3000},{438,2000}},{{89,10000},{378,4000},{787,3000}},{{291,12000},{791,8000},{2319,4000}},{{791,15000},{2319,12000},{7774,6000}},{{2319,20000},{7774,17000},{929,20000}}},{{{3,450}},{{3,3000},{11,1500}},{{3,5000},{11,4000},{75,3000}},{{11,7000},{91,5000},{193,4000}},{{91,12000},{193,10000},{625,5000}},{{193,15000},{625,12000},{3447,8000}},{{625,20000},{3447,17000},{9423,10000}},{{3447,30000},{9423,20000},{44031,16000}}},{{{15,500}},{{15,5000},{20,2500}},{{15,10000},{20,7000},{257,4000}},{{20,11000},{257,6000},{690,5000}},{{257,17000},{690,13000},{3644,6000}},{{690,22000},{3644,17000},{6433,10000}},{{3644,35000},{6433,25000},{49514,17000}},{{6433,37000},{49514,30000},{97001,20000}}}};
+    private static final int[] GOAL_SEQUENCE={1,2,3,5,10,19,27,36,47,50,82,174,248,324,466,594,631,727,891,928};
+    private static final int[] GOAL_COUNTS={10,20,35,40,50,100,150,300,450,500,600,800,1000,2000,3000,4000,5000,6000,7000,8000};
+    private final int[] upgradeLevels={1,1,1,1};
+    private final ArrayList<Map<Integer,Long>> upgradeBanks=new ArrayList<>();
+    private boolean upgradePanel,upgradeGesture,headerGesture;
+
 
     private static final class Node {
         int type,dir,value,item=EMPTY,a=EMPTY,b=EMPTY,upgrade=1,extracted;
@@ -61,6 +71,7 @@ public final class FactoryView extends View {
         density=getResources().getDisplayMetrics().density;
         prefs=ctx.getSharedPreferences("numera_world_v2",Context.MODE_PRIVATE);
         setLayerType(View.LAYER_TYPE_HARDWARE,null);
+        for(int i=0;i<4;i++)upgradeBanks.add(new HashMap<>());
         load();
     }
 
@@ -74,6 +85,7 @@ public final class FactoryView extends View {
     private void seed() {
         cells.clear();
         level=1;goal=1;required=10;delivered=0;allDelivered=0;
+        for(int i=0;i<4;i++){upgradeLevels[i]=1;upgradeBanks.get(i).clear();}
         // Blank factory: only the protected 6x6 collection hub exists.
         for(int y=HUB_Y;y<HUB_Y+HUB_SIZE;y++)
             for(int x=HUB_X;x<HUB_X+HUB_SIZE;x++) put(x,y,HUB,0,0);
@@ -161,7 +173,75 @@ public final class FactoryView extends View {
             if(cells.isEmpty()) seed();
             for(int y=HUB_Y;y<HUB_Y+HUB_SIZE;y++)
                 for(int x=HUB_X;x<HUB_X+HUB_SIZE;x++)put(x,y,HUB,0,0);
+            loadUpgrades();
         } catch(Exception ex) {seed();}
+    }
+    private void loadUpgrades() {
+        String raw=prefs.getString("upgrades",null);
+        if(raw==null)return;
+        try {
+            String[] parts=raw.split("#",2);
+            String[] levels=parts[0].split(",");
+            for(int i=0;i<4;i++)upgradeLevels[i]=Math.max(1,Integer.parseInt(levels[i]));
+            String[] banks=parts[1].split(";",-1);
+            for(int i=0;i<Math.min(4,banks.length);i++) {
+                upgradeBanks.get(i).clear();
+                for(String entry:banks[i].split(",")) {
+                    if(entry.isEmpty())continue;
+                    String[] pair=entry.split(":");
+                    upgradeBanks.get(i).put(Integer.parseInt(pair[0]),Long.parseLong(pair[1]));
+                }
+            }
+        }catch(Exception ex){
+            for(int i=0;i<4;i++){upgradeLevels[i]=1;upgradeBanks.get(i).clear();}
+        }
+    }
+    private String saveUpgrades() {
+        StringBuilder b=new StringBuilder();
+        for(int i=0;i<4;i++) {
+            if(i>0)b.append(',');
+            b.append(upgradeLevels[i]);
+        }
+        b.append('#');
+        for(int i=0;i<4;i++) {
+            if(i>0)b.append(';');
+            for(Map.Entry<Integer,Long> e:upgradeBanks.get(i).entrySet())
+                b.append(e.getKey()).append(':').append(e.getValue()).append(',');
+        }
+        return b.toString();
+    }
+    private void recordNumber(int number) {
+        for(Map<Integer,Long> bank:upgradeBanks)bank.put(number,bank.getOrDefault(number,0L)+1);
+    }
+    private boolean upgradeUnlocked(int kind) {
+        return kind<2||(kind==2&&level>=2)||(kind==3&&level>=7);
+    }
+    private int[][] requirements(int kind) {
+        int step=upgradeLevels[kind]-1;
+        return step<UPGRADE_REQ[kind].length?UPGRADE_REQ[kind][step]:new int[0][];
+    }
+    private boolean buyUpgrade(int kind) {
+        if(!upgradeUnlocked(kind))return false;
+        int[][] req=requirements(kind);
+        if(req.length==0)return false;
+        Map<Integer,Long> bank=upgradeBanks.get(kind);
+        for(int[] row:req)if(bank.getOrDefault(row[0],0L)<row[1])return false;
+        for(int[] row:req)bank.put(row[0],bank.getOrDefault(row[0],0L)-row[1]);
+        upgradeLevels[kind]++;
+        save();
+        return true;
+    }
+    private float beltSpeed() {
+        int level=upgradeLevels[0];
+        return level<=8?level:8f+(level-8)*.1f;
+    }
+    private int extractionMax() {
+        if(level<=3)return 1;
+        if(level<=5)return 2;
+        if(level==6)return 3;
+        if(level<=8)return 4;
+        if(level<=10)return 5;
+        return Math.min(999,Math.max(5,level-6));
     }
     public void save() {
         StringBuilder b=new StringBuilder();
@@ -175,7 +255,8 @@ public final class FactoryView extends View {
                 .append(n.type).append(',').append(n.dir).append(',')
                 .append(n.value).append(',').append(n.upgrade).append(';');
         }
-        prefs.edit().putString("world",b.toString()).apply();
+        prefs.edit().putString("world",b.toString())
+            .putString("upgrades",saveUpgrades()).apply();
     }
 
     @Override protected void onSizeChanged(int w,int h,int oldW,int oldH) {
@@ -198,18 +279,12 @@ public final class FactoryView extends View {
         if(lastFrame!=0) {
             float dt=Math.min(.05f,(now-lastFrame)/1_000_000_000f);
             clock+=dt;flash=Math.max(0,flash-dt*1.4f);
-            for(Node n:cells.values()) {
-                if(n.type==SOURCE && n.item==EMPTY) {
-                    n.progress+=dt*(1f+.45f*(n.upgrade-1));
-                    if(n.progress>=.95f) {
-                        n.progress=0;n.item=n.value;n.extracted++;
-                    }
-                }
-            }
             updateEdgeScroll(dt);
             stepAccumulator+=dt;
-            if(stepAccumulator>=.19f) {
-                stepAccumulator-=.19f;
+            float stepInterval=1f/beltSpeed();
+            int ticks=0;
+            while(stepAccumulator>=stepInterval && ticks++<4) {
+                stepAccumulator-=stepInterval;
                 step();
             }
         }
@@ -233,6 +308,7 @@ public final class FactoryView extends View {
         drawHud(c);
         drawToolbar(c);
         if(selected==0)drawBeltMenu(c);
+        if(upgradePanel)drawUpgradePanel(c);
         postInvalidateOnAnimation();
     }
 
@@ -244,24 +320,25 @@ public final class FactoryView extends View {
             if(n==null || n.item==EMPTY || n.type==HUB)continue;
             int x=(int)(key>>32),y=(int)key;
             int d=n.dir;
+            if(n.type==SOURCE)continue; // Miners output from the edge of the 3x3 field.
             int nx=x+DX[d],ny=y+DY[d];
             long next=id(nx,ny);
             Node dest=cells.get(next);
             if(dest==null)continue;
             if(dest.type==HUB) {
+                recordNumber(n.item);
+                allDelivered++;
                 if(n.item==goal) {
-                    delivered++;allDelivered++;
-                    flash=1f;
+                    delivered++;flash=1f;
                     if(delivered>=required) {
                         level++;
-                        int[] sequence={1,2,3,4,5,6,7,8,9,10,12,15,16,20,24,30,42,50,64,81};
-                        goal=sequence[(level-1)%sequence.length];
-                        required=level==2?20:10+level*10;
+                        goal=GOAL_SEQUENCE[(level-1)%GOAL_SEQUENCE.length];
+                        required=GOAL_COUNTS[(level-1)%GOAL_COUNTS.length];
                         delivered=0;
-                        save();
                     }
                 }
                 n.item=EMPTY;
+                if((allDelivered&31)==0)save();
             } else if(dest.type==BELT && dest.item==EMPTY && !entered.contains(next)) {
                 dest.item=n.item;
                 n.item=EMPTY;
@@ -271,6 +348,20 @@ public final class FactoryView extends View {
                 else if(y>ny && dest.b==EMPTY) {dest.b=n.item;n.item=EMPTY;}
                 else if(dest.a==EMPTY) {dest.a=n.item;n.item=EMPTY;}
                 else if(dest.b==EMPTY) {dest.b=n.item;n.item=EMPTY;}
+            }
+        }
+        for(Map.Entry<Long,Node> entry:cells.entrySet()) {
+            Node n=entry.getValue();
+            if(n.type!=SOURCE)continue;
+            int x=(int)(entry.getKey()>>32),y=(int)(long)entry.getKey();
+            int maxOutputs=Math.min(4,upgradeLevels[1]);
+            // Extractor saturates several independent output belts when upgraded.
+            for(int i=0;i<maxOutputs;i++) {
+                int d=(n.dir+i)%4;
+                Node out=get(x+DX[d]*2,y+DY[d]*2);
+                if(out!=null&&out.type==BELT&&out.item==EMPTY) {
+                    out.item=n.value;n.extracted++;
+                }
             }
         }
         for(Node n:cells.values()) {
@@ -368,7 +459,7 @@ public final class FactoryView extends View {
                 s*.08f,0xfff7c478);
             label(c,Integer.toString(n.value),cx,cy+s*.01f,
                   s*.39f,0xff302331,true,Paint.Align.CENTER);
-            label(c,"ДОБЫЧА  "+n.upgrade, cx,cy+s*.25f,s*.115f,
+            label(c,"ДОБЫЧА "+upgradeLevels[1], cx,cy+s*.25f,s*.115f,
                   0xff432b27,true,Paint.Align.CENTER);
         } else if(n.type==ADD||n.type==MULTIPLY) {
             int color=n.type==ADD?PURPLE:BLUE;
@@ -415,6 +506,8 @@ public final class FactoryView extends View {
         label(c,"NUMERA",22*d,43*d,25*d,0xffdbfaf9,true,Paint.Align.LEFT);
         label(c,"Ф А Б Р И К А   Ч И С Е Л",23*d,58*d,9*d,
               0xff85aebe,false,Paint.Align.LEFT);
+        label(c,"ПРОКАЧКА  ⇧",w-22*d,58*d,11*d,
+              0xff97e8d7,true,Paint.Align.RIGHT);
         label(c,"УРОВЕНЬ "+level,w-22*d,38*d,12*d,
               0xff7bddce,true,Paint.Align.RIGHT);
         label(c,"ЦЕЛЬ: "+goal,22*d,85*d,17*d,
@@ -426,6 +519,52 @@ public final class FactoryView extends View {
         if(f>0)box(c,22*d,95*d,22*d+(w-44*d)*f,103*d,
                   4*d,0xff52ded0);
     }
+    private void drawUpgradePanel(Canvas c) {
+        float d=density,w=getWidth(),top=120*d;
+        float bottom=Math.min(getHeight()-100*d,top+322*d);
+        box(c,8*d,top,w-8*d,bottom,18*d,0xf5092639);
+        label(c,"УЛУЧШЕНИЯ  ·  нажми для покупки",20*d,top+25*d,14*d,
+              0xffd6fff5,true,Paint.Align.LEFT);
+        int maxKinds=Math.min(4,(int)((bottom-top-32*d)/(70*d)));
+        for(int i=0;i<maxKinds;i++) {
+            float y=top+(32+70*i)*d;
+            if(i%2==0)box(c,14*d,y,w-14*d,y+66*d,9*d,0xff183d4b);
+            boolean available=upgradeUnlocked(i);
+            int[][] req=requirements(i);
+            String name=UPGRADE_NAMES[i]+"   ур. "+upgradeLevels[i];
+            label(c,name,23*d,y+23*d,15*d,available?0xffe6fff8:0xff708c9b,true,Paint.Align.LEFT);
+            if(!available) {
+                label(c,"Откроется на уровне "+(i==2?2:7),23*d,y+48*d,10*d,
+                      0xffd0aebd,false,Paint.Align.LEFT);
+                continue;
+            }
+            if(req.length==0) {
+                label(c,"Следующие ступени в разработке",23*d,y+48*d,10*d,
+                      0xffa0c4d0,false,Paint.Align.LEFT);
+                continue;
+            }
+            StringBuilder parts=new StringBuilder();
+            boolean all=true;
+            for(int[] pair:req) {
+                if(parts.length()>0)parts.append("  ·  ");
+                long have=upgradeBanks.get(i).getOrDefault(pair[0],0L);
+                parts.append(pair[0]).append(": ").append(Math.min(pair[1],have))
+                     .append("/").append(pair[1]);
+                if(have<pair[1])all=false;
+            }
+            label(c,parts.toString(),23*d,y+48*d,Math.max(8f,10f-req.length*.5f)*d,
+                  all?0xff79f0c9:0xffaac9d1,false,Paint.Align.LEFT);
+            label(c,all?"ГОТОВО":"",w-22*d,y+23*d,10*d,
+                  0xff7df1c6,true,Paint.Align.RIGHT);
+        }
+    }
+    private void tapUpgradePanel(float x,float y) {
+        float top=120*density;
+        if(y<top||y>top+322*density){upgradePanel=false;return;}
+        int row=(int)((y-top-32*density)/(70*density));
+        if(row>=0&&row<4&&y>=top+32*density)buyUpgrade(row);
+    }
+
     private void drawToolbar(Canvas c) {
         float d=density,w=getWidth(),h=getHeight();
         float top=h-94*d;
@@ -462,13 +601,12 @@ public final class FactoryView extends View {
             else if(old==null)put(x,y,BELT,0,0);
         } else if(selected==1) {
             int value=depositValue(x,y);
-            if(value<1)return; // A miner cannot create resources out of empty terrain.
+            if(value<1||value>extractionMax())return; // Only unlocked numbers can be extracted.
             if(old!=null&&old.type==SOURCE) {
-                int cost=10*old.upgrade;
-                if(old.upgrade<5&&allDelivered>=cost)old.upgrade++;
+                // Extractor upgrades are global, not purchased per deposit.
             } else if(old==null)put(x,y,SOURCE,0,value);
         } else if(selected==2) {
-            if(level>=3 && old==null && depositUnder(x,y)<0)put(x,y,ADD,0,0);
+            if(level>=2 && old==null && depositUnder(x,y)<0)put(x,y,ADD,0,0);
         } else if(selected==3) {
             if(level>=7 && old==null && depositUnder(x,y)<0)put(x,y,MULTIPLY,0,0);
         } else if(selected==4) {
@@ -625,7 +763,9 @@ public final class FactoryView extends View {
                 toolbarGesture=gestureY>=toolTop;
                 beltMenuGesture=selected==0&&gestureY>=menuTop&&!toolbarGesture;
                 pinching=false;dragged=false;routeGesture=false;paintGesture=false;
-                if(!toolbarGesture&&!beltMenuGesture&&gestureY>=124*density) {
+                upgradeGesture=upgradePanel&&gestureY>=120*density;
+                headerGesture=gestureY<116*density;
+                if(!upgradeGesture&&!headerGesture&&!toolbarGesture&&!beltMenuGesture&&gestureY>=124*density) {
                     if(selected==0) {
                         if(beltMode==0) {
                             paintGesture=true;
@@ -659,7 +799,7 @@ public final class FactoryView extends View {
                     }
                     lastSpan=current;return true;
                 }
-                if(toolbarGesture||beltMenuGesture||pinching)return true;
+                if(toolbarGesture||beltMenuGesture||pinching||upgradeGesture||headerGesture)return true;
                 gestureX=e.getX();gestureY=e.getY();
                 if(selected==7) {
                     panX+=gestureX-lastX;panY+=gestureY-lastY;dragged=true;
@@ -682,7 +822,11 @@ public final class FactoryView extends View {
             case MotionEvent.ACTION_POINTER_UP:
                 pinching=true;return true;
             case MotionEvent.ACTION_UP:
-                if(toolbarGesture&&e.getY()>=toolTop) {
+                if(upgradeGesture&&!pinching) {
+                    tapUpgradePanel(e.getX(),e.getY());
+                } else if(headerGesture&&!pinching) {
+                    upgradePanel=!upgradePanel;
+                } else if(toolbarGesture&&e.getY()>=toolTop) {
                     int index=(int)(e.getX()/Math.max(1f,getWidth()/8f));
                     selected=Math.max(0,Math.min(7,index));
                 } else if(beltMenuGesture&&selected==0) {
@@ -704,6 +848,7 @@ public final class FactoryView extends View {
                     place(gridX(e.getX()),gridY(e.getY()));
                 }
                 toolbarGesture=false;beltMenuGesture=false;
+                upgradeGesture=false;headerGesture=false;
                 paintGesture=false;routeGesture=false;pinching=false;
                 return true;
             case MotionEvent.ACTION_CANCEL:
