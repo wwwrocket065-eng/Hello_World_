@@ -42,8 +42,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/numera-tests"
           javac -d "$RUNNER_TEMP/numera-tests" \
             numberfactory/app/src/main/java/com/numera/factory/MachineLayout.java \
-            numberfactory/tests/com/numera/factory/MachineLayoutTest.java
+            numberfactory/app/src/main/java/com/numera/factory/ConveyorJunctions.java \
+            numberfactory/app/src/main/java/com/numera/factory/MachineOrientationMemory.java \
+            numberfactory/tests/com/numera/factory/MachineLayoutTest.java \
+            numberfactory/tests/com/numera/factory/FactoryPlacementRulesTest.java
           java -cp "$RUNNER_TEMP/numera-tests" com.numera.factory.MachineLayoutTest
+          java -cp "$RUNNER_TEMP/numera-tests" com.numera.factory.FactoryPlacementRulesTest
       - name: Build Numera debug APK
         working-directory: numberfactory
         run: gradle --no-daemon :app:assembleDebug
