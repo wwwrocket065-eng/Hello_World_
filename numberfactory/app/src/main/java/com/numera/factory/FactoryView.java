@@ -1753,7 +1753,10 @@ public final class FactoryView extends View {
         if(paintPath.isEmpty())return;
         if(paintPath.size()==1) {
             Point point=paintPath.get(0);
-            place(point.x,point.y);
+            // A real tap rotates an existing belt; a slight aborted drag
+            // within that same tile must not unexpectedly rotate it.
+            if(!paintStartedOnBelt||!dragged)
+                place(point.x,point.y);
         } else {
             for(int i=1;i<paintPath.size();i++) {
                 Point a=paintPath.get(i-1),b=paintPath.get(i);
