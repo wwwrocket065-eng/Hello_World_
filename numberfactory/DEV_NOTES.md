@@ -37,3 +37,13 @@
 - Diagnostic UI: add/multiply toolbar entries display the level where they unlock (2 and 7). Central hub contains live goal and progress and no "6×6" wording or decorative radial glow.
 - `versionCode=3`, `versionName=0.3.0`, and a new isolated GitHub Actions preview-release tag `numera-v0.3.0-preview`. The Action must pass before claiming APK availability.
 - **Not yet complete:** exact Beltmatic procedural map distribution, all levels and machines, full 12-stream balanced throughput, cross/bridge conveyors, advanced upgrades, robust touch usability on device, automatic signed in-place updates, original release signing key. Debug builds may differ in certificate between CI runs; installing over another version can fail. Do not claim complete parity. Preserve the user's save data when possible and do not uninstall without a backup.
+
+## 2026-10-31 / v0.3.1 spacing fix (number deposits)
+
+- User feedback: the 3×3 resource fields in v0.3.0 are too densely packed; keep many ones in the starting region, but make fields noticeably farther apart.
+- Commit `8a8aa27`: increased deterministic procedural region pitch from 27 to 46 world grid cells, reduced second-candidate generation from 56% to 38%, randomized centre offsets over 36 cells, and enforced at least **30 cells from centre to centre** for nearby accepted deposits (was 11). Generated deposits remain outside a 23-cell exclusion radius from the 6×6 hub centre (was 16).
+- Repositioned fixed starter deposits with the same minimum 30-cell separation; nine starter 1-deposits remain reachable around the hub, with some 2, 3, 4 and 8 fields farther away. This is not claimed to be Beltmatic's exact procedural algorithm.
+- Simulated candidate and starter layout across 17×17 generation regions with signed 32-bit Java-equivalent hashing: 208 accepted generated fields; minimum inter-centre distance ≈30.07 cells, excluding overlaps. Gameplay and appearance still need on-device verification.
+- Incremented Android `versionCode=4`, `versionName=0.3.1`, isolated release tag `numera-v0.3.1-preview` (commits `476b37e`, `dacac39`); check the run's completed-success state before calling its APK verified.
+- Existing user-placed machines in previous world saves remain in preferences: changing map distribution does not delete saved factories. A miner placed at an old resource centre can be left on a position no longer generated as a deposit; this compatibility caveat still needs a migration design.
+- Other v0.3.0 limitations remain: incomplete Beltmatic parity and tech tree; no stable APK signing or Downloads auto-update; on-device touch validation outstanding.
