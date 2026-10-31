@@ -43,15 +43,15 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: numera-v0.3.0-debug-apk
+          name: numera-v0.3.1-debug-apk
           path: numberfactory/app/build/outputs/apk/debug/app-debug.apk
       - name: Publish preview release
         if: github.event_name == 'push' && github.ref == 'refs/heads/numera-ui-fixes-20261031'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: numera-v0.3.0-preview
-          name: Numera 0.3.0 Android preview
+          tag_name: numera-v0.3.1-preview
+          name: Numera 0.3.1 Android preview
           target_commitish: numera-ui-fixes-20261031
           prerelease: true
           files: numberfactory/app/build/outputs/apk/debug/app-debug.apk
-          body: "Numera 0.3.0 PREVIEW: restored belts, curving paths, route confirm, erase gestures and selected-area delete, more natural deposits, goal hub. Debug signed for tests; not full Beltmatic parity, stable signing or autoupdates."
+          body: "Numera 0.3.1 PREVIEW: sparse 3x3 deposits with 30-cell minimum centre spacing, starter ones preserved; restored belts, curving paths, route confirm, erase gestures and selected-area delete, more natural deposits, goal hub. Debug signed for tests; not full Beltmatic parity, stable signing or autoupdates."
