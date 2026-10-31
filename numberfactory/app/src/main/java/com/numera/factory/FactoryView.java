@@ -30,7 +30,7 @@ public final class FactoryView extends View {
     private static final String[] TOOLS={"Лента","Добыча","Сумма","Умнож.","Удалить","Выдел.","Вставить","Камера"};
     private static final String[] ICONS={"➜","◈","+","×","⌫","▧","▣","✥"};
     private static final int HUB_X=10, HUB_Y=9, HUB_SIZE=6;
-    private static final int[][] DEPOSITS={{4,12,1},{5,25,2},{23,8,3},{21,23,4},{-12,8,1},{-12,-8,2},{10,-14,3},{31,-13,5},{-27,22,4}};
+    private static final int[][] DEPOSITS={{5,12,1},{5,25,2},{23,8,3},{21,23,4},{-12,8,1},{-12,-8,2},{10,-14,3},{31,-13,5},{-27,22,4}};
     private static final float TOOLBAR_DP=94f, BELT_MENU_DP=44f;
     private final Map<Long,Node> cells = new HashMap<>();
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -235,6 +235,12 @@ public final class FactoryView extends View {
         int level=upgradeLevels[0];
         return level<=8?level:8f+(level-8)*.1f;
     }
+    private float operatorSpeed(int type) {
+        int i=Math.max(0,Math.min(7,upgradeLevels[type==ADD?2:3]-1));
+        float[] adder={.25f,1f/3f,.4f,.5f,2f/3f,1f,1.5f,2f};
+        float[] multiplier={.2f,.3f,.4f,.5f,.6f,.7f,.8f,1f};
+        return type==ADD?adder[i]:multiplier[i];
+    }
     private int extractionMax() {
         if(level<=3)return 1;
         if(level<=5)return 2;
@@ -279,6 +285,13 @@ public final class FactoryView extends View {
         if(lastFrame!=0) {
             float dt=Math.min(.05f,(now-lastFrame)/1_000_000_000f);
             clock+=dt;flash=Math.max(0,flash-dt*1.4f);
+            for(Node n:cells.values()) {
+                if(n.type==ADD||n.type==MULTIPLY) {
+                    if(n.a!=EMPTY&&n.b!=EMPTY&&n.item==EMPTY)
+                        n.progress=Math.min(2f,n.progress+dt*operatorSpeed(n.type));
+                    else n.progress=0f;
+                }
+            }
             updateEdgeScroll(dt);
             stepAccumulator+=dt;
             float stepInterval=1f/beltSpeed();
@@ -355,18 +368,20 @@ public final class FactoryView extends View {
             if(n.type!=SOURCE)continue;
             int x=(int)(entry.getKey()>>32),y=(int)(long)entry.getKey();
             int maxOutputs=Math.min(4,upgradeLevels[1]);
-            // Extractor saturates several independent output belts when upgraded.
-            for(int i=0;i<maxOutputs;i++) {
+            int produced=0;
+            // Prefer any connected free belt, rather than only the first fixed directions.
+            for(int i=0;i<4&&produced<maxOutputs;i++) {
                 int d=(n.dir+i)%4;
                 Node out=get(x+DX[d]*2,y+DY[d]*2);
                 if(out!=null&&out.type==BELT&&out.item==EMPTY) {
-                    out.item=n.value;n.extracted++;
+                    out.item=n.value;n.extracted++;produced++;
                 }
             }
         }
         for(Node n:cells.values()) {
             if((n.type==ADD || n.type==MULTIPLY) &&
-               n.a!=EMPTY && n.b!=EMPTY && n.item==EMPTY) {
+               n.a!=EMPTY && n.b!=EMPTY && n.item==EMPTY && n.progress>=1f) {
+                n.progress=0f;
                 long result=n.type==ADD ? (long)n.a+n.b : (long)n.a*n.b;
                 n.item=(int)Math.min(999999999L,Math.max(-999999999L,result));
                 n.a=EMPTY;n.b=EMPTY;
