@@ -1376,12 +1376,9 @@ public final class FactoryView extends View {
             if(n.multi) {
                 int ox=x+n.originX,oy=y+n.originY;
                 if(putMachine(ox,oy,n.type,n.rotation)) {
-                    Node owner=machineAt(ox,oy);
-                    if(owner==null) {
-                        MachineLayout.Shape sh=MachineLayout.shape(n.type,n.rotation);
-                        MachineLayout.Cell first=sh.cells[0];
-                        owner=machineAt(ox+first.x,oy+first.y);
-                    }
+                    MachineLayout.Shape sh=MachineLayout.shape(n.type,n.rotation);
+                    MachineLayout.Cell first=sh.cells[0];
+                    Node owner=machineAt(ox+first.x,oy+first.y);
                     if(owner!=null)owner.upgrade=n.upgrade;
                 }
                 continue;
