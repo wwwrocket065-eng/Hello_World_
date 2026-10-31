@@ -105,3 +105,10 @@
 - Algorithmic sanity checks with full 40-cell chain feeding a hub, 30/40 populated chain, blocked full chain, and one-cell path confirmed cargo count conservation and advancement.
 - Commits `adab80f` and `5447767`: versionCode 7 / `0.4.2`; debug app ID `com.numera.factory.qa2` with name `Numera Test 2`. Side-by-side QA package is intentional because CI debug keys change between builds; never replace production `com.numera.factory`, delete a user's old application or claim in-place update compatibility.
 - **Remaining verification:** GitHub Actions run for latest `5447767` still needs completion check; unpack and verify output artifact. Real-device test of the exact recorded scenario and final hub delivery still required; do not claim the two user-reported bugs are definitively resolved until that test.
+
+### v0.4.2 build verified, 31 October 2026
+
+- Final code/manifest GitHub Actions run `41224411456` on commit `5447767`: completed **success** (artifact `13050951754`).
+- Downloaded artifact archive `Numera_Test2_v0.4.2.zip`, extracted `app-debug.apk` to `/mnt/data/Numera_Test2_v0.4.2.apk` (37,685 bytes). Archive and APK CRC checks passed. APK signature-block marker confirmed. APK SHA-256: `95dbe78bf3193382e32ba2c5b7b11f32d3b6231b2174e11af28fc419fd2b0c50`.
+- Binary AndroidManifest strings explicitly include `com.numera.factory.qa2` and `Numera Test 2`, so this QA APK does not overwrite `com.numera.factory` or `com.numera.factory.qa`.
+- Phone install, interaction and original video replay still not tested. No assertion of complete bug resolution until device QA; a source-level deterministic chain transport defect was corrected, with a verified build.
