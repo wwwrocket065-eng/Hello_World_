@@ -37,6 +37,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Verify all multi-cell footprints and ports
+        run: |
+          mkdir -p "$RUNNER_TEMP/numera-tests"
+          javac -d "$RUNNER_TEMP/numera-tests" \
+            numberfactory/app/src/main/java/com/numera/factory/MachineLayout.java \
+            numberfactory/tests/com/numera/factory/MachineLayoutTest.java
+          java -cp "$RUNNER_TEMP/numera-tests" com.numera.factory.MachineLayoutTest
       - name: Build Numera debug APK
         working-directory: numberfactory
         run: gradle --no-daemon :app:assembleDebug
