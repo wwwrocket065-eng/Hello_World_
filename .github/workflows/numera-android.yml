@@ -1,0 +1,57 @@
+name: Numera Android APK
+
+on:
+  push:
+    branches: [numberfactory-android]
+    paths:
+      - "numberfactory/**"
+      - ".github/workflows/numera-android.yml"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "numberfactory/**"
+      - ".github/workflows/numera-android.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Verify preinstalled Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+          ls "$ANDROID_HOME/build-tools" || true
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Build Numera debug APK
+        working-directory: numberfactory
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: numera-v0.2.0-debug-apk
+          path: numberfactory/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish preview release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/numberfactory-android'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: numera-v0.2.0-preview
+          name: Numera 0.2.0 Android preview
+          target_commitish: numberfactory-android
+          prerelease: true
+          files: numberfactory/app/build/outputs/apk/debug/app-debug.apk
+          body: "Numera 0.2.0 test: blank 6x6 hub, 3x3 deposits, camera default, route previews, selection, upgrade tracks. Debug signed; original signing identity and auto-update not yet supported."
