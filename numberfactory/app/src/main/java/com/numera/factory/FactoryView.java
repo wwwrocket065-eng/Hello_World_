@@ -11,6 +11,7 @@ import android.graphics.Point;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.view.MotionEvent;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -92,6 +93,24 @@ public final class FactoryView extends View {
     private final int[] upgradeLevels={1,1,1,1,1,1};
     private final ArrayList<Map<Integer,Long>> upgradeBanks=new ArrayList<>();
     private boolean upgradePanel,upgradeGesture,headerGesture;
+    private Node focusedMachine,pressedMachine;
+    private boolean editMoveMode,editMenuGesture,editDragGesture;
+    private boolean machinePressActive,longPressTriggered;
+    private int editTargetX,editTargetY,editFingerDX,editFingerDY;
+    private String machineEditMessage="";
+    private float machineEditMessageUntil;
+    private final Runnable machineLongPress=new Runnable() {
+        @Override public void run() {
+            if(!machinePressActive||pressedMachine==null||pinching||dragged)return;
+            focusedMachine=pressedMachine;
+            editMoveMode=false;
+            longPressTriggered=true;
+            machinePressActive=false;
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            invalidate();
+        }
+    };
+
 
 
     // Render-only interpolation. Never serialized and never changes simulation.
@@ -180,6 +199,96 @@ public final class FactoryView extends View {
         }
         return true;
     }
+    /**
+     * Atomically relocate or rotate an occupied multi-tile machine. Allow
+     * overlaps with its OWN previous tiles, reject any other objects, and
+     * preserve the same controller instance with all A/B/buffer contents.
+     */
+    private boolean canReconfigure(Node owner,int newX,int newY,int rotation) {
+        if(owner==null||!owner.multi)return false;
+        MachineLayout.Shape shape=MachineLayout.shape(owner.type,rotation);
+        if(shape==null)return false;
+        for(MachineLayout.Cell part:shape.cells) {
+            int xx=newX+part.x,yy=newY+part.y;
+            if(!within(xx,yy)||isHub(xx,yy)||depositUnder(xx,yy)>0)return false;
+            Node occupied=get(xx,yy);
+            if(occupied!=null&&machineAt(xx,yy)!=owner)return false;
+        }
+        return true;
+    }
+    private boolean relocateMachine(Node owner,int newX,int newY,int rotation) {
+        if(!canReconfigure(owner,newX,newY,rotation))return false;
+        MachineLayout.Shape old=MachineLayout.shape(owner.type,owner.rotation);
+        for(MachineLayout.Cell cell:old.cells)
+            cells.remove(id(owner.originX+cell.x,owner.originY+cell.y));
+        MachineLayout.Shape shape=MachineLayout.shape(owner.type,rotation);
+        MachineLayout.Cell first=shape.cells[0];
+        int anchorX=newX+first.x,anchorY=newY+first.y;
+        owner.originX=newX;owner.originY=newY;owner.rotation=rotation&3;
+        owner.ownerX=anchorX;owner.ownerY=anchorY;owner.port=first.port;
+        cells.put(id(anchorX,anchorY),owner);
+        for(int i=1;i<shape.cells.length;i++) {
+            MachineLayout.Cell cell=shape.cells[i];
+            Node part=new Node(PART,0,0);
+            part.ownerX=anchorX;part.ownerY=anchorY;part.port=cell.port;
+            cells.put(id(newX+cell.x,newY+cell.y),part);
+        }
+        save();
+        return true;
+    }
+    private float machineEditMenuTop() {
+        boolean hasSecondary=selected==0||selected==5||machineMenuVisible();
+        return getHeight()-(TOOLBAR_DP+BELT_MENU_DP+
+                            (hasSecondary?BELT_MENU_DP:0f))*density;
+    }
+    private void setMachineMessage(String msg) {
+        machineEditMessage=msg;machineEditMessageUntil=clock+2f;
+    }
+    private void drawMachineEditMenu(Canvas c) {
+        if(focusedMachine==null)return;
+        float d=density,w=getWidth(),y=machineEditMenuTop();
+        box(c,6*d,y,w-6*d,y+BELT_MENU_DP*d,12*d,0xff183748);
+        String[] actions={editMoveMode?"Указать место":"Переместить","Повернуть ↻"};
+        for(int i=0;i<2;i++) {
+            float left=w*i*.5f,right=w*(i+1)*.5f;
+            box(c,left+4*d,y+3*d,right-4*d,y+41*d,
+                9*d,i==0?0xff206b71:0xff3b526e);
+            label(c,actions[i],(left+right)*.5f,y+27*d,13*d,
+                  0xffe4fff8,true,Paint.Align.CENTER);
+        }
+        if(clock<machineEditMessageUntil)
+            label(c,machineEditMessage,w*.5f,y-8*d,12*d,
+                  0xffffbe9d,true,Paint.Align.CENTER);
+    }
+    private void drawMachineEditOutline(Canvas c) {
+        if(focusedMachine==null)return;
+        Node m=focusedMachine;
+        int px=editMoveMode?editTargetX:m.originX;
+        int py=editMoveMode?editTargetY:m.originY;
+        MachineLayout.Shape shape=MachineLayout.shape(m.type,m.rotation);
+        if(shape==null)return;
+        Path silhouette=new Path();
+        boolean first=true;
+        float s=sz();
+        for(MachineLayout.Cell cell:shape.cells) {
+            Path part=new Path();
+            float left=panX+(px+cell.x)*s,top=panY+(py+cell.y)*s;
+            part.addRect(left,top,left+s,top+s,Path.Direction.CW);
+            if(first){silhouette.addPath(part);first=false;}
+            else silhouette.op(part,Path.Op.UNION);
+        }
+        boolean available=canReconfigure(m,px,py,m.rotation);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(editMoveMode?(available?0x5542dbce:0x66ed6c76):0x223affd8);
+        c.drawPath(silhouette,p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2*density,s*.085f));
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setColor(available?0xff74eee2:0xfffa9292);
+        c.drawPath(silhouette,p);
+        p.setStyle(Paint.Style.FILL);
+    }
+
     private void seed() {
         cells.clear();
         level=1;goal=1;required=10;delivered=0;allDelivered=0;
@@ -550,6 +659,7 @@ public final class FactoryView extends View {
         }
         drawRoutePreview(c);
         drawSelection(c);
+        drawMachineEditOutline(c);
         c.restore();
         drawHud(c);
         drawToolbar(c);
@@ -557,6 +667,7 @@ public final class FactoryView extends View {
         if(selected==5)drawSelectionMenu(c);
         if(machineMenuVisible())drawMachineMenu(c);
         if(upgradePanel)drawUpgradePanel(c);
+        drawMachineEditMenu(c);
         postInvalidateOnAnimation();
     }
 
