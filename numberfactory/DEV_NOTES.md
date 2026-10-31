@@ -47,3 +47,11 @@
 - Incremented Android `versionCode=4`, `versionName=0.3.1`, isolated release tag `numera-v0.3.1-preview` (commits `476b37e`, `dacac39`); check the run's completed-success state before calling its APK verified.
 - Existing user-placed machines in previous world saves remain in preferences: changing map distribution does not delete saved factories. A miner placed at an old resource centre can be left on a position no longer generated as a deposit; this compatibility caveat still needs a migration design.
 - Other v0.3.0 limitations remain: incomplete Beltmatic parity and tech tree; no stable APK signing or Downloads auto-update; on-device touch validation outstanding.
+
+## 2026-10-31 / Mine placement touch-target fix (post-v0.3.1; unpublished)
+
+- User requirement: when the miner placement tool is active, touching **any of the nine cells** of a visible 3×3 deposit places the one extractor at that deposit's **centre**. The miner does not shift to the touched edge cell.
+- Commit `8df82063a42d1fefd8b04d9d5e5db0d03ea647e3`: `FactoryView.depositCenterAt()` resolves a touch to the canonical deposit centre. Mine placement checks the centred value against unlocked extraction and only inserts when that central node is vacant, so further touches cannot spawn duplicates.
+- Prior development commits also animate chevrons through conveyor bends (`067953b`), allow the adder at level one (`39e68c6`), and stop GitHub Actions from automatically publishing unfinished preview releases (`4cabfea`).
+- **Status:** source commits recorded on branch `numera-ui-fixes-20261031`. Build and Android real-device validation are separate steps; neither full Beltmatic parity nor a finished APK is claimed here.
+- Still needed before final release: rigorous regression testing for miner placement, 12 output sockets and stream upgrades; conveyor intersections/bridges and other advanced mechanics; complete levels and technology unlocks; save migration and stable signing; device interaction and performance QA.
