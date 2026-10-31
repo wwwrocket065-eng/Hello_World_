@@ -94,7 +94,7 @@ public final class FactoryView extends View {
     private final ArrayList<Map<Integer,Long>> upgradeBanks=new ArrayList<>();
     private boolean upgradePanel,upgradeGesture,headerGesture;
     private Node focusedMachine,pressedMachine;
-    private boolean editMoveMode,editMenuGesture,editDragGesture;
+    private boolean editMoveMode,rotateIconGesture,editDragGesture;
     private boolean machinePressActive,longPressTriggered;
     private int editTargetX,editTargetY,editFingerDX,editFingerDY;
     private String machineEditMessage="";
@@ -103,7 +103,12 @@ public final class FactoryView extends View {
         @Override public void run() {
             if(!machinePressActive||pressedMachine==null||pinching||dragged)return;
             focusedMachine=pressedMachine;
-            editMoveMode=false;
+            editMoveMode=true;
+            editDragGesture=true;
+            editFingerDX=priorGridX-focusedMachine.originX;
+            editFingerDY=priorGridY-focusedMachine.originY;
+            editTargetX=focusedMachine.originX;
+            editTargetY=focusedMachine.originY;
             longPressTriggered=true;
             machinePressActive=false;
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -236,54 +241,65 @@ public final class FactoryView extends View {
         save();
         return true;
     }
-    private float machineEditMenuTop() {
-        boolean hasSecondary=selected==0||selected==5||machineMenuVisible();
-        return getHeight()-(TOOLBAR_DP+BELT_MENU_DP+
-                            (hasSecondary?BELT_MENU_DP:0f))*density;
+    // Floating rotation control is anchored above the selected building.
+    // It never takes space from the bottom toolbar or belt drawing area.
+    private float rotateIconX() {
+        if(focusedMachine==null)return -1000f;
+        MachineLayout.Shape shape=MachineLayout.shape(
+            focusedMachine.type,focusedMachine.rotation);
+        int gx=editDragGesture?editTargetX:focusedMachine.originX;
+        float x=panX+(gx+shape.width*.5f)*sz();
+        return Math.max(24*density,Math.min(getWidth()-24*density,x));
+    }
+    private float rotateIconY() {
+        if(focusedMachine==null)return -1000f;
+        int gy=editDragGesture?editTargetY:focusedMachine.originY;
+        float y=panY+gy*sz()-28*density;
+        return Math.max(151*density,
+            Math.min(getHeight()-TOOLBAR_DP*density-26*density,y));
+    }
+    private boolean hitRotationIcon(float x,float y) {
+        if(focusedMachine==null)return false;
+        return Math.hypot(x-rotateIconX(),y-rotateIconY())<=27*density;
     }
     private void setMachineMessage(String msg) {
-        machineEditMessage=msg;machineEditMessageUntil=clock+2f;
+        machineEditMessage=msg;
+        machineEditMessageUntil=clock+2f;
     }
-    private void drawMachineEditMenu(Canvas c) {
+    private void drawMachineRotateIcon(Canvas c) {
         if(focusedMachine==null)return;
-        float d=density,w=getWidth(),y=machineEditMenuTop();
-        box(c,6*d,y,w-6*d,y+BELT_MENU_DP*d,12*d,0xff183748);
-        String[] actions={editMoveMode?"Указать место":"Переместить","Повернуть ↻"};
-        for(int i=0;i<2;i++) {
-            float left=w*i*.5f,right=w*(i+1)*.5f;
-            box(c,left+4*d,y+3*d,right-4*d,y+41*d,
-                9*d,i==0?0xff206b71:0xff3b526e);
-            label(c,actions[i],(left+right)*.5f,y+27*d,13*d,
-                  0xffe4fff8,true,Paint.Align.CENTER);
+        float d=density,x=rotateIconX(),y=rotateIconY();
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0xff0d2836);
+        c.drawCircle(x,y,24*d,p);
+        p.setColor(0xff2b7680);
+        c.drawCircle(x,y,20*d,p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2f,2*d));
+        p.setColor(0xffc8fff4);
+        c.drawCircle(x,y,19*d,p);
+        p.setStyle(Paint.Style.FILL);
+        label(c,"↻",x,y+10*d,29*d,0xfff0fff8,true,Paint.Align.CENTER);
+        if(clock<machineEditMessageUntil) {
+            label(c,machineEditMessage,x,Math.max(133*density,y-33*d),
+                  11*d,0xffffc99a,true,Paint.Align.CENTER);
         }
-        if(clock<machineEditMessageUntil)
-            label(c,machineEditMessage,w*.5f,y-8*d,12*d,
-                  0xffffbe9d,true,Paint.Align.CENTER);
     }
     private void drawMachineEditOutline(Canvas c) {
-        if(focusedMachine==null)return;
+        if(focusedMachine==null||!editDragGesture)return;
         Node m=focusedMachine;
-        int px=editMoveMode?editTargetX:m.originX;
-        int py=editMoveMode?editTargetY:m.originY;
         MachineLayout.Shape shape=MachineLayout.shape(m.type,m.rotation);
         if(shape==null)return;
-        Path silhouette=new Path();
-        boolean first=true;
-        float s=sz();
-        for(MachineLayout.Cell cell:shape.cells) {
-            Path part=new Path();
-            float left=panX+(px+cell.x)*s,top=panY+(py+cell.y)*s;
-            part.addRect(left,top,left+s,top+s,Path.Direction.CW);
-            if(first){silhouette.addPath(part);first=false;}
-            else silhouette.op(part,Path.Op.UNION);
-        }
-        boolean available=canReconfigure(m,px,py,m.rotation);
+        float s=sz(),ox=panX+editTargetX*s,oy=panY+editTargetY*s;
+        Path silhouette=machineSilhouette(m.type,m.rotation,ox,oy,s);
+        boolean available=canReconfigure(m,editTargetX,editTargetY,m.rotation);
+        // Drag the actual rounded machine skin, not just a selection square.
+        drawMultiMachineAt(c,m,editTargetX,editTargetY);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(editMoveMode?(available?0x5542dbce:0x66ed6c76):0x223affd8);
+        p.setColor(available?0x2642dbce:0x66ed6c76);
         c.drawPath(silhouette,p);
         p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(Math.max(2*density,s*.085f));
-        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setStrokeWidth(Math.max(2*density,s*.07f));
         p.setColor(available?0xff74eee2:0xfffa9292);
         c.drawPath(silhouette,p);
         p.setStyle(Paint.Style.FILL);
@@ -644,7 +660,8 @@ public final class FactoryView extends View {
         c.clipRect(0,hudH,getWidth(),barY);
         for(Map.Entry<Long,Node> entry:cells.entrySet()) {
             long key=entry.getKey();
-            if(entry.getValue().type!=HUB)
+            if(entry.getValue().type!=HUB &&
+               !(editDragGesture&&entry.getValue()==focusedMachine))
                 drawNode(c,(int)(key>>32),(int)key,entry.getValue());
         }
         // Render moving tokens after every belt and machine, not under their
@@ -660,6 +677,7 @@ public final class FactoryView extends View {
         drawRoutePreview(c);
         drawSelection(c);
         drawMachineEditOutline(c);
+        drawMachineRotateIcon(c);
         c.restore();
         drawHud(c);
         drawToolbar(c);
@@ -667,7 +685,6 @@ public final class FactoryView extends View {
         if(selected==5)drawSelectionMenu(c);
         if(machineMenuVisible())drawMachineMenu(c);
         if(upgradePanel)drawUpgradePanel(c);
-        drawMachineEditMenu(c);
         postInvalidateOnAnimation();
     }
 
