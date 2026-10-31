@@ -32,6 +32,7 @@ public final class FactoryView extends View {
     private static final int HUB_X=10, HUB_Y=9, HUB_SIZE=6;
     private static final int[][] DEPOSITS={{5,12,1},{5,25,2},{23,8,3},{21,23,4},{-12,8,1},{-12,-8,2},{10,-14,3},{31,-13,5},{-27,22,4}};
     private static final float TOOLBAR_DP=94f, BELT_MENU_DP=44f;
+    private static final int[][] MINE_OUTPUTS={{2,-1},{2,0},{2,1},{1,2},{0,2},{-1,2},{-2,1},{-2,0},{-2,-1},{-1,-2},{0,-2},{1,-2}};
     private final Map<Long,Node> cells = new HashMap<>();
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final SharedPreferences prefs;
@@ -141,15 +142,16 @@ public final class FactoryView extends View {
     private void drawHub(Canvas c) {
         float s=sz(),left=panX+HUB_X*s,top=panY+HUB_Y*s,side=HUB_SIZE*s;
         if(left>getWidth()||top>getHeight()||left+side<0||top+side<0)return;
-        box(c,left,top,left+side,top+side,s*.55f,0xff154b60);
-        box(c,left+s*.20f,top+s*.20f,left+side-s*.20f,top+side-s*.20f,
-                s*.45f,0xff3ed1c8);
-        box(c,left+s*.42f,top+s*.42f,left+side-s*.42f,top+side-s*.42f,
-                s*.38f,0xff123548);
-        label(c,"◎",left+side*.5f,top+side*.57f,
-             s*2.5f,0xffb5fff2,true,Paint.Align.CENTER);
-        label(c,"БАЗА 6×6",left+side*.5f,top+side*.75f,
-             s*.56f,0xffabf5e9,true,Paint.Align.CENTER);
+        // Flat original game-style hub: no glow or size/debug annotation.
+        box(c,left,top,left+side,top+side,s*.35f,0xff16475b);
+        box(c,left+s*.17f,top+s*.17f,left+side-s*.17f,top+side-s*.17f,
+                s*.32f,0xff2a9c9a);
+        box(c,left+s*.35f,top+s*.35f,left+side-s*.35f,top+side-s*.35f,
+                s*.27f,0xff142e40);
+        label(c,Integer.toString(goal),left+side*.5f,top+side*.52f,
+             s*1.9f,0xfff2fff5,true,Paint.Align.CENTER);
+        label(c,delivered+" / "+required,left+side*.5f,top+side*.72f,
+             s*.58f,0xffa9e8dc,true,Paint.Align.CENTER);
     }
     private void load() {
         String raw=prefs.getString("world",null);
@@ -367,12 +369,14 @@ public final class FactoryView extends View {
             Node n=entry.getValue();
             if(n.type!=SOURCE)continue;
             int x=(int)(entry.getKey()>>32),y=(int)(long)entry.getKey();
-            int maxOutputs=Math.min(4,upgradeLevels[1]);
+            // 3x3 field, 12 perimeter output slots. Global upgrade controls
+            // total throughput; one stream's worth at the initial level.
+            int maxOutputs=Math.min(12,upgradeLevels[1]);
             int produced=0;
-            // Prefer any connected free belt, rather than only the first fixed directions.
-            for(int i=0;i<4&&produced<maxOutputs;i++) {
-                int d=(n.dir+i)%4;
-                Node out=get(x+DX[d]*2,y+DY[d]*2);
+            for(int scan=0;scan<MINE_OUTPUTS.length && produced<maxOutputs;scan++) {
+                int i=Math.floorMod(n.extracted+scan,MINE_OUTPUTS.length);
+                int xx=x+MINE_OUTPUTS[i][0],yy=y+MINE_OUTPUTS[i][1];
+                Node out=get(xx,yy);
                 if(out!=null&&out.type==BELT&&out.item==EMPTY) {
                     out.item=n.value;n.extracted++;produced++;
                 }
@@ -407,11 +411,6 @@ public final class FactoryView extends View {
             c.drawLine(0,y,getWidth(),y,p);
         }
         p.setStyle(Paint.Style.FILL);
-        float cx=panX+13.5f*s,cy=panY+9.5f*s;
-        for(int k=4;k>0;k--) {
-            p.setColor(Color.argb(9,55,200,194));
-            c.drawCircle(cx,cy,s*(1.0f+k*.55f),p);
-        }
     }
     private void box(Canvas c,float l,float t,float r,float b,float radius,int color) {
         p.setStyle(Paint.Style.FILL);p.setColor(color);
@@ -440,31 +439,55 @@ public final class FactoryView extends View {
         if(cx<-s || cy<-s || cx>getWidth()+s || cy>getHeight()+s)return;
         if(n.type==BELT) {
             int incoming=n.dir;
-            // Inbound direction allows actual elbow rendering, not a straight rotated tile.
-            for(int candidate=0;candidate<4;candidate++) {
-                int px=x-DX[candidate],py=y-DY[candidate];
-                Node prev=get(px,py);
-                if(prev!=null && prev.dir==candidate &&
-                      (prev.type==BELT||prev.type==SOURCE||prev.type==ADD||prev.type==MULTIPLY)) {
-                    incoming=candidate;break;
+            for(int d=0;d<4;d++) {
+                Node prev=get(x-DX[d],y-DY[d]);
+                if(prev!=null && prev.dir==d && prev.type==BELT) {
+                    incoming=d;
+                    break;
                 }
             }
-            p.setStyle(Paint.Style.STROKE);p.setStrokeCap(Paint.Cap.ROUND);
-            p.setStrokeJoin(Paint.Join.ROUND);
-            Path bend=new Path();
-            bend.moveTo(cx-DX[incoming]*s*.48f,cy-DY[incoming]*s*.48f);
-            bend.lineTo(cx,cy);
-            bend.lineTo(cx+DX[n.dir]*s*.48f,cy+DY[n.dir]*s*.48f);
-            p.setColor(0xff123346);p.setStrokeWidth(s*.52f);
-            c.drawPath(bend,p);
-            p.setColor(0xff277a85);p.setStrokeWidth(s*.38f);
-            c.drawPath(bend,p);
-            p.setColor(0xff5ae3d4);p.setStrokeWidth(Math.max(1f,s*.055f));
-            c.drawPath(bend,p);
-            p.setStyle(Paint.Style.FILL);
-            float arrowX=cx+DX[n.dir]*s*.22f,arrowY=cy+DY[n.dir]*s*.22f;
-            label(c,n.dir==0?"›":n.dir==1?"⌄":n.dir==2?"‹":"⌃",
-                  arrowX,arrowY+s*.12f,s*.42f,0xffd2fff6,true,Paint.Align.CENTER);
+            if(incoming!=n.dir && incoming!=(n.dir+2)%4) {
+                // Same wide turquoise belt material as v0.1.0, now following a bend.
+                Path corner=new Path();
+                corner.moveTo(cx-DX[incoming]*s*.50f,cy-DY[incoming]*s*.50f);
+                corner.quadTo(cx,cy,cx+DX[n.dir]*s*.50f,cy+DY[n.dir]*s*.50f);
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeCap(Paint.Cap.BUTT);
+                p.setStrokeJoin(Paint.Join.ROUND);
+                p.setStrokeWidth(s*.49f);p.setColor(0xff122a3d);c.drawPath(corner,p);
+                p.setStrokeWidth(s*.38f);p.setColor(0xff195263);c.drawPath(corner,p);
+                p.setStrokeWidth(Math.max(1f,s*.025f));p.setColor(0xff47d1c8);
+                c.drawPath(corner,p);
+                p.setStyle(Paint.Style.FILL);
+                c.save();
+                c.rotate(n.dir*90f,cx,cy);
+                float tx=cx+s*.22f;
+                p.setColor(0xff47d1c8);p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(Math.max(1f,s*.028f));
+                c.drawLine(tx-s*.058f,cy-s*.074f,tx,cy,p);
+                c.drawLine(tx,cy,tx-s*.058f,cy+s*.074f,p);
+                p.setStyle(Paint.Style.FILL);
+                c.restore();
+            } else {
+                c.save();
+                c.rotate(n.dir*90f,cx,cy);
+                box(c,cx-s*.49f,cy-s*.245f,cx+s*.49f,cy+s*.245f,
+                    s*.11f,0xff122a3d);
+                box(c,cx-s*.47f,cy-s*.19f,cx+s*.47f,cy+s*.19f,
+                    s*.08f,0xff195263);
+                p.setColor(0xff47d1c8);p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(Math.max(1,s*.028f));
+                for(int a=-2;a<=2;a++) {
+                    float shift=((clock*1.5f)%1f)*s*.24f;
+                    float tx=cx+a*s*.24f+shift;
+                    if(tx>cx+s*.40f||tx<cx-s*.40f)continue;
+                    c.drawLine(tx-s*.058f,cy-s*.074f,tx,cy,p);
+                    c.drawLine(tx,cy,tx-s*.058f,cy+s*.074f,p);
+                }
+                p.setStyle(Paint.Style.FILL);
+                c.restore();
+    
+            }
         } else if(n.type==SOURCE) {
             box(c,cx-s*.45f,cy-s*.45f,cx+s*.45f,cy+s*.45f,
                 s*.13f,0xff5d3e37);
@@ -715,6 +738,11 @@ public final class FactoryView extends View {
             preview.lineTo(panX+(to.x+.5f)*s,panY+(to.y+.5f)*s);
         }
         c.drawPath(preview,p);p.setStyle(Paint.Style.FILL);
+        // Show the persistent construction anchor of one continuous belt.
+        Point tail=route.get(route.size()-1);
+        p.setColor(0xfffce6a3);
+        c.drawCircle(panX+(tail.x+.5f)*s,panY+(tail.y+.5f)*s,
+                     Math.max(3*density,s*.16f),p);
     }
     private void drawSelection(Canvas c) {
         if(selected!=5)return;
@@ -788,6 +816,8 @@ public final class FactoryView extends View {
                         } else {
                             routeGesture=true;
                             if(route.isEmpty())route.add(new Point(priorGridX,priorGridY));
+                            // Every new gesture extends from the LAST route endpoint,
+                            // never creates a new starting point on finger-down.
                             routeLive=new Point(priorGridX,priorGridY);
                         }
                     } else if(selected==5) {
@@ -851,8 +881,9 @@ public final class FactoryView extends View {
                     else if(button==2)confirmRoute();
                     else if(button==3){route.clear();routeLive=null;}
                 } else if(!pinching && routeGesture && beltMode==1) {
-                    routeTo(routeLive);
-                    routeLive=null; // Lifting the finger NEVER installs the preview.
+                    routeTo(new Point(gridX(e.getX()),gridY(e.getY())));
+                    routeLive=null; // Finger-up commits only a preview segment.
+                    // The next stroke extends this very same route until Confirm.
                 } else if(!pinching && paintGesture) {
                     save();
                 } else if(!pinching && selected==5) {
