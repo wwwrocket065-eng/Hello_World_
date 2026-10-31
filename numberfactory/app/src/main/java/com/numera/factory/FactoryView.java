@@ -25,6 +25,7 @@ import java.util.Collections;
 public final class FactoryView extends View {
     private static final int EMPTY = Integer.MIN_VALUE;
     private static final int BELT=1, SOURCE=2, ADD=3, MULTIPLY=4, HUB=5, BRIDGE=6;
+    private static final int SUBTRACT=7, DIVIDE=8, EXPONENT=9, STORAGE=10;
     private static final int[] DX={1,0,-1,0}, DY={0,1,0,-1};
     private static final int BG=0xff071420, CYAN=0xff37c8c2, GOLD=0xffffc77c;
     private static final int PURPLE=0xffb08aff, BLUE=0xff6ca9ff;
@@ -75,7 +76,8 @@ public final class FactoryView extends View {
 
     private static final class Node {
         int type,dir,value,item=EMPTY,a=EMPTY,b=EMPTY,upgrade=1,extracted;
-        int crossDir=-1,crossItem=EMPTY; // Independent overpass lane, not a belt merge.
+        int crossDir=-1,crossItem=EMPTY; // Overpass or divider output channel.
+        int storedCount=0; // A storage holds at most 10000 copies of one number.
         float progress;
         Node(int type,int dir,int value) {
             this.type=type;this.dir=dir;this.value=value;
@@ -251,6 +253,7 @@ public final class FactoryView extends View {
                 put(xx,yy,Integer.parseInt(v[2]),Integer.parseInt(v[3]),Integer.parseInt(v[4]));
                 if(v.length>5) get(xx,yy).upgrade=Integer.parseInt(v[5]);
                 if(v.length>6) get(xx,yy).crossDir=Integer.parseInt(v[6]);
+                if(v.length>7) get(xx,yy).storedCount=Integer.parseInt(v[7]);
             }
             if(cells.isEmpty()) seed();
             for(int y=HUB_Y;y<HUB_Y+HUB_SIZE;y++)
@@ -352,7 +355,7 @@ public final class FactoryView extends View {
             b.append((int)(key>>32)).append(',').append((int)key).append(',')
                 .append(n.type).append(',').append(n.dir).append(',')
                 .append(n.value).append(',').append(n.upgrade).append(',')
-                 .append(n.crossDir).append(';');
+                 .append(n.crossDir).append(',').append(n.storedCount).append(';');
         }
         prefs.edit().putString("world",b.toString())
             .putString("upgrades",saveUpgrades()).apply();
@@ -379,7 +382,8 @@ public final class FactoryView extends View {
             float dt=Math.min(.05f,(now-lastFrame)/1_000_000_000f);
             clock+=dt;flash=Math.max(0,flash-dt*1.4f);
             for(Node n:cells.values()) {
-                if(n.type==ADD||n.type==MULTIPLY) {
+                if(n.type==ADD||n.type==MULTIPLY||n.type==SUBTRACT||
+                   n.type==DIVIDE||n.type==EXPONENT) {
                     if(n.a!=EMPTY&&n.b!=EMPTY&&n.item==EMPTY)
                         n.progress=Math.min(2f,n.progress+dt*operatorSpeed(n.type));
                     else n.progress=0f;
@@ -471,7 +475,16 @@ public final class FactoryView extends View {
                 enteredUpper.add(next);
                 accepted=true;
             }
-        } else if(target.type==ADD || target.type==MULTIPLY) {
+        } else if(target.type==STORAGE) {
+            if(target.storedCount<10000 &&
+               (target.storedCount==0 || target.value==number)) {
+                target.value=number;
+                target.storedCount++;
+                accepted=true;
+            }
+        } else if(target.type==ADD || target.type==MULTIPLY ||
+                  target.type==SUBTRACT || target.type==DIVIDE ||
+                  target.type==EXPONENT) {
             if(y<ny && target.a==EMPTY) {target.a=number;accepted=true;}
             else if(y>ny && target.b==EMPTY) {target.b=number;accepted=true;}
             else if(target.a==EMPTY) {target.a=number;accepted=true;}
@@ -493,7 +506,7 @@ public final class FactoryView extends View {
             if(n==null || n.type==SOURCE || n.type==HUB)continue;
             int x=(int)(key>>32),y=(int)key;
             moveLane(n,false,x,y,entered,enteredUpper);
-            if(n.type==BRIDGE)moveLane(n,true,x,y,entered,enteredUpper);
+            if(n.type==BRIDGE||n.type==DIVIDE)moveLane(n,true,x,y,entered,enteredUpper);
         }
         for(Map.Entry<Long,Node> entry:cells.entrySet()) {
             Node n=entry.getValue();
@@ -513,13 +526,58 @@ public final class FactoryView extends View {
             }
         }
         for(Node n:cells.values()) {
-            if((n.type==ADD || n.type==MULTIPLY) &&
-               n.a!=EMPTY && n.b!=EMPTY && n.item==EMPTY && n.progress>=1f) {
+            if((n.type==ADD || n.type==MULTIPLY || n.type==SUBTRACT ||
+                n.type==DIVIDE || n.type==EXPONENT) &&
+               n.a!=EMPTY && n.b!=EMPTY && n.item==EMPTY &&
+               (n.type!=DIVIDE || n.crossItem==EMPTY) &&
+               n.progress>=1f) {
                 n.progress=0f;
-                long result=n.type==ADD ? (long)n.a+n.b : (long)n.a*n.b;
+                long result;
+                switch(n.type) {
+                    case ADD: result=(long)n.a+n.b;break;
+                    case MULTIPLY: result=(long)n.a*n.b;break;
+                    case SUBTRACT: result=(long)n.a-n.b;break;
+                    case DIVIDE:
+                        if(n.b==0) {n.b=EMPTY;continue;}
+                        result=n.a/n.b;
+                        n.crossDir=(n.dir+1)%4;
+                        n.crossItem=n.a%n.b;
+                        break;
+                    case EXPONENT:
+                        if(n.b<0)result=0;
+                        else {
+                            long acc=1L,base=n.a;
+                            int limit=Math.min(32,n.b);
+                            for(int i=0;i<limit;i++) {
+                                long absBase=Math.max(1L,Math.abs(base));
+                                if(Math.abs(acc)>999999999L/absBase) {
+                                    acc=(acc<0 ^ base<0)?-999999999L:999999999L;
+                                    break;
+                                }
+                                acc*=base;
+                            }
+                            result=acc;
+                            if(n.b>32 && Math.abs(base)>1)
+                                result=(base<0 && (n.b&1)!=0)?-999999999L:999999999L;
+                        }
+                        break;
+                    default:continue;
+                }
                 n.item=(int)Math.min(999999999L,Math.max(-999999999L,result));
                 n.a=EMPTY;n.b=EMPTY;
             }
+        }
+        for(Map.Entry<Long,Node> entry:cells.entrySet()) {
+            Node n=entry.getValue();
+            if(n.type!=STORAGE || n.storedCount<=0)continue;
+            int x=(int)(entry.getKey()>>32),y=(int)(long)entry.getKey();
+            // Independent outgoing sides saturate at the current belt speed.
+            for(int d=0;d<4 && n.storedCount>0;d++) {
+                Node out=get(x+DX[d],y+DY[d]);
+                if(out!=null && out.type==BELT && out.dir==d &&
+                   out.item==EMPTY) {out.item=n.value;n.storedCount--;}
+            }
+            if(n.storedCount==0)n.value=EMPTY;
         }
     }
 
@@ -850,6 +908,7 @@ public final class FactoryView extends View {
             put(xx,yy,n.type,n.dir,n.value);
             get(xx,yy).upgrade=n.upgrade;
             get(xx,yy).crossDir=n.crossDir;
+            get(xx,yy).storedCount=n.storedCount;
         }
     }
     private void eraseCell(int x,int y) {
@@ -905,6 +964,7 @@ public final class FactoryView extends View {
             Node clone=new Node(n.type,n.dir,n.value);
             clone.upgrade=n.upgrade;
             clone.crossDir=n.crossDir;
+            clone.storedCount=n.storedCount;
             clipboard.put(id(x-minX,y-minY),clone);
         }
         clipboardCount=clipboard.size();
