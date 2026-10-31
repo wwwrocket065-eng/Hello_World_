@@ -1181,10 +1181,62 @@ public final class FactoryView extends View {
         token(c,px,py,size,value);
     }
 
+    /**
+     * One rounded exterior for rectangular and L-shaped machines.
+     * 2x2, 3x1, 3x3 are round rectangles. Both L-shapes use a rounded
+     * six-vertex contour, rotated with their logical machine footprints.
+     */
+    private Path machineSilhouette(int type,int rotation,float left,float top,float unit) {
+        MachineLayout.Shape shape=MachineLayout.shape(type,rotation);
+        Path result=new Path();
+        if(shape==null)return result;
+        float radius=unit*.28f; // Same soft corner radius as the miner.
+        if(shape.cells.length==shape.width*shape.height) {
+            result.addRoundRect(left,top,left+shape.width*unit,
+                top+shape.height*unit,radius,radius,Path.Direction.CW);
+            return result;
+        }
+        // Default L is the 2x2 contour: upper row full, lower right.
+        float[][] base={{0,0},{2,0},{2,2},{1,2},{1,1},{0,1}};
+        float[][] pts=new float[base.length][2];
+        for(int i=0;i<base.length;i++) {
+            float x=base[i][0],y=base[i][1];
+            float nx,ny;
+            switch(rotation&3) {
+                case 1: nx=2-y;ny=x;break;
+                case 2: nx=2-x;ny=2-y;break;
+                case 3: nx=y;ny=2-x;break;
+                default:nx=x;ny=y;
+            }
+            pts[i][0]=left+nx*unit;
+            pts[i][1]=top+ny*unit;
+        }
+        for(int i=0;i<pts.length;i++) {
+            float[] prev=pts[(i+pts.length-1)%pts.length];
+            float[] cur=pts[i], next=pts[(i+1)%pts.length];
+            float dx0=prev[0]-cur[0],dy0=prev[1]-cur[1];
+            float dx1=next[0]-cur[0],dy1=next[1]-cur[1];
+            float len0=(float)Math.hypot(dx0,dy0);
+            float len1=(float)Math.hypot(dx1,dy1);
+            float cut=Math.min(radius,Math.min(len0,len1)*.40f);
+            float inX=cur[0]+dx0*cut/len0,inY=cur[1]+dy0*cut/len0;
+            float outX=cur[0]+dx1*cut/len1,outY=cur[1]+dy1*cut/len1;
+            if(i==0)result.moveTo(inX,inY);
+            else result.lineTo(inX,inY);
+            result.quadTo(cur[0],cur[1],outX,outY);
+        }
+        result.close();
+        return result;
+    }
+
     private void drawMultiMachine(Canvas c,Node controller) {
+        drawMultiMachineAt(c,controller,controller.originX,controller.originY);
+    }
+
+    private void drawMultiMachineAt(Canvas c,Node controller,int gridX,int gridY) {
         MachineLayout.Shape shape=MachineLayout.shape(controller.type,controller.rotation);
         if(shape==null)return;
-        float s=sz(),ox=panX+controller.originX*s,oy=panY+controller.originY*s;
+        float s=sz(),ox=panX+gridX*s,oy=panY+gridY*s;
         if(ox>getWidth()+s||oy>getHeight()+s||
            ox+shape.width*s< -s||oy+shape.height*s< -s)return;
         int outer=controller.type==ADD?0xff503080:controller.type==MULTIPLY?
@@ -1193,34 +1245,27 @@ public final class FactoryView extends View {
         int inner=controller.type==ADD?0xff7950ae:controller.type==MULTIPLY?
                   0xff3671ae:controller.type==STORAGE?0xff376777:
                   controller.type==SUBTRACT?0xff8d5278:0xff4b799d;
-        // One connected silhouette, never separate squares. The occupied
-        // cells are used for routing/placement only, not individual panels.
-        Path silhouette=new Path();
-        boolean first=true;
-        for(MachineLayout.Cell part:shape.cells) {
-            float l=ox+part.x*s,t=oy+part.y*s;
-            Path square=new Path();
-            square.addRect(l,t,l+s,t+s,Path.Direction.CW);
-            if(first){silhouette.addPath(square);first=false;}
-            else silhouette.op(square,Path.Op.UNION);
-        }
+        Path silhouette=machineSilhouette(controller.type,controller.rotation,ox,oy,s);
+        // Dark outer rim and single rounded continuous face. No grid seams.
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeJoin(Paint.Join.ROUND);
         p.setStrokeWidth(Math.max(2*density,s*.13f));
-        p.setColor(0xff10202d);c.drawPath(silhouette,p);
-        p.setStyle(Paint.Style.FILL);p.setColor(outer);
+        p.setColor(0xff10202d);
+        c.drawPath(silhouette,p);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(outer);
         c.drawPath(silhouette,p);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(Math.max(1*density,s*.045f));
-        p.setColor(0xffa190ca);c.drawPath(silhouette,p);
+        p.setColor(0xffa190ca);
+        c.drawPath(silhouette,p);
         p.setStyle(Paint.Style.FILL);
-        // A single face set inside the connected outer frame.
-        c.save();
-        c.clipPath(silhouette);
-        box(c,ox+s*.09f,oy+s*.09f,
-            ox+(shape.width-.09f)*s,oy+(shape.height-.09f)*s,
-            s*.12f,inner);
-        c.restore();
+        Path innerFace=new Path(silhouette);
+        android.graphics.Matrix inset=new android.graphics.Matrix();
+        inset.setScale(.93f,.93f,ox+shape.width*s*.5f,oy+shape.height*s*.5f);
+        innerFace.transform(inset);
+        p.setColor(inner);
+        c.drawPath(innerFace,p);
         float fx=0f,fy=0f,portX=0f,portY=0f;
         int count=0,outputs=0;
         for(MachineLayout.Cell part:shape.cells) {
