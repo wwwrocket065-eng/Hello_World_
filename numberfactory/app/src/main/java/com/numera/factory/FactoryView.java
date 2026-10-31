@@ -60,6 +60,10 @@ public final class FactoryView extends View {
     private int selected=7, level=1,goal=1,required=10,delivered,allDelivered;
     private int beltMode=0, operatorChoice=ADD, machineRotation=0,
                 selectX0,selectY0,selectX1,selectY1,clipboardCount;
+    // One last-used orientation per machine type; new placement inherits the
+    // rotation of the last successfully placed or rotated machine of that type.
+    private final MachineOrientationMemory machineOrientations =
+            new MachineOrientationMemory(OPERATORS);
     private boolean initialized,pinching,dragged,toolbarGesture,beltMenuGesture,routeGesture,paintGesture;
     private boolean paintStartedOnBelt;
     private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture,machineMenuGesture;
@@ -144,6 +148,11 @@ public final class FactoryView extends View {
         prefs=ctx.getSharedPreferences("numera_world_v2",Context.MODE_PRIVATE);
         setLayerType(View.LAYER_TYPE_HARDWARE,null);
         for(int i=0;i<upgradeLevels.length;i++)upgradeBanks.add(new HashMap<>());
+        for(int type:OPERATORS) {
+            machineOrientations.remember(type,
+                prefs.getInt("machine_rotation_"+type,0));
+        }
+        machineRotation=machineOrientations.rotationFor(operatorChoice);
         load();
     }
 
@@ -154,6 +163,14 @@ public final class FactoryView extends View {
         cells.put(id(x,y),new Node(type,dir,value));
     }
     private Node get(int x,int y) { return cells.get(id(x,y)); }
+
+    private void rememberMachineRotation(int type,int rotation) {
+        if(!machineOrientations.remember(type,rotation))return;
+        int normalized=machineOrientations.rotationFor(type);
+        if(operatorChoice==type)machineRotation=normalized;
+        // Stored independently of the world data, without rewriting saves.
+        prefs.edit().putInt("machine_rotation_"+type,normalized).apply();
+    }
 
     // Multi-tile occupancy and port ownership, backed by MachineLayout.
     private Node machineAt(int x,int y) {
@@ -202,6 +219,7 @@ public final class FactoryView extends View {
             part.ownerX=ax;part.ownerY=ay;part.port=cell.port;
             cells.put(id(x+cell.x,y+cell.y),part);
         }
+        rememberMachineRotation(type,rotation);
         return true;
     }
     /**
@@ -238,6 +256,7 @@ public final class FactoryView extends View {
             part.ownerX=anchorX;part.ownerY=anchorY;part.port=cell.port;
             cells.put(id(newX+cell.x,newY+cell.y),part);
         }
+        rememberMachineRotation(owner.type,rotation);
         save();
         return true;
     }
@@ -1086,16 +1105,22 @@ public final class FactoryView extends View {
     }
 
     private int beltIncomingDir(int x,int y,Node n) {
-        int incoming=n.dir;
+        // Existing belt-to-belt connections take priority.
         for(int d=0;d<4;d++) {
             Node prev=get(x-DX[d],y-DY[d]);
             if(prev!=null && ((prev.type==BELT && prev.dir==d) ||
-                (prev.type==BRIDGE && (prev.dir==d || prev.crossDir==d)))) {
-                incoming=d;
-                break;
-            }
+                (prev.type==BRIDGE && (prev.dir==d || prev.crossDir==d))))
+                return d;
         }
-        return incoming;
+        // A miner is stored at the centre of its 3x3 deposit, while the
+        // twelve belt sockets live TWO tiles away. Adjacent-tile checks
+        // cannot find this inlet, so formerly every socket looked straight.
+        for(int[] offset:MINE_OUTPUTS) {
+            Node miner=get(x-offset[0],y-offset[1]);
+            if(miner!=null&&miner.type==SOURCE)
+                return ConveyorJunctions.incomingFromMine(offset[0],offset[1]);
+        }
+        return n.dir;
     }
 
     private static float quad(float a,float control,float end,float t) {
@@ -1140,8 +1165,18 @@ public final class FactoryView extends View {
                         (dx>0f?0:2):(dy>0f?1:3);
                     sx=cx-DX[travelDir]*.5f;
                     sy=cy-DY[travelDir]*.5f;
-                    wx=lerp(sx,cx,t);
-                    wy=lerp(sy,cy,t);
+                    if(targetTurn && incoming==travelDir) {
+                        // Start at the miner socket; follow the first half
+                        // of the exact quadratic used by the belt body.
+                        wx=quad(sx,cx-DX[incoming]*.25f,
+                            cx+(DX[n.dir]-DX[incoming])*.125f,t);
+                        wy=quad(sy,cy-DY[incoming]*.25f,
+                            cy+(DY[n.dir]-DY[incoming])*.125f,t);
+                        scale=lerp(1f,.82f,t);
+                    } else {
+                        wx=lerp(sx,cx,t);
+                        wy=lerp(sy,cy,t);
+                    }
                 } else if(Math.abs(dx)+Math.abs(dy)!=1f) {
                     // Guard against imported/older save layouts with
                     // non-neighbour transport: never extrapolate a bend.
@@ -1567,7 +1602,8 @@ public final class FactoryView extends View {
             // its existing extractor, never creating a second one.
         } else if(selected==2||selected==3) {
             if(operatorUnlocked(operatorChoice))
-                putMachine(x,y,operatorChoice,machineRotation);
+                putMachine(x,y,operatorChoice,
+                           machineOrientations.rotationFor(operatorChoice));
         } else if(selected==4) {
             eraseCell(x,y);
         } else if(selected==6) {
@@ -2042,6 +2078,7 @@ public final class FactoryView extends View {
                     focusedMachine=null;editMoveMode=false;
                     if(selected==2)operatorChoice=ADD;
                     else if(selected==3)operatorChoice=MULTIPLY;
+                    machineRotation=machineOrientations.rotationFor(operatorChoice);
                     if(selected!=5)selectionReady=false;
                 } else if(routeMenuGesture&&selected==0&&!pinching) {
                     if(e.getX()<getWidth()*.5f)confirmRoute();
@@ -2054,9 +2091,12 @@ public final class FactoryView extends View {
                     }
                 } else if(machineMenuGesture&&machineMenuVisible()&&!pinching) {
                     int i=(int)(e.getX()/Math.max(1f,getWidth()/(float)(OPERATORS.length+1)));
-                    if(i>=OPERATORS.length)machineRotation=(machineRotation+1)&3;
-                    else if(i>=0 && operatorUnlocked(OPERATORS[i]))
+                    if(i>=OPERATORS.length)
+                        rememberMachineRotation(operatorChoice,machineRotation+1);
+                    else if(i>=0 && operatorUnlocked(OPERATORS[i])) {
                         operatorChoice=OPERATORS[i];
+                        machineRotation=machineOrientations.rotationFor(operatorChoice);
+                    }
                 } else if(selectionMenuGesture&&selected==5&&!pinching) {
                     int index=(int)(e.getX()/Math.max(1f,getWidth()/3f));
                     if(index==0&&selectionReady)copySelection();
