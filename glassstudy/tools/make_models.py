@@ -89,6 +89,20 @@ def unit(x, y, z):
     length = max(1e-10, math.sqrt(x*x+y*y+z*z))
     return (x/length, y/length, z/length)
 
+def check_closed_surface(indices):
+    """Every physical edge must have two oppositely oriented incident faces."""
+    from collections import Counter
+    counts, directions = Counter(), Counter()
+    for i in range(0, len(indices), 3):
+        tri = indices[i:i+3]
+        assert len(set(tri)) == 3, "Degenerate goblet triangle"
+        for a, b in zip(tri, tri[1:]+tri[:1]):
+            key = tuple(sorted((a,b)))
+            counts[key] += 1
+            directions[key] += 1 if a < b else -1
+    assert all(n == 2 for n in counts.values()), "Open/non-manifold goblet edge"
+    assert all(n == 0 for n in directions.values()), "Inconsistent goblet winding"
+
 def lathe_mesh(sides, rings):
     contour=smoothly_sample_profile(rings)
     positions=[]
@@ -119,6 +133,16 @@ def lathe_mesh(sides, rings):
             if j==rings-2:
                 quad_edge_pairs.add(tuple(sorted((c,d))))
     assert len(quad_edge_pairs)==sides*(2*rings-1)
+    # Preserve every existing ring/normal; fill only the two tiny axial holes.
+    for ring, sign in ((0, -1), (rings-1, 1)):
+        center = len(positions)
+        positions.append((0.0, contour[ring][0], 0.0))
+        normals.append((0.0, float(sign), 0.0))
+        for k in range(sides):
+            a = ring*sides+k
+            b = ring*sides+(k+1)%sides
+            triangles.extend((center, a, b) if sign < 0 else (center, b, a))
+    check_closed_surface(triangles)
     return positions,normals,triangles,sorted(quad_edge_pairs)
 
 def wireframe_primitive(points,normals,quad_edge_pairs,side_count,profile_count):
