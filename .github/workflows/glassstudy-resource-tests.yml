@@ -1,0 +1,25 @@
+name: GlassStudy resource scheduling QA
+on:
+  push:
+    branches: [glassstudy-resource-limit-20261029]
+  pull_request:
+    paths: ['glassstudy/**', '.github/workflows/glassstudy-resource-tests.yml']
+permissions:
+  contents: read
+jobs:
+  gpu-functional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: sudo apt-get update && sudo apt-get install -y libegl1-mesa-dev libgles2-mesa-dev
+      - run: python -m pip install numpy scipy Pillow
+      - name: Verify production shaders, chunks and dense platform probes
+        run: |
+          python glassstudy/tools/test_gpu_optics.py
+          python glassstudy/tools/test_analytic_surface.py
+          python glassstudy/tools/test_optics_probe_readback.py
+          python glassstudy/tools/test_optical_work_chunks.py
+          python glassstudy/tools/test_optical_band_scan.py

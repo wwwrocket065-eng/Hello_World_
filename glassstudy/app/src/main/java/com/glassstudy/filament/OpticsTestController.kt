@@ -18,6 +18,7 @@ import java.util.concurrent.Executors
 
 /** UI-thread suite coordinator. GL capture belongs to the renderer; file IO to one worker. */
 class OpticsTestController(private val activity:Activity,private val surface:GlassOpticsSurface) {
+    private val progress=OpticsTestProgressPanel(activity) { cancel("Отменён пользователем") }
     private val handler=Handler(Looper.getMainLooper())
     private val worker=Executors.newSingleThreadExecutor()
     private val directory=File(activity.filesDir,"optics-test")
@@ -52,7 +53,11 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
             "Гладкая поверхность, отсечение ВЫКЛ" to base.copy(analyticSurface=true,
                 render=render.copy(optics=render.optics.copy(segmentCullingEnabled=false))),
             "Полигональная поверхность" to base.copy(analyticSurface=false),
-            "Гладкая поверхность, другой угол камеры" to base.copy(analyticSurface=true,pitch=(base.pitch+Math.toRadians(config.testPitchOffsetDegrees.toDouble())).coerceIn(-1.3,1.3)))
+            "Гладкая поверхность, другой угол камеры" to base.copy(analyticSurface=true,pitch=(base.pitch+Math.toRadians(config.testPitchOffsetDegrees.toDouble())).coerceIn(-1.3,1.3)),
+            "Гладкая поверхность, платформа увеличена" to base.copy(analyticSurface=true,
+                scene=base.scene.copy(floorWidth=(base.scene.floorWidth*4f).coerceAtMost(100f))),
+            "Гладкая поверхность, без пола" to base.copy(analyticSurface=true,floor="none"))
+        progress.show()
         // Old files stay readable until a successful new result replaces them.
         next()
     }
@@ -62,7 +67,7 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
         expectedRun=surface.metrics.snapshot().run+1
         started=SystemClock.uptimeMillis()
         surface.testState(state,if(state.analyticSurface)smoothContour else originalContour)
-        toast("Тест ${index+1}/${cases.size}: $name")
+        progress.update("Прогон ${index+1}/${cases.size}: $name\nПодготовка…")
         handler.postDelayed(poll,250)
     }
     private val poll=object:Runnable {
@@ -71,10 +76,15 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
             if(surface.failed!=null) { finish("Отказ GPU: ${surface.failed}");return }
             if(SystemClock.uptimeMillis()-started>timeoutMs) { finish("Прерван: таймаут прогона ${index+1}");return }
             val view=surface.metrics.snapshot()
+            val current=if(view.run==expectedRun)
+                "${view.phase} · ${view.spp}/${view.targetSpp} spp · ${view.elapsedNs/1_000_000_000} с"
+                else "Подготовка…"
+            progress.update("Прогон ${index+1}/${cases.size}: ${cases[index].first}\n$current")
             if(view.run==expectedRun && view.complete) {
                 val token=generation
                 val (name,state)=cases[index]
                 val details="ПРОГОН ${index+1}: $name\n$state\n"+surface.metrics.report()
+                progress.update("Прогон ${index+1}/${cases.size}: сохранение снимка")
                 surface.captureTestImage { result ->
                     if(token!=generation || !running) { result.getOrNull()?.bitmap?.recycle();return@captureTestImage }
                     result.fold(onSuccess={ capture ->
@@ -101,10 +111,11 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
             } else handler.postDelayed(this,250)
         }
     }
-    fun cancel() { if(running)finish("Прерван: приложение приостановлено") }
+    fun cancel(reason:String="Прерван: приложение приостановлено") { if(running)finish(reason) }
     private fun finish(status:String) {
         if(!running || finishing)return
         finishing=true;generation++;handler.removeCallbacks(poll)
+        progress.update("$status. Сохранение отчёта…",canCancel=false)
         if(index<cases.size)initialReport+="\nНезавершённый прогон ${index+1}: ${surface.metrics.snapshot()}\n"+surface.metrics.report()
         saved?.let { surface.endTest(it) };saved=null
         val text=initialReport+"\n\n▸ АВТОТЕСТ ОПТИКИ\n$status; ${reports.size}/${cases.size} прогонов\n"+
@@ -133,6 +144,7 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
             }
             handler.post {
                 running=false;finishing=false
+                progress.close()
                 if(closed)return@post
                 outcome.fold(onSuccess={
                     val clipboard=activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -171,6 +183,7 @@ class OpticsTestController(private val activity:Activity,private val surface:Gla
         clipboard.setPrimaryClip(ClipData.newUri(activity.contentResolver,"Рендеры теста GlassStudy",uri))
         toast("Картинка скопирована. Вставка зависит от клавиатуры и приложения")
     }
-    fun close() { cancel();closed=true;worker.shutdown() }
+    fun close() { cancel();closed=true;progress.close();worker.shutdown() }
     private fun toast(text:String) { Toast.makeText(activity,text,Toast.LENGTH_LONG).show() }
 }
+

@@ -68,14 +68,17 @@ class ModelMaterialController(
             overrides.apply(viewer)
             avoidOpaqueShadowsOnRefractiveGlass(debug)
             opticalContour=if(catalog.resolve(requested.modelId,requested.lod,debug)==null &&
-                requested.modelId=="goblet" && (overrides.metallic ?: 0f)==0f &&
+                (requested.modelId=="goblet" || requested.modelId in PrimitiveGeometry.ids) && (overrides.metallic ?: 0f)==0f &&
                 (overrides.transmission ?: 1f)==1f) {
-                updater.readResourceOrNull(ParametricGoblet.PATH,candidate)?.let {
+                if(requested.modelId in PrimitiveGeometry.ids)
+                    PrimitiveGeometry.contour(requested.modelId,catalog.primitiveRadius,catalog.primitiveHeight)
+                else updater.readResourceOrNull(ParametricGoblet.PATH,candidate)?.let {
                     ParametricGoblet.opticalContour(it,requested.lod,adaptive)
                 }
             } else null
             // Fixed reference curve: independent of visible mesh LOD/adaptivity.
-            analyticOpticalContour=if(opticalContour!=null)
+            analyticOpticalContour=if(requested.modelId in PrimitiveGeometry.ids)opticalContour?.copyOf()
+            else if(opticalContour!=null)
                 updater.readResourceOrNull(ParametricGoblet.PATH,candidate)?.let {
                     ParametricGoblet.opticalContour(it,"ultra",0)
                 } else null
@@ -160,6 +163,9 @@ class ModelMaterialController(
                          adaptive:Int):ByteArray {
         val override=catalog.resolve(selected.modelId,selected.lod,debug)
         if(override!=null) return readCheckedResource(override,candidate)
+        if(selected.modelId in PrimitiveGeometry.ids)return PrimitiveGeometry.create(
+            selected.modelId,selected.lod,debug,adaptive,catalog.primitiveRadius,catalog.primitiveHeight,
+            catalog.primitiveWireWidth,catalog.primitiveWireOffset)
         require(selected.modelId=="goblet")
         val profile=updater.readResourceOrNull(ParametricGoblet.PATH,candidate)
             ?: throw IllegalArgumentException("Missing canonical goblet profile")

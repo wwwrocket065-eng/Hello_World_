@@ -146,7 +146,10 @@ object ParametricGoblet {
         val (sides,rings)=density[quality] ?: error("Unsupported mesh density: $quality")
         val contour=simplify(sample(shape,rings,adaptivePercent),quality,adaptivePercent)
         val actualRings=contour.size
-        val sourcePositions=FloatArray(sides*actualRings*3)
+        // Two axis vertices close only the existing tiny end-ring holes.
+        val capStart=sides*actualRings
+        val capEnd=capStart+1
+        val sourcePositions=FloatArray((capStart+2)*3)
         val sourceNormals=FloatArray(sourcePositions.size)
         for(j in 0 until actualRings) {
             val prev=contour[max(j-1,0)];val next=contour[min(j+1,actualRings-1)]
@@ -163,12 +166,16 @@ object ParametricGoblet {
                 sourceNormals[i+2]=(dy*s/len).toFloat()
             }
         }
+        sourcePositions[capStart*3+1]=contour.first().y.toFloat()
+        sourcePositions[capEnd*3+1]=contour.last().y.toFloat()
+        sourceNormals[capStart*3+1]=-1f
+        sourceNormals[capEnd*3+1]=1f
         val positions:FloatArray
         val normals:FloatArray
         val indices:IntArray
         if(!grid) {
             positions=sourcePositions;normals=sourceNormals
-            indices=IntArray((actualRings-1)*sides*6)
+            indices=IntArray((actualRings-1)*sides*6+sides*6)
             var p=0
             for(j in 0 until actualRings-1)for(k in 0 until sides){
                 val a=j*sides+k;val b=j*sides+(k+1)%sides
@@ -176,6 +183,13 @@ object ParametricGoblet {
                 indices[p++]=a;indices[p++]=c;indices[p++]=b
                 indices[p++]=b;indices[p++]=c;indices[p++]=d
             }
+            for(k in 0 until sides) {
+                val next=(k+1)%sides
+                indices[p++]=capStart;indices[p++]=k;indices[p++]=next
+                val last=(actualRings-1)*sides
+                indices[p++]=capEnd;indices[p++]=last+next;indices[p++]=last+k
+            }
+            check(p==indices.size)
         } else {
             val edges=sides*(2*actualRings-1)
             positions=FloatArray(edges*12)
@@ -223,7 +237,7 @@ object ParametricGoblet {
         return toGlb(sides,actualRings,grid,positions,normals,indices)
     }
 
-    private fun toGlb(sides:Int,rings:Int,grid:Boolean,
+    internal fun toGlb(sides:Int,rings:Int,grid:Boolean,
                       positions:FloatArray,normals:FloatArray,indices:IntArray):ByteArray {
         val pSize=positions.size*4;val nSize=normals.size*4;val iSize=indices.size*4
         val bin=ByteBuffer.allocate(pSize+nSize+iSize).order(ByteOrder.LITTLE_ENDIAN)

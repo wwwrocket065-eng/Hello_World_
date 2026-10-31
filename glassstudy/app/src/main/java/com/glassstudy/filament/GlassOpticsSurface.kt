@@ -24,7 +24,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         val yaw:Double,val pitch:Double,val distance:Double,val fov:Double,
         val azimuth:Double,val elevation:Double,val brightness:Double,
         val mode:LightEnvironmentMode,val floor:String,val scene:SceneModuleConfig,
-        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean,val analyticSurface:Boolean=false
+        val render:RenderModuleConfig,val camera:CameraModuleConfig,val ior:Float,val antialias:Boolean,val analyticSurface:Boolean=false,
+        val primitiveType:Int=0,val primitiveRadius:Float=.8f,val primitiveHeight:Float=1.6f
     )
     @Volatile var failed:String?=null
         private set
@@ -36,6 +37,10 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private set
     @Volatile var traceHeight=0
         private set
+    @Volatile var hasPresentedFrame=false
+        private set
+    @Volatile private var opticsPaused=false
+    @Volatile private var workSurfaceReady=false
     val metrics=OpticalRenderMetrics()
     private val renderer=OpticalRenderer()
     private var lastState:State?=null
@@ -43,6 +48,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
     init {
         setEGLContextClientVersion(3)
         setEGLConfigChooser(8,8,8,8,0,0)
+        holder.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
         setZOrderMediaOverlay(true)
         preserveEGLContextOnPause=true
         setRenderer(renderer)
@@ -59,11 +65,11 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
     fun testState(state:State,points:FloatArray) {
         check(testOwnsState)
         val at=System.nanoTime()
-        queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons();renderer.accept(state,at) };requestRender()
+        queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.resetMaskProgress();renderer.invalidatePhotons();renderer.accept(state,at) };requestRender()
     }
     fun endTest(saved:State) {
         testOwnsState=false
-        lastContour?.let { points -> queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() } }
+        lastContour?.let { points -> queueEvent { renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.resetMaskProgress();renderer.invalidatePhotons() } }
         lastState=null
         update(saved)
     }
@@ -90,7 +96,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         if(lastContour?.contentEquals(points)==true)return
         lastContour=points.copyOf()
         val requestedAtNs=System.nanoTime()
-        queueEvent { renderer.startProfileMeasurement(requestedAtNs);renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.invalidatePhotons() }
+        queueEvent { renderer.startProfileMeasurement(requestedAtNs);renderer.contour=points.copyOf();renderer.profileDirty=true;renderer.maskDirty=true;renderer.resetMaskProgress();renderer.invalidatePhotons() }
+        requestRender()
+    }
+    @Volatile var resourceLimitPercent=50
+        private set
+    fun setResourceLimit(percent:Int) {
+        resourceLimitPercent=percent.coerceIn(10,100)
+        queueEvent { renderer.setWorkLimit(resourceLimitPercent) }
         requestRender()
     }
     fun configureDiagnostics(config:DiagnosticsModuleConfig) {
@@ -98,11 +111,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         queueEvent { renderer.configureGpuTiming(config.gpuTimingEnabled) }
     }
     override fun onPause() {
+        opticsPaused=true
+        workSurfaceReady=false
         queueEvent { renderer.pauseMeasurement() }
         super.onPause()
         metrics.pause()
     }
     override fun onResume() {
+        opticsPaused=false
         super.onResume()
         queueEvent { renderer.resumeMeasurement() }
         requestRender()
@@ -146,6 +162,56 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         private var baseDirty=true
         private var havePreview=false
         private var initialized=false
+        val budget=OpticalWorkBudget()
+        private val maskBudget=OpticalWorkBudget()
+        private val photonBudget=OpticalWorkBudget()
+        private var issuedBudget:OpticalWorkBudget?=null
+        private var pendingBudget:OpticalWorkBudget?=null
+        fun setWorkLimit(percent:Int) {
+            budget.percent=percent;maskBudget.percent=percent;photonBudget.percent=percent
+        }
+        private var workFence=0L
+        private var workStartedMs=0L
+        private var workReadyAtMs=0L
+        private var workWakeScheduled=false
+        private var maskRow=0
+        private var photonCursor=0
+        private fun wakeWork(delayMs:Long=2L) {
+            if(workWakeScheduled)return
+            workWakeScheduled=true
+            postDelayed({ queueEvent {
+                workWakeScheduled=false
+                // Preparation runs as GL events: no EGL swap or fullscreen FXAA
+                // when only an offscreen mask/photon chunk changes.
+                runWork()
+            } },delayMs.coerceAtLeast(1))
+        }
+        private fun admitWork():Boolean {
+            val now=SystemClock.uptimeMillis()
+            if(workFence!=0L) {
+                when(GL.glClientWaitSync(workFence,0,0L)) {
+                    GL.GL_ALREADY_SIGNALED,GL.GL_CONDITION_SATISFIED -> {
+                        GL.glDeleteSync(workFence);workFence=0L
+                        val elapsed=(now-workStartedMs).coerceAtLeast(1)
+                        pendingBudget?.observeCompletion(elapsed)
+                        workReadyAtMs=now+budget.pauseMs(elapsed)
+                        pendingBudget=null
+                    }
+                    GL.GL_WAIT_FAILED -> error("Resource limiter GPU fence failed")
+                    else -> { wakeWork();return false }
+                }
+            }
+            if(now<workReadyAtMs) { wakeWork(workReadyAtMs-now);return false }
+            workStartedMs=now
+            return true
+        }
+        private fun finishWork() {
+            pendingBudget=issuedBudget
+            workFence=GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE,0)
+            check(workFence!=0L) { "Resource limiter fence unavailable" }
+            GL.glFlush()
+            wakeWork()
+        }
         private var delayed=false
         private var completionFence=0L
         private var fencePollScheduled=false
@@ -186,27 +252,30 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             }
         }
 
+        fun resetMaskProgress() { maskRow=0 }
         fun startProfileMeasurement(requestedAtNs:Long) = restartMeasurement("изменение профиля",requestedAtNs)
         fun invalidatePhotons() {
-            dirtyPhotons=true;photonReady=false;sampleCount=0
+            dirtyPhotons=true;photonReady=false;sampleCount=0;photonCursor=0
             changeTime=SystemClock.uptimeMillis();motionTime=changeTime;rowCursor=0;baseDirty=true
         }
         fun accept(next:State,requestedAtNs:Long) {
+            maskRow=0
             val previous=state
             if(previous==null || previous.yaw!=next.yaw || previous.pitch!=next.pitch ||
                 previous.distance!=next.distance || previous.fov!=next.fov || previous.floor!=next.floor ||
                 previous.scene.floorWidth!=next.scene.floorWidth ||
                 previous.render.optics.maskSides!=next.render.optics.maskSides ||
-                previous.analyticSurface!=next.analyticSurface)maskDirty=true
+                previous.analyticSurface!=next.analyticSurface || previous.primitiveType!=next.primitiveType ||
+                previous.primitiveRadius!=next.primitiveRadius || previous.primitiveHeight!=next.primitiveHeight)maskDirty=true
             val light=listOf(next.azimuth,next.elevation,next.brightness,next.mode,next.ior,
-                next.scene,next.render,next.camera.lightIntensity,next.antialias,next.analyticSurface)
+                next.scene,next.render,next.camera.lightIntensity,next.antialias,next.analyticSurface,next.primitiveType,next.primitiveRadius,next.primitiveHeight)
             if(light!=oldLight) { oldLight=light;invalidatePhotons() }
             val reason=when {
                 previous==null -> "начальный рендер"
                 previous.analyticSurface!=next.analyticSurface -> "смена поверхности лучей"
                 previous.antialias!=next.antialias -> "переключение сглаживания"
                 light!=listOf(previous.azimuth,previous.elevation,previous.brightness,previous.mode,previous.ior,
-                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias,previous.analyticSurface) -> "изменение света/сцены"
+                    previous.scene,previous.render,previous.camera.lightIntensity,previous.antialias,previous.analyticSurface,previous.primitiveType,previous.primitiveRadius,previous.primitiveHeight) -> "изменение света/сцены"
                 else -> "движение камеры"
             }
             restartMeasurement(reason,requestedAtNs)
@@ -322,7 +391,9 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
         override fun onSurfaceCreated(gl:GL10?,config:EGLConfig?) {
             try {
                 // Context-local sync names cannot survive context recreation.
-                completionFence=0L;fencePollScheduled=false;uniformLocations.clear()
+                workSurfaceReady=false
+                hasPresentedFrame=false;pendingBudget=null;issuedBudget=null
+                completionFence=0L;workFence=0L;workReadyAtMs=0L;workWakeScheduled=false;maskRow=0;photonCursor=0;fencePollScheduled=false;uniformLocations.clear()
                 gpuDescription=listOf(GL.glGetString(GL.GL_VENDOR),GL.glGetString(GL.GL_RENDERER),
                     GL.glGetString(GL.GL_VERSION)).joinToString(" · ")
                 metrics.begin("создание GL-контекста")
@@ -379,13 +450,13 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,maskFbo)
             GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER,GL.GL_COLOR_ATTACHMENT0,GL.GL_TEXTURE_2D,maskTexture,0)
             check(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)==GL.GL_FRAMEBUFFER_COMPLETE) { "Silhouette mask incomplete" }
-            maskDirty=true
+            maskDirty=true;maskRow=0
         }
         private fun drawMask(s:State,w:Int,h:Int) {
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,maskFbo);GL.glViewport(0,0,w,h)
             GL.glDisable(GL.GL_SCISSOR_TEST);GL.glDisable(GL.GL_DEPTH_TEST);GL.glDisable(GL.GL_CULL_FACE)
-            GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-            val maskProgram=if(s.analyticSurface)analyticMaskProgram else this.maskProgram
+            if(maskRow==0) { GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT) }
+            val maskProgram=if(s.analyticSurface || s.primitiveType!=0)analyticMaskProgram else this.maskProgram
             GL.glUseProgram(maskProgram);common(maskProgram,s)
             GL.glUniform2f(location(maskProgram,"uResolution"),w.toFloat(),h.toFloat())
             i(maskProgram,"uMaskSides",s.render.optics.maskSides)
@@ -396,8 +467,14 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             f(maskProgram,"uAspect",width.toFloat()/height)
             f(maskProgram,"uFloorWidth",s.scene.floorWidth)
             i(maskProgram,"uFloorMode",if(s.floor=="none")0 else 1)
-            GL.glDrawArrays(GL.GL_TRIANGLES,0,if(s.analyticSurface)3 else (contour.size/2-1)*s.render.optics.maskSides*6)
-            maskDirty=false
+            issuedBudget=maskBudget
+            val rows=min(h-maskRow,max(1,maskBudget.units(16384,w)/w))
+            if(s.analyticSurface || s.primitiveType!=0) { GL.glEnable(GL.GL_SCISSOR_TEST);GL.glScissor(0,maskRow,w,rows) }
+            GL.glDrawArrays(GL.GL_TRIANGLES,0,if(s.analyticSurface || s.primitiveType!=0)3 else (contour.size/2-1)*s.render.optics.maskSides*6)
+            GL.glDisable(GL.GL_SCISSOR_TEST)
+            maskRow=if(s.analyticSurface || s.primitiveType!=0)maskRow+rows else h
+            maskDirty=maskRow<h
+            if(!maskDirty)maskRow=0
         }
         private fun receiverExtent(s:State):Float=max(s.render.optics.photonExtent,
             s.scene.floorWidth*.5f+s.render.optics.photonMargin)
@@ -412,14 +489,59 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
             f(p,"uPhotonExtent",receiverExtent(s))
             i(p,"uSmoothSurface",if(s.antialias)1 else 0)
             i(p,"uAnalyticSurface",if(s.analyticSurface)1 else 0)
+            i(p,"uPrimitiveType",s.primitiveType)
+            f(p,"uPrimitiveRadius",s.primitiveRadius);f(p,"uPrimitiveHeight",s.primitiveHeight)
+        }
+        // GLSurfaceView swaps after EVERY onDrawFrame, including preparation and
+        // limiter returns. Always populate the default framebuffer before that swap.
+        private fun present(s:State) {
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0)
+            GL.glViewport(0,0,width,height)
+            GL.glDisable(GL.GL_SCISSOR_TEST)
+            if(!havePreview) {
+                // Keep the retained Filament image visible until optics has pixels.
+                GL.glClearColor(0f,0f,0f,0f)
+                GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+                return
+            }
+            measured(Stage.DISPLAY) {
+                    GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
+                    GL.glUseProgram(displayProgram)
+                    texture(accum[shownIndex],0,displayProgram,"uImage")
+                    GL.glUniform2f(location(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
+                    f(displayProgram,"uExposure",s.render.optics.exposure)
+                    i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
+                    GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
+                    hasPresentedFrame=true
+                }
+        }
+        private fun preparationProgress(s:State,phase:String,w:Int,h:Int) {
+            metrics.progress(phase,w,h,sampleCount,s.render.optics.samples,false,
+                "Лимит работы: ${resourceLimitPercent}% (не процент GPU); $phase",
+                gpuDescription,17L*w*h+8L*mapSize*mapSize+contour.size*4L)
         }
         override fun onDrawFrame(gl:GL10?) {
+            if(opticsPaused)return
+            workSurfaceReady=true
             val s=state ?: return
             if(!initialized || failed!=null || width<1 || height<1)return
+            try { present(s);wakeWork(1L) } catch(e:Exception) { fail(e) }
+        }
+        private fun runWork() {
+            if(opticsPaused || !workSurfaceReady)return
+            val s=state ?: return
+            if(!initialized || failed!=null || width<1 || height<1)return
+            val admitted=try { admitWork() } catch(e:Exception) { fail(e);false }
+            if(!admitted)return
+            var submitted=true
+            issuedBudget=null
             try {
                 val c=s.render.optics
                 gpuTimer.poll()
                 if(completionFence!=0L)pollCompletion()
+                if(metrics.snapshot().complete && !maskDirty && !profileDirty && !dirtyPhotons && !baseDirty) {
+                    submitted=false;return
+                }
                 if(profileDirty) {
                     measured(Stage.PROFILE) {
                         GL.glBindTexture(GL.GL_TEXTURE_2D,profile)
@@ -435,7 +557,7 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                         profileDirty=false;maskDirty=true;sampleCount=0;rowCursor=0;baseDirty=true
                     }
                 }
-                val moving=SystemClock.uptimeMillis()-motionTime<c.settleMs
+                val moving=!havePreview || SystemClock.uptimeMillis()-motionTime<c.settleMs
                 val w=min(if(moving)c.movingWidth else c.width,width)
                 val h=(w*height.toFloat()/width).roundToInt().coerceAtLeast(1)
                 if(bufferWidth!=w || bufferHeight!=h) {
@@ -462,7 +584,11 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 }
                 // Cover every visible floor point plus a filter margin. Keep
                 // world texel/photon density as the receiver grows beyond 4 units.
-                if(maskDirty)measured(Stage.MASK) { drawMask(s,w,h) }
+                if(maskDirty) {
+                    measured(Stage.MASK) { drawMask(s,w,h) }
+                    preparationProgress(s,"Подготовка силуэта: ${if(maskDirty) maskRow else h}/$h строк",w,h)
+                    return
+                }
                 val receiverScale=receiverExtent(s)/c.photonExtent
                 val desiredMap=(c.photonMap*receiverScale).roundToInt().coerceIn(64,512)
                 val launchSide=(c.photonSide*receiverScale).roundToInt().coerceIn(128,1536)
@@ -471,28 +597,34 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     mapSize=desiredMap;invalidatePhotons()
                 }
                 val elapsed=SystemClock.uptimeMillis()-changeTime
-                if(dirtyPhotons && elapsed>=c.settleMs) {
-                    metrics.event("пересчёт каустики")
+                if(dirtyPhotons && !moving && elapsed>=c.settleMs) {
+                    if(photonCursor==0)metrics.event("пересчёт каустики")
                     measured(Stage.PHOTONS) {
                         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,photonFbo)
                         GL.glViewport(0,0,mapSize,mapSize)
-                        GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+                        if(photonCursor==0) { GL.glClearColor(0f,0f,0f,0f);GL.glClear(GL.GL_COLOR_BUFFER_BIT) }
                         if(s.elevation>.05 && s.elevation<Math.PI-.05 && s.brightness>0) {
                             GL.glUseProgram(photonProgram);common(photonProgram,s)
                             i(photonProgram,"uPhotonSide",launchSide);i(photonProgram,"uPhotonMapSize",mapSize)
                             GL.glEnable(GL.GL_BLEND);GL.glBlendFunc(GL.GL_ONE,GL.GL_ONE)
-                            GL.glDrawArrays(GL.GL_POINTS,0,launchSide*launchSide)
+                            issuedBudget=photonBudget
+                            val count=min(launchSide*launchSide-photonCursor,photonBudget.units(16384))
+                            GL.glDrawArrays(GL.GL_POINTS,photonCursor,count)
+                            photonCursor+=count
                             GL.glDisable(GL.GL_BLEND)
-                            photonReady=true
-                        }
-                        dirtyPhotons=false;sampleCount=0;rowCursor=0;baseDirty=true
+                            photonReady=photonCursor>=launchSide*launchSide
+                        } else { photonReady=false;photonCursor=launchSide*launchSide }
+                        dirtyPhotons=photonCursor<launchSide*launchSide;sampleCount=0;rowCursor=0;baseDirty=true
                     }
+                    preparationProgress(s,"Каустика: $photonCursor/${launchSide*launchSide} фотонов",w,h)
+                    return
                 }
                 if(!moving && !dirtyPhotons && w==min(c.width,width))metrics.qualityStarted()
                 if(sampleCount<c.samples || baseDirty) {
                     val p=pathProgram
                     val region=OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h)
-                    val rows=if(moving)region.height else min(region.height-rowCursor,max(1,c.pixelBudget/max(1,region.width)))
+                    issuedBudget=budget
+                    val rows=min(region.height-rowCursor,max(1,min(c.pixelBudget,budget.units(32768,max(1,region.width)))/max(1,region.width)))
                     GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,fbos[sampleCount%2]);GL.glViewport(0,0,w,h)
                     GL.glUseProgram(p);common(p,s)
                     texture(accum[1-sampleCount%2],1,p,"uPrevious");texture(photons,2,p,"uPhotons")
@@ -542,17 +674,9 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                             if(rowCursor>=region.height) { sampleCount++;rowCursor=0 }
                         }
                     } else { sampleCount=c.samples;shownIndex=0 }
-                    havePreview=true
+                    havePreview=havePreview || sampleCount>0
                 }
-                measured(Stage.DISPLAY) {
-                    GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0);GL.glViewport(0,0,width,height)
-                    GL.glUseProgram(displayProgram)
-                    texture(accum[shownIndex],0,displayProgram,"uImage")
-                    GL.glUniform2f(location(displayProgram,"uScreen"),width.toFloat(),height.toFloat())
-                    f(displayProgram,"uExposure",c.exposure)
-                    i(displayProgram,"uFxaa",if(s.antialias)1 else 0)
-                    GL.glDrawArrays(GL.GL_TRIANGLES,0,3)
-                }
+                requestRender()
                 val error=GL.glGetError();check(error==GL.GL_NO_ERROR) { "GL error 0x${error.toString(16)}" }
                 val finalQuality=!moving && !dirtyPhotons && w==min(c.width,width)
                 val phase=when {
@@ -565,9 +689,10 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                 val rebuildParameters=previousMetrics.run==0L || previousMetrics.width!=w || previousMetrics.height!=h || sampleCount<=1
                 val regionInfo=if(rebuildParameters)OpticalScreenRegion.project(contour,s.yaw,s.pitch,s.distance,s.fov,width.toDouble()/height,w,h) else null
                 val parameters=if(rebuildParameters) "Цель: ${min(c.width,width)}px · ${c.samples} spp · ${c.bounces} границ; preview ${c.movingWidth}px; settle ${c.settleMs} мс; бюджет ${c.pixelBudget} px/подачу\n"+
+                    "Лимит работы: ${resourceLimitPercent}% (не процент GPU); порция лучей ${budget.units(32768)} px; силуэт ${maskBudget.units(16384)} px; каустика ${photonBudget.units(16384)} фотонов; очередь GPU ≤1 порции\n"+
                     "Отсечение сегментов ${s.render.optics.segmentCullingEnabled}; профиль ${contour.size/2} точек; маска ${c.maskSides} сторон; scissor ${regionInfo?.width}×${regionInfo?.height} (прямоугольник планирования, не площадь стекла)\n"+
                     "Карта каустики ${mapSize}×${mapSize}; запуск ${launchSide}² (${launchSide.toLong()*launchSide}) фотонов; полуразмер ${receiverExtent(s)}; готова=$photonReady\n"+
-                    "Поверхность лучей: ${if(s.analyticSurface)"гладкий кубический профиль" else "исходные отрезки"}\n"+
+                    "Поверхность лучей: ${if(s.primitiveType!=0)"аналитическая фигура ${s.primitiveType}" else if(s.analyticSurface)"гладкий кубический профиль" else "исходные отрезки"}\n"+
                     "IOR ${s.ior}; сглаживание/FXAA ${s.antialias}; отсечение выбросов ${c.maxSampleRadiance}" else previousMetrics.parameters
                 metrics.progress(phase,w,h,sampleCount,c.samples,finalQuality,parameters,gpuDescription,
                     17L*w*h+8L*mapSize*mapSize+contour.size*4L)
@@ -582,6 +707,8 @@ class GlassOpticsSurface(context:Context,private val onFailure:(String)->Unit):G
                     postDelayed({ queueEvent { delayed=false };requestRender() },(c.settleMs-min(elapsed,SystemClock.uptimeMillis()-motionTime)).coerceAtLeast(1))
                 }
             } catch(e:Exception) { fail(e) }
+            finally { if(submitted && failed==null)runCatching { finishWork() }.onFailure { fail(Exception(it)) } }
         }
     }
 }
+

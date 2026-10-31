@@ -226,7 +226,7 @@ class MainActivity : Activity() {
             updateOpticalSurface()
             // Preserve the existing four actual Filament frames that confirm an
             // activated patch; after that the opaque optical surface covers it.
-            val renderFilament=opticalSurface.visibility!=View.VISIBLE || stableFrames<4
+            val renderFilament=opticalSurface.visibility!=View.VISIBLE || !opticalSurface.hasPresentedFrame || stableFrames<4
             if(filamentSuspended==renderFilament) {
                 filamentSuspended=!renderFilament
                 opticalSurface.metrics.event(if(filamentSuspended) "Filament: скрытая отрисовка приостановлена" else "Filament: отрисовка возобновлена")
@@ -275,7 +275,8 @@ class MainActivity : Activity() {
         opticalSurface.update(GlassOpticsSurface.State(cameraLight.yaw,cameraLight.pitch,cameraLight.distance,
             cameraLight.config.fieldOfView,cameraLight.lightAz,cameraLight.lightElevation,cameraLight.brightness,
             sceneEnvironment.lightingMode,sceneEnvironment.floorMode,sceneEnvironment.module,
-            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled,analyticSurface))
+            renderEnvironment.configuration,cameraLight.config,modelAssets.opticalIor,renderEnvironment.fxaaEnabled,analyticSurface,PrimitiveGeometry.type(modelAssets.selection.modelId),
+            modelAssets.configuration.primitiveRadius,modelAssets.configuration.primitiveHeight))
     }
     /**
      * All patch-defined windows, including their interactive controls, use one
@@ -303,6 +304,29 @@ class MainActivity : Activity() {
     private fun openMenu() {
         diagnosticsPopup.dismiss()
         val panel=GlassDialogFactory.panel(this,"Настройки")
+        val limitLabel=TextView(this).apply {
+            text="Лимит нагрузки: ${opticalSurface.resourceLimitPercent}%"
+            setTextColor(GlassDialogFactory.theme.hint);textSize=14f
+        }
+        panel.addView(limitLabel)
+        panel.addView(SeekBar(this).apply {
+            max=90;progress=opticalSurface.resourceLimitPercent-10
+            setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar:SeekBar?,value:Int,fromUser:Boolean) {
+                    if(!fromUser)return
+                    val percent=value+10
+                    opticalSurface.setResourceLimit(percent)
+                    limitLabel.text="Лимит нагрузки: $percent%"
+                    getPreferences(MODE_PRIVATE).edit().putInt("resourceLimitPercent",percent).apply()
+                }
+                override fun onStartTrackingTouch(bar:SeekBar?) {}
+                override fun onStopTrackingTouch(bar:SeekBar?) {}
+            })
+        })
+        panel.addView(TextView(this).apply {
+            text="Меньше — короче порции расчёта и больше паузы. Качество сохраняется, расчёт дольше. Это не процент загрузки GPU и не лимит памяти."
+            textSize=12f;setTextColor(GlassDialogFactory.theme.hint)
+        })
         panel.addView(GlassDialogFactory.option(this,"Гладкая поверхность для лучей · эксперимент",analyticSurface).apply {
             setOnClickListener {
                 analyticSurface=!analyticSurface
@@ -388,6 +412,7 @@ class MainActivity : Activity() {
             visibility=View.GONE
             setOnTouchListener { _, event -> if(opticsTest.running)true else cameraLight.onTouch(event) }
         }
+        opticalSurface.setResourceLimit(getPreferences(MODE_PRIVATE).getInt("resourceLimitPercent",50))
         root.addView(opticalSurface,1,FrameLayout.LayoutParams(-1,-1))
 
         // Floating header, modeled on GlassStudy 3D LAB v0.1.22.
@@ -875,7 +900,7 @@ class MainActivity : Activity() {
             pitch=cameraLight.pitch,
             lightAz=cameraLight.lightAz,
             lightElevation=cameraLight.lightElevation,
-            brightness=cameraLight.brightness
+            brightness=cameraLight.brightness,adaptivity=modelAssets.adaptivePercent
         ))
     private fun showDiagnostic() {
         val report=diagnosticReport()+"\n\n"+opticsTest.report()
@@ -924,3 +949,4 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
+
