@@ -89,3 +89,9 @@
 - Commit `404bf5b`: QA versionCode 6 / versionName 0.4.1; debug build continues to use isolated `com.numera.factory.qa` application ID / `Numera Test` name to protect the production installation from a changing CI debug signing certificate.
 - **Important remaining limitation:** The user's two additional movement bugs were not demonstrated by a video in the current turn, so they are not claimed to be specifically reproduced or resolved. Device-level visual and gesture QA is outstanding, including checking bends, overlap streams and UI safe areas.
 - Compiling is not a real-device pass. Do not claim a production update is safe or an entire Beltmatic mechanics port is complete. No change to GlassStudy or other applications.
+
+### v0.4.1 QA APK verification
+
+- Successful GitHub Actions run `41223082951` (commit `699ad326d` after source commits `674441c`, `291c4e2` and version bump `404bf5b`); output artifact ID `13050683094` (`numera-development-check-apk`).
+- Downloaded `Numera_Test_v0.4.1.zip`, ZIP integrity verified, extracted the single `app-debug.apk` to `Numera_Test_v0.4.1.apk` (36,753 bytes). APK ZIP CRC and Signing Block presence confirmed; SHA-256 `97c66af60838320fb886ae3ac62b7e4aec526d48f7a964df74bf91bedf317846`.
+- Android phone installation and runtime interaction NOT yet verified. This is an isolated `com.numera.factory.qa` debug build, not a production signed update. A changing CI debug signature might prevent in-place upgrade even over an older `Numera Test`; keep the original production installation untouched.
