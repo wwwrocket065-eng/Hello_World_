@@ -849,14 +849,33 @@ public final class FactoryView extends View {
             Node n=entry.getValue();
             if(n.type!=STORAGE || n.storedCount<=0)continue;
             int x=(int)(entry.getKey()>>32),y=(int)(long)entry.getKey();
-            // Independent outgoing sides saturate at the current belt speed.
-            for(int d=0;d<4 && n.storedCount>0;d++) {
-                Node out=get(x+DX[d],y+DY[d]);
-                if(out!=null && out.type==BELT && out.dir==d &&
-                   out.item==EMPTY) {
-                    out.item=n.value;
-                    markTravel(out,false,x,y);
-                    n.storedCount--;
+            if(n.multi) {
+                MachineLayout.Shape shape=MachineLayout.shape(STORAGE,n.rotation);
+                // The whole 3x3 perimeter is available, not just the anchor.
+                for(MachineLayout.Cell cell:shape.cells) {
+                    if(n.storedCount<=0)break;
+                    int px=n.originX+cell.x,py=n.originY+cell.y;
+                    for(int d=0;d<4 && n.storedCount>0;d++) {
+                        int nx=px+DX[d],ny=py+DY[d];
+                        if(machineAt(nx,ny)==n)continue;
+                        Node out=get(nx,ny);
+                        if(out!=null&&out.type==BELT&&out.dir==d&&
+                           out.item==EMPTY) {
+                            out.item=n.value;
+                            markTravel(out,false,px,py);
+                            n.storedCount--;
+                        }
+                    }
+                }
+            } else {
+                // Compatibility for 1-cell storages from older saves.
+                for(int d=0;d<4 && n.storedCount>0;d++) {
+                    Node out=get(x+DX[d],y+DY[d]);
+                    if(out!=null&&out.type==BELT&&out.dir==d&&out.item==EMPTY) {
+                        out.item=n.value;
+                        markTravel(out,false,x,y);
+                        n.storedCount--;
+                    }
                 }
             }
             if(n.storedCount==0)n.value=EMPTY;
