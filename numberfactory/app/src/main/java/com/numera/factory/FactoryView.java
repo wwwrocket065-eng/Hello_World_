@@ -518,81 +518,143 @@ public final class FactoryView extends View {
         travel.duration=Math.max(.025f,1f/beltSpeed());
     }
 
-    private void moveLane(Node source, boolean upper, int x,int y,
-                          HashSet<Long> entered,HashSet<Long> enteredUpper) {
+    // A transfer is a reservation for a single cargo lane, not an immediate
+    // mutation. All transfers are committed together after dependency checks.
+    private static final class Transfer {
+        long fromKey,toKey;
+        Node from,to;
+        int number,fromX,fromY,port; // 0=lower, 1=upper, 2=hub, 3=A, 4=B, 5=storage
+        boolean fromUpper;
+        Transfer(long fromKey,Node from,boolean upper,int fromX,int fromY,
+                 long toKey,Node to,int number,int port) {
+            this.fromKey=fromKey;this.from=from;this.fromUpper=upper;
+            this.fromX=fromX;this.fromY=fromY;
+            this.toKey=toKey;this.to=to;this.number=number;this.port=port;
+        }
+    }
+
+    private void offerTransfer(long fromKey,Node source,boolean upper,
+                               int x,int y,ArrayList<Transfer> proposals,
+                               HashSet<Long> lowerClaims,HashSet<Long> upperClaims,
+                               HashSet<Long> aClaims,HashSet<Long> bClaims,
+                               HashSet<Long> storageClaims) {
         int number=upper?source.crossItem:source.item;
-        if(number==EMPTY || source.type==SOURCE || source.type==HUB)return;
+        if(number==EMPTY)return;
         int dir=upper?source.crossDir:source.dir;
         if(dir<0||dir>3)return;
         int nx=x+DX[dir],ny=y+DY[dir];
-        long next=id(nx,ny);
+        long key=id(nx,ny);
         Node target=get(nx,ny);
         if(target==null)return;
-        boolean accepted=false;
+        int port=-1;
         if(target.type==HUB) {
-            deliverToHub(number);
-            accepted=true;
-        } else if(target.type==BELT && target.item==EMPTY && !entered.contains(next)) {
-            target.item=number;
-            markTravel(target,false,x,y);
-            entered.add(next);
-            accepted=true;
+            port=2;
+        } else if(target.type==BELT) {
+            if(!lowerClaims.add(key))return;
+            port=0;
         } else if(target.type==BRIDGE) {
-            if(target.dir==dir && target.item==EMPTY && !entered.contains(next)) {
-                target.item=number;
-                markTravel(target,false,x,y);
-                entered.add(next);
-                accepted=true;
-            } else if(target.crossDir==dir && target.crossItem==EMPTY
-                      && !enteredUpper.contains(next)) {
-                target.crossItem=number;
-                markTravel(target,true,x,y);
-                enteredUpper.add(next);
-                accepted=true;
-            }
+            if(target.dir==dir && lowerClaims.add(key))port=0;
+            else if(target.crossDir==dir && upperClaims.add(key))port=1;
+            if(port<0)return;
         } else if(target.type==STORAGE) {
-            if(target.storedCount<10000 &&
-               (target.storedCount==0 || target.value==number)) {
-                target.value=number;
-                target.storedCount++;
-                accepted=true;
-            }
-        } else if(target.type==ADD || target.type==MULTIPLY ||
-                  target.type==SUBTRACT || target.type==DIVIDE ||
+            if(target.storedCount>=10000 || (target.storedCount>0&&target.value!=number)
+                    || !storageClaims.add(key))return;
+            port=5;
+        } else if(target.type==ADD||target.type==MULTIPLY||
+                  target.type==SUBTRACT||target.type==DIVIDE||
                   target.type==EXPONENT) {
-            if(y<ny && target.a==EMPTY) {target.a=number;accepted=true;}
-            else if(y>ny && target.b==EMPTY) {target.b=number;accepted=true;}
-            else if(target.a==EMPTY) {target.a=number;accepted=true;}
-            else if(target.b==EMPTY) {target.b=number;accepted=true;}
+            if(y<ny && target.a==EMPTY && aClaims.add(key))port=3;
+            else if(y>ny && target.b==EMPTY && bClaims.add(key))port=4;
+            else if(target.a==EMPTY && aClaims.add(key))port=3;
+            else if(target.b==EMPTY && bClaims.add(key))port=4;
+            if(port<0)return;
+        } else return;
+        proposals.add(new Transfer(fromKey,source,upper,x,y,key,target,number,port));
+    }
+
+    private void transportTick() {
+        // Deterministic proposal order, unlike hash iteration. All cargo
+        // positions and occupancy refer to the SAME start-of-tick snapshot.
+        ArrayList<Long> keys=new ArrayList<>(cells.keySet());
+        Collections.sort(keys);
+        ArrayList<Transfer> proposals=new ArrayList<>();
+        HashSet<Long> lowerClaims=new HashSet<>(),upperClaims=new HashSet<>();
+        HashSet<Long> aClaims=new HashSet<>(),bClaims=new HashSet<>();
+        HashSet<Long> storageClaims=new HashSet<>();
+        HashMap<Long,Transfer> lowerSources=new HashMap<>(),upperSources=new HashMap<>();
+        for(long key:keys) {
+            Node n=cells.get(key);
+            if(n==null||n.type==SOURCE||n.type==HUB||n.type==STORAGE)continue;
+            int x=(int)(key>>32),y=(int)key;
+            if(n.item!=EMPTY)
+                offerTransfer(key,n,false,x,y,proposals,lowerClaims,upperClaims,
+                              aClaims,bClaims,storageClaims);
+            if((n.type==BRIDGE||n.type==DIVIDE)&&n.crossItem!=EMPTY)
+                offerTransfer(key,n,true,x,y,proposals,lowerClaims,upperClaims,
+                              aClaims,bClaims,storageClaims);
         }
-        if(accepted) {
-            if(upper)source.crossItem=EMPTY;
-            else source.item=EMPTY;
+        for(Transfer transfer:proposals) {
+            if(transfer.fromUpper)upperSources.put(transfer.fromKey,transfer);
+            else lowerSources.put(transfer.fromKey,transfer);
+        }
+        HashSet<Transfer> movable=new HashSet<>();
+        for(Transfer t:proposals) {
+            if(t.port>=2 || (t.port==0 && t.to.item==EMPTY) ||
+                (t.port==1 && t.to.crossItem==EMPTY))
+                movable.add(t);
+        }
+        // Propagate vacancy backward through the entire chain. A hundred
+        // adjacent numbers advance one tile in parallel, not every 2-3 ticks
+        // depending on whether HashMap happened to visit their cells first.
+        boolean changed;
+        do {
+            changed=false;
+            for(Transfer t:proposals) {
+                if(movable.contains(t)||t.port>1)continue;
+                Transfer downstream=t.port==0?
+                    lowerSources.get(t.toKey):upperSources.get(t.toKey);
+                if(downstream!=null&&movable.contains(downstream)) {
+                    movable.add(t);
+                    changed=true;
+                }
+            }
+        } while(changed);
+        // Clear only approved sources. This must happen before writing
+        // destinations or queued numbers could be overwritten or duplicated.
+        for(Transfer t:proposals) {
+            if(!movable.contains(t))continue;
+            if(t.fromUpper)t.from.crossItem=EMPTY;
+            else t.from.item=EMPTY;
+        }
+        int deliveredThisTick=0;
+        for(Transfer t:proposals) {
+            if(!movable.contains(t))continue;
+            switch(t.port) {
+                case 0:
+                    t.to.item=t.number;
+                    markTravel(t.to,false,t.fromX,t.fromY);
+                    break;
+                case 1:
+                    t.to.crossItem=t.number;
+                    markTravel(t.to,true,t.fromX,t.fromY);
+                    break;
+                case 2:
+                    deliverToHub(t.number);
+                    deliveredThisTick++;
+                    break;
+                case 3: t.to.a=t.number;break;
+                case 4: t.to.b=t.number;break;
+                case 5:
+                    if(t.to.storedCount==0)t.to.value=t.number;
+                    t.to.storedCount++;
+                    break;
+                default:break;
+            }
         }
     }
 
     private void step() {
-        // Each overpass has two independent channels, each accepting at most one
-        // item per tick. A perpendicular stream never replaces the first one.
-        ArrayList<Long> keys=new ArrayList<>(cells.keySet());
-        HashSet<Long> entered=new HashSet<>(), enteredUpper=new HashSet<>();
-        HashSet<Long> readyMain=new HashSet<>(),readyCross=new HashSet<>();
-        // Snapshot occupancy before transfers: one number travels at most one
-        // world tile per tick, independent of HashMap iteration order.
-        for(long key:keys) {
-            Node n=cells.get(key);
-            if(n==null)continue;
-            if(n.item!=EMPTY)readyMain.add(key);
-            if(n.crossItem!=EMPTY)readyCross.add(key);
-        }
-        for(long key:keys) {
-            Node n=cells.get(key);
-            if(n==null || n.type==SOURCE || n.type==HUB)continue;
-            int x=(int)(key>>32),y=(int)key;
-            if(readyMain.contains(key))moveLane(n,false,x,y,entered,enteredUpper);
-            if(readyCross.contains(key)&&(n.type==BRIDGE||n.type==DIVIDE))
-                moveLane(n,true,x,y,entered,enteredUpper);
-        }
+        transportTick();
         for(Map.Entry<Long,Node> entry:cells.entrySet()) {
             Node n=entry.getValue();
             if(n.type!=SOURCE)continue;
