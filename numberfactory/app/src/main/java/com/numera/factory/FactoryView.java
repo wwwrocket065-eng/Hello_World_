@@ -25,7 +25,7 @@ import java.util.Collections;
 public final class FactoryView extends View {
     private static final int EMPTY = Integer.MIN_VALUE;
     private static final int BELT=1, SOURCE=2, ADD=3, MULTIPLY=4, HUB=5, BRIDGE=6;
-    private static final int SUBTRACT=7, DIVIDE=8, EXPONENT=9, STORAGE=10;
+    private static final int SUBTRACT=7, DIVIDE=8, EXPONENT=9, STORAGE=10, PART=11;
     private static final int[] OPERATORS={ADD,MULTIPLY,SUBTRACT,DIVIDE,EXPONENT,STORAGE};
     private static final String[] OP_SYMBOLS={"+","×","−","÷","^","▣"};
     private static final int[] OP_LEVELS={1,7,13,16,19,22};
@@ -57,7 +57,8 @@ public final class FactoryView extends View {
     private float clock,stepAccumulator,sourceAccumulator,flash;
     private long lastFrame;
     private int selected=7, level=1,goal=1,required=10,delivered,allDelivered;
-    private int beltMode=0, operatorChoice=ADD, selectX0,selectY0,selectX1,selectY1,clipboardCount;
+    private int beltMode=0, operatorChoice=ADD, machineRotation=0,
+                selectX0,selectY0,selectX1,selectY1,clipboardCount;
     private boolean initialized,pinching,dragged,toolbarGesture,beltMenuGesture,routeGesture,paintGesture;
     private boolean paintStartedOnBelt;
     private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture,machineMenuGesture;
@@ -104,6 +105,9 @@ public final class FactoryView extends View {
         int type,dir,value,item=EMPTY,a=EMPTY,b=EMPTY,upgrade=1,extracted;
         int crossDir=-1,crossItem=EMPTY; // Overpass or divider output channel.
         int storedCount=0; // A storage holds at most 10000 copies of one number.
+        // Only the controller stores cargo. All other occupied tiles are PARTs.
+        boolean multi=false;
+        int rotation,originX,originY,ownerX,ownerY,port;
         float progress;
         Node(int type,int dir,int value) {
             this.type=type;this.dir=dir;this.value=value;
@@ -126,6 +130,56 @@ public final class FactoryView extends View {
         cells.put(id(x,y),new Node(type,dir,value));
     }
     private Node get(int x,int y) { return cells.get(id(x,y)); }
+
+    // Multi-tile occupancy and port ownership, backed by MachineLayout.
+    private Node machineAt(int x,int y) {
+        Node tile=get(x,y);
+        if(tile==null)return null;
+        if(tile.multi)return tile;
+        if(tile.type!=PART)return null;
+        Node owner=get(tile.ownerX,tile.ownerY);
+        return owner!=null&&owner.multi?owner:null;
+    }
+    private int machinePort(int x,int y) {
+        Node tile=get(x,y);
+        return tile!=null&&(tile.multi||tile.type==PART)?tile.port:0;
+    }
+    private void removeBuilding(int x,int y) {
+        Node owner=machineAt(x,y);
+        if(owner==null) {cells.remove(id(x,y));return;}
+        MachineLayout.Shape shape=MachineLayout.shape(owner.type,owner.rotation);
+        if(shape==null)return;
+        for(MachineLayout.Cell part:shape.cells)
+            cells.remove(id(owner.originX+part.x,owner.originY+part.y));
+    }
+    private boolean canBuild(int x,int y,int type,int rotation) {
+        MachineLayout.Shape shape=MachineLayout.shape(type,rotation);
+        if(shape==null)return false;
+        for(MachineLayout.Cell part:shape.cells) {
+            int xx=x+part.x,yy=y+part.y;
+            if(!within(xx,yy)||isHub(xx,yy)||get(xx,yy)!=null||
+               depositUnder(xx,yy)>0)return false;
+        }
+        return true;
+    }
+    private boolean putMachine(int x,int y,int type,int rotation) {
+        if(!canBuild(x,y,type,rotation))return false;
+        MachineLayout.Shape shape=MachineLayout.shape(type,rotation);
+        MachineLayout.Cell first=shape.cells[0];
+        int ax=x+first.x,ay=y+first.y;
+        Node controller=new Node(type,0,type==STORAGE?EMPTY:0);
+        controller.multi=true;controller.rotation=rotation&3;
+        controller.originX=x;controller.originY=y;
+        controller.ownerX=ax;controller.ownerY=ay;controller.port=first.port;
+        cells.put(id(ax,ay),controller);
+        for(int i=1;i<shape.cells.length;i++) {
+            MachineLayout.Cell cell=shape.cells[i];
+            Node part=new Node(PART,0,0);
+            part.ownerX=ax;part.ownerY=ay;part.port=cell.port;
+            cells.put(id(x+cell.x,y+cell.y),part);
+        }
+        return true;
+    }
     private void seed() {
         cells.clear();
         level=1;goal=1;required=10;delivered=0;allDelivered=0;
@@ -280,6 +334,16 @@ public final class FactoryView extends View {
                 if(v.length>5) get(xx,yy).upgrade=Integer.parseInt(v[5]);
                 if(v.length>6) get(xx,yy).crossDir=Integer.parseInt(v[6]);
                 if(v.length>7) get(xx,yy).storedCount=Integer.parseInt(v[7]);
+                if(v.length>14) {
+                    Node n=get(xx,yy);
+                    n.multi=Integer.parseInt(v[8])!=0;
+                    n.rotation=Integer.parseInt(v[9]);
+                    n.originX=Integer.parseInt(v[10]);
+                    n.originY=Integer.parseInt(v[11]);
+                    n.ownerX=Integer.parseInt(v[12]);
+                    n.ownerY=Integer.parseInt(v[13]);
+                    n.port=Integer.parseInt(v[14]);
+                }
             }
             if(cells.isEmpty()) seed();
             for(int y=HUB_Y;y<HUB_Y+HUB_SIZE;y++)
@@ -408,7 +472,11 @@ public final class FactoryView extends View {
             b.append((int)(key>>32)).append(',').append((int)key).append(',')
                 .append(n.type).append(',').append(n.dir).append(',')
                 .append(n.value).append(',').append(n.upgrade).append(',')
-                 .append(n.crossDir).append(',').append(n.storedCount).append(';');
+                 .append(n.crossDir).append(',').append(n.storedCount).append(',')
+                 .append(n.multi?1:0).append(',').append(n.rotation).append(',')
+                 .append(n.originX).append(',').append(n.originY).append(',')
+                 .append(n.ownerX).append(',').append(n.ownerY).append(',')
+                 .append(n.port).append(';');
         }
         prefs.edit().putString("world",b.toString())
             .putString("upgrades",saveUpgrades()).apply();
@@ -1160,8 +1228,8 @@ public final class FactoryView extends View {
             // A repeated touch anywhere in the same 3x3 field reuses
             // its existing extractor, never creating a second one.
         } else if(selected==2||selected==3) {
-            if(old==null&&depositUnder(x,y)<0&&operatorUnlocked(operatorChoice))
-                put(x,y,operatorChoice,0,operatorChoice==STORAGE?EMPTY:0);
+            if(operatorUnlocked(operatorChoice))
+                putMachine(x,y,operatorChoice,machineRotation);
         } else if(selected==4) {
             eraseCell(x,y);
         } else if(selected==6) {
@@ -1184,7 +1252,7 @@ public final class FactoryView extends View {
     }
     private void eraseCell(int x,int y) {
         if(!within(x,y)||isHub(x,y))return;
-        cells.remove(id(x,y));
+        removeBuilding(x,y);
     }
     private void erasePath(int x0,int y0,int x1,int y1) {
         if(!within(x0,y0)||!within(x1,y1))return;
@@ -1206,7 +1274,7 @@ public final class FactoryView extends View {
             if(x>=lowX&&x<=highX&&y>=lowY&&y<=highY&&e.getValue().type!=HUB)
                 erase.add(key);
         }
-        for(long key:erase)cells.remove(key);
+        for(long key:erase)eraseCell((int)(key>>32),(int)key);
         selectionReady=false;
         save();
     }
