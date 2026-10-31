@@ -146,3 +146,9 @@
 - Commits `6653212` and `4fcf75c`: debug-only `com.numera.factory.qa5`, label `Numera Test 5`, versionCode 10/name `0.5.1-test` so it installs separately from previous QA/production installations. Do not claim this is an in-place update.
 - Commit `9ee90b5`: second pointer interrupts the hold/edit drag so camera pinch-to-zoom remains usable. Latest run `41227487432` pending final confirmation when this note was written.
 - **QA limits:** GitHub Actions builds/debug artifact and existing 24 footprint/port tests; no real-device long-press, visual skin, move/rotate with flow, or interaction screenshots captured. Check long-hold in Camera/Sum/Belt/Delete, room blocked on rotation, drag alignment, storage value preservation, L-shape rotation. Avoid asserting full parity with original Beltmatic. Other projects and production Numera untouched.
+
+### v0.5.1 confirmed downloadable QA artifact
+
+- Commit `9ee90b5` final source (unified silhouette + long-press editor + safe pinch cancellation) compiled in GitHub Actions run `41227487432`, **success**, artifact ID `13051404690` (the subsequent `574dc7f` commit only added notes, not application code).
+- Extracted `app-debug.apk` from connector artifact archive to `/mnt/data/Numera_Test5_v0.5.1.apk`. ZIP inner and outer CRC checks passed; package manifest contains `com.numera.factory.qa5`, `Numera Test 5` and version `0.5.1-test`; APK Signature Block present. APK size `47381` bytes; SHA-256 `91ce6047acc642f2ccfcb3254fef11b4372cfeb4a09e82722a7df78569e9dd67`.
+- This is **not** on-device visual/gesture validation: real phone long-press selection and move/rotation must be checked by user. Keep older installations and data; separate QA package ID deliberately avoids CI debug certificate mismatch.
