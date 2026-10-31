@@ -2,7 +2,7 @@ name: Numera Android APK
 
 on:
   push:
-    branches: [numberfactory-android]
+    branches: [numera-ui-fixes-20261031]
     paths:
       - "numberfactory/**"
       - ".github/workflows/numera-android.yml"
@@ -43,15 +43,15 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: numera-v0.2.0-debug-apk
+          name: numera-v0.3.0-debug-apk
           path: numberfactory/app/build/outputs/apk/debug/app-debug.apk
       - name: Publish preview release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/numberfactory-android'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/numera-ui-fixes-20261031'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: numera-v0.2.0-preview
-          name: Numera 0.2.0 Android preview
-          target_commitish: numberfactory-android
+          tag_name: numera-v0.3.0-preview
+          name: Numera 0.3.0 Android preview
+          target_commitish: numera-ui-fixes-20261031
           prerelease: true
           files: numberfactory/app/build/outputs/apk/debug/app-debug.apk
-          body: "Numera 0.2.0 test: blank 6x6 hub, 3x3 deposits, camera default, route previews, selection, upgrade tracks. Debug signed; original signing identity and auto-update not yet supported."
+          body: "Numera 0.3.0 PREVIEW: restored belts, curving paths, route confirm, erase gestures and selected-area delete, more natural deposits, goal hub. Debug signed for tests; not full Beltmatic parity, stable signing or autoupdates."
