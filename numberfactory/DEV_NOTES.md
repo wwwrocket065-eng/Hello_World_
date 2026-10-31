@@ -187,3 +187,12 @@
 - Does not affect the factory simulation, long-press machine relocation, or permanent world save format. Previously placed belts/machines remain untouched.
 - GitHub Actions run `41229913338` for `c2f6e83`: **SUCCESS**, including host geometry/rotation regression checks and Android debug build. Run `41229982593` checks the final `8f9dc45` minor touch-semantics adjustment; confirm its final result before promising a tested binary.
 - Remaining QA: Android on-device verification of pure two-finger pan with fixed distance, combined pinch+pan, start on UI/machine/belt, second finger arriving during a proposed belt/delete stroke, and last-finger lift. Compilation alone is NOT device gesture validation. Keep the app labelled test/incomplete until all Beltmatic mechanics are ported; no finished production APK has been released for these changes.
+
+
+### v0.5.3 isolated QA APK for camera and junction fixes (2026-10-31)
+
+- The tested code includes the 12 miner belt-socket corner detector, per-machine-type rotation inheritance, and exclusive 2-pointer camera pan/pinch with deferred one-finger Belt/Delete edits. The other game features remain a work in progress.
+- Test build metadata updated in commits `6568e7d` and `f39d082`: versionCode **12**, versionName **0.5.3-test**, package **com.numera.factory.qa7**, label **Numera Test 7**. Fresh QA7 package prevents an ephemeral CI debug-key conflict with the former QA6 and does not replace the previous test installation or its data.
+- GitHub Actions workflow run [41230978326](https://github.com/wwwrocket065-eng/Hello_World_/actions/runs/41230978326) **SUCCESS**, head `f39d0829ca29e1694556e4495c3e455dcaff38c9`, geometry/rotation host tests + Android Gradle debug compile.
+- Artifact ID **13053632559**, original connector ZIP passed CRC test; extracted single `app-debug.apk` as `/mnt/data/Numera_Test7_v0.5.3.apk` in this conversation. **50,497 bytes**, SHA-256 **730cb1041e061625064d0dec39292f9f8521fcc5a04cd2485365b72f728c5c80**; APK ZIP CRC, manifest app ID/name/version and signature block checked.
+- APK is **not** a final complete Beltmatic port, nor a physical-phone validation. Follow-up device checks: simultaneous pan + zoom in all tools, second-finger cancellation of all pending edits, miner socket elbow rendering/animated arrows, last rotation inherited by a new machine; test after install. Do not silently overwrite any existing install or user save.
