@@ -93,7 +93,14 @@ public final class FactoryView extends View {
     private boolean upgradePanel,upgradeGesture,headerGesture;
 
 
+    // Render-only interpolation. Never serialized and never changes simulation.
+    // An arrival animates from the sending tile to this tile over one belt tick;
+    // if blocked, the number rests at its destination instead of jumping back.
+    private static final class Travel {
+        float fromX,fromY,start=-1f,duration=1f;
+    }
     private static final class Node {
+        final Travel lowerTravel=new Travel(),upperTravel=new Travel();
         int type,dir,value,item=EMPTY,a=EMPTY,b=EMPTY,upgrade=1,extracted;
         int crossDir=-1,crossItem=EMPTY; // Overpass or divider output channel.
         int storedCount=0; // A storage holds at most 10000 copies of one number.
@@ -458,6 +465,16 @@ public final class FactoryView extends View {
             if(entry.getValue().type!=HUB)
                 drawNode(c,(int)(key>>32),(int)key,entry.getValue());
         }
+        // Render moving tokens after every belt and machine, not under their
+        // neighbours. The underlying integer-grid logistics stay unchanged.
+        for(Map.Entry<Long,Node> entry:cells.entrySet()) {
+            long key=entry.getKey();
+            Node n=entry.getValue();
+            if(n.item!=EMPTY)
+                drawTravellingNumber(c,(int)(key>>32),(int)key,n,false);
+            if(n.crossItem!=EMPTY && (n.type==BRIDGE||n.type==DIVIDE))
+                drawTravellingNumber(c,(int)(key>>32),(int)key,n,true);
+        }
         drawRoutePreview(c);
         drawSelection(c);
         c.restore();
@@ -493,6 +510,14 @@ public final class FactoryView extends View {
         if((allDelivered&31)==0)save();
     }
 
+    private void markTravel(Node target,boolean upper,int fromX,int fromY) {
+        Travel travel=upper?target.upperTravel:target.lowerTravel;
+        travel.fromX=fromX;
+        travel.fromY=fromY;
+        travel.start=clock;
+        travel.duration=Math.max(.025f,1f/beltSpeed());
+    }
+
     private void moveLane(Node source, boolean upper, int x,int y,
                           HashSet<Long> entered,HashSet<Long> enteredUpper) {
         int number=upper?source.crossItem:source.item;
@@ -509,16 +534,19 @@ public final class FactoryView extends View {
             accepted=true;
         } else if(target.type==BELT && target.item==EMPTY && !entered.contains(next)) {
             target.item=number;
+            markTravel(target,false,x,y);
             entered.add(next);
             accepted=true;
         } else if(target.type==BRIDGE) {
             if(target.dir==dir && target.item==EMPTY && !entered.contains(next)) {
                 target.item=number;
+                markTravel(target,false,x,y);
                 entered.add(next);
                 accepted=true;
             } else if(target.crossDir==dir && target.crossItem==EMPTY
                       && !enteredUpper.contains(next)) {
                 target.crossItem=number;
+                markTravel(target,true,x,y);
                 enteredUpper.add(next);
                 accepted=true;
             }
@@ -579,7 +607,9 @@ public final class FactoryView extends View {
                 int xx=x+MINE_OUTPUTS[i][0],yy=y+MINE_OUTPUTS[i][1];
                 Node out=get(xx,yy);
                 if(out!=null&&out.type==BELT&&out.item==EMPTY) {
-                    out.item=n.value;produced++;
+                    out.item=n.value;
+                    markTravel(out,false,x,y);
+                    produced++;
                 }
             }
             n.extracted+=Math.max(1,produced);
@@ -601,6 +631,7 @@ public final class FactoryView extends View {
                         result=n.a/n.b;
                         n.crossDir=(n.dir+1)%4;
                         n.crossItem=n.a%n.b;
+                        n.upperTravel.start=-1f;
                         break;
                     case EXPONENT:
                         if(n.b<0)result=0;
@@ -623,6 +654,7 @@ public final class FactoryView extends View {
                     default:continue;
                 }
                 n.item=(int)Math.min(999999999L,Math.max(-999999999L,result));
+                n.lowerTravel.start=-1f; // Produced at machine centre.
                 n.a=EMPTY;n.b=EMPTY;
             }
         }
@@ -634,7 +666,11 @@ public final class FactoryView extends View {
             for(int d=0;d<4 && n.storedCount>0;d++) {
                 Node out=get(x+DX[d],y+DY[d]);
                 if(out!=null && out.type==BELT && out.dir==d &&
-                   out.item==EMPTY) {out.item=n.value;n.storedCount--;}
+                   out.item==EMPTY) {
+                    out.item=n.value;
+                    markTravel(out,false,x,y);
+                    n.storedCount--;
+                }
             }
             if(n.storedCount==0)n.value=EMPTY;
         }
@@ -704,6 +740,59 @@ public final class FactoryView extends View {
         }
         p.setStyle(Paint.Style.FILL);
         c.restore();
+    }
+
+    /**
+     * Moves the number independently of the logical grid. The cubic arrives
+     * tangent to the receiving belt direction so corner motion is curved,
+     * while its starting tangent follows the sending lane.
+     */
+    private void drawTravellingNumber(Canvas c,int x,int y,Node n,boolean upper) {
+        int value=upper?n.crossItem:n.item;
+        if(value==EMPTY)return;
+        float s=sz();
+        Travel v=upper?n.upperTravel:n.lowerTravel;
+        float tx=x+.5f,ty=y+.5f;
+        float wx=tx,wy=ty;
+        if(v.start>=0f) {
+            float t=Math.max(0f,Math.min(1f,(clock-v.start)/v.duration));
+            if(t<1f) {
+                float x0=v.fromX+.5f,y0=v.fromY+.5f;
+                float vx=tx-x0,vy=ty-y0;
+                float len=(float)Math.hypot(vx,vy);
+                if(len>.0001f) {
+                    vx/=len;vy/=len;
+                    int outDir=upper?n.crossDir:n.dir;
+                    // Machines do not have rotating transport lanes.
+                    if(n.type!=BELT && n.type!=BRIDGE)outDir=-1;
+                    float ex=outDir<0?vx:DX[outDir];
+                    float ey=outDir<0?vy:DY[outDir];
+                    // Avoid a backwards tangent on deliberately misaligned
+                    // user belts; such layouts still animate safely.
+                    if(vx*ex+vy*ey<-.5f){ex=vx;ey=vy;}
+                    float bend=Math.min(.37f,len*.38f);
+                    float x1=x0+vx*bend,y1=y0+vy*bend;
+                    float x2=tx-ex*bend,y2=ty-ey*bend;
+                    float inv=1f-t;
+                    wx=inv*inv*inv*x0+3f*inv*inv*t*x1+
+                       3f*inv*t*t*x2+t*t*t*tx;
+                    wy=inv*inv*inv*y0+3f*inv*inv*t*y1+
+                       3f*inv*t*t*y2+t*t*t*ty;
+                }
+            }
+        }
+        // Separate simultaneous bridge streams slightly for legibility.
+        if(n.type==BRIDGE) {
+            int d=upper?n.crossDir:n.dir;
+            if(d>=0&&d<4) {
+                float side=upper?-.10f:.10f;
+                wx+=-DY[d]*side;
+                wy+=DX[d]*side;
+            }
+        }
+        float px=panX+wx*s,py=panY+wy*s;
+        if(px< -s || px>getWidth()+s || py< -s || py>getHeight()+s)return;
+        token(c,px,py,upper?s*.68f:(n.type==BRIDGE?s*.68f:s),value);
     }
 
     private void drawNode(Canvas c,int x,int y,Node n) {
@@ -835,13 +924,6 @@ public final class FactoryView extends View {
             label(c,"ХАБ",cx,cy+s*.66f,s*.15f,
                   0xff88eee4,true,Paint.Align.CENTER);
         }
-        if(n.type==BRIDGE||n.type==DIVIDE) {
-            if(n.item!=EMPTY) token(c,cx+DX[n.dir]*s*.18f,
-                                   cy+DY[n.dir]*s*.18f,s*.68f,n.item);
-            if(n.crossItem!=EMPTY && n.crossDir>=0)
-                token(c,cx-DX[n.crossDir]*s*.18f,
-                      cy-DY[n.crossDir]*s*.18f,s*.68f,n.crossItem);
-        } else if(n.item!=EMPTY)token(c,cx,cy,s,n.item);
     }
 
     private void drawHud(Canvas c) {
