@@ -67,9 +67,13 @@ public final class FactoryView extends View {
     private boolean initialized,pinching,dragged,toolbarGesture,beltMenuGesture,routeGesture,paintGesture;
     private boolean paintStartedOnBelt;
     private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture,machineMenuGesture;
-    private float lastX,lastY,lastSpan,downX,downY,gestureX,gestureY;
+    private float lastX,lastY,lastSpan,lastPinchMidX,lastPinchMidY;
+    private float downX,downY,gestureX,gestureY;
     private int priorGridX,priorGridY;
     private final ArrayList<Point> route=new ArrayList<>();
+    // A two-finger touch can cancel these paths without changing the factory.
+    private final ArrayList<Point> paintPath=new ArrayList<>();
+    private final ArrayList<Point> erasePoints=new ArrayList<>();
     private Point routeLive;
     private final Map<Long,Node> clipboard=new HashMap<>();
     private static final String[] UPGRADE_NAMES={"Ленты","Добытчики","Сумматоры","Умножители","Вычит./Делен.","Степени"};
@@ -694,6 +698,8 @@ public final class FactoryView extends View {
                 drawTravellingNumber(c,(int)(key>>32),(int)key,n,true);
         }
         drawRoutePreview(c);
+        drawEditPathPreview(c,paintPath,paintGesture,0xff53dacf);
+        drawEditPathPreview(c,erasePoints,eraseGesture,0xffe88996);
         drawSelection(c);
         drawMachineEditOutline(c);
         drawMachineRotateIcon(c);
@@ -1713,6 +1719,61 @@ public final class FactoryView extends View {
         }
         clipboardCount=clipboard.size();
     }
+    private void stagePoint(ArrayList<Point> path,int x,int y) {
+        if(!within(x,y))return;
+        if(path.isEmpty()||path.get(path.size()-1).x!=x||
+           path.get(path.size()-1).y!=y)
+            path.add(new Point(x,y));
+    }
+    // Stroke previews look like the future route but do not modify any cell.
+    private void drawEditPathPreview(Canvas c,ArrayList<Point> points,
+                                     boolean active,int color) {
+        if(!active||pinching||points.isEmpty())return;
+        float s=sz();
+        Path path=new Path();
+        Point p0=points.get(0);
+        path.moveTo(panX+(p0.x+.5f)*s,panY+(p0.y+.5f)*s);
+        for(int i=1;i<points.size();i++) {
+            Point previous=points.get(i-1),current=points.get(i);
+            path.lineTo(panX+(current.x+.5f)*s,
+                        panY+(previous.y+.5f)*s);
+            path.lineTo(panX+(current.x+.5f)*s,
+                        panY+(current.y+.5f)*s);
+        }
+        p.setColor(color);p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(2*density,s*.22f));
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        c.drawPath(path,p);
+        p.setStyle(Paint.Style.FILL);
+        c.drawCircle(panX+(p0.x+.5f)*s,panY+(p0.y+.5f)*s,
+                     Math.max(2*density,s*.1f),p);
+    }
+    private void commitPaintPath() {
+        if(paintPath.isEmpty())return;
+        if(paintPath.size()==1) {
+            Point point=paintPath.get(0);
+            place(point.x,point.y);
+        } else {
+            for(int i=1;i<paintPath.size();i++) {
+                Point a=paintPath.get(i-1),b=paintPath.get(i);
+                drawBeltPath(a.x,a.y,b.x,b.y);
+            }
+            save();
+        }
+        paintPath.clear();
+    }
+    private void commitErasePath() {
+        if(erasePoints.isEmpty())return;
+        Point first=erasePoints.get(0);
+        eraseCell(first.x,first.y);
+        for(int i=1;i<erasePoints.size();i++) {
+            Point a=erasePoints.get(i-1),b=erasePoints.get(i);
+            erasePath(a.x,a.y,b.x,b.y);
+        }
+        erasePoints.clear();
+        save();
+    }
     private void placeBeltSegment(int x,int y,int dir,boolean turnAnchor) {
         if(!within(x,y)||isHub(x,y)||depositUnder(x,y)>0)return;
         Node n=get(x,y);
@@ -1854,12 +1915,12 @@ public final class FactoryView extends View {
         int gx=gridX(gestureX),gy=gridY(gestureY);
         if(selected==0 && beltMode==0 && paintGesture &&
                 (gx!=priorGridX||gy!=priorGridY)) {
-            drawBeltPath(priorGridX,priorGridY,gx,gy);
+            stagePoint(paintPath,gx,gy);
             priorGridX=gx;priorGridY=gy;
         } else if(selected==0 && beltMode==1 && routeGesture) {
             routeLive=new Point(gx,gy);
         } else if(selected==4&&eraseGesture&&(gx!=priorGridX||gy!=priorGridY)) {
-            erasePath(priorGridX,priorGridY,gx,gy);
+            stagePoint(erasePoints,gx,gy);
             priorGridX=gx;priorGridY=gy;
         }
     }
@@ -1896,6 +1957,7 @@ public final class FactoryView extends View {
                 upgradeGesture=upgradePanel&&gestureY>=120*density
                     &&gestureY<toolbarTop;
                 dragged=false;pinching=false;
+                paintPath.clear();erasePoints.clear();
                 routeGesture=false;paintGesture=false;eraseGesture=false;
                 selectionGesture=false;
                 // Only a single floating rotate icon. It can be tapped after
@@ -1927,17 +1989,15 @@ public final class FactoryView extends View {
                             paintGesture=true;
                             Node existing=get(priorGridX,priorGridY);
                             paintStartedOnBelt=existing!=null && (existing.type==BELT || existing.type==BRIDGE);
-                            if(!paintStartedOnBelt)place(priorGridX,priorGridY);
+                            stagePoint(paintPath,priorGridX,priorGridY);
                         } else {
                             routeGesture=true;
-                            if(route.isEmpty())
-                                route.add(new Point(priorGridX,priorGridY));
-                            // The next gesture extends the previous tail.
+                            // Defer the first construction anchor until finger-up.
                             routeLive=new Point(priorGridX,priorGridY);
                         }
                     } else if(selected==4) {
                         eraseGesture=true;
-                        eraseCell(priorGridX,priorGridY);
+                        stagePoint(erasePoints,priorGridX,priorGridY);
                     } else if(selected==5) {
                         selectionGesture=true;selectionReady=false;
                         selectX0=selectX1=priorGridX;
@@ -1951,13 +2011,39 @@ public final class FactoryView extends View {
                 pressedMachine=null;
                 longPressTriggered=false;
                 editDragGesture=false;
+                rotateIconGesture=false;
                 if(e.getPointerCount()>=2) {
                     pinching=true;dragged=true;lastSpan=span(e);
+                    lastPinchMidX=(e.getX(0)+e.getX(1))*.5f;
+                    lastPinchMidY=(e.getY(0)+e.getY(1))*.5f;
+                    // Roll back pending construction/erasure in ALL tools.
+                    paintPath.clear();erasePoints.clear();
+                    routeLive=null;
                     paintGesture=false;routeGesture=false;eraseGesture=false;
                     selectionGesture=false;
                 }
                 return true;
             case MotionEvent.ACTION_MOVE:
+                // Two fingers ALWAYS control camera; never a tool or machine.
+                if(e.getPointerCount()>=2) {
+                    float current=span(e);
+                    float midX=(e.getX(0)+e.getX(1))*.5f;
+                    float midY=(e.getY(0)+e.getY(1))*.5f;
+                    if(lastSpan>5f&&current>5f) {
+                        // Preserve the world coordinate under the PREVIOUS
+                        // midpoint, then move it to the CURRENT midpoint.
+                        float wx=worldX(lastPinchMidX);
+                        float wy=worldY(lastPinchMidY);
+                        zoom=Math.max(.12f,Math.min(3.5f,zoom*current/lastSpan));
+                        panX=midX-wx*sz();panY=midY-wy*sz();
+                    } else {
+                        panX+=midX-lastPinchMidX;
+                        panY+=midY-lastPinchMidY;
+                    }
+                    lastPinchMidX=midX;lastPinchMidY=midY;
+                    lastSpan=current;pinching=true;
+                    return true;
+                }
                 if(editDragGesture&&!pinching) {
                     editTargetX=gridX(e.getX())-editFingerDX;
                     editTargetY=gridY(e.getY())-editFingerDY;
@@ -1980,17 +2066,7 @@ public final class FactoryView extends View {
                     return true;
                 }
                 if(rotateIconGesture)return true;
-                if(e.getPointerCount()>=2) {
-                    float current=span(e);
-                    if(lastSpan>5f&&current>5f) {
-                        float midX=(e.getX(0)+e.getX(1))*.5f;
-                        float midY=(e.getY(0)+e.getY(1))*.5f;
-                        float wx=worldX(midX),wy=worldY(midY);
-                        zoom=Math.max(.12f,Math.min(3.5f,zoom*current/lastSpan));
-                        panX=midX-wx*sz();panY=midY-wy*sz();
-                    }
-                    lastSpan=current;return true;
-                }
+                // Multi-touch was consumed before all single-touch tools.
                 if(toolbarGesture||beltMenuGesture||routeMenuGesture
                     ||selectionMenuGesture||machineMenuGesture||pinching||upgradeGesture
                     ||headerGesture)return true;
@@ -2001,7 +2077,7 @@ public final class FactoryView extends View {
                     int gx=gridX(gestureX),gy=gridY(gestureY);
                     if(beltMode==0&&paintGesture
                        &&(gx!=priorGridX||gy!=priorGridY)) {
-                        drawBeltPath(priorGridX,priorGridY,gx,gy);
+                        stagePoint(paintPath,gx,gy);
                         priorGridX=gx;priorGridY=gy;dragged=true;
                     } else if(beltMode==1&&routeGesture) {
                         routeLive=new Point(gx,gy);dragged=true;
@@ -2009,7 +2085,7 @@ public final class FactoryView extends View {
                 } else if(selected==4&&eraseGesture) {
                     int gx=gridX(gestureX),gy=gridY(gestureY);
                     if(gx!=priorGridX||gy!=priorGridY) {
-                        erasePath(priorGridX,priorGridY,gx,gy);
+                        stagePoint(erasePoints,gx,gy);
                         priorGridX=gx;priorGridY=gy;
                     }
                     dragged=true;
@@ -2024,6 +2100,20 @@ public final class FactoryView extends View {
                 pinching=true;return true;
             case MotionEvent.ACTION_UP:
                 removeCallbacks(machineLongPress);
+                if(pinching) {
+                    // Releasing the last finger must never place, delete,
+                    // rotate or select something after a camera gesture.
+                    machinePressActive=false;pressedMachine=null;
+                    rotateIconGesture=false;editDragGesture=false;
+                    longPressTriggered=false;
+                    paintPath.clear();erasePoints.clear();routeLive=null;
+                    toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
+                    selectionMenuGesture=false;machineMenuGesture=false;
+                    headerGesture=false;upgradeGesture=false;
+                    paintGesture=false;routeGesture=false;eraseGesture=false;
+                    selectionGesture=false;pinching=false;
+                    return true;
+                }
                 if(rotateIconGesture) {
                     rotateIconGesture=false;
                     if(!pinching&&focusedMachine!=null &&
@@ -2103,15 +2193,15 @@ public final class FactoryView extends View {
                     else if(index==1&&selectionReady)eraseSelection();
                     else if(index==2)selectionReady=false;
                 } else if(!pinching&&routeGesture&&beltMode==1) {
+                    if(route.isEmpty())routeTo(new Point(priorGridX,priorGridY));
                     routeTo(new Point(gridX(e.getX()),gridY(e.getY())));
                     routeLive=null; // Remains preview until Confirm.
                 } else if(!pinching&&paintGesture) {
-                    if(!dragged && paintStartedOnBelt)
-                        place(gridX(e.getX()),gridY(e.getY()));
-                    else save();
+                    stagePoint(paintPath,gridX(e.getX()),gridY(e.getY()));
+                    commitPaintPath();
                 } else if(!pinching&&eraseGesture) {
-                    erasePath(priorGridX,priorGridY,gridX(e.getX()),gridY(e.getY()));
-                    save();
+                    stagePoint(erasePoints,gridX(e.getX()),gridY(e.getY()));
+                    commitErasePath();
                 } else if(!pinching&&selectionGesture) {
                     selectX1=gridX(e.getX());selectY1=gridY(e.getY());
                     selectionReady=true;
@@ -2132,6 +2222,7 @@ public final class FactoryView extends View {
                 toolbarGesture=false;beltMenuGesture=false;routeMenuGesture=false;
                 selectionMenuGesture=false;machineMenuGesture=false;headerGesture=false;upgradeGesture=false;
                 paintGesture=false;routeGesture=false;eraseGesture=false;
+                paintPath.clear();erasePoints.clear();
                 selectionGesture=false;pinching=false;routeLive=null;
                 return true;
             default:return true;
