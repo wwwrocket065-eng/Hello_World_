@@ -26,6 +26,9 @@ public final class FactoryView extends View {
     private static final int EMPTY = Integer.MIN_VALUE;
     private static final int BELT=1, SOURCE=2, ADD=3, MULTIPLY=4, HUB=5, BRIDGE=6;
     private static final int SUBTRACT=7, DIVIDE=8, EXPONENT=9, STORAGE=10;
+    private static final int[] OPERATORS={ADD,MULTIPLY,SUBTRACT,DIVIDE,EXPONENT,STORAGE};
+    private static final String[] OP_SYMBOLS={"+","×","−","÷","^","▣"};
+    private static final int[] OP_LEVELS={1,7,13,16,19,22};
     private static final int[] DX={1,0,-1,0}, DY={0,1,0,-1};
     private static final int BG=0xff071420, CYAN=0xff37c8c2, GOLD=0xffffc77c;
     private static final int PURPLE=0xffb08aff, BLUE=0xff6ca9ff;
@@ -54,10 +57,10 @@ public final class FactoryView extends View {
     private float clock,stepAccumulator,sourceAccumulator,flash;
     private long lastFrame;
     private int selected=7, level=1,goal=1,required=10,delivered,allDelivered;
-    private int beltMode=0, selectX0,selectY0,selectX1,selectY1,clipboardCount;
+    private int beltMode=0, operatorChoice=ADD, selectX0,selectY0,selectX1,selectY1,clipboardCount;
     private boolean initialized,pinching,dragged,toolbarGesture,beltMenuGesture,routeGesture,paintGesture;
     private boolean paintStartedOnBelt;
-    private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture;
+    private boolean eraseGesture,selectionGesture,selectionReady,selectionMenuGesture,routeMenuGesture,machineMenuGesture;
     private float lastX,lastY,lastSpan,downX,downY,gestureX,gestureY;
     private int priorGridX,priorGridY;
     private final ArrayList<Point> route=new ArrayList<>();
@@ -298,6 +301,27 @@ public final class FactoryView extends View {
     private void recordNumber(int number) {
         for(Map<Integer,Long> bank:upgradeBanks)bank.put(number,bank.getOrDefault(number,0L)+1);
     }
+    private boolean operatorUnlocked(int type) {
+        for(int i=0;i<OPERATORS.length;i++)
+            if(OPERATORS[i]==type)return level>=OP_LEVELS[i];
+        return false;
+    }
+    private boolean machineMenuVisible() {return selected==2||selected==3;}
+    private void drawMachineMenu(Canvas c) {
+        float d=density,w=getWidth(),top=getHeight()-(TOOLBAR_DP+BELT_MENU_DP)*d;
+        box(c,6*d,top,w-6*d,top+BELT_MENU_DP*d,12*d,0xff173448);
+        float cell=w/OPERATORS.length;
+        for(int i=0;i<OPERATORS.length;i++) {
+            float left=cell*i,mid=left+cell*.5f;
+            boolean unlocked=operatorUnlocked(OPERATORS[i]);
+            if(operatorChoice==OPERATORS[i]&&unlocked)
+                box(c,left+3*d,top+3*d,left+cell-3*d,top+41*d,9*d,0xff297679);
+            label(c,OP_SYMBOLS[i],mid,top+22*d,19*d,
+                unlocked?0xffe8fff9:0xff68818d,true,Paint.Align.CENTER);
+            label(c,unlocked?"":"ур."+OP_LEVELS[i],mid,top+37*d,8*d,
+                0xffffbd85,false,Paint.Align.CENTER);
+        }
+    }
     private boolean upgradeUnlocked(int kind) {
         return kind<2||kind==2||(kind==3&&level>=7);
     }
@@ -419,6 +443,7 @@ public final class FactoryView extends View {
         drawToolbar(c);
         if(selected==0)drawBeltMenu(c);
         if(selected==5)drawSelectionMenu(c);
+        if(machineMenuVisible())drawMachineMenu(c);
         if(upgradePanel)drawUpgradePanel(c);
         postInvalidateOnAnimation();
     }
@@ -730,15 +755,26 @@ public final class FactoryView extends View {
                   s*1.05f,0xff302331,true,Paint.Align.CENTER);
             label(c,"ДОБЫЧА "+upgradeLevels[1],cx,cy+s*1.02f,
                   s*.32f,0xff432b27,true,Paint.Align.CENTER);
-        } else if(n.type==ADD||n.type==MULTIPLY) {
-            int color=n.type==ADD?PURPLE:BLUE;
+        } else if(n.type==STORAGE) {
+            box(c,cx-s*.48f,cy-s*.48f,cx+s*.48f,cy+s*.48f,s*.12f,0xff4d6374);
+            box(c,cx-s*.39f,cy-s*.39f,cx+s*.39f,cy+s*.39f,s*.08f,0xff203c4b);
+            label(c,"▣",cx,cy-s*.035f,s*.36f,0xffb4f4e5,true,Paint.Align.CENTER);
+            label(c,n.storedCount+" / 10000",cx,cy+s*.25f,s*.14f,
+                0xffdefff9,true,Paint.Align.CENTER);
+            if(n.storedCount>0)label(c,Integer.toString(n.value),cx,cy+s*.43f,s*.12f,
+                GOLD,true,Paint.Align.CENTER);
+        } else if(n.type==ADD||n.type==MULTIPLY||n.type==SUBTRACT||
+                  n.type==DIVIDE||n.type==EXPONENT) {
+            int color=n.type==ADD?PURPLE:n.type==MULTIPLY?BLUE:0xffffaa8d;
             box(c,cx-s*.50f,cy-s*.50f,cx+s*.50f,cy+s*.50f,
                 s*.14f,0x5533c8c2);
             box(c,cx-s*.44f,cy-s*.45f,cx+s*.44f,cy+s*.45f,
-                s*.12f,n.type==ADD?0xff392956:0xff253c62);
+                s*.12f,n.type==ADD?0xff392956:n.type==MULTIPLY?0xff253c62:0xff4b3147);
             box(c,cx-s*.38f,cy-s*.39f,cx+s*.38f,cy+s*.39f,
-                s*.09f,n.type==ADD?0xff7752b3:0xff426dba);
-            label(c,n.type==ADD?"+":"×",cx,cy+s*.17f,
+                s*.09f,n.type==ADD?0xff7752b3:n.type==MULTIPLY?0xff426dba:0xff8b5671);
+            String op=n.type==ADD?"+":n.type==MULTIPLY?"×":n.type==SUBTRACT?"−":
+                n.type==DIVIDE?"÷":"^";
+            label(c,op,cx,cy+s*.17f,
                   s*.54f,0xfff8f7ff,true,Paint.Align.CENTER);
             label(c,"A",cx-s*.31f,cy-s*.28f,s*.14f,
                   0xffe5d4ff,true,Paint.Align.CENTER);
@@ -765,7 +801,7 @@ public final class FactoryView extends View {
             label(c,"ХАБ",cx,cy+s*.66f,s*.15f,
                   0xff88eee4,true,Paint.Align.CENTER);
         }
-        if(n.type==BRIDGE) {
+        if(n.type==BRIDGE||n.type==DIVIDE) {
             if(n.item!=EMPTY) token(c,cx+DX[n.dir]*s*.18f,
                                    cy+DY[n.dir]*s*.18f,s*.68f,n.item);
             if(n.crossItem!=EMPTY && n.crossDir>=0)
@@ -887,10 +923,9 @@ public final class FactoryView extends View {
             if(miner==null)put(centre.x,centre.y,SOURCE,0,value);
             // A repeated touch anywhere in the same 3x3 field reuses
             // its existing extractor, never creating a second one.
-        } else if(selected==2) {
-            if(old==null && depositUnder(x,y)<0)put(x,y,ADD,0,0);
-        } else if(selected==3) {
-            if(level>=7 && old==null && depositUnder(x,y)<0)put(x,y,MULTIPLY,0,0);
+        } else if(selected==2||selected==3) {
+            if(old==null&&depositUnder(x,y)<0&&operatorUnlocked(operatorChoice))
+                put(x,y,operatorChoice,0,operatorChoice==STORAGE?EMPTY:0);
         } else if(selected==4) {
             eraseCell(x,y);
         } else if(selected==6) {
