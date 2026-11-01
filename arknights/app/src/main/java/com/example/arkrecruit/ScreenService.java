@@ -143,8 +143,18 @@ public class ScreenService extends Service {
     updatePlayButton();render();
   }
   private void consumeFrame(ImageReader source){
-    Image image=source.acquireLatestImage();
+    Image image;
+    try{image=source.acquireLatestImage();}catch(IllegalStateException closed){return;}
     if(image==null)return;
+    // Catch rotations even when Android does not invoke the Service callback promptly.
+    DisplayMetrics measured=new DisplayMetrics();
+    wm.getDefaultDisplay().getRealMetrics(measured);
+    if((width!=measured.widthPixels||height!=measured.heightPixels)&&!resizePending){
+      resizePending=true;
+      image.close();
+      main.post(()->{try{refreshDisplaySize();}finally{resizePending=false;}});
+      return;
+    }
     if(paused||SystemClock.elapsedRealtime()-lastScan<(inRecruitment?1300:2500)||!busy.compareAndSet(false,true)){
       image.close();return;
     }
@@ -160,14 +170,43 @@ public class ScreenService extends Service {
       paddedBitmap.copyPixelsFromBuffer(buffer);
       bmp=Bitmap.createBitmap(paddedBitmap,0,0,imageWidth,imageHeight);
       paddedBitmap.recycle();
-    }catch(Exception e){busy.set(false);}
+      captureWidth=imageWidth;captureHeight=imageHeight;
+    }catch(Exception e){android.util.Log.w("RecruitAssist","Capture frame read failed",e);}
     finally{image.close();}
-    if(bmp==null)return;
+    if(bmp==null){busy.set(false);return;}
     final Bitmap frame=bmp;
-    recognizer.process(InputImage.fromBitmap(frame,0))
-      .addOnSuccessListener(text->processText(text))
-      .addOnFailureListener(e->android.util.Log.w("RecruitAssist","OCR failed",e))
-      .addOnCompleteListener(task->{frame.recycle();busy.set(false);});
+    // An all-black capture previously looked like OCR simply wasn't working.
+    if(isBlankFrame(frame)){
+      frame.recycle();busy.set(false);
+      main.post(()->{
+        if(paused)return;
+        detectedCount=0;missing=0;inRecruitment=false;
+        recognized.clear();recommendation=null;
+        if(statusText!=null)statusText.setText("Захват: чёрный кадр");
+        render();
+      });
+      return;
+    }
+    try{
+      recognizer.process(InputImage.fromBitmap(frame,0))
+        .addOnSuccessListener(this::processText)
+        .addOnFailureListener(e->{
+          android.util.Log.w("RecruitAssist","OCR failed",e);
+          if(statusText!=null)statusText.setText("Ошибка распознавания текста");
+        })
+        .addOnCompleteListener(task->{frame.recycle();busy.set(false);});
+    }catch(Exception e){
+      android.util.Log.e("RecruitAssist","OCR invocation failed",e);
+      frame.recycle();busy.set(false);
+    }
+  }
+  private boolean isBlankFrame(Bitmap frame){
+    int black=0;
+    for(int y=1;y<=10;y++)for(int x=1;x<=10;x++){
+      int p=frame.getPixel(frame.getWidth()*x/11,frame.getHeight()*y/11);
+      if(Color.red(p)+Color.green(p)+Color.blue(p)<45)black++;
+    }
+    return black>=98;
   }
   private static void recordTag(Map<String,Rect> found,String raw,Rect box) {
     if(box==null||box.width()<5||box.height()<5)return;
