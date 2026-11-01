@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
     text(root,"Arknights Recruitment Assistant",24,Color.WHITE);
     text(root,"Global • анализ и подсветка поверх игры",15,0xFFBFD8E3);
     permissions=text(root,"",15,Color.WHITE);
-    button(root,"Разрешение на отображение поверх игры",()->{
+    button(root,"Разрешение",()->{
       Intent i=new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName()));
       startActivity(i);
     });
