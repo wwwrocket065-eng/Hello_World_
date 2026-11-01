@@ -133,3 +133,10 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - In `RecruitmentEngine.Result.description`, removed the final line `Вероятности не опубликованы`. Detailed result rarity and operators remain.
 - Version: 0.3.6, versionCode=9, source update commits `ecb09d459d428a86fa453ebfed57df1f6aacc91d`, `4c3a1d624136728abc7f2eec9c825a14b5103bac`, `2b3b8e127018d5875e3dd48f6ce9a8ffe2712b31`.
 - CI build and APK validation pending; do not claim on-device validation for this version until tested on Xiaomi.
+
+## 2026-11-01 — v0.3.6 build and artifact verification
+- Successful GitHub Actions run `41346930596`, on commit `2b3b8e127018d5875e3dd48f6ce9a8ffe2712b31`, produced artifact `arknights-debug-apk` (ID `13099428810`). The subsequent commit `46fab7d02e7d56e2459696e991cd1c228bdffe42` updated DEV_NOTES only, not app code.
+- Extracted `app-debug.apk` into `/mnt/data/Arknights_Recruitment_Assistant_v0.3.6.apk`; ZIP CRC checks passed, binary manifest includes version `0.3.6`, classes DEX include new panel position key `panel_frac_x`; no `Вероятности не опубликованы` string remains in DEX.
+- APK size 46,354,930 bytes (44.21 MiB); SHA-256 `7f0ed5552a91b1e1bb4d5819bbe554efbb53cc673ca528904974059e97f1af6a`.
+- Verified APK Signing Scheme v2 certificate SHA-256 fingerprint: v0.3.5 `4f8c72e8641710fa1e9d6cc114a1175534b48641d98c6913ed8151bc919ff303`; v0.3.6 `711a8834ca17db791e8b35b3e0703dda2b63a31859b96611f45f7446eb6b4239`. Mismatch means direct installation over v0.3.5 will be rejected; requires uninstall and reinstallation (with settings reset) until stable app-specific signing is configured securely. Do not commit private keys to GitHub.
+- This verifies CI/source/artifact integrity only; actual pause/panel dragging/highlight persistence on user's Xiaomi remains to be tested.
