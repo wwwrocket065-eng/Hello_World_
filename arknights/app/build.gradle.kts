@@ -6,8 +6,8 @@ android {
     applicationId = "com.example.arkrecruit"
     minSdk = 26
     targetSdk = 35
-    versionCode = 9
-    versionName = "0.3.6"
+    versionCode = 10
+    versionName = "0.3.7"
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -17,3 +17,4 @@ android {
 dependencies {
   implementation("com.google.mlkit:text-recognition:16.0.1")
 }
+

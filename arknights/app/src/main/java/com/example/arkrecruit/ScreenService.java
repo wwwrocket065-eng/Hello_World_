@@ -43,6 +43,10 @@ public class ScreenService extends Service {
   private volatile int captureWidth=0,captureHeight=0;
   private volatile int detectedCount=0;
   private volatile boolean resizePending=false;
+  // Screen-space rectangles of our own text-bearing windows. Never OCR our panel.
+  private volatile Rect[] overlayExclusions=new Rect[0];
+  private int recognitionWidth,recognitionHeight;
+  private volatile int scanEpoch;
   private static final class Recognition {
     String tag; Rect bounds; Rect tile; Recognition(String t,Rect r,Rect tile){tag=t;bounds=r;this.tile=tile;}
   }
@@ -142,7 +146,7 @@ public class ScreenService extends Service {
       }
       return;
     }
-    paused=!paused;
+    paused=!paused;scanEpoch++;
     lastScan=0;
     if(paused){
       inRecruitment=false;
@@ -177,12 +181,13 @@ public class ScreenService extends Service {
       Bitmap paddedBitmap=Bitmap.createBitmap(padded,imageHeight,Bitmap.Config.ARGB_8888);
       paddedBitmap.copyPixelsFromBuffer(buffer);
       bmp=Bitmap.createBitmap(paddedBitmap,0,0,imageWidth,imageHeight);
-      paddedBitmap.recycle();
+      if(bmp!=paddedBitmap)paddedBitmap.recycle();
       captureWidth=imageWidth;captureHeight=imageHeight;
     }catch(Exception e){android.util.Log.w("RecruitAssist","Capture frame read failed",e);}
     finally{image.close();}
     if(bmp==null){busy.set(false);return;}
     final Bitmap frame=bmp;
+    final int epoch=scanEpoch;
     // An all-black capture previously looked like OCR simply wasn't working.
     if(isBlankFrame(frame)){
       frame.recycle();busy.set(false);
@@ -201,7 +206,7 @@ public class ScreenService extends Service {
     }
     try{
       recognizer.process(InputImage.fromBitmap(frame,0))
-        .addOnSuccessListener(text->processText(text,frame))
+        .addOnSuccessListener(text->processText(text,frame,epoch))
         .addOnFailureListener(e->{
           android.util.Log.w("RecruitAssist","OCR failed",e);
           if(statusText!=null)statusText.setText("Ошибка распознавания текста");
@@ -220,64 +225,67 @@ public class ScreenService extends Service {
     }
     return black>=98;
   }
-  private static void recordTag(Map<String,Rect> found,String raw,Rect box) {
+  private void updateOverlayExclusions(){
+    ArrayList<Rect> areas=new ArrayList<>();
+    for(View view:new View[]{panel,gear,settings}){
+      if(view==null||view.getVisibility()!=View.VISIBLE||view.getWidth()==0)continue;
+      int[] xy=new int[2];view.getLocationOnScreen(xy);
+      areas.add(new Rect(xy[0],xy[1],xy[0]+view.getWidth(),xy[1]+view.getHeight()));
+    }
+    overlayExclusions=areas.toArray(new Rect[0]);
+  }
+  private void recordTag(Map<String,Recognition> found,String raw,Rect box,
+                         Bitmap frame,Rect[] exclusions) {
     if(box==null||box.width()<5||box.height()<5)return;
     String tag=RecruitmentEngine.normalizeOcr(raw);
-    if(tag!=null&&!found.containsKey(tag))found.put(tag,new Rect(box));
+    if(tag==null)return;
+    for(Rect area:exclusions)if(Rect.intersects(area,box))return;
+    TagBoundsDetector.Detection hit=TagBoundsDetector.detect(frame,box);
+    // A label is not a button. Never draw an estimated rectangle around text.
+    if(hit==null)return;
+    found.putIfAbsent(tag,new Recognition(tag,new Rect(box),hit.tile));
   }
-  private void processText(Text result,Bitmap frame){
-    LinkedHashMap<String,Rect> found=new LinkedHashMap<>();
+  private void processText(Text result,Bitmap frame,int epoch){
+    LinkedHashMap<String,Recognition> found=new LinkedHashMap<>();
+    Rect[] screenAreas=overlayExclusions;
+    Rect[] exclusions=new Rect[screenAreas.length];
+    float sx=frame.getWidth()/(float)Math.max(1,width);
+    float sy=frame.getHeight()/(float)Math.max(1,height);
+    for(int i=0;i<screenAreas.length;i++){
+      Rect r=screenAreas[i];
+      exclusions[i]=new Rect((int)(r.left*sx),(int)(r.top*sy),
+        (int)Math.ceil(r.right*sx),(int)Math.ceil(r.bottom*sy));
+    }
     for(Text.TextBlock block:result.getTextBlocks()){
       for(Text.Line line:block.getLines()){
-        recordTag(found,line.getText(),line.getBoundingBox());
+        recordTag(found,line.getText(),line.getBoundingBox(),frame,exclusions);
         List<Text.Element> elements=line.getElements();
         for(int i=0;i<elements.size();i++){
           Text.Element item=elements.get(i);
-          recordTag(found,item.getText(),item.getBoundingBox());
+          recordTag(found,item.getText(),item.getBoundingBox(),frame,exclusions);
           if(i+1<elements.size()){
             Text.Element next=elements.get(i+1);
             Rect a=item.getBoundingBox(),b=next.getBoundingBox();
             if(a!=null&&b!=null){
               Rect both=new Rect(a);both.union(b);
-              recordTag(found,item.getText()+" "+next.getText(),both);
+              recordTag(found,item.getText()+" "+next.getText(),both,frame,exclusions);
             }
           }
         }
       }
     }
-    // Detect tile edges while the authorized capture frame is still alive.
-    // If a tile is obscured or lacks enough contrast, take the median size
-    // of nearby reliably detected tiles instead of forcing a text-sized box.
-    Map<String,TagBoundsDetector.Detection> detected=new LinkedHashMap<>();
-    ArrayList<Integer> widths=new ArrayList<>(),heights=new ArrayList<>();
-    for(Map.Entry<String,Rect> e:found.entrySet()){
-      TagBoundsDetector.Detection hit=TagBoundsDetector.detect(frame,e.getValue());
-      if(hit!=null){
-        detected.put(e.getKey(),hit);
-        widths.add(hit.tile.width());
-        heights.add(hit.tile.height());
-      }
-    }
-    Collections.sort(widths);Collections.sort(heights);
-    int estimateWidth=widths.isEmpty()?0:widths.get(widths.size()/2);
-    int estimateHeight=heights.isEmpty()?0:heights.get(heights.size()/2);
-    LinkedHashMap<String,Recognition> tiles=new LinkedHashMap<>();
-    for(Map.Entry<String,Rect> e:found.entrySet()){
-      Rect label=e.getValue();
-      TagBoundsDetector.Detection hit=detected.get(e.getKey());
-      int w=estimateWidth>0?estimateWidth:Math.max(50,Math.round(label.height()*7.0f));
-      int h=estimateHeight>0?estimateHeight:Math.max(22,Math.round(label.height()*2.45f));
-      Rect button=hit!=null?hit.tile:TagBoundsDetector.estimate(label,w,h);
-      tiles.put(e.getKey(),new Recognition(e.getKey(),new Rect(label),button));
-    }
+    // Validate one regular 3-column / 2-row group, not scattered text matches.
+    boolean validGrid=TagGrid.isRecruitmentGrid(new ArrayList<Recognition>(found.values())
+      .stream().map(r->r.tile).collect(java.util.stream.Collectors.toList()));
+    final int frameWidth=frame.getWidth(),frameHeight=frame.getHeight();
     int count=found.size();
     main.post(()->{
-      if(paused)return;
+      if(paused||epoch!=scanEpoch)return;
       detectedCount=count;
       if(statusText!=null)statusText.setText("Global • OCR: "+count+"/5");
       // In-game OCR sometimes misreads one of the five labels.
-      // Require three real detected tags; never fabricate missing ones.
-      if(count<3||count>5){
+      // Commit all five physical buttons together; partial OCR cannot replace a snapshot.
+      if(count!=5||!validGrid){
         // OCR on MediaProjection can miss a frame because transparent
         // overlays or transitions occlude labels. Never clear after a short
         // run of misses while the game remains on the recruitment page.
@@ -299,7 +307,8 @@ public class ScreenService extends Service {
       }
       missing=0;
       inRecruitment=true;recognized.clear();
-      recognized.addAll(tiles.values());
+      recognized.addAll(found.values());
+      recognitionWidth=frameWidth;recognitionHeight=frameHeight;
       chooseRecommendation();
     });
   }
@@ -315,9 +324,9 @@ public class ScreenService extends Service {
       if(paused)panelText.setText("Анализ на паузе");
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
-        "/5\\nНет проверенной комбинации или базы");
+        "/5\nНет проверенной комбинации или базы");
       else panelText.setText("Выбрать: "+String.join(" + ",recommendation.tags)+
-        "\\nГарантия "+recommendation.guaranteed+"★; возможно до "+recommendation.possible+"★");
+        "\nГарантия "+recommendation.guaranteed+"★; возможно до "+recommendation.possible+"★");
     }
     if(listToggle!=null&&operatorScroll!=null&&operatorListText!=null){
       int count=recommendation==null?0:recommendation.operators.size();
@@ -327,12 +336,15 @@ public class ScreenService extends Service {
       if(count>0){
         StringBuilder names=new StringBuilder();
         for(RecruitmentEngine.Operator op:recommendation.operators)
-          names.append(op.rarity).append("★ ").append(op.name).append("\\n");
+          names.append(op.rarity).append("★ ").append(op.name).append("\n");
         operatorListText.setText(names.toString().trim());
       }else operatorListText.setText("");
     }
-    if(panel!=null)panel.setVisibility(projection!=null&&!paused&&
-      prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
+    if(panel!=null){
+      panel.setVisibility(projection!=null&&!paused&&
+        prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
+      panel.post(this::updateOverlayExclusions);
+    }
   }
   private int dp(int px){return (int)(px*getResources().getDisplayMetrics().density+0.5f);}
   private WindowManager.LayoutParams layout(int w,int h,int flags){
@@ -409,9 +421,17 @@ public class ScreenService extends Service {
     operatorListText=new TextView(this);
     operatorListText.setTextColor(UiStyle.TEXT);operatorListText.setTextSize(11);
     operatorListText.setPadding(dp(2),dp(3),dp(3),dp(3));
-    operatorScroll=new ScrollView(this);operatorScroll.addView(operatorListText);
+    operatorScroll=new ScrollView(this){
+      @Override protected void onMeasure(int w,int h){
+        int cap=Math.min(dp(150),Math.max(dp(40),height/2));
+        if(MeasureSpec.getMode(h)!=MeasureSpec.UNSPECIFIED)
+          cap=Math.min(cap,MeasureSpec.getSize(h));
+        super.onMeasure(w,MeasureSpec.makeMeasureSpec(cap,MeasureSpec.AT_MOST));
+      }
+    };
+    operatorScroll.addView(operatorListText);
     operatorScroll.setFillViewport(false);
-    box.addView(operatorScroll,new LinearLayout.LayoutParams(-1,dp(150)));
+    box.addView(operatorScroll,new LinearLayout.LayoutParams(-1,-2));
     listToggle.setOnClickListener(v->{
       operatorListExpanded=!operatorListExpanded;
       render();
@@ -428,6 +448,11 @@ public class ScreenService extends Service {
     panelParams.x=Math.max(0,Math.min(Math.max(0,width-dp(192)),panelParams.x));
     panelParams.y=Math.max(0,Math.min(Math.max(0,height-dp(60)),panelParams.y));
     wm.addView(panel,panelParams);
+    box.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{
+      int maxY=Math.max(0,height-v.getHeight());
+      if(panelParams.y>maxY){panelParams.y=maxY;wm.updateViewLayout(panel,panelParams);}
+      updateOverlayExclusions();
+    });
     drag.setOnTouchListener(new View.OnTouchListener(){
       float startX,startY;int fromX,fromY;boolean dragging;
       @Override public boolean onTouch(View v,MotionEvent event){
@@ -442,6 +467,7 @@ public class ScreenService extends Service {
               panelParams.x=Math.max(0,Math.min(Math.max(0,width-dp(192)),fromX+(int)dx));
               panelParams.y=Math.max(0,Math.min(Math.max(0,height-dp(60)),fromY+(int)dy));
               wm.updateViewLayout(panel,panelParams);
+              panel.post(ScreenService.this::updateOverlayExclusions);
             }
             return true;
           case MotionEvent.ACTION_UP:
@@ -458,7 +484,7 @@ public class ScreenService extends Service {
     updatePlayButton();render();
   }
   private void toggleSettings(){
-    if(settings!=null){wm.removeView(settings);settings=null;return;}
+    if(settings!=null){wm.removeView(settings);settings=null;updateOverlayExclusions();return;}
     LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
     box.setPadding(dp(12),dp(8),dp(12),dp(8));box.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));
     LinearLayout heading=new LinearLayout(this);
@@ -489,6 +515,7 @@ public class ScreenService extends Service {
     WindowManager.LayoutParams p=layout(dp(285),Math.min(dp(520),Math.max(dp(160),height-dp(80))),
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
     p.gravity=Gravity.CENTER;p.alpha=.96f;wm.addView(settings,p);
+    settings.post(this::updateOverlayExclusions);
   }
   private void settingSlider(LinearLayout box,String label,String key,int min,int max,int def){
     TextView t=new TextView(this);t.setTextColor(Color.WHITE);
@@ -513,13 +540,17 @@ public class ScreenService extends Service {
         prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90)));
       // Tile bounds are taken from image edges when available. The OCR
       // text rectangle is only a fallback, not the drawn highlight geometry.
-      float sx=getWidth()/(float)Math.max(1,captureWidth);
-      float sy=getHeight()/(float)Math.max(1,captureHeight);
+      // Capture uses physical display pixels; overlay may start below an inset.
+      // Map via the display, then subtract the actual overlay origin. Scaling
+      // directly by the smaller overlay view size shifts every rectangle.
+      int[] origin=new int[2];getLocationOnScreen(origin);
+      float sx=width/(float)Math.max(1,recognitionWidth);
+      float sy=height/(float)Math.max(1,recognitionHeight);
       for(Recognition r:recognized){
         if(!recommendation.tags.contains(r.tag))continue;
         Rect tile=r.tile;
-        RectF rect=new RectF(tile.left*sx,tile.top*sy,
-          tile.right*sx,tile.bottom*sy);
+        RectF rect=new RectF(tile.left*sx-origin[0],tile.top*sy-origin[1],
+          tile.right*sx-origin[0],tile.bottom*sy-origin[1]);
         canvas.drawRect(rect,paint);
       }
     }
@@ -534,7 +565,7 @@ public class ScreenService extends Service {
     wm.getDefaultDisplay().getRealMetrics(dm);
     int nextW=dm.widthPixels,nextH=dm.heightPixels;
     if(nextW==width&&nextH==height)return;
-    width=nextW;height=nextH;
+    width=nextW;height=nextH;scanEpoch++;
     captureWidth=nextW;captureHeight=nextH;
     if(virtualDisplay!=null&&workerHandler!=null){
       try{
@@ -584,3 +615,4 @@ public class ScreenService extends Service {
   }
   @Override public IBinder onBind(Intent intent){return null;}
 }
+
