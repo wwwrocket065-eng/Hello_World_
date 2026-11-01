@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
     gear.setText("⚙");
     UiStyle.button(gear,false);
     gear.setTextSize(23);
+    gear.setTextColor(UiStyle.MUTED);
     gear.setContentDescription("Настройки");
     header.addView(gear,new LinearLayout.LayoutParams(dp(52),dp(52)));
     gear.setOnClickListener(v->openMainSettings());
@@ -57,14 +58,11 @@ public class MainActivity extends Activity {
     UiStyle.toggle(panel);panel.setChecked(prefs.getBoolean("panel",true));
     panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
     text(root,"Подсветка",19,Color.WHITE);
-    slider(root,"Красный",0,255,prefs.getInt("red",0),v->prefs.edit().putInt("red",v).apply());
-    slider(root,"Зелёный",0,255,prefs.getInt("green",255),v->prefs.edit().putInt("green",v).apply());
-    slider(root,"Синий",0,255,prefs.getInt("blue",90),v->prefs.edit().putInt("blue",v).apply());
-    slider(root,"Прозрачность",20,100,prefs.getInt("alpha",85),v->prefs.edit().putInt("alpha",v).apply());
-    slider(root,"Толщина рамки",1,12,prefs.getInt("stroke",4),v->prefs.edit().putInt("stroke",v).apply());
-    slider(root,"Скругление",0,30,prefs.getInt("corner",12),v->prefs.edit().putInt("corner",v).apply());
+    root.addView(new HighlightColorControl(this,prefs,null));
+    slider(root,"Насыщенность подсветки",10,70,prefs.getInt("fillAlpha",35),
+      v->prefs.edit().putInt("fillAlpha",v).apply());
     button(root,"Сбросить подсветку",()->{
-      prefs.edit().putInt("red",0).putInt("green",255).putInt("blue",90).putInt("alpha",85).putInt("stroke",4).putInt("corner",12).apply();
+      prefs.edit().putInt("red",0).putInt("green",255).putInt("blue",90).putInt("fillAlpha",35).apply();
       recreate();
     });
     text(root,"База операторов Global",19,Color.WHITE);
@@ -100,11 +98,26 @@ public class MainActivity extends Activity {
     items.setOrientation(LinearLayout.VERTICAL);
     int inset=dp(16);
     items.setPadding(inset,inset,inset,inset);
+    LinearLayout heading=new LinearLayout(this);
+    heading.setOrientation(LinearLayout.HORIZONTAL);
+    heading.setGravity(Gravity.CENTER_VERTICAL);
+    TextView name=new TextView(this);
+    name.setText("Настройки");
+    name.setTextSize(20);
+    name.setTextColor(UiStyle.TEXT);
+    name.setTypeface(null,android.graphics.Typeface.BOLD);
+    heading.addView(name,new LinearLayout.LayoutParams(0,dp(48),1f));
+    Button close=new Button(this);
+    close.setText("✕");
+    UiStyle.button(close,false);
+    close.setTextSize(19);
+    close.setTextColor(UiStyle.MUTED);
+    heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));
+    items.addView(heading);
     AlertDialog dialog=new AlertDialog.Builder(this)
-      .setTitle("Настройки")
       .setView(items)
-      .setNegativeButton("Закрыть",null)
       .create();
+    close.setOnClickListener(v->dialog.dismiss());
     button(items,"Разрешение",()->{
       dialog.dismiss();
       openOverlayPermission();
