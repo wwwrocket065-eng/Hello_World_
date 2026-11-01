@@ -34,7 +34,6 @@ public final class RecruitmentEngine {
       StringBuilder b=new StringBuilder();
       b.append("Гарантия ").append(guaranteed).append("★; возможно до ").append(possible).append("★");
       for(Operator o:operators) b.append("\n").append(o.rarity).append("★ ").append(o.name);
-      b.append("\nВероятности не опубликованы");
       return b.toString();
     }
   }
