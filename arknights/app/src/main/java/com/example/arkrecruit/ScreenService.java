@@ -229,9 +229,9 @@ public class ScreenService extends Service {
 
     LinearLayout controls=new LinearLayout(this);
     controls.setOrientation(LinearLayout.HORIZONTAL);
-    controls.setBackgroundColor(0xCC17232E);
-    Button g=new Button(this);g.setText("⚙");g.setTextSize(21);g.setAllCaps(false);
-    playPause=new Button(this);playPause.setText("▶");playPause.setTextSize(21);playPause.setAllCaps(false);
+    controls.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
+    Button g=new Button(this);g.setText("⚙");UiStyle.button(g,false);g.setTextSize(21);
+    playPause=new Button(this);playPause.setText("▶");UiStyle.button(playPause,true);playPause.setTextSize(21);
     controls.addView(g,new LinearLayout.LayoutParams(dp(52),dp(52)));
     controls.addView(playPause,new LinearLayout.LayoutParams(dp(52),dp(52)));
     gear=controls;
@@ -264,8 +264,8 @@ public class ScreenService extends Service {
     });
     LinearLayout box=new LinearLayout(this);
     box.setOrientation(LinearLayout.VERTICAL);
-    box.setPadding(dp(9),dp(6),dp(9),dp(6));box.setBackgroundColor(0xDD17232E);
-    statusText=new TextView(this);statusText.setTextColor(Color.LTGRAY);statusText.setTextSize(11);
+    box.setPadding(dp(9),dp(6),dp(9),dp(6));box.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
+    statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);statusText.setTextSize(11);
     statusText.setText("База Global");box.addView(statusText);
     panelText=new TextView(this);panelText.setTextColor(Color.WHITE);panelText.setTextSize(12);
     box.addView(panelText);panel=box;
@@ -278,12 +278,12 @@ public class ScreenService extends Service {
   private void toggleSettings(){
     if(settings!=null){wm.removeView(settings);settings=null;return;}
     LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
-    box.setPadding(dp(12),dp(8),dp(12),dp(8));box.setBackgroundColor(0xEE21303B);
+    box.setPadding(dp(12),dp(8),dp(12),dp(8));box.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));
     TextView title=new TextView(this);title.setText("⚙ Настройки");title.setTextSize(18);title.setTextColor(Color.WHITE);box.addView(title);
-    Switch sw=new Switch(this);sw.setText("Приоритет: шанс");sw.setTextColor(Color.WHITE);
+    Switch sw=new Switch(this);sw.setText("Приоритет: шанс");UiStyle.toggle(sw);
     sw.setChecked(prefs.getBoolean("chance",false));box.addView(sw);
     sw.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("chance",on).apply();chooseRecommendation();});
-    Switch show=new Switch(this);show.setText("Панель операторов");show.setTextColor(Color.WHITE);
+    Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
     settingSlider(box,"Цвет: R","red",0,255,0);
@@ -292,9 +292,9 @@ public class ScreenService extends Service {
     settingSlider(box,"Прозрачность","alpha",20,100,85);
     settingSlider(box,"Толщина","stroke",1,12,4);
     settingSlider(box,"Скругление","corner",0,30,12);
-    Button off=new Button(this);off.setText("Выключить помощник");box.addView(off);
+    Button off=new Button(this);off.setText("Выключить помощник");UiStyle.button(off,false);box.addView(off);
     off.setOnClickListener(v->stopSelf());
-    Button close=new Button(this);close.setText("Закрыть");box.addView(close);
+    Button close=new Button(this);close.setText("Закрыть");UiStyle.button(close,false);box.addView(close);
     close.setOnClickListener(v->toggleSettings());
     ScrollView scroll=new ScrollView(this);scroll.addView(box);settings=scroll;
     WindowManager.LayoutParams p=layout(dp(285),Math.min(dp(520),Math.max(dp(160),height-dp(80))),
@@ -304,7 +304,7 @@ public class ScreenService extends Service {
   private void settingSlider(LinearLayout box,String label,String key,int min,int max,int def){
     TextView t=new TextView(this);t.setTextColor(Color.WHITE);
     t.setText(label);box.addView(t);
-    SeekBar b=new SeekBar(this);b.setMax(max-min);b.setProgress(prefs.getInt(key,def)-min);box.addView(b);
+    SeekBar b=new SeekBar(this);b.setMax(max-min);b.setProgress(prefs.getInt(key,def)-min);UiStyle.slider(b);box.addView(b);
     b.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
       public void onProgressChanged(SeekBar x,int v,boolean u){
         if(u){prefs.edit().putInt(key,v+min).apply();if(markers!=null)markers.invalidate();}
