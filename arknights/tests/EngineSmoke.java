@@ -19,6 +19,14 @@ public final class EngineSmoke {
   if(robot==null||robot.guaranteed!=1)throw new AssertionError("Robot short-time matching failed");
   if(RecruitmentEngine.normalize("DP - Recovery")==null)
     throw new AssertionError("Tag normalization failed");
+  if(!"Top Operator".equals(RecruitmentEngine.normalizeOcr("Top Operat0r")))
+    throw new AssertionError("Top Operator OCR correction failed");
+  if(!"Ranged".equals(RecruitmentEngine.normalizeOcr("Rangcd")))
+    throw new AssertionError("Ranged OCR correction failed");
+  if(!"Summon".equals(RecruitmentEngine.normalizeOcr("Summ0n")))
+    throw new AssertionError("Summon OCR correction failed");
+  if(RecruitmentEngine.normalizeOcr("Something completely unrelated")!=null)
+    throw new AssertionError("OCR false positive");
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }
