@@ -23,7 +23,7 @@ public class MainActivity extends Activity {
     prefs=getSharedPreferences("settings",MODE_PRIVATE);
     ScrollView sc=new ScrollView(this); LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL); root.setPadding(32,36,32,40);
-    root.setBackgroundColor(Color.rgb(18,24,31));sc.addView(root);setContentView(sc);
+    root.setBackgroundColor(UiStyle.BACKGROUND);sc.addView(root);setContentView(sc);
     setupSystemBars(root);
     // Main screen has only one compact settings entry point.
     LinearLayout header=new LinearLayout(this);
@@ -34,8 +34,8 @@ public class MainActivity extends Activity {
     title.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
     Button gear=new Button(this);
     gear.setText("⚙");
+    UiStyle.button(gear,false);
     gear.setTextSize(23);
-    gear.setAllCaps(false);
     gear.setContentDescription("Настройки");
     header.addView(gear,new LinearLayout.LayoutParams(dp(52),dp(52)));
     gear.setOnClickListener(v->openMainSettings());
@@ -51,10 +51,10 @@ public class MainActivity extends Activity {
     });
     text(root,"Рекомендации",19,Color.WHITE);
     Switch chance=new Switch(this);chance.setText("Шанс на редкого вместо гарантии");
-    chance.setTextColor(Color.WHITE);chance.setChecked(prefs.getBoolean("chance",false));
+    UiStyle.toggle(chance);chance.setChecked(prefs.getBoolean("chance",false));
     chance.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("chance",on).apply());root.addView(chance);
     Switch panel=new Switch(this);panel.setText("Показывать панель операторов");
-    panel.setTextColor(Color.WHITE);panel.setChecked(prefs.getBoolean("panel",true));
+    UiStyle.toggle(panel);panel.setChecked(prefs.getBoolean("panel",true));
     panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
     text(root,"Подсветка",19,Color.WHITE);
     slider(root,"Красный",0,255,prefs.getInt("red",0),v->prefs.edit().putInt("red",v).apply());
@@ -70,11 +70,13 @@ public class MainActivity extends Activity {
     text(root,"База операторов Global",19,Color.WHITE);
     dbStatus=text(root,"Проверка базы...",15,0xFFBFD8E3);
     dbProgress=new ProgressBar(this);dbProgress.setIndeterminate(true);
-    dbProgress.setVisibility(View.GONE);root.addView(dbProgress);
+    dbProgress.setVisibility(View.GONE);UiStyle.progress(dbProgress);root.addView(dbProgress);
     button(root,"Обновить базу",()->loadDb(true));
     text(root,"Проверка комбинаций вручную (через запятую)",17,Color.WHITE);
     EditText input=new EditText(this);input.setSingleLine(false);input.setTextColor(Color.WHITE);
-    input.setHintTextColor(0xFF9A9A9A);input.setHint("Top Operator, Summon, Ranged, AoE, Elemental");root.addView(input);
+    input.setHint("Top Operator, Summon, Ranged, AoE, Elemental");UiStyle.input(input);
+    LinearLayout.LayoutParams inputLayout=new LinearLayout.LayoutParams(-1,-2);
+    inputLayout.setMargins(0,dp(8),0,dp(8));root.addView(input,inputLayout);
     TextView answer=text(root,"",15,Color.WHITE);
     button(root,"Рассчитать",()->{
       RecruitmentEngine.Result r=RecruitmentEngine.best(Arrays.asList(input.getText().toString().split(",")),operators,prefs.getBoolean("chance",false),9);
@@ -115,6 +117,7 @@ public class MainActivity extends Activity {
         Toast.makeText(this,"Уведомления доступны без отдельного разрешения",Toast.LENGTH_SHORT).show();
     });
     dialog.show();
+    UiStyle.dialog(dialog);
   }
   private void openOverlayPermission(){
     // Open the relevant *overlay* settings, not Xiaomi's unrelated "Other permissions".
@@ -164,12 +167,16 @@ public class MainActivity extends Activity {
     TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setPadding(0,14,0,12);parent.addView(t);return t;
   }
   private void button(LinearLayout parent,String label,Runnable action){
-    Button b=new Button(this);b.setText(label);b.setAllCaps(false);parent.addView(b);b.setOnClickListener(v->action.run());
+    Button b=new Button(this);b.setText(label);UiStyle.button(b,"Запустить".equals(label));
+    LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);
+    params.setMargins(0,dp(5),0,dp(5));parent.addView(b,params);
+    b.setOnClickListener(v->action.run());
   }
   private interface OnNumber { void change(int v); }
   private void slider(LinearLayout parent,String label,int min,int max,int start,OnNumber on){
     TextView t=text(parent,label+": "+start,14,0xFFDEEDF2);
-    SeekBar bar=new SeekBar(this);bar.setMax(max-min);bar.setProgress(start-min);parent.addView(bar);
+    SeekBar bar=new SeekBar(this);bar.setMax(max-min);bar.setProgress(start-min);
+    UiStyle.slider(bar);parent.addView(bar);
     bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
       public void onProgressChanged(SeekBar b,int p,boolean user){if(user){int value=p+min;t.setText(label+": "+value);on.change(value);}}
       public void onStartTrackingTouch(SeekBar b){}
