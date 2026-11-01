@@ -59,10 +59,11 @@ public class MainActivity extends Activity {
     panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
     text(root,"Подсветка",19,Color.WHITE);
     root.addView(new HighlightColorControl(this,prefs,null));
-    slider(root,"Насыщенность подсветки",10,70,prefs.getInt("fillAlpha",35),
+    slider(root,"Непрозрачность подсветки",10,70,prefs.getInt("fillAlpha",35),
       v->prefs.edit().putInt("fillAlpha",v).apply());
     button(root,"Сбросить подсветку",()->{
-      prefs.edit().putInt("red",0).putInt("green",255).putInt("blue",90).putInt("fillAlpha",35).apply();
+      prefs.edit().remove("paletteBaseColor").remove("paletteBrightness")
+        .putInt("red",0).putInt("green",255).putInt("blue",90).putInt("fillAlpha",35).apply();
       recreate();
     });
     text(root,"База операторов Global",19,Color.WHITE);
