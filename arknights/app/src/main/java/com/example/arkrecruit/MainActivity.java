@@ -14,7 +14,7 @@ import java.util.*;
 public class MainActivity extends Activity {
   private final int REQUEST_CAPTURE=1901;
   private final int REQUEST_NOTIFICATIONS=1902;
-  private TextView permissions,dbStatus;
+  private TextView dbStatus;
   private ProgressBar dbProgress;
   private SharedPreferences prefs;
   private List<RecruitmentEngine.Operator> operators=new ArrayList<>();
@@ -25,13 +25,21 @@ public class MainActivity extends Activity {
     root.setOrientation(LinearLayout.VERTICAL); root.setPadding(32,36,32,40);
     root.setBackgroundColor(Color.rgb(18,24,31));sc.addView(root);setContentView(sc);
     setupSystemBars(root);
-    text(root,"Arknights Recruitment Assistant",24,Color.WHITE);
-    text(root,"Global • анализ и подсветка поверх игры",15,0xFFBFD8E3);
-    permissions=text(root,"",15,Color.WHITE);
-    button(root,"Разрешение",this::openOverlayPermission);
-    button(root,"Уведомления (Android 13+)",()->{
-      if(Build.VERSION.SDK_INT>=33)requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},REQUEST_NOTIFICATIONS);
-    });
+    // Main screen has only one compact settings entry point.
+    LinearLayout header=new LinearLayout(this);
+    header.setOrientation(LinearLayout.HORIZONTAL);
+    header.setGravity(Gravity.CENTER_VERTICAL);
+    root.addView(header);
+    TextView title=text(header,"Arknights Recruitment Assistant",24,Color.WHITE);
+    title.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
+    Button gear=new Button(this);
+    gear.setText("⚙");
+    gear.setTextSize(23);
+    gear.setAllCaps(false);
+    gear.setContentDescription("Настройки");
+    header.addView(gear,new LinearLayout.LayoutParams(dp(52),dp(52)));
+    gear.setOnClickListener(v->openMainSettings());
+    text(root,"Global",15,0xFFBFD8E3);
     button(root,"Запустить",()->{
       if(!Settings.canDrawOverlays(this)){
         Toast.makeText(this,"Сначала предоставьте разрешение",Toast.LENGTH_LONG).show();
@@ -72,7 +80,6 @@ public class MainActivity extends Activity {
       RecruitmentEngine.Result r=RecruitmentEngine.best(Arrays.asList(input.getText().toString().split(",")),operators,prefs.getBoolean("chance",false),9);
       answer.setText(r==null?"Нет подходящей комбинации или не загружена база":String.join(" + ",r.tags)+"\n"+r.description());
     });
-    text(root,"Захват запускается только после системного согласия. Изображения обрабатываются на устройстве.",13,0xFFBFD8E3);
     loadDb(false);
   }
   private void loadDb(boolean force) {
@@ -85,25 +92,49 @@ public class MainActivity extends Activity {
       }
     });
   }
-  @Override public void onResume(){super.onResume();hideNavigation();if(permissions!=null)permissions.setText(
-    "Оверлей: "+(Settings.canDrawOverlays(this)?"разрешён":"не разрешён")+
-    "\nЗахват экрана: запрос при нажатии ▶");}
+  @Override public void onResume(){super.onResume();hideNavigation();}
+  private void openMainSettings(){
+    LinearLayout items=new LinearLayout(this);
+    items.setOrientation(LinearLayout.VERTICAL);
+    int inset=dp(16);
+    items.setPadding(inset,inset,inset,inset);
+    AlertDialog dialog=new AlertDialog.Builder(this)
+      .setTitle("Настройки")
+      .setView(items)
+      .setNegativeButton("Закрыть",null)
+      .create();
+    button(items,"Разрешение",()->{
+      dialog.dismiss();
+      openOverlayPermission();
+    });
+    button(items,"Уведомления",()->{
+      dialog.dismiss();
+      if(Build.VERSION.SDK_INT>=33)
+        requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},REQUEST_NOTIFICATIONS);
+      else
+        Toast.makeText(this,"Уведомления доступны без отдельного разрешения",Toast.LENGTH_SHORT).show();
+    });
+    dialog.show();
+  }
   private void openOverlayPermission(){
-    Intent xiaomi=new Intent("miui.intent.action.APP_PERM_EDITOR");
-    xiaomi.setClassName("com.miui.securitycenter","com.miui.permcenter.permissions.PermissionsEditorActivity");
-    xiaomi.putExtra("extra_pkgname",getPackageName());
-    try {startActivity(xiaomi);return;}catch(Exception ignored){}
-    // On Android 11+ the generic overlay intent ignores the package name.
-    // App details at least opens this app directly, never a list of other apps.
-    if(Build.VERSION.SDK_INT<30){
-      try{
-        startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-          Uri.parse("package:"+getPackageName())));
-        return;
-      }catch(Exception ignored){}
+    // Open the relevant *overlay* settings, not Xiaomi's unrelated "Other permissions".
+    // Android 11+ ignores the package URI and may show a list by design.
+    try {
+      Intent overlay=new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+      if(Build.VERSION.SDK_INT<30)
+        overlay.setData(Uri.parse("package:"+getPackageName()));
+      startActivity(overlay);
+      return;
+    }catch(Exception ignored){}
+    try{
+      startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.parse("package:"+getPackageName())));
+    }catch(Exception noSettings){
+      Toast.makeText(this,"Не удалось открыть настройки разрешения",Toast.LENGTH_LONG).show();
     }
-    startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-      Uri.parse("package:"+getPackageName())));
+  }
+  private int dp(int value){
+    return (int)(value*getResources().getDisplayMetrics().density+0.5f);
   }
   private void setupSystemBars(View root){
     if(Build.VERSION.SDK_INT>=30){
