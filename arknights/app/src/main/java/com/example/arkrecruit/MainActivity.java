@@ -37,7 +37,8 @@ public class MainActivity extends Activity {
         Toast.makeText(this,"Сначала предоставьте разрешение",Toast.LENGTH_LONG).show();
         openOverlayPermission();return;
       }
-      Intent i=new Intent(this,ScreenService.class);i.setAction("SHOW");startService(i);
+      Intent i=new Intent(this,ScreenService.class);i.setAction("SHOW");
+      if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
     text(root,"Рекомендации",19,Color.WHITE);
