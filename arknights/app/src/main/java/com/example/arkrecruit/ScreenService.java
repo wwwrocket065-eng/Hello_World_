@@ -29,7 +29,7 @@ public class ScreenService extends Service {
   private ImageReader reader; private HandlerThread worker; private Handler workerHandler;
   private TextRecognizer recognizer;
   private WindowManager wm; private Markers markers; private View gear, panel, settings;
-  private Button playPause;
+  private FloatingControlButton playPause;
   private boolean paused=true, inRecruitment=false;
   private WindowManager.LayoutParams gearParams;
   private final List<Recognition> recognized=new ArrayList<>();
@@ -38,6 +38,7 @@ public class ScreenService extends Service {
   private TextView panelText,statusText;
   private SharedPreferences prefs;
   private long lastScan=0; private int missing=0,width,height;
+  private volatile int captureWidth=0,captureHeight=0;
   private static final class Recognition {
     String tag; Rect bounds; Recognition(String t,Rect r){tag=t;bounds=r;}
   }
@@ -90,6 +91,7 @@ public class ScreenService extends Service {
       DisplayMetrics dm=new DisplayMetrics();
       wm.getDefaultDisplay().getRealMetrics(dm);
       width=dm.widthPixels;height=dm.heightPixels;
+      captureWidth=width;captureHeight=height;
       worker=new HandlerThread("RecruitCapture");worker.start();workerHandler=new Handler(worker.getLooper());
       reader=ImageReader.newInstance(width,height,PixelFormat.RGBA_8888,2);
       recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
@@ -114,7 +116,7 @@ public class ScreenService extends Service {
     return START_NOT_STICKY;
   }
   private void updatePlayButton(){
-    if(playPause!=null)playPause.setText((projection!=null&&!paused)?"⏸":"▶");
+    if(playPause!=null)playPause.setPlaying(projection!=null&&!paused);
   }
   private void togglePlayPause(){
     if(projection==null){
@@ -141,7 +143,7 @@ public class ScreenService extends Service {
   private void consumeFrame(ImageReader source){
     Image image=source.acquireLatestImage();
     if(image==null)return;
-    if(paused||SystemClock.elapsedRealtime()-lastScan<(inRecruitment?1400:6000)||!busy.compareAndSet(false,true)){
+    if(paused||SystemClock.elapsedRealtime()-lastScan<(inRecruitment?1300:2500)||!busy.compareAndSet(false,true)){
       image.close();return;
     }
     lastScan=SystemClock.elapsedRealtime();
@@ -208,7 +210,8 @@ public class ScreenService extends Service {
       else panelText.setText("Выбрать: "+String.join(" + ",recommendation.tags)+
           "\n"+recommendation.description());
     }
-    if(panel!=null)panel.setVisibility(!paused&&inRecruitment&&prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
+    // Show compact status while scanning, rather than silently hiding until all tags are found.
+    if(panel!=null)panel.setVisibility(projection!=null&&!paused&&prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
   }
   private int dp(int px){return (int)(px*getResources().getDisplayMetrics().density+0.5f);}
   private WindowManager.LayoutParams layout(int w,int h,int flags){
@@ -222,22 +225,20 @@ public class ScreenService extends Service {
     width=metrics.widthPixels;height=metrics.heightPixels;
     markers=new Markers(this);
     WindowManager.LayoutParams pass=layout(-1,-1,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
-      WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN|
-      WindowManager.LayoutParams.FLAG_SECURE);
+      WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
     pass.alpha=.70f;
     wm.addView(markers,pass);
 
     LinearLayout controls=new LinearLayout(this);
     controls.setOrientation(LinearLayout.HORIZONTAL);
     controls.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
-    Button g=new Button(this);g.setText("⚙");UiStyle.button(g,false);g.setTextSize(21);
-    g.setTextColor(UiStyle.MUTED);
-    playPause=new Button(this);playPause.setText("▶");UiStyle.button(playPause,true);playPause.setTextSize(21);
-    controls.addView(g,new LinearLayout.LayoutParams(dp(52),dp(52)));
+    FloatingControlButton g=new FloatingControlButton(this,FloatingControlButton.SETTINGS);
+    playPause=new FloatingControlButton(this,FloatingControlButton.PLAY_PAUSE);
+    // Play/Pause on the left, movable settings gear on the right.
     controls.addView(playPause,new LinearLayout.LayoutParams(dp(52),dp(52)));
+    controls.addView(g,new LinearLayout.LayoutParams(dp(52),dp(52)));
     gear=controls;
-    gearParams=layout(dp(104),dp(52),WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
-      WindowManager.LayoutParams.FLAG_SECURE);
+    gearParams=layout(dp(104),dp(52),WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
     gearParams.gravity=Gravity.LEFT|Gravity.TOP;
     gearParams.x=dp(8);gearParams.y=height/2;
     wm.addView(gear,gearParams);
@@ -270,8 +271,7 @@ public class ScreenService extends Service {
     statusText.setText("База Global");box.addView(statusText);
     panelText=new TextView(this);panelText.setTextColor(Color.WHITE);panelText.setTextSize(12);
     box.addView(panelText);panel=box;
-    WindowManager.LayoutParams p=layout(dp(244),-2,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
-      WindowManager.LayoutParams.FLAG_SECURE);
+    WindowManager.LayoutParams p=layout(dp(244),-2,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
     p.gravity=Gravity.LEFT|Gravity.CENTER_VERTICAL;p.x=dp(65);p.y=0;
     wm.addView(panel,p);
     updatePlayButton();render();
@@ -306,7 +306,7 @@ public class ScreenService extends Service {
     // The single close control is the compact X at the top right.
     ScrollView scroll=new ScrollView(this);scroll.addView(box);settings=scroll;
     WindowManager.LayoutParams p=layout(dp(285),Math.min(dp(520),Math.max(dp(160),height-dp(80))),
-      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_SECURE);
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
     p.gravity=Gravity.CENTER;p.alpha=.96f;wm.addView(settings,p);
   }
   private void settingSlider(LinearLayout box,String label,String key,int min,int max,int def){
