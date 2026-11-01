@@ -124,7 +124,13 @@ public class ScreenService extends Service {
     if(projection==null){
       try{
         Intent permission=new Intent(this,CapturePermissionActivity.class);
-        permission.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        // Use a separate transient task so completing system consent resumes
+        // the previously foreground game, not MainActivity in portrait mode.
+        DisplayMetrics dm=new DisplayMetrics();
+        wm.getDefaultDisplay().getRealMetrics(dm);
+        permission.putExtra("captureLandscape",dm.widthPixels>dm.heightPixels);
+        permission.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|
+          Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS|Intent.FLAG_ACTIVITY_NO_ANIMATION);
         startActivity(permission);
       }catch(Exception e){
         android.util.Log.e("RecruitAssist","Cannot show capture consent",e);
