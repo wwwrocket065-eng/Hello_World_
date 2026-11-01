@@ -300,7 +300,7 @@ public class ScreenService extends Service {
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
     box.addView(new HighlightColorControl(this,prefs,
       ()->{if(markers!=null)markers.invalidate();}));
-    settingSlider(box,"Насыщенность подсветки","fillAlpha",10,70,35);
+    settingSlider(box,"Непрозрачность подсветки","fillAlpha",10,70,35);
     Button off=new Button(this);off.setText("Выключить помощник");UiStyle.button(off,false);box.addView(off);
     off.setOnClickListener(v->stopSelf());
     // The single close control is the compact X at the top right.
