@@ -15,6 +15,7 @@ public class MainActivity extends Activity {
   private final int REQUEST_CAPTURE=1901;
   private final int REQUEST_NOTIFICATIONS=1902;
   private TextView permissions,dbStatus;
+  private ProgressBar dbProgress;
   private SharedPreferences prefs;
   private List<RecruitmentEngine.Operator> operators=new ArrayList<>();
   @Override public void onCreate(Bundle state) {
@@ -23,23 +24,21 @@ public class MainActivity extends Activity {
     ScrollView sc=new ScrollView(this); LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL); root.setPadding(32,36,32,40);
     root.setBackgroundColor(Color.rgb(18,24,31));sc.addView(root);setContentView(sc);
+    setupSystemBars(root);
     text(root,"Arknights Recruitment Assistant",24,Color.WHITE);
     text(root,"Global • анализ и подсветка поверх игры",15,0xFFBFD8E3);
     permissions=text(root,"",15,Color.WHITE);
-    button(root,"Разрешение",()->{
-      Intent i=new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName()));
-      startActivity(i);
-    });
+    button(root,"Разрешение",this::openOverlayPermission);
     button(root,"Уведомления (Android 13+)",()->{
       if(Build.VERSION.SDK_INT>=33)requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},REQUEST_NOTIFICATIONS);
     });
-    button(root,"▶ Начать автоматический анализ",()->{
-      if(!Settings.canDrawOverlays(this)){Toast.makeText(this,"Сначала разрешите оверлей",Toast.LENGTH_LONG).show();return;}
-      MediaProjectionManager m=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
-      startActivityForResult(m.createScreenCaptureIntent(),REQUEST_CAPTURE);
-    });
-    button(root,"■ Остановить анализ",()->{
-      Intent i=new Intent(this,ScreenService.class);i.setAction("STOP");startService(i);
+    button(root,"Запустить",()->{
+      if(!Settings.canDrawOverlays(this)){
+        Toast.makeText(this,"Сначала предоставьте разрешение",Toast.LENGTH_LONG).show();
+        openOverlayPermission();return;
+      }
+      Intent i=new Intent(this,ScreenService.class);i.setAction("SHOW");startService(i);
+      Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
     text(root,"Рекомендации",19,Color.WHITE);
     Switch chance=new Switch(this);chance.setText("Шанс на редкого вместо гарантии");
@@ -61,6 +60,8 @@ public class MainActivity extends Activity {
     });
     text(root,"База операторов Global",19,Color.WHITE);
     dbStatus=text(root,"Проверка базы...",15,0xFFBFD8E3);
+    dbProgress=new ProgressBar(this);dbProgress.setIndeterminate(true);
+    dbProgress.setVisibility(View.GONE);root.addView(dbProgress);
     button(root,"Обновить базу",()->loadDb(true));
     text(root,"Проверка комбинаций вручную (через запятую)",17,Color.WHITE);
     EditText input=new EditText(this);input.setSingleLine(false);input.setTextColor(Color.WHITE);
@@ -74,19 +75,52 @@ public class MainActivity extends Activity {
     loadDb(false);
   }
   private void loadDb(boolean force) {
-    OperatorDatabase.load(this,force,(items,status)->{operators=items;if(dbStatus!=null)dbStatus.setText(status);});
+    if(dbProgress!=null)dbProgress.setVisibility(View.VISIBLE);
+    OperatorDatabase.load(this,force,new OperatorDatabase.ProgressListener(){
+      @Override public void onProgress(String status){if(dbStatus!=null)dbStatus.setText(status);}
+      @Override public void onLoaded(List<RecruitmentEngine.Operator> items,String status){
+        operators=items;if(dbStatus!=null)dbStatus.setText(status);
+        if(dbProgress!=null)dbProgress.setVisibility(View.GONE);
+      }
+    });
   }
-  @Override public void onResume(){super.onResume();if(permissions!=null)permissions.setText(
+  @Override public void onResume(){super.onResume();hideNavigation();if(permissions!=null)permissions.setText(
     "Оверлей: "+(Settings.canDrawOverlays(this)?"разрешён":"не разрешён")+
-    "\nЗахват экрана: запрос при старте");}
-  @Override protected void onActivityResult(int request,int result,Intent data){
-    super.onActivityResult(request,result,data);
-    if(request==REQUEST_CAPTURE&&result==RESULT_OK&&data!=null){
-      Intent service=new Intent(this,ScreenService.class);
-      service.setAction("START");service.putExtra("captureCode",result);service.putExtra("captureData",data);
-      if(Build.VERSION.SDK_INT>=26)startForegroundService(service);else startService(service);
-      Toast.makeText(this,"Анализ включается. Откройте рекрутинг.",Toast.LENGTH_LONG).show();
-    }
+    "\nЗахват экрана: запрос при нажатии ▶");}
+  private void openOverlayPermission(){
+    Intent xiaomi=new Intent("miui.intent.action.APP_PERM_EDITOR");
+    xiaomi.setClassName("com.miui.securitycenter","com.miui.permcenter.permissions.PermissionsEditorActivity");
+    xiaomi.putExtra("extra_pkgname",getPackageName());
+    try {startActivity(xiaomi);return;}catch(Exception ignored){}
+    Intent generic=new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+      Uri.parse("package:"+getPackageName()));
+    try {startActivity(generic);return;}catch(Exception ignored){}
+    startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+      Uri.parse("package:"+getPackageName())));
+  }
+  private void setupSystemBars(View root){
+    if(Build.VERSION.SDK_INT>=30){
+      getWindow().setDecorFitsSystemWindows(false);
+      getWindow().setStatusBarColor(Color.TRANSPARENT);
+      root.setOnApplyWindowInsetsListener((v,insets)->{
+        android.graphics.Insets top=insets.getInsets(WindowInsets.Type.statusBars()|WindowInsets.Type.displayCutout());
+        android.graphics.Insets bottom=insets.getInsets(WindowInsets.Type.systemGestures());
+        int d=(int)(getResources().getDisplayMetrics().density*16);
+        root.setPadding(d,top.top+d,d,bottom.bottom+d);
+        return insets;
+      });
+    }else root.setFitsSystemWindows(true);
+    hideNavigation();
+  }
+  private void hideNavigation(){
+    if(Build.VERSION.SDK_INT>=30){
+      WindowInsetsController c=getWindow().getInsetsController();
+      if(c!=null){
+        c.hide(WindowInsets.Type.navigationBars());
+        c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+      }
+    }else getWindow().getDecorView().setSystemUiVisibility(
+      View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
   }
   private TextView text(LinearLayout parent,String value,int size,int color){
     TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setPadding(0,14,0,12);parent.addView(t);return t;
