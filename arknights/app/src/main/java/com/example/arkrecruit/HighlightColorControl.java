@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.SeekBar;
 
 /** Expandable highlight-color palette used by the app and the floating settings. */
 public final class HighlightColorControl extends LinearLayout {
@@ -25,6 +26,9 @@ public final class HighlightColorControl extends LinearLayout {
   private final Runnable onChange;
   private final Button trigger;
   private final GridLayout palette;
+  private final LinearLayout expanded;
+  private final TextView brightnessText;
+  private final SeekBar brightnessBar;
 
   public HighlightColorControl(Context context, SharedPreferences prefs, Runnable onChange) {
     super(context);
@@ -37,11 +41,16 @@ public final class HighlightColorControl extends LinearLayout {
     mainButtonLayout.setMargins(0,UiStyle.dp(context,5),0,UiStyle.dp(context,5));
     addView(trigger,mainButtonLayout);
 
+    expanded=new LinearLayout(context);
+    expanded.setOrientation(VERTICAL);
+    expanded.setPadding(UiStyle.dp(context,3),UiStyle.dp(context,8),
+      UiStyle.dp(context,3),UiStyle.dp(context,9));
+    expanded.setBackground(UiStyle.rounded(context,UiStyle.SURFACE,12));
+    addView(expanded,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
     palette=new GridLayout(context);
     palette.setColumnCount(5);
     palette.setPadding(UiStyle.dp(context,3),UiStyle.dp(context,8),UiStyle.dp(context,3),UiStyle.dp(context,9));
-    palette.setBackground(UiStyle.rounded(context,UiStyle.SURFACE,12));
-    addView(palette,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+    expanded.addView(palette,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
     for(int color:COLORS){
       Button tile=new Button(context);
       tile.setContentDescription(String.format(java.util.Locale.US,"Цвет #%06X",color & 0xFFFFFF));
@@ -57,10 +66,35 @@ public final class HighlightColorControl extends LinearLayout {
       palette.addView(tile,cell);
       tile.setOnClickListener(v->selectColor(color));
     }
-    palette.setVisibility(GONE);
+    brightnessText=new TextView(context);
+    brightnessText.setTextColor(UiStyle.TEXT);
+    brightnessText.setTextSize(14);
+    brightnessText.setPadding(UiStyle.dp(context,6),UiStyle.dp(context,7),0,0);
+    expanded.addView(brightnessText);
+    brightnessBar=new SeekBar(context);
+    brightnessBar.setMax(100);
+    float[] hsv=new float[3];
+    Color.colorToHSV(selectedColor(),hsv);
+    int currentBrightness=prefs.getInt("paletteBrightness",Math.round(hsv[2]*100f));
+    brightnessBar.setProgress(Math.max(0,Math.min(100,currentBrightness)));
+    UiStyle.slider(brightnessBar);
+    expanded.addView(brightnessBar,new LayoutParams(LayoutParams.MATCH_PARENT,
+      LayoutParams.WRAP_CONTENT));
+    updateBrightnessLabel();
+    brightnessBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+      @Override public void onProgressChanged(SeekBar slider,int percent,boolean fromUser){
+        if(fromUser){
+          int base=prefs.getInt("paletteBaseColor",baseColorFromCurrent());
+          applyColor(base,percent);
+        }
+      }
+      @Override public void onStartTrackingTouch(SeekBar slider){}
+      @Override public void onStopTrackingTouch(SeekBar slider){}
+    });
+    expanded.setVisibility(GONE);
     updateTrigger();
     trigger.setOnClickListener(v->{
-      palette.setVisibility(palette.getVisibility()==VISIBLE?GONE:VISIBLE);
+      expanded.setVisibility(expanded.getVisibility()==VISIBLE?GONE:VISIBLE);
       updateTrigger();
     });
   }
@@ -68,10 +102,31 @@ public final class HighlightColorControl extends LinearLayout {
   private int selectedColor(){
     return Color.rgb(prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90));
   }
+  private int baseColorFromCurrent(){
+    float[] hsv=new float[3];
+    Color.colorToHSV(selectedColor(),hsv);
+    hsv[2]=1f;
+    return Color.HSVToColor(hsv);
+  }
+  private void updateBrightnessLabel(){
+    brightnessText.setText("Яркость: "+brightnessBar.getProgress()+"%");
+  }
+  private void applyColor(int base,int percent){
+    float[] hsv=new float[3];
+    Color.colorToHSV(base,hsv);
+    hsv[2]=Math.max(0,Math.min(100,percent))/100f;
+    int result=Color.HSVToColor(hsv);
+    prefs.edit().putInt("paletteBaseColor",base).putInt("paletteBrightness",percent)
+      .putInt("red",Color.red(result)).putInt("green",Color.green(result))
+      .putInt("blue",Color.blue(result)).apply();
+    updateBrightnessLabel();
+    updateTrigger();
+    if(onChange!=null)onChange.run();
+  }
   private void updateTrigger(){
     int color=selectedColor();
-    boolean expanded=palette.getVisibility()==VISIBLE;
-    trigger.setText("Цвет подсветки  "+(expanded?"▴":"▾"));
+    boolean expandedNow=expanded.getVisibility()==VISIBLE;
+    trigger.setText("Цвет подсветки  "+(expandedNow?"▴":"▾"));
     // Text remains readable even when the chosen palette color is very bright.
     int brightness=(Color.red(color)*299+Color.green(color)*587+Color.blue(color)*114)/1000;
     trigger.setTextColor(brightness>=150?UiStyle.BACKGROUND:UiStyle.TEXT);
@@ -79,9 +134,6 @@ public final class HighlightColorControl extends LinearLayout {
       UiStyle.rounded(getContext(),color,12),null));
   }
   private void selectColor(int color){
-    prefs.edit().putInt("red",Color.red(color)).putInt("green",Color.green(color))
-      .putInt("blue",Color.blue(color)).apply();
-    updateTrigger();
-    if(onChange!=null)onChange.run();
+    applyColor(color,brightnessBar.getProgress());
   }
 }
