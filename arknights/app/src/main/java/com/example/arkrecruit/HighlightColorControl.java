@@ -52,19 +52,20 @@ public final class HighlightColorControl extends LinearLayout {
     palette.setPadding(UiStyle.dp(context,3),UiStyle.dp(context,8),UiStyle.dp(context,3),UiStyle.dp(context,9));
     expanded.addView(palette,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
     for(int color:COLORS){
+      final int paletteColor=colorAtBrightness(color,100);
       Button tile=new Button(context);
-      tile.setContentDescription(String.format(java.util.Locale.US,"Цвет #%06X",color & 0xFFFFFF));
+      tile.setContentDescription(String.format(java.util.Locale.US,"Цвет #%06X",paletteColor & 0xFFFFFF));
       tile.setText("");
       tile.setMinWidth(0);
       tile.setMinHeight(0);
       tile.setPadding(0,0,0,0);
-      tile.setBackground(UiStyle.rounded(context,color,9));
+      tile.setBackground(UiStyle.rounded(context,paletteColor,9));
       GridLayout.LayoutParams cell=new GridLayout.LayoutParams();
       cell.width=UiStyle.dp(context,42);
       cell.height=UiStyle.dp(context,42);
       cell.setMargins(UiStyle.dp(context,3),UiStyle.dp(context,3),UiStyle.dp(context,3),UiStyle.dp(context,3));
       palette.addView(tile,cell);
-      tile.setOnClickListener(v->selectColor(color));
+      tile.setOnClickListener(v->selectColor(paletteColor));
     }
     brightnessText=new TextView(context);
     brightnessText.setTextColor(UiStyle.TEXT);
@@ -111,11 +112,14 @@ public final class HighlightColorControl extends LinearLayout {
   private void updateBrightnessLabel(){
     brightnessText.setText("Яркость: "+brightnessBar.getProgress()+"%");
   }
-  private void applyColor(int base,int percent){
+  private static int colorAtBrightness(int base,int percent){
     float[] hsv=new float[3];
     Color.colorToHSV(base,hsv);
     hsv[2]=Math.max(0,Math.min(100,percent))/100f;
-    int result=Color.HSVToColor(hsv);
+    return Color.HSVToColor(hsv);
+  }
+  private void applyColor(int base,int percent){
+    int result=colorAtBrightness(base,percent);
     prefs.edit().putInt("paletteBaseColor",base).putInt("paletteBrightness",percent)
       .putInt("red",Color.red(result)).putInt("green",Color.green(result))
       .putInt("blue",Color.blue(result)).apply();
