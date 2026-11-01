@@ -333,8 +333,8 @@ public class ScreenService extends Service {
       // OCR reports the text bounds, not the whole clickable tag. The landscape
       // reference is 1536x709 with tags about 142x46. Use screen-relative
       // rectangles centered on the detected label to cover the whole tag.
-      float tagWidth=Math.max(dp(80),width*142f/1536f);
-      float tagHeight=Math.max(dp(28),height*46f/709f);
+      float tagWidth=width*142f/1536f;
+      float tagHeight=height*46f/709f;
       for(Recognition r:recognized){
         if(!recommendation.tags.contains(r.tag))continue;
         float cx=r.bounds.exactCenterX(),cy=r.bounds.exactCenterY();
