@@ -99,3 +99,11 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Version `0.3.4`, versionCode 7. Commit SHA of version bump: `cb1f5f2f9e2dcdf5f19764b553d006d1c2cf2d3d`.
 - Device validation is pending: this is the code-level fix; must verify that after selecting 'Показать экран' the user remains in horizontal Arknights and the overlay scanner reports OCR tag count and highlights.
 - Follow-up: after CI success extract and verify 0.3.4 APK, provide direct .apk (not GitHub sources). Note CI debug keystore changes each run and may require uninstall/reinstall; need a persistent signing key for seamless updates.
+
+## 2026-11-01 — 0.3.4 verified CI artifact
+- CI run: `41333307022` (source commit `1aa93d0fb71458d1c7ad6fac8fd4dc244bf0ca94`), finished with **success**. Artifact: `arknights-debug-apk` ID `13094222348`.
+- Extracted `app-debug.apk` to `/mnt/data/Arknights_Recruitment_Assistant_v0.3.4.apk` (size 46,354,930 bytes; 44.21 MiB).
+- Artifact ZIP and APK central-directory CRC validation succeeded. Manifest's binary XML string pool confirms version `0.3.4` (not `0.3.3`), and DEX includes updated `CapturePermissionActivity`.
+- SHA-256 APK: `33ea9641ecea5c47259dad632132c9c99081f77b1f131d2cadcd1a3e664556dc`.
+- **Confirmed signing mismatch:** APK v2 signer certificate SHA-256 for 0.3.4: `f2df7939fa5259d769fabb700a38206abbc7a2a6198f40e15b17ca6e0cbdeef7`. Previous 0.3.3: `be98ff30545084e26edaeabdab410f547cf7e6d5e3d13fa32e0c011b59dedbdf`. Thus in-place install over 0.3.3 cannot work: uninstallation or a consistently signed new release is required. Do not ever place a signing private key in the public repository.
+- Confirmed on CI and static APK only. Real on-device return-to-game/navigation, MediaProjection, OCR, highlight accuracy still require Xiaomi testing.
