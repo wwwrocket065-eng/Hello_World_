@@ -12,6 +12,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".CapturePermissionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"/>
         <service android:name=".ScreenService" android:exported="false"
             android:foregroundServiceType="mediaProjection"/>
     </application>
