@@ -39,6 +39,8 @@ public class ScreenService extends Service {
   private SharedPreferences prefs;
   private long lastScan=0; private int missing=0,width,height;
   private volatile int captureWidth=0,captureHeight=0;
+  private volatile int detectedCount=0;
+  private volatile boolean resizePending=false;
   private static final class Recognition {
     String tag; Rect bounds; Recognition(String t,Rect r){tag=t;bounds=r;}
   }
@@ -167,29 +169,46 @@ public class ScreenService extends Service {
       .addOnFailureListener(e->android.util.Log.w("RecruitAssist","OCR failed",e))
       .addOnCompleteListener(task->{frame.recycle();busy.set(false);});
   }
+  private static void recordTag(Map<String,Rect> found,String raw,Rect box) {
+    if(box==null||box.width()<5||box.height()<5)return;
+    String tag=RecruitmentEngine.normalizeOcr(raw);
+    if(tag!=null&&!found.containsKey(tag))found.put(tag,new Rect(box));
+  }
   private void processText(Text result){
     LinkedHashMap<String,Rect> found=new LinkedHashMap<>();
     for(Text.TextBlock block:result.getTextBlocks()){
       for(Text.Line line:block.getLines()){
-        String tag=RecruitmentEngine.normalize(line.getText());
-        Rect bounds=line.getBoundingBox();
-        if(tag!=null&&bounds!=null&&bounds.width()>10&&!found.containsKey(tag))
-          found.put(tag,new Rect(bounds));
+        recordTag(found,line.getText(),line.getBoundingBox());
+        List<Text.Element> elements=line.getElements();
+        for(int i=0;i<elements.size();i++){
+          Text.Element item=elements.get(i);
+          recordTag(found,item.getText(),item.getBoundingBox());
+          if(i+1<elements.size()){
+            Text.Element next=elements.get(i+1);
+            Rect a=item.getBoundingBox(),b=next.getBoundingBox();
+            if(a!=null&&b!=null){
+              Rect both=new Rect(a);both.union(b);
+              recordTag(found,item.getText()+" "+next.getText(),both);
+            }
+          }
+        }
       }
     }
-    // Five unambiguous recruitment tags classify the screen; all other screens idle.
-    if(found.size()!=5){
-      main.post(()->{
-        if(paused)return;
-        inRecruitment=false;
-        recognized.clear();recommendation=null;render();
-      });
-      return;
-    }
+    int count=found.size();
     main.post(()->{
       if(paused)return;
-      inRecruitment=true;
-      recognized.clear();
+      detectedCount=count;
+      if(statusText!=null)statusText.setText("Global • OCR: "+count+"/5");
+      // In-game OCR sometimes misreads one of the five labels.
+      // Require three real detected tags; never fabricate missing ones.
+      if(count<3||count>5){
+        if(++missing>=2){
+          inRecruitment=false;recognized.clear();recommendation=null;
+        }
+        render();return;
+      }
+      missing=0;
+      inRecruitment=true;recognized.clear();
       for(Map.Entry<String,Rect> e:found.entrySet())
         recognized.add(new Recognition(e.getKey(),e.getValue()));
       chooseRecommendation();
@@ -205,9 +224,9 @@ public class ScreenService extends Service {
     if(markers!=null)markers.invalidate();
     if(panelText!=null){
       if(paused)panelText.setText("Анализ на паузе");
-      else if(!inRecruitment)panelText.setText("Ожидаю экран рекрутинга");
-      else if(recommendation==null)panelText.setText("Найдено тегов: "+recognized.size()+"\nНет проверенного результата");
-      else panelText.setText("Выбрать: "+String.join(" + ",recommendation.tags)+
+      else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
+      else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+"/5\nНет проверенной комбинации или базы");
+      else panelText.setText((detectedCount==5?"":"Распознано "+detectedCount+"/5 • проверьте теги\n")+"Выбрать: "+String.join(" + ",recommendation.tags)+
           "\n"+recommendation.description());
     }
     // Show compact status while scanning, rather than silently hiding until all tags are found.
