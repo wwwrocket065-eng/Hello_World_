@@ -42,7 +42,7 @@ public class ScreenService extends Service {
   private volatile int detectedCount=0;
   private volatile boolean resizePending=false;
   private static final class Recognition {
-    String tag; Rect bounds; Recognition(String t,Rect r){tag=t;bounds=r;}
+    String tag; Rect bounds; Rect tile; Recognition(String t,Rect r,Rect tile){tag=t;bounds=r;this.tile=tile;}
   }
   @Override public void onCreate(){
     super.onCreate();prefs=getSharedPreferences("settings",MODE_PRIVATE);
@@ -195,7 +195,7 @@ public class ScreenService extends Service {
     }
     try{
       recognizer.process(InputImage.fromBitmap(frame,0))
-        .addOnSuccessListener(this::processText)
+        .addOnSuccessListener(text->processText(text,frame))
         .addOnFailureListener(e->{
           android.util.Log.w("RecruitAssist","OCR failed",e);
           if(statusText!=null)statusText.setText("Ошибка распознавания текста");
@@ -219,7 +219,7 @@ public class ScreenService extends Service {
     String tag=RecruitmentEngine.normalizeOcr(raw);
     if(tag!=null&&!found.containsKey(tag))found.put(tag,new Rect(box));
   }
-  private void processText(Text result){
+  private void processText(Text result,Bitmap frame){
     LinkedHashMap<String,Rect> found=new LinkedHashMap<>();
     for(Text.TextBlock block:result.getTextBlocks()){
       for(Text.Line line:block.getLines()){
@@ -239,6 +239,31 @@ public class ScreenService extends Service {
         }
       }
     }
+    // Detect tile edges while the authorized capture frame is still alive.
+    // If a tile is obscured or lacks enough contrast, take the median size
+    // of nearby reliably detected tiles instead of forcing a text-sized box.
+    Map<String,TagBoundsDetector.Detection> detected=new LinkedHashMap<>();
+    ArrayList<Integer> widths=new ArrayList<>(),heights=new ArrayList<>();
+    for(Map.Entry<String,Rect> e:found.entrySet()){
+      TagBoundsDetector.Detection hit=TagBoundsDetector.detect(frame,e.getValue());
+      if(hit!=null){
+        detected.put(e.getKey(),hit);
+        widths.add(hit.tile.width());
+        heights.add(hit.tile.height());
+      }
+    }
+    Collections.sort(widths);Collections.sort(heights);
+    int estimateWidth=widths.isEmpty()?0:widths.get(widths.size()/2);
+    int estimateHeight=heights.isEmpty()?0:heights.get(heights.size()/2);
+    LinkedHashMap<String,Recognition> tiles=new LinkedHashMap<>();
+    for(Map.Entry<String,Rect> e:found.entrySet()){
+      Rect label=e.getValue();
+      TagBoundsDetector.Detection hit=detected.get(e.getKey());
+      int w=estimateWidth>0?estimateWidth:Math.max(50,Math.round(label.height()*7.0f));
+      int h=estimateHeight>0?estimateHeight:Math.max(22,Math.round(label.height()*2.45f));
+      Rect button=hit!=null?hit.tile:TagBoundsDetector.estimate(label,w,h);
+      tiles.put(e.getKey(),new Recognition(e.getKey(),new Rect(label),button));
+    }
     int count=found.size();
     main.post(()->{
       if(paused)return;
@@ -254,8 +279,7 @@ public class ScreenService extends Service {
       }
       missing=0;
       inRecruitment=true;recognized.clear();
-      for(Map.Entry<String,Rect> e:found.entrySet())
-        recognized.add(new Recognition(e.getKey(),e.getValue()));
+      recognized.addAll(tiles.values());
       chooseRecommendation();
     });
   }
@@ -336,7 +360,7 @@ public class ScreenService extends Service {
     panelText=new TextView(this);panelText.setTextColor(Color.WHITE);panelText.setTextSize(12);
     box.addView(panelText);panel=box;
     WindowManager.LayoutParams p=layout(dp(244),-2,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
-    p.gravity=Gravity.LEFT|Gravity.CENTER_VERTICAL;p.x=dp(65);p.y=0;
+    p.gravity=Gravity.LEFT|Gravity.CENTER_VERTICAL;p.x=dp(3);p.y=0;
     wm.addView(panel,p);
     updatePlayButton();render();
   }
@@ -394,24 +418,15 @@ public class ScreenService extends Service {
       paint.setStyle(Paint.Style.FILL);
       paint.setColor(Color.argb((int)(255*prefs.getInt("fillAlpha",35)/100f),
         prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90)));
-      // Derive tile size from OCR font scale, not screen orientation or dp.
-      // In the 1536x709 game reference glyphs are about 18 px high and
-      // tags about 142x46 px. OCR rectangles refer to the CAPTURE bitmap.
-      float glyph=0f,maxTextWidth=0f;
-      for(Recognition r:recognized){
-        glyph+=r.bounds.height();
-        maxTextWidth=Math.max(maxTextWidth,r.bounds.width());
-      }
-      glyph=Math.max(1f,glyph/Math.max(1,recognized.size()));
-      float tagWidth=Math.max(glyph*7.9f,maxTextWidth*1.15f);
-      float tagHeight=glyph*2.55f;
+      // Tile bounds are taken from image edges when available. The OCR
+      // text rectangle is only a fallback, not the drawn highlight geometry.
       float sx=getWidth()/(float)Math.max(1,captureWidth);
       float sy=getHeight()/(float)Math.max(1,captureHeight);
       for(Recognition r:recognized){
         if(!recommendation.tags.contains(r.tag))continue;
-        float cx=r.bounds.exactCenterX(),cy=r.bounds.exactCenterY();
-        RectF rect=new RectF((cx-tagWidth/2f)*sx,(cy-tagHeight/2f)*sy,
-          (cx+tagWidth/2f)*sx,(cy+tagHeight/2f)*sy);
+        Rect tile=r.tile;
+        RectF rect=new RectF(tile.left*sx,tile.top*sy,
+          tile.right*sx,tile.bottom*sy);
         canvas.drawRect(rect,paint);
       }
     }
