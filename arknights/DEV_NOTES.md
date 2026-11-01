@@ -117,3 +117,10 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Recommendation panel `WindowManager.LayoutParams`: x changed from 65 dp to **3 dp** at LEFT gravity, almost flush to edge. Its width unchanged; at the screenshot scale, this frees the game's first tag column from panel overlap.
 - VersionCode 8 / versionName **0.3.5**, commit `62a2e3f07ea7046639c98c64e6413afcc921b8ec`.
 - CI build required to validate Java/Android integration and generate APK; real Xiaomi screenshot needed after install to verify pixel alignment and selected/disabled tag states. Existing MediaProjection and calculations intentionally preserved.
+
+## v0.3.5 built APK verification
+- Latest source+checkpoint run: `41336688636` — **success**, artifact `arknights-debug-apk` ID `13095587057`. Source commit of this build: `7d7835d9d9c1cc1f900409ef61a7b170cf0f9310`.
+- Extracted `app-debug.apk` from the uploaded GitHub artifact to `/mnt/data/Arknights_Recruitment_Assistant_v0.3.5.apk`. Artifact ZIP and APK ZIP CRC passed; APK manifest contains `0.3.5`; DEX contains `TagBoundsDetector`.
+- APK size: 46,354,926 bytes. SHA-256: `8f95abfa864acf7571bc2312b8556a24ce4dd6da01048f3e287d899a7388fb06`.
+- Signing certificate fingerprint: `e9955180127ac4410b25c5f4be266b7021e3b11c9d81b0da00099ae3b40e9feb`, **not the same** as 0.3.4 (`f2df7939fa5259d769fabb700a38206abbc7a2a6198f40e15b17ca6e0cbdeef7`). In-place update over 0.3.4 will fail. Must implement an external persistent app signing key securely for subsequent versions; never commit private signing keys.
+- Offline edge-check on user screenshot with centers approximating the actual tag labels: Medic button ~x669..815, y353..402; Ranged ~x669..815, y424..473. Live in-game pixel accuracy still unverified; request new screenshot after installation.
