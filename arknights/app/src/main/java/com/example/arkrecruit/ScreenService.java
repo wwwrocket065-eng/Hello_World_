@@ -195,9 +195,9 @@ public class ScreenService extends Service {
     if(panelText!=null){
       if(paused)panelText.setText("Анализ на паузе");
       else if(!inRecruitment)panelText.setText("Ожидаю экран рекрутинга");
-      else if(recommendation==null)panelText.setText("Найдено тегов: "+recognized.size()+"\\nНет проверенного результата");
+      else if(recommendation==null)panelText.setText("Найдено тегов: "+recognized.size()+"\nНет проверенного результата");
       else panelText.setText("Выбрать: "+String.join(" + ",recommendation.tags)+
-          "\\n"+recommendation.description());
+          "\n"+recommendation.description());
     }
     if(panel!=null)panel.setVisibility(!paused&&inRecruitment&&prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
   }
