@@ -31,11 +31,13 @@ public class ScreenService extends Service {
   private WindowManager wm; private Markers markers; private View gear, panel, settings;
   private FloatingControlButton playPause;
   private boolean paused=true, inRecruitment=false;
-  private WindowManager.LayoutParams gearParams;
+  private WindowManager.LayoutParams gearParams,panelParams;
   private final List<Recognition> recognized=new ArrayList<>();
   private List<RecruitmentEngine.Operator> operators=Collections.emptyList();
   private RecruitmentEngine.Result recommendation;
-  private TextView panelText,statusText;
+  private TextView panelText,statusText,operatorListText,listToggle;
+  private ScrollView operatorScroll;
+  private boolean operatorListExpanded=false;
   private SharedPreferences prefs;
   private long lastScan=0; private int missing=0,width,height;
   private volatile int captureWidth=0,captureHeight=0;
@@ -186,9 +188,13 @@ public class ScreenService extends Service {
       frame.recycle();busy.set(false);
       main.post(()->{
         if(paused)return;
-        detectedCount=0;missing=0;inRecruitment=false;
-        recognized.clear();recommendation=null;
-        if(statusText!=null)statusText.setText("Захват: чёрный кадр");
+        detectedCount=0;
+        // A transient blank frame must not erase a valid on-screen recommendation.
+        // Keep the last confirmed tags/highlights until pause, a new valid tag set,
+        // or reliable evidence of leaving the recruitment page.
+        if(statusText!=null)statusText.setText(inRecruitment
+          ?"Захват: пропуск кадра • подсветка сохранена"
+          :"Захват: чёрный кадр");
         render();
       });
       return;
@@ -272,9 +278,23 @@ public class ScreenService extends Service {
       // In-game OCR sometimes misreads one of the five labels.
       // Require three real detected tags; never fabricate missing ones.
       if(count<3||count>5){
-        if(++missing>=2){
-          inRecruitment=false;recognized.clear();recommendation=null;
-        }
+        // OCR on MediaProjection can miss a frame because transparent
+        // overlays or transitions occlude labels. Never clear after a short
+        // run of misses while the game remains on the recruitment page.
+        String screen=result.getText().toLowerCase(Locale.ROOT);
+        boolean recruitmentUi=screen.contains("job tags")||
+          screen.contains("recruitment time")||screen.contains("tap to refresh")||
+          screen.contains("contacting hr")||screen.contains("refresh");
+        boolean mainMenu=(screen.contains("terminal")&&screen.contains("operators"))||
+          (screen.contains("missions")&&screen.contains("store"))||
+          (screen.contains("squad")&&screen.contains("depot"));
+        if(!recruitmentUi&&mainMenu){
+          if(++missing>=3){
+            inRecruitment=false;recognized.clear();recommendation=null;missing=0;
+          }
+        }else missing=0;
+        if(statusText!=null)statusText.setText("Global • OCR: "+count+
+          "/5"+(inRecruitment?" • сохранено":""));
         render();return;
       }
       missing=0;
@@ -294,12 +314,25 @@ public class ScreenService extends Service {
     if(panelText!=null){
       if(paused)panelText.setText("Анализ на паузе");
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
-      else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+"/5\nНет проверенной комбинации или базы");
-      else panelText.setText((detectedCount==5?"":"Распознано "+detectedCount+"/5 • проверьте теги\n")+"Выбрать: "+String.join(" + ",recommendation.tags)+
-          "\n"+recommendation.description());
+      else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
+        "/5\\nНет проверенной комбинации или базы");
+      else panelText.setText("Выбрать: "+String.join(" + ",recommendation.tags)+
+        "\\nГарантия "+recommendation.guaranteed+"★; возможно до "+recommendation.possible+"★");
     }
-    // Show compact status while scanning, rather than silently hiding until all tags are found.
-    if(panel!=null)panel.setVisibility(projection!=null&&!paused&&prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
+    if(listToggle!=null&&operatorScroll!=null&&operatorListText!=null){
+      int count=recommendation==null?0:recommendation.operators.size();
+      listToggle.setVisibility(count>0?View.VISIBLE:View.GONE);
+      listToggle.setText("Операторы ("+count+") "+(operatorListExpanded?"▴":"▾"));
+      operatorScroll.setVisibility(count>0&&operatorListExpanded?View.VISIBLE:View.GONE);
+      if(count>0){
+        StringBuilder names=new StringBuilder();
+        for(RecruitmentEngine.Operator op:recommendation.operators)
+          names.append(op.rarity).append("★ ").append(op.name).append("\\n");
+        operatorListText.setText(names.toString().trim());
+      }else operatorListText.setText("");
+    }
+    if(panel!=null)panel.setVisibility(projection!=null&&!paused&&
+      prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
   }
   private int dp(int px){return (int)(px*getResources().getDisplayMetrics().density+0.5f);}
   private WindowManager.LayoutParams layout(int w,int h,int flags){
@@ -354,14 +387,74 @@ public class ScreenService extends Service {
     });
     LinearLayout box=new LinearLayout(this);
     box.setOrientation(LinearLayout.VERTICAL);
-    box.setPadding(dp(9),dp(6),dp(9),dp(6));box.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
-    statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);statusText.setTextSize(11);
-    statusText.setText("База Global");box.addView(statusText);
-    panelText=new TextView(this);panelText.setTextColor(Color.WHITE);panelText.setTextSize(12);
-    box.addView(panelText);panel=box;
-    WindowManager.LayoutParams p=layout(dp(244),-2,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
-    p.gravity=Gravity.LEFT|Gravity.CENTER_VERTICAL;p.x=dp(3);p.y=0;
-    wm.addView(panel,p);
+    box.setPadding(dp(8),dp(4),dp(8),dp(8));
+    box.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
+    // Drag using the narrow header; the operator list stays independently scrollable.
+    TextView drag=new TextView(this);
+    drag.setText("⠿  Рекомендация");
+    drag.setTextColor(UiStyle.MUTED);
+    drag.setTextSize(12);
+    drag.setGravity(Gravity.CENTER_VERTICAL);
+    drag.setPadding(dp(3),dp(4),dp(3),dp(6));
+    box.addView(drag,new LinearLayout.LayoutParams(-1,dp(32)));
+    statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);
+    statusText.setTextSize(10);statusText.setText("База Global");
+    box.addView(statusText);
+    panelText=new TextView(this);panelText.setTextColor(Color.WHITE);
+    panelText.setTextSize(12);panelText.setPadding(0,dp(4),0,dp(3));
+    box.addView(panelText);
+    listToggle=new TextView(this);listToggle.setTextColor(UiStyle.ACCENT);
+    listToggle.setTextSize(12);listToggle.setPadding(dp(2),dp(7),dp(2),dp(7));
+    box.addView(listToggle);
+    operatorListText=new TextView(this);
+    operatorListText.setTextColor(UiStyle.TEXT);operatorListText.setTextSize(11);
+    operatorListText.setPadding(dp(2),dp(3),dp(3),dp(3));
+    operatorScroll=new ScrollView(this);operatorScroll.addView(operatorListText);
+    operatorScroll.setFillViewport(false);
+    box.addView(operatorScroll,new LinearLayout.LayoutParams(-1,dp(150)));
+    listToggle.setOnClickListener(v->{
+      operatorListExpanded=!operatorListExpanded;
+      render();
+    });
+    panel=box;
+    panelParams=layout(dp(192),-2,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+    panelParams.gravity=Gravity.LEFT|Gravity.TOP;
+    panelParams.x=dp(3);
+    panelParams.y=Math.max(dp(70),height/2-dp(120));
+    if(prefs.contains("panel_frac_x")&&prefs.contains("panel_frac_y")){
+      panelParams.x=Math.round(prefs.getFloat("panel_frac_x",0f)*width);
+      panelParams.y=Math.round(prefs.getFloat("panel_frac_y",.2f)*height);
+    }
+    panelParams.x=Math.max(0,Math.min(Math.max(0,width-dp(192)),panelParams.x));
+    panelParams.y=Math.max(0,Math.min(Math.max(0,height-dp(60)),panelParams.y));
+    wm.addView(panel,panelParams);
+    drag.setOnTouchListener(new View.OnTouchListener(){
+      float startX,startY;int fromX,fromY;boolean dragging;
+      @Override public boolean onTouch(View v,MotionEvent event){
+        switch(event.getActionMasked()){
+          case MotionEvent.ACTION_DOWN:
+            startX=event.getRawX();startY=event.getRawY();
+            fromX=panelParams.x;fromY=panelParams.y;dragging=false;return true;
+          case MotionEvent.ACTION_MOVE:
+            float dx=event.getRawX()-startX,dy=event.getRawY()-startY;
+            if(Math.abs(dx)+Math.abs(dy)>dp(5))dragging=true;
+            if(dragging&&panel!=null){
+              panelParams.x=Math.max(0,Math.min(Math.max(0,width-dp(192)),fromX+(int)dx));
+              panelParams.y=Math.max(0,Math.min(Math.max(0,height-dp(60)),fromY+(int)dy));
+              wm.updateViewLayout(panel,panelParams);
+            }
+            return true;
+          case MotionEvent.ACTION_UP:
+            if(dragging){
+              prefs.edit().putFloat("panel_frac_x",panelParams.x/(float)Math.max(1,width))
+                .putFloat("panel_frac_y",panelParams.y/(float)Math.max(1,height)).apply();
+            }
+            return true;
+          case MotionEvent.ACTION_CANCEL:return true;
+          default:return false;
+        }
+      }
+    });
     updatePlayButton();render();
   }
   private void toggleSettings(){
@@ -466,6 +559,13 @@ public class ScreenService extends Service {
       gearParams.x=Math.min(gearParams.x,Math.max(0,width-dp(104)));
       gearParams.y=Math.min(gearParams.y,Math.max(0,height-dp(70)));
       wm.updateViewLayout(gear,gearParams);
+    }
+    if(panel!=null&&panelParams!=null){
+      panelParams.x=Math.max(0,Math.min(width-dp(192),
+        Math.round(prefs.getFloat("panel_frac_x",panelParams.x/(float)Math.max(1,width))*width)));
+      panelParams.y=Math.max(0,Math.min(height-dp(60),
+        Math.round(prefs.getFloat("panel_frac_y",panelParams.y/(float)Math.max(1,height))*height)));
+      wm.updateViewLayout(panel,panelParams);
     }
     render();
   }
