@@ -231,6 +231,7 @@ public class ScreenService extends Service {
     controls.setOrientation(LinearLayout.HORIZONTAL);
     controls.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
     Button g=new Button(this);g.setText("⚙");UiStyle.button(g,false);g.setTextSize(21);
+    g.setTextColor(UiStyle.MUTED);
     playPause=new Button(this);playPause.setText("▶");UiStyle.button(playPause,true);playPause.setTextSize(21);
     controls.addView(g,new LinearLayout.LayoutParams(dp(52),dp(52)));
     controls.addView(playPause,new LinearLayout.LayoutParams(dp(52),dp(52)));
@@ -279,23 +280,30 @@ public class ScreenService extends Service {
     if(settings!=null){wm.removeView(settings);settings=null;return;}
     LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
     box.setPadding(dp(12),dp(8),dp(12),dp(8));box.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));
-    TextView title=new TextView(this);title.setText("⚙ Настройки");title.setTextSize(18);title.setTextColor(Color.WHITE);box.addView(title);
+    LinearLayout heading=new LinearLayout(this);
+    heading.setOrientation(LinearLayout.HORIZONTAL);
+    heading.setGravity(Gravity.CENTER_VERTICAL);
+    TextView title=new TextView(this);
+    title.setText("Настройки");title.setTextSize(18);title.setTextColor(UiStyle.TEXT);
+    title.setTypeface(null,android.graphics.Typeface.BOLD);
+    heading.addView(title,new LinearLayout.LayoutParams(0,dp(44),1f));
+    Button close=new Button(this);close.setText("✕");UiStyle.button(close,false);
+    close.setTextSize(18);close.setTextColor(UiStyle.MUTED);
+    heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));
+    box.addView(heading);
+    close.setOnClickListener(v->toggleSettings());
     Switch sw=new Switch(this);sw.setText("Приоритет: шанс");UiStyle.toggle(sw);
     sw.setChecked(prefs.getBoolean("chance",false));box.addView(sw);
     sw.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("chance",on).apply();chooseRecommendation();});
     Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
-    settingSlider(box,"Цвет: R","red",0,255,0);
-    settingSlider(box,"Цвет: G","green",0,255,255);
-    settingSlider(box,"Цвет: B","blue",0,255,90);
-    settingSlider(box,"Прозрачность","alpha",20,100,85);
-    settingSlider(box,"Толщина","stroke",1,12,4);
-    settingSlider(box,"Скругление","corner",0,30,12);
+    box.addView(new HighlightColorControl(this,prefs,
+      ()->{if(markers!=null)markers.invalidate();}));
+    settingSlider(box,"Насыщенность подсветки","fillAlpha",10,70,35);
     Button off=new Button(this);off.setText("Выключить помощник");UiStyle.button(off,false);box.addView(off);
     off.setOnClickListener(v->stopSelf());
-    Button close=new Button(this);close.setText("Закрыть");UiStyle.button(close,false);box.addView(close);
-    close.setOnClickListener(v->toggleSettings());
+    // The single close control is the compact X at the top right.
     ScrollView scroll=new ScrollView(this);scroll.addView(box);settings=scroll;
     WindowManager.LayoutParams p=layout(dp(285),Math.min(dp(520),Math.max(dp(160),height-dp(80))),
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_SECURE);
@@ -319,16 +327,20 @@ public class ScreenService extends Service {
     @Override protected void onDraw(Canvas canvas){
       super.onDraw(canvas);
       if(paused||!inRecruitment||recommendation==null)return;
-      paint.setStyle(Paint.Style.STROKE);
-      paint.setStrokeWidth(dp(prefs.getInt("stroke",4)));
-      paint.setColor(Color.argb((int)(255*prefs.getInt("alpha",85)/100f),
+      paint.setStyle(Paint.Style.FILL);
+      paint.setColor(Color.argb((int)(255*prefs.getInt("fillAlpha",35)/100f),
         prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90)));
-      float radius=dp(prefs.getInt("corner",12));
+      // OCR reports the text bounds, not the whole clickable tag. The landscape
+      // reference is 1536x709 with tags about 142x46. Use screen-relative
+      // rectangles centered on the detected label to cover the whole tag.
+      float tagWidth=Math.max(dp(80),width*142f/1536f);
+      float tagHeight=Math.max(dp(28),height*46f/709f);
       for(Recognition r:recognized){
         if(!recommendation.tags.contains(r.tag))continue;
-        RectF rect=new RectF(r.bounds);
-        rect.inset(-dp(8),-dp(7));
-        canvas.drawRoundRect(rect,radius,radius,paint);
+        float cx=r.bounds.exactCenterX(),cy=r.bounds.exactCenterY();
+        RectF rect=new RectF(cx-tagWidth/2f,cy-tagHeight/2f,
+          cx+tagWidth/2f,cy+tagHeight/2f);
+        canvas.drawRect(rect,paint);
       }
     }
   }
