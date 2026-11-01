@@ -11,21 +11,25 @@ import java.util.*;
 public final class OperatorDatabase {
   private OperatorDatabase() {}
   public interface Listener { void onLoaded(List<RecruitmentEngine.Operator> operators, String status); }
+  public interface ProgressListener extends Listener { void onProgress(String status); }
   private static final String POOL="https://awedtan.ca/api/recruitpool";
   private static final String OPERATORS="https://awedtan.ca/api/operator?include=data.name&include=data.rarity&include=data.position&include=data.profession&include=data.tagList";
   public static void load(Context context,boolean force,Listener cb){
     Context app=context.getApplicationContext();
     new Thread(()->{
+      progress(app,cb,"Проверка локальной базы...");
       SharedPreferences p=app.getSharedPreferences("recruit",Context.MODE_PRIVATE);
       List<RecruitmentEngine.Operator> cached=parse(p.getString("operators",""));
       boolean due=System.currentTimeMillis()-p.getLong("updated",0)>24L*3600*1000;
       if(!force&&!due&&cached.size()>=100){post(app,cb,cached,"База Global • локальная");return;}
       try {
+        progress(app,cb,"Подключение к источнику Global...");
         JSONArray poolResponse=new JSONArray(fetch(POOL));
         JSONArray ids=poolResponse.getJSONObject(0).getJSONArray("value");
         HashSet<String> allowed=new HashSet<>();
         for(int i=0;i<ids.length();i++)allowed.add(ids.getString(i));
         if(allowed.size()<100||allowed.size()>400)throw new IOException("Неверный размер списка рекрутинга");
+        progress(app,cb,"Загрузка данных операторов...");
         JSONArray response=new JSONArray(fetch(OPERATORS));
         JSONArray extracted=new JSONArray();
         for(int i=0;i<response.length();i++){
@@ -45,9 +49,11 @@ public final class OperatorDatabase {
           JSONObject x=new JSONObject();x.put("name",name);x.put("rarity",rarity);
           x.put("tags",new JSONArray(tags));extracted.put(x);
         }
+        progress(app,cb,"Проверка и сравнение базы...");
         List<RecruitmentEngine.Operator> fresh=parse(extracted.toString());
         // Fail closed: never replace a reliable cache with incomplete data.
         if(fresh.size()<100||fresh.size()>400)throw new IOException("Неполная база: "+fresh.size());
+        progress(app,cb,"Сохранение проверенной базы...");
         p.edit().putString("operators",extracted.toString()).putLong("updated",System.currentTimeMillis()).apply();
         post(app,cb,fresh,"База Global обновлена: "+fresh.size()+" операторов");
       }catch(Exception e){
@@ -74,7 +80,15 @@ public final class OperatorDatabase {
     } finally {c.disconnect();}
   }
   private static void post(Context c,Listener cb,List<RecruitmentEngine.Operator> list,String status){
-    new android.os.Handler(c.getMainLooper()).post(()->cb.onLoaded(list,status));
+    long updated=c.getSharedPreferences("recruit",Context.MODE_PRIVATE).getLong("updated",0);
+    String suffix=updated>0? "\\nПоследнее успешное обновление: "+
+      new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm",java.util.Locale.getDefault())
+        .format(new java.util.Date(updated)):"\\nУспешных обновлений ещё не было";
+    new android.os.Handler(c.getMainLooper()).post(()->cb.onLoaded(list,status+suffix));
+  }
+  private static void progress(Context c,Listener cb,String state){
+    if(cb instanceof ProgressListener)
+      new android.os.Handler(c.getMainLooper()).post(()->((ProgressListener)cb).onProgress(state));
   }
   private static List<RecruitmentEngine.Operator> parse(String s){
     List<RecruitmentEngine.Operator> out=new ArrayList<>();
