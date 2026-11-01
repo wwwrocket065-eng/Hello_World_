@@ -388,40 +388,59 @@ public class ScreenService extends Service {
       paint.setStyle(Paint.Style.FILL);
       paint.setColor(Color.argb((int)(255*prefs.getInt("fillAlpha",35)/100f),
         prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90)));
-      // OCR reports the text bounds, not the whole clickable tag. The landscape
-      // reference is 1536x709 with tags about 142x46. Use screen-relative
-      // rectangles centered on the detected label to cover the whole tag.
-      float tagWidth=width*142f/1536f;
-      float tagHeight=height*46f/709f;
+      // Derive tile size from OCR font scale, not screen orientation or dp.
+      // In the 1536x709 game reference glyphs are about 18 px high and
+      // tags about 142x46 px. OCR rectangles refer to the CAPTURE bitmap.
+      float glyph=0f,maxTextWidth=0f;
+      for(Recognition r:recognized){
+        glyph+=r.bounds.height();
+        maxTextWidth=Math.max(maxTextWidth,r.bounds.width());
+      }
+      glyph=Math.max(1f,glyph/Math.max(1,recognized.size()));
+      float tagWidth=Math.max(glyph*7.9f,maxTextWidth*1.15f);
+      float tagHeight=glyph*2.55f;
+      float sx=getWidth()/(float)Math.max(1,captureWidth);
+      float sy=getHeight()/(float)Math.max(1,captureHeight);
       for(Recognition r:recognized){
         if(!recommendation.tags.contains(r.tag))continue;
         float cx=r.bounds.exactCenterX(),cy=r.bounds.exactCenterY();
-        RectF rect=new RectF(cx-tagWidth/2f,cy-tagHeight/2f,
-          cx+tagWidth/2f,cy+tagHeight/2f);
+        RectF rect=new RectF((cx-tagWidth/2f)*sx,(cy-tagHeight/2f)*sy,
+          (cx+tagWidth/2f)*sx,(cy+tagHeight/2f)*sy);
         canvas.drawRect(rect,paint);
       }
     }
   }
   @Override public void onConfigurationChanged(Configuration c){
     super.onConfigurationChanged(c);
-    DisplayMetrics dm=new DisplayMetrics();wm.getDefaultDisplay().getRealMetrics(dm);
-    width=dm.widthPixels;height=dm.heightPixels;
-    // Android 14+ permits resizing the existing projection, but not recreating
-    // a second virtual display using the same one-shot consent token.
+    refreshDisplaySize();
+  }
+  /** Keep one MediaProjection session, resizing its virtual display/surface. */
+  private void refreshDisplaySize(){
+    DisplayMetrics dm=new DisplayMetrics();
+    wm.getDefaultDisplay().getRealMetrics(dm);
+    int nextW=dm.widthPixels,nextH=dm.heightPixels;
+    if(nextW==width&&nextH==height)return;
+    width=nextW;height=nextH;
+    captureWidth=nextW;captureHeight=nextH;
     if(virtualDisplay!=null&&workerHandler!=null){
       try{
-        ImageReader next=ImageReader.newInstance(width,height,PixelFormat.RGBA_8888,2);
+        ImageReader next=ImageReader.newInstance(nextW,nextH,PixelFormat.RGBA_8888,2);
         next.setOnImageAvailableListener(this::consumeFrame,workerHandler);
-        virtualDisplay.resize(width,height,dm.densityDpi);
+        virtualDisplay.resize(nextW,nextH,dm.densityDpi);
         virtualDisplay.setSurface(next.getSurface());
-        ImageReader old=reader;reader=next;
-        if(old!=null){old.setOnImageAvailableListener(null,null);old.close();}
+        ImageReader old=reader;
+        reader=next;
+        if(old!=null){
+          old.setOnImageAvailableListener(null,null);
+          old.close();
+        }
       }catch(Exception e){
         android.util.Log.e("RecruitAssist","Capture resize failed",e);
         stopSelf();return;
       }
     }
-    lastScan=0;inRecruitment=false;recognized.clear();recommendation=null;
+    lastScan=0;missing=0;detectedCount=0;
+    inRecruitment=false;recognized.clear();recommendation=null;
     if(gear!=null){
       gearParams.x=Math.min(gearParams.x,Math.max(0,width-dp(104)));
       gearParams.y=Math.min(gearParams.y,Math.max(0,height-dp(70)));
