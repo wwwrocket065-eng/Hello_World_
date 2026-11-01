@@ -9,7 +9,7 @@
 - Mode default: highest guaranteed rarity, optional highest possible rarity.
 - Full operator list and tag candidate set; never fabricate drop percentages.
 - Separate Android APK builds via GitHub Actions and independent non-GitHub Global data updater.
-- Settings: colors (RGB), transparency, stroke, corner radius, panel toggle, priority toggle, permissions.
+- Settings: expandable highlight palette with brightness and opacity controls, panel toggle, priority toggle, permissions. No thickness or corner-radius controls.
 - On Android 14+: screen-capture consent must be requested for each new MediaProjection session.
 
 ## Sources and data-safety rules
@@ -58,3 +58,13 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Fixed previously incorrect Xiaomi “Other permissions” deep link. Replaced with public `ACTION_MANAGE_OVERLAY_PERMISSION` (Android 10 and older: app URI; Android 11+: system overlay selection screen, as required by platform). App-details fallback only when the dedicated settings action is unavailable.
 - IMPORTANT: Android 11+ ignores the package for the public overlay settings intent; an exact single-app toggle cannot be guaranteed by the documented public API. Do not claim that a direct toggle is implemented or Xiaomi-device-validated.
 - Commit for MainActivity UI change: `3dec472beabd6de35fe284157091958dda46ece9`. CI/APK validation and Xiaomi functional testing are not established by this note.
+
+## 2026-11-01 — unified dark UI and highlight control (source version 0.3.2)
+- All main-app and floating controls share `UiStyle.java`: dark slate surfaces, muted settings gear, cyan accent, high-contrast text, rounded controls; no white-filled application buttons.
+- Settings dialogs and floating settings have a compact top-right X instead of a bottom "Закрыть" button.
+- `HighlightColorControl.java` is a reusable expandable color-swatch picker. Tapping "Цвет подсветки" toggles the palette. The trigger itself always previews the selected color; each palette swatch immediately updates it.
+- The expanded palette includes a brightness slider (0–100%). Hue/saturation stay selected while brightness changes; selection and brightness are persisted in SharedPreferences. The main-screen reset clears those keys.
+- Removed separate RGB, stroke-width and corner-radius UI controls. Kept opacity separate from brightness, with a 10–70% opacity slider labeled "Непрозрачность подсветки".
+- Replaced outline highlight with a translucent *filled*, non-rounded rectangle, centered on the OCR text detection. Estimated tag size from the 1536×709 reference screenshot: approximately 142×46 screen-image pixels, scaled by capture size. These are estimates, **not pixel-accurate detection of tag edges**. Visual validation on the target Xiaomi and in-game layout variants is still required.
+- Version code/name was bumped from 4 / 0.3.1 to 5 / 0.3.2 before these changes.
+- GitHub Actions workflow triggers on branch push; final run success and APK integrity remain to be independently checked. Do not claim this is a verified distributable APK.
