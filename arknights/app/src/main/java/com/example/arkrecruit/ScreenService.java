@@ -51,7 +51,7 @@ public class ScreenService extends Service {
     Intent stop=new Intent(this,ScreenService.class);stop.setAction("STOP");
     PendingIntent pi=PendingIntent.getService(this,0,stop,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     return new Notification.Builder(this,CHANNEL).setContentTitle("Arknights Recruitment Assistant")
-      .setContentText("Анализ экрана активен").setSmallIcon(android.R.drawable.ic_menu_search)
+      .setContentText(projection==null?"Плавающие кнопки включены":"Анализ экрана активен").setSmallIcon(android.R.drawable.ic_menu_search)
       .setOngoing(true).addAction(android.R.drawable.ic_menu_close_clear_cancel,"Остановить",pi).build();
   }
   @Override public int onStartCommand(Intent intent,int flags,int startId){
@@ -59,7 +59,14 @@ public class ScreenService extends Service {
     String action=intent.getAction();
     if("STOP".equals(action)){stopSelf();return START_NOT_STICKY;}
     if("SHOW".equals(action)){
-      try{createOverlays();}catch(Exception e){
+      try{
+        if(projection==null){
+          if(Build.VERSION.SDK_INT>=34)
+            startForeground(73,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+          else startForeground(73,notification());
+        }
+        createOverlays();
+      }catch(Exception e){
         android.util.Log.e("RecruitAssist","Overlay creation failed",e);
         Toast.makeText(this,"Не удалось показать кнопки. Проверьте разрешение.",Toast.LENGTH_LONG).show();
         stopSelf();
@@ -92,6 +99,8 @@ public class ScreenService extends Service {
         DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,reader.getSurface(),null,workerHandler);
       paused=false;inRecruitment=false;lastScan=0;
       updatePlayButton();render();
+      NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+      nm.notify(73,notification());
       OperatorDatabase.load(this,false,(list,state)->{
         operators=list;
         if(statusText!=null)statusText.setText(state);
