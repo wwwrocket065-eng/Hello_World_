@@ -92,9 +92,15 @@ public class MainActivity extends Activity {
     xiaomi.setClassName("com.miui.securitycenter","com.miui.permcenter.permissions.PermissionsEditorActivity");
     xiaomi.putExtra("extra_pkgname",getPackageName());
     try {startActivity(xiaomi);return;}catch(Exception ignored){}
-    Intent generic=new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-      Uri.parse("package:"+getPackageName()));
-    try {startActivity(generic);return;}catch(Exception ignored){}
+    // On Android 11+ the generic overlay intent ignores the package name.
+    // App details at least opens this app directly, never a list of other apps.
+    if(Build.VERSION.SDK_INT<30){
+      try{
+        startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+          Uri.parse("package:"+getPackageName())));
+        return;
+      }catch(Exception ignored){}
+    }
     startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
       Uri.parse("package:"+getPackageName())));
   }
