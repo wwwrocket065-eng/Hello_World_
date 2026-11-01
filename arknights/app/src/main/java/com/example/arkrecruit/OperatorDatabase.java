@@ -81,9 +81,9 @@ public final class OperatorDatabase {
   }
   private static void post(Context c,Listener cb,List<RecruitmentEngine.Operator> list,String status){
     long updated=c.getSharedPreferences("recruit",Context.MODE_PRIVATE).getLong("updated",0);
-    String suffix=updated>0? "\\nПоследнее успешное обновление: "+
+    String suffix=updated>0? "\nПоследнее успешное обновление: "+
       new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm",java.util.Locale.getDefault())
-        .format(new java.util.Date(updated)):"\\nУспешных обновлений ещё не было";
+        .format(new java.util.Date(updated)):"\nУспешных обновлений ещё не было";
     new android.os.Handler(c.getMainLooper()).post(()->cb.onLoaded(list,status+suffix));
   }
   private static void progress(Context c,Listener cb,String state){
