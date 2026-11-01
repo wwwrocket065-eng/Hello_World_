@@ -156,3 +156,11 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Build command: Gradle 8.11.1, JDK17, Android SDK35, `cd arknights && gradle --no-daemon :app:assembleDebug`. Workflow `.github/workflows/arknights-build.yml` triggers on branch push.
 - Known signing limitation retained: CI generates an ephemeral debug signer; updating over previous APK can require uninstall/reinstall. No private signing material is stored in source.
 - Next checkpoint: inspect CI for this exact source revision, extract APK, verify version/CRC, deliver and collect real-device feedback.
+
+## 2026-11-01 — 0.3.7 CI and APK checkpoint
+- Source commit `801531a8a0e4bc05ab07b1e47ac42504cacd3722`; Actions run `41349354730` completed successfully. Engine smoke, button geometry / partial-grid regression, data API validation and assembleDebug all passed.
+- Artifact `arknights-debug-apk` ID `13100755768`; ZIP and APK CRC checked. Manifest version 0.3.7 verified; assets/DEV_NOTES.txt included.
+- APK `Arknights_Recruitment_Assistant_v0.3.7.apk`, 46,383,012 bytes; SHA256 `2a4b85f64340c82fb48db6ffaff85780ce8d7b27a71f24b099622e1904d9aaed`.
+- V2 signer certificate SHA256 `849b4b0287d05c0b044594f8f9b5e6c556d0fcc70a526e42f4051aa69a3dc952`, differs from v0.3.6. User informed uninstall/reinstall is needed, resetting settings.
+- Durable APK identity: `libfile_f7aed1a0c7948191afcca8bf8e328ebe`.
+- Next: real Xiaomi Android16 testing of content-fit panel, aligned full button highlights, stable highlight set across repeated OCR scans. CI and screenshot tests do not prove device runtime behavior. Do not revert or redo completed changes after context interruption.
