@@ -52,6 +52,41 @@ public final class RecruitmentEngine {
     if(cleaned.equals("fastredeploy"))return "Fast-Redeploy";
     return null;
   }
+
+  /** Conservative OCR-only repair for occasional dropped/misread letters.
+   * Manual tag entry and matching continue to use strict normalize(). */
+  public static String normalizeOcr(String raw) {
+    String exact=normalize(raw);
+    if(exact!=null)return exact;
+    if(raw==null)return null;
+    String value=raw.toLowerCase(Locale.ROOT).replace('–','-').replace('—','-')
+      .replaceAll("[^a-z0-9]+","");
+    if(value.equals("a0e"))return "AoE";
+    if(value.length()<5)return null;
+    int best=100,second=100;String answer=null;
+    for(String tag:TAGS) {
+      String candidate=tag.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]","");
+      int dist=distance(value,candidate);
+      if(dist<best){second=best;best=dist;answer=tag;}
+      else if(dist<second)second=dist;
+    }
+    // Require a unique nearest tag, with at most 1 edit for short tags.
+    int max=value.length()>=11?2:1;
+    return best<=max && second>best ?answer:null;
+  }
+  private static int distance(String a,String b) {
+    int[] prev=new int[b.length()+1],cur=new int[b.length()+1];
+    for(int j=0;j<=b.length();j++)prev[j]=j;
+    for(int i=1;i<=a.length();i++){
+      cur[0]=i;
+      for(int j=1;j<=b.length();j++)
+        cur[j]=Math.min(Math.min(prev[j]+1,cur[j-1]+1),
+          prev[j-1]+(a.charAt(i-1)==b.charAt(j-1)?0:1));
+      int[] tmp=prev;prev=cur;cur=tmp;
+    }
+    return prev[b.length()];
+  }
+
   public static Result best(List<String> visible,List<Operator> operators,boolean chance,int hours) {
     if(visible==null||visible.isEmpty()||operators==null||operators.isEmpty())return null;
     LinkedHashSet<String> valid=new LinkedHashSet<>();
