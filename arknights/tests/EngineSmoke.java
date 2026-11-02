@@ -114,6 +114,20 @@ public final class EngineSmoke {
     throw new AssertionError("Three chooser modes must filter independently of availability and never fabricate empty rows");
   if(FilterCycle.next(2)!=1||FilterCycle.next(1)!=0||FilterCycle.next(0)!=2)
     throw new AssertionError("Filter button cycle must be selected, tags, all");
+  for(int seed:new int[]{"Guard".hashCode(),"DPS".hashCode(),"Survival".hashCode()}){
+    int[] rows=new int[3];
+    for(int i=0;i<HighlightPattern.COUNT;i++){
+      float x=HighlightPattern.x(seed,i),y=HighlightPattern.y(seed,i);
+      if(x<.06f||x>.94f||y<.1f||y>.9f)throw new AssertionError("Star outside tile");
+      rows[Math.min(2,(int)((y-.1f)/.8f*3))]++;
+      for(int t=0;t<12000;t+=33){
+        float pulse=HighlightPattern.pulse(t,seed,i);
+        if(pulse<.719f||pulse>1.001f||Math.abs(pulse-HighlightPattern.pulse(t+33,seed,i))>.008f)
+          throw new AssertionError("Twinkle disappeared or jumped");
+      }
+    }
+    if(rows[0]!=6||rows[1]!=6||rows[2]!=6)throw new AssertionError("Star rows have gaps");
+  }
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }

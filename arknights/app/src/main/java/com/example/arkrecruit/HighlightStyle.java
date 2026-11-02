@@ -9,7 +9,7 @@ public final class HighlightStyle {
   }
   public static void reset(SharedPreferences p){
     p.edit().putInt("red",255).putInt("green",182).putInt("blue",0).putInt("highlightTransparency",20)
-      .putInt("paletteBrightness",100).putInt("fog",35).putBoolean("twinkle",true).apply();
+      .putInt("paletteBrightness",100).putBoolean("showFrame",true).putBoolean("showFill",true).putBoolean("showStars",true).apply();
   }
   public static int color(SharedPreferences p){return Color.rgb(p.getInt("red",255),p.getInt("green",182),p.getInt("blue",0));}
 }

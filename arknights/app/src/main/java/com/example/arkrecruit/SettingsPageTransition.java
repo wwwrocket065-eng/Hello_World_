@@ -25,12 +25,12 @@ public final class SettingsPageTransition {
       int height=outer!=null?outer.getHeight()-host.getPaddingTop()-host.getPaddingBottom():host.getHeight();
       for(int i=0;i<host.getChildCount();i++)previous.add(host.getChildAt(i));
       host.removeAllViews();
-      stage=new FrameLayout(host.getContext());stage.setClipChildren(true);stage.setBackgroundColor(UiStyle.SURFACE);
+      stage=new FrameLayout(host.getContext());stage.setClipChildren(true);stage.setBackground(host.getBackground()==null?new android.graphics.drawable.ColorDrawable(UiStyle.BACKGROUND):host.getBackground().getConstantState()==null?new android.graphics.drawable.ColorDrawable(UiStyle.SURFACE):host.getBackground().getConstantState().newDrawable());
       host.addView(stage,new LinearLayout.LayoutParams(-1,Math.max(UiStyle.dp(host.getContext(),160),height)));
       oldContent=new LinearLayout(host.getContext());oldContent.setOrientation(LinearLayout.VERTICAL);
       for(View view:previous)oldContent.addView(view);
       oldPage=new ScrollView(host.getContext());oldPage.addView(oldContent);stage.addView(oldPage,new FrameLayout.LayoutParams(-1,-1));
-      newPage=new ScrollView(host.getContext());newPage.setFillViewport(true);newPage.setBackgroundColor(UiStyle.SURFACE);newPage.addView(page);
+      newPage=new ScrollView(host.getContext());newPage.setFillViewport(true);newPage.setBackground(host.getBackground()==null?new android.graphics.drawable.ColorDrawable(UiStyle.BACKGROUND):host.getBackground().getConstantState()==null?new android.graphics.drawable.ColorDrawable(UiStyle.SURFACE):host.getBackground().getConstantState().newDrawable());newPage.addView(page);
       stage.addView(newPage,new FrameLayout.LayoutParams(-1,-1));
       if(outer!=null)outer.scrollTo(0,0);
       stage.post(()->{

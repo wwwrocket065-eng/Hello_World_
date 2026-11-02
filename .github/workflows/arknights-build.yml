@@ -24,7 +24,7 @@ jobs:
       - name: Test recruitment algorithm
         run: |
           mkdir -p build/smoke
-          javac -d build/smoke app/src/main/java/com/example/arkrecruit/RecruitmentEngine.java app/src/main/java/com/example/arkrecruit/OperatorTagMapper.java app/src/main/java/com/example/arkrecruit/TargetListFilter.java app/src/main/java/com/example/arkrecruit/FilterCycle.java tests/EngineSmoke.java
+          javac -d build/smoke app/src/main/java/com/example/arkrecruit/RecruitmentEngine.java app/src/main/java/com/example/arkrecruit/OperatorTagMapper.java app/src/main/java/com/example/arkrecruit/TargetListFilter.java app/src/main/java/com/example/arkrecruit/FilterCycle.java app/src/main/java/com/example/arkrecruit/HighlightPattern.java tests/EngineSmoke.java
           java -cp build/smoke com.example.arkrecruit.EngineSmoke
       - name: Test button geometry and partial OCR rejection
         run: |

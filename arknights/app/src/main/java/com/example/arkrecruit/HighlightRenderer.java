@@ -19,30 +19,41 @@ public final class HighlightRenderer {
     float unit=Math.max(1,r.height()/42f),radius=3*unit;
     inset.set(r);inset.inset(2*unit,2*unit);
     p.setStyle(Paint.Style.FILL);p.setShader(null);
-    p.setColor(alpha(color,.08f*opacity));c.drawRoundRect(inset,radius,radius,p);
-    // Layered rim preserves transparency instead of putting an opaque picture over text.
-    p.setStyle(Paint.Style.STROKE);
-    for(int i=7;i>=1;i--){p.setStrokeWidth(i*unit);p.setColor(alpha(color,opacity*(i==1?.85f:.055f)));c.drawRoundRect(inset,radius,radius,p);}
-    p.setStrokeWidth(1.1f*unit);p.setColor(alpha(Color.WHITE,.95f*opacity));c.drawRoundRect(inset,radius,radius,p);
+    if(prefs.getBoolean("showFill",true)){
+      p.setColor(alpha(color,.08f*opacity));c.drawRoundRect(inset,radius,radius,p);
+    }
+    if(prefs.getBoolean("showFrame",true)){
+      p.setStyle(Paint.Style.STROKE);
+      for(int i=12;i>=4;i-=2){p.setStrokeWidth(i*unit);p.setColor(alpha(color,opacity*.07f));c.drawRoundRect(inset,radius,radius,p);}
+      p.setStrokeWidth(3.6f*unit);p.setColor(alpha(color,opacity));c.drawRoundRect(inset,radius,radius,p);
+      p.setStrokeWidth(1.6f*unit);p.setColor(alpha(Color.WHITE,.98f*opacity));c.drawRoundRect(inset,radius,radius,p);
+    }
     p.setStyle(Paint.Style.FILL);
     int save=c.save();c.clipRect(r.left+5*unit,r.top+5*unit,r.right-5*unit,r.bottom-5*unit);
-    if(text!=null)c.clipOutRect(text);
+
     // Quiet diagonal glass bands, like the supplied examples.
     p.setColor(alpha(color,.035f*opacity));
-    for(int i=-1;i<4;i++){
+    if(prefs.getBoolean("showFill",true))for(int i=-1;i<4;i++){
       Path band=star;band.reset();float x=r.left+r.width()*(i*.35f);
       band.moveTo(x,r.bottom);band.lineTo(x+r.width()*.12f,r.bottom);
       band.lineTo(x+r.width()*.12f+r.height()*1.5f,r.top);band.lineTo(x+r.height()*1.5f,r.top);band.close();c.drawPath(band,p);
     }
-    int count=16;
+    int count=prefs.getBoolean("showStars",true)?HighlightPattern.COUNT:0;
     for(int i=0;i<count;i++){
-      long hash=(seed*1103515245L+i*2654435761L)&0x7FFFFFFF;
-      float nx=((hash%997)+.5f)/997f,ny=(((hash/997)%991)+.5f)/991f;
-      float x=r.left+(0.06f+nx*.88f)*r.width(),y=r.top+(0.10f+ny*.80f)*r.height();
-      float size=(i%4==0?2.2f:i%3==0?1.6f:1.0f)*unit;
-      float pulse=prefs.getBoolean("twinkle",true)?(.35f+.65f*(.5f+.5f*(float)Math.sin(time*.0016+i*2.39+seed))):1;
-      float fog=prefs.getInt("fog",35)/100f;
-      haloRect.set(x-size*4,y-size*4,x+size*4,y+size*4);
+      float x=r.left+HighlightPattern.x(seed,i)*r.width(),y=r.top+HighlightPattern.y(seed,i)*r.height();
+      float size=(i%5==0?3.3f:i%3==0?2.6f:1.8f)*unit;
+      float pulse=HighlightPattern.pulse(time,seed,i);
+      // Continuous attenuation near letters: no rectangular cutout or dark panel.
+      float textFade=1;
+      if(text!=null){
+        float dx=Math.max(Math.max(text.left-x,0),x-text.right);
+        float dy=Math.max(Math.max(text.top-y,0),y-text.bottom);
+        float distance=(float)Math.hypot(dx,dy);
+        textFade=.28f+.72f*Math.min(1,distance/(5*unit));
+      }
+      pulse*=textFade;
+      float fog=.16f;
+      haloRect.set(x-size*2.8f,y-size*2.8f,x+size*2.8f,y+size*2.8f);
       p.setColor(Color.WHITE);p.setAlpha(Math.round(255*opacity*pulse*fog*.6f));
       c.drawBitmap(halo,null,haloRect,p);p.setAlpha(255);
       star.reset();star.moveTo(x,y-size*1.4f);

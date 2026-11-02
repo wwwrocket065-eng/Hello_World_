@@ -63,19 +63,27 @@ public final class HighlightColorControl extends LinearLayout {
     page.addView(wheel,new LayoutParams(-1,UiStyle.dp(getContext(),200)));
     SeekBar brightness=slider(page,"Яркость",Math.round(hsv[2]*100),value->{hsv[2]=value/100f;saveColor(hsv);preview.invalidate();});
     SeekBar transparency=slider(page,"Прозрачность подсветки",prefs.getInt("highlightTransparency",20),value->{prefs.edit().putInt("highlightTransparency",value).apply();notifyChange();preview.invalidate();});
-    LinearLayout stars=new LinearLayout(getContext());stars.setGravity(Gravity.CENTER_VERTICAL);
-    TextView twinkle=new TextView(getContext());twinkle.setText("Мерцание звёзд");twinkle.setTextColor(Color.WHITE);twinkle.setTextSize(14);stars.addView(twinkle,new LayoutParams(0,-2,1));
-    CycleToggle toggle=new CycleToggle(getContext(),2);toggle.setState(prefs.getBoolean("twinkle",true)?1:0,UiStyle.ACCENT,prefs.getBoolean("twinkle",true));
-    stars.addView(toggle,new LayoutParams(UiStyle.dp(getContext(),40),UiStyle.dp(getContext(),42)));
-    toggle.setOnClickListener(v->{boolean on=!prefs.getBoolean("twinkle",true);prefs.edit().putBoolean("twinkle",on).apply();toggle.setState(on?1:0,UiStyle.ACCENT,on);notifyChange();});page.addView(stars);
-    SeekBar fog=slider(page,"Дымка вокруг звёзд",prefs.getInt("fog",35),value->{prefs.edit().putInt("fog",value).apply();notifyChange();preview.invalidate();});
+    ArrayList<Runnable> toggles=new ArrayList<>();
+    component(page,"Рамка","showFrame",preview,toggles);
+    component(page,"Заливка","showFill",preview,toggles);
+    component(page,"Звёзды","showStars",preview,toggles);
     Button reset=new Button(getContext());reset.setText("Сбросить настройки подсветки");UiStyle.button(reset,false);page.addView(reset,new LayoutParams(-1,-2));
     reset.setOnClickListener(v->{
       HighlightStyle.reset(prefs);Color.colorToHSV(HighlightStyle.GOLD,hsv);wheel.setColor(HighlightStyle.GOLD);
-      brightness.setProgress(100);transparency.setProgress(20);fog.setProgress(35);toggle.setState(1,UiStyle.ACCENT,true);
+      brightness.setProgress(100);transparency.setProgress(20);for(Runnable update:toggles)update.run();
       notifyChange();preview.invalidate();
     });
     session[0]=SettingsPageTransition.open(host,page);
+  }
+  private void component(LinearLayout page,String name,String key,View preview,ArrayList<Runnable> updates){
+    LinearLayout row=new LinearLayout(getContext());row.setGravity(Gravity.CENTER_VERTICAL);
+    TextView label=new TextView(getContext());label.setText(name);label.setTextColor(Color.WHITE);label.setTextSize(14);
+    row.addView(label,new LayoutParams(0,-2,1));
+    CycleToggle toggle=new CycleToggle(getContext(),2);row.addView(toggle,new LayoutParams(UiStyle.dp(getContext(),40),UiStyle.dp(getContext(),42)));
+    Runnable update=()->{boolean on=prefs.getBoolean(key,true);toggle.setState(on?1:0,UiStyle.ACCENT,on);toggle.setContentDescription(name+": "+(on?"включено":"выключено"));};
+    update.run();updates.add(update);
+    toggle.setOnClickListener(v->{prefs.edit().putBoolean(key,!prefs.getBoolean(key,true)).apply();update.run();notifyChange();preview.invalidate();});
+    page.addView(row);
   }
   private interface Value{void set(int value);}
   private SeekBar slider(LinearLayout page,String name,int value,Value change){
