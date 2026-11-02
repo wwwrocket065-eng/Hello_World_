@@ -11,16 +11,19 @@ public final class TagOcrInput {
   public static TagOcrInput prepare(Bitmap frame,Rect[] confirmed){
     if(confirmed.length!=5)return new TagOcrInput(frame,new Rect[0]);
     Bitmap enhanced=TagContrastNormalizer.enhance(frame,confirmed);
-    Bitmap strip=Bitmap.createBitmap(W,H*confirmed.length,Bitmap.Config.ARGB_8888);
+    Bitmap strip=Bitmap.createBitmap(W,H*(confirmed.length+1),Bitmap.Config.ARGB_8888);
     Canvas canvas=new Canvas(strip);canvas.drawColor(Color.WHITE);
     Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     for(int i=0;i<confirmed.length;i++){
       Rect source=confirmed[i];
       canvas.drawBitmap(enhanced,source,new Rect(PAD,i*H+PAD,W-PAD,(i+1)*H-PAD),paint);
     }
+    Rect clock=RecruitmentClock.region(confirmed,frame.getWidth(),frame.getHeight());
+    if(clock!=null)canvas.drawBitmap(frame,clock,new Rect(PAD,H*5+PAD,W-PAD,H*6-PAD),paint);
     if(enhanced!=frame)enhanced.recycle();
     return new TagOcrInput(strip,confirmed);
   }
+  public boolean clockBox(Rect box){return tiles.length==5&&box!=null&&box.centerY()>=H*5;}
   public Rect tileFor(Rect box){
     if(box==null||tiles.length==0)return null;
     int index=box.centerY()/H;

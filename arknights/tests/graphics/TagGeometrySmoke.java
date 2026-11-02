@@ -57,12 +57,14 @@ public final class TagGeometrySmoke {
       }
       if(!TagGrid.isRecruitmentGrid(hits))throw new AssertionError("Screenshot grid rejected");
       Rect[] physical=hits.toArray(new Rect[0]);
+      if(!RecruitmentScreenProbe.controlsPresent(shot::getPixel,physical,shot.getWidth(),shot.getHeight()))throw new AssertionError("Bottom buttons not found");
       if(!RecruitmentScreenProbe.present(shot::getPixel,physical,shot.getWidth(),shot.getHeight()))
         throw new AssertionError("Recruitment screenshot rejected by fast gate");
       if(args.length>1){
         Bitmap modal=new Bitmap(ImageIO.read(new File(args[1])));
         if(RecruitmentScreenProbe.present(modal::getPixel,physical,modal.getWidth(),modal.getHeight()))
           throw new AssertionError("Expedited-plan dialog accepted as recruitment");
+        if(RecruitmentScreenProbe.controlsPresent(modal::getPixel,physical,modal.getWidth(),modal.getHeight()))throw new AssertionError("Dialog accepted as original confirm/cancel panel");
         System.out.println("Dialog with stale green overlay correctly rejected");
       }
       if(args.length>2){
@@ -96,6 +98,9 @@ public final class TagGeometrySmoke {
     }
     if(source.getPixel(30,80)==normalized.getPixel(30,80))
       throw new AssertionError("Original capture modified or selected tag not normalized");
+    if(RecruitmentClock.parse("07 : 40 : 00")!=460||RecruitmentClock.parse("01:00:00")!=60||
+      RecruitmentClock.parse("09:00:00")!=540||RecruitmentClock.parse("09:10:00")!=-1||RecruitmentClock.parse("12:59:00")!=-1)
+      throw new AssertionError("Recruitment time parsing");
     System.out.println("Tag geometry regression tests PASS");
   }
 }

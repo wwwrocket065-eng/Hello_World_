@@ -96,6 +96,9 @@ public final class RecruitmentEngine {
   }
   /** All viable selections of zero to three tags, ranked by the same priority. */
   public static List<Result> combinations(List<String> visible,List<Operator> operators,boolean chance,int hours) {
+    return combinationsAtMinutes(visible,operators,chance,hours*60);
+  }
+  public static List<Result> combinationsAtMinutes(List<String> visible,List<Operator> operators,boolean chance,int minutes){
     ArrayList<Result> results=new ArrayList<>();
     if(visible==null||operators==null||operators.isEmpty())return results;
     LinkedHashSet<String> valid=new LinkedHashSet<>();
@@ -105,13 +108,13 @@ public final class RecruitmentEngine {
       if(Integer.bitCount(mask)>3)continue;
       List<String> selected=new ArrayList<>();
       for(int k=0;k<tags.size();k++)if((mask&(1<<k))!=0) selected.add(tags.get(k));
-      if(hours>=4&&selected.contains("Robot"))continue;
-      if(hours>=8&&selected.contains("Starter"))continue;
+      if(minutes>=240&&selected.contains("Robot"))continue;
+      if(minutes>=460&&selected.contains("Starter"))continue;
       ArrayList<Operator> matches=new ArrayList<>();
       for(Operator op:operators) {
-        if(hours>=4&&op.rarity<=1)continue;
-        if(hours<4&&op.rarity>=5)continue;
-        if(hours>=8&&op.rarity<=2)continue;
+        if(minutes>=240&&op.rarity<=1)continue;
+        if(minutes<240&&op.rarity>=5)continue;
+        if(minutes>=460&&op.rarity<=2)continue;
         if(op.rarity==6&&!selected.contains("Top Operator"))continue;
         if(op.rarity==5&&selected.contains("Top Operator"))continue;
         if(selected.contains("Senior Operator")&&op.rarity!=5)continue;
@@ -120,7 +123,7 @@ public final class RecruitmentEngine {
       }
       if(matches.isEmpty())continue;
       matches.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
-      Result r=new Result(selected,matches,hours);
+      Result r=new Result(selected,matches,minutes/60);
       results.add(r);
     }
     results.sort((a,b)->Long.compare(score(b,chance),score(a,chance)));

@@ -33,6 +33,19 @@ public final class RecruitmentScreenProbe {
     }
     return eligible>=3&&edges>=6;
   }
+  public static boolean controlsPresent(Pixels pixels,Rect[] tiles,int width,int height){
+    if(tiles.length!=5)return false;
+    int right=0,top=height;for(Rect tile:tiles){right=Math.max(right,tile.right);top=Math.min(top,tile.top);}
+    int w=tiles[0].width(),h=tiles[0].height();int blue=0,dark=0;
+    for(float dx:new float[]{.4f,.7f,1.2f}){
+      int x=Math.round(right+w*dx),y=Math.round(top+h*4.8f),y2=Math.round(top+h*6.15f);
+      if(x>=width||y2>=height)return false;
+      int a=pixels.at(x,y),c=pixels.at(x,y2);
+      if(b(a)>130&&g(a)>85&&r(a)<120)blue++;
+      if(light(c)<120)dark++;
+    }
+    return blue>=2&&dark>=2;
+  }
   public static boolean present(Pixels pixels,Rect[] tiles,int width,int height){
     if(tiles.length!=5)return false;
     int visible=0;

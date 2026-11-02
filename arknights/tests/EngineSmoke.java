@@ -86,6 +86,17 @@ public final class EngineSmoke {
       !goalA.operators.stream().anyMatch(op->op.name.equals("Mayer"))||
       !goalB.operators.stream().anyMatch(op->op.name.equals("Kroos")))
     throw new AssertionError("Independent multi-target plans must each remain valid");
+  List<RecruitmentEngine.Operator> timed=Arrays.asList(
+    new RecruitmentEngine.Operator("Robot one",1,Arrays.asList("Robot","Healing")),
+    new RecruitmentEngine.Operator("Starter two",2,Arrays.asList("Starter","Healing")),
+    new RecruitmentEngine.Operator("Three",3,Arrays.asList("Healing")),
+    new RecruitmentEngine.Operator("Five",5,Arrays.asList("Healing")));
+  for(int mins:new int[]{60,230,240,450,460,540}){
+    List<RecruitmentEngine.Result> choices=RecruitmentEngine.combinationsAtMinutes(Arrays.asList("Healing"),timed,false,mins);
+    Set<Integer> rarities=new HashSet<>();for(RecruitmentEngine.Operator op:choices.get(0).operators)rarities.add(op.rarity);
+    if(rarities.contains(1)!=(mins<240)||rarities.contains(2)!=(mins<460)||rarities.contains(5)!=(mins>=240))
+      throw new AssertionError("Wrong rarity pool at minute "+mins);
+  }
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }

@@ -62,6 +62,9 @@ public class ScreenService extends Service {
   private volatile boolean screenPresent=false;
   private long lastProbe;
   private int probeMisses,probeHits;
+  private volatile int recruitMinutes=-1;
+  private boolean controlsSeen;
+  private volatile long suppressUntil;
   private static final class Recognition {
     String tag; Rect bounds; Rect tile; Recognition(String t,Rect r,Rect tile){tag=t;bounds=r;this.tile=tile;}
   }
@@ -195,7 +198,8 @@ public class ScreenService extends Service {
     if(paused||goalMenu!=null){image.close();return;}
     // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
     // They keep running while an OCR task is in flight.
-    if(knownTiles.length==5&&now-lastProbe>=33){
+    if(now<suppressUntil){image.close();return;}
+    if(knownTiles.length==5&&now-lastProbe>=16){
       lastProbe=now;
       Image.Plane probePlane=image.getPlanes()[0];
       ByteBuffer pixels=probePlane.getBuffer();
@@ -204,19 +208,28 @@ public class ScreenService extends Service {
         int offset=base+y*row+x*step;
         return Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);
       },knownTiles,image.getWidth(),image.getHeight());
+      boolean controls=RecruitmentScreenProbe.controlsPresent((x,y)->{
+        int offset=base+y*row+x*step;
+        return Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);
+      },knownTiles,image.getWidth(),image.getHeight());
+      boolean controlExit=controlsSeen&&!controls;
+      if(controls)controlsSeen=true;
+      if(controlExit)present=false;
       if(present){probeMisses=0;probeHits++;}
       else{probeHits=0;probeMisses++;}
-      if(screenPresent&&probeMisses>=2){
+      if(screenPresent&&(controlExit||probeMisses>=1)){
         screenPresent=false;scanEpoch.incrementAndGet();lastScan=0;
+        if(controlExit)suppressUntil=now+300;
         main.post(()->{
           if(screenPresent)return;
-          inRecruitment=false;recognized.clear();recommendation=null;detectedCount=0;
+          inRecruitment=false;recognized.clear();recommendation=null;detectedCount=0;recruitMinutes=-1;controlsSeen=false;
           render();
         });
       }else if(!screenPresent&&probeHits>=2){
         screenPresent=true;scanEpoch.incrementAndGet();lastScan=0;
       }
     }
+    if(now<suppressUntil){image.close();return;}
     long interval=screenPresent?250:knownTiles.length==0?500:1000;
     if(now-lastScan<interval||!busy.compareAndSet(false,true)){
       image.close();return;
@@ -289,7 +302,7 @@ public class ScreenService extends Service {
   }
   private void recordTag(Map<String,Recognition> found,String raw,Rect box,
                          Bitmap frame,Rect[] exclusions,TagOcrInput input) {
-    if(box==null||box.width()<5||box.height()<5)return;
+    if(box==null||box.width()<5||box.height()<5||input.clockBox(box))return;
     String tag=RecruitmentEngine.normalizeOcr(raw);
     if(tag==null)return;
     Rect physical=input.tileFor(box),mapped=input.map(box);
@@ -338,8 +351,21 @@ public class ScreenService extends Service {
       .stream().map(r->r.tile).collect(java.util.stream.Collectors.toList()));
     final int frameWidth=frame.getWidth(),frameHeight=frame.getHeight();
     int count=found.size();
+    Rect[] timeTiles=found.size()==5?found.values().stream().map(r->r.tile).toArray(Rect[]::new):knownTiles;
+    Rect timeRegion=RecruitmentClock.region(timeTiles,frameWidth,frameHeight);
+    int clockValue=-1;
+    for(Text.TextBlock block:result.getTextBlocks())for(Text.Line line:block.getLines()){
+      Rect box=line.getBoundingBox();
+      if(box==null)continue;
+      if(input.clockBox(box)||(timeRegion!=null&&box.centerX()>=timeRegion.left&&box.centerX()<=timeRegion.right&&box.centerY()>=timeRegion.top&&box.centerY()<=timeRegion.bottom)){
+        int value=RecruitmentClock.parse(line.getText());if(value>=0)clockValue=value;
+      }
+    }
+    final int detectedMinutes=clockValue;
     main.post(()->{
       if(paused||epoch!=scanEpoch.get())return;
+      boolean timeChanged=detectedMinutes>=0&&detectedMinutes!=recruitMinutes;
+      if(detectedMinutes>=0)recruitMinutes=detectedMinutes;
       detectedCount=count;
       if(statusText!=null)statusText.setText("Global • OCR: "+count+"/5");
       // In-game OCR sometimes misreads one of the five labels.
@@ -354,6 +380,7 @@ public class ScreenService extends Service {
           if(!previous.containsAll(found.keySet()))recommendation=null;
         }
         if(statusText!=null)statusText.setText("Global • OCR: "+count+"/5");
+        if(timeChanged&&inRecruitment)chooseRecommendation();
         render();return;
       }
       missing=0;
@@ -369,7 +396,7 @@ public class ScreenService extends Service {
   private void chooseRecommendation(){
     ArrayList<String> tags=new ArrayList<>();
     for(Recognition r:recognized)tags.add(r.tag);
-    List<RecruitmentEngine.Result> options=RecruitmentEngine.combinations(tags,operators,true,9);
+    List<RecruitmentEngine.Result> options=recruitMinutes<60?Collections.emptyList():RecruitmentEngine.combinationsAtMinutes(tags,operators,true,recruitMinutes);
     reachableOperators=RecruitmentEngine.reachable(options);
     recommendation=options.isEmpty()?null:options.get(0);
     targetPlans.clear();
@@ -382,9 +409,11 @@ public class ScreenService extends Service {
     if(panelText!=null){
       if(paused)panelText.setText("Анализ на паузе");
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
+      else if(recruitMinutes<60)panelText.setText("Время не распознано");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
         "/5\nНет проверенной комбинации или базы");
-      else panelText.setText("Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary());
+      else panelText.setText("Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary()+
+        " · "+String.format(Locale.ROOT,"%d:%02d",recruitMinutes/60,recruitMinutes%60));
     }
     if(paused||!screenPresent)closeGoalMenu();
     if(goalText!=null){
@@ -475,6 +504,12 @@ public class ScreenService extends Service {
     closeGoalMenu();
     FrameLayout shade=new FrameLayout(this);shade.setBackgroundColor(0x66000000);
     shade.setOnClickListener(v->closeGoalMenu());
+    shade.setFocusableInTouchMode(true);
+    shade.setOnKeyListener((v,key,event)->{
+      if(key!=KeyEvent.KEYCODE_BACK)return false;
+      if(event.getAction()==KeyEvent.ACTION_UP)closeGoalMenu();
+      return true;
+    });
     LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
     card.setPadding(dp(12),dp(8),dp(12),dp(12));
     card.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));card.setOnClickListener(v->{});
@@ -490,7 +525,8 @@ public class ScreenService extends Service {
     clear.setOnClickListener(v->{targets.clear();saveGoals();closeGoalMenu();chooseRecommendation();});
     FrameLayout.LayoutParams center=new FrameLayout.LayoutParams(Math.min(dp(290),width-dp(24)),-2,Gravity.CENTER);
     shade.addView(card,center);scanEpoch.incrementAndGet();goalMenu=shade;
-    wm.addView(goalMenu,layout(-1,-1,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN));
+    wm.addView(goalMenu,layout(-1,-1,WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN));
+    shade.requestFocus();
     goalMenu.post(this::updateOverlayExclusions);
   }
   private static String variantLabel(RecruitmentEngine.Result r){
