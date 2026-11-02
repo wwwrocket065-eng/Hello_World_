@@ -23,20 +23,39 @@ public final class RecruitmentEngine {
   }
   public static final class Result {
     public final List<String> tags; public final List<Operator> operators;
-    public final int guaranteed, possible;
-    Result(List<String> t,List<Operator> ops) {
+    public final int guaranteed, possible, hours;
+    Result(List<String> t,List<Operator> ops,int hours) {
+      this.hours=hours;
       tags=t; operators=ops;
       int min=7,max=0;
       for(Operator x:ops) { min=Math.min(min,x.rarity); max=Math.max(max,x.rarity); }
       guaranteed=min;possible=max;
     }
-    public String description() {
+    public String chanceForRarity(int rarity){
+      int count=0;
+      for(Operator op:operators)if(op.rarity==rarity)count++;
+      if(count==0)return "0%*";
+      return count==operators.size()?"100%*":"шанс неизвестен";
+    }
+    public String raritySummary(){
       StringBuilder b=new StringBuilder();
-      b.append("Гарантия ").append(guaranteed).append("★; возможно до ").append(possible).append("★");
-      for(Operator o:operators) b.append("\n").append(o.rarity).append("★ ").append(o.name);
+      if(guaranteed<possible)b.append("Не ниже ").append(guaranteed).append("★ — 100%*\n");
+      for(int rarity=hours>=8?3:hours>=4?2:1;rarity<=6;rarity++){
+        if(rarity==6&&possible<6)continue;
+        if(b.length()>0&&b.charAt(b.length()-1)!='\n')b.append("\n");
+        b.append(rarity).append("★ — ").append(chanceForRarity(rarity));
+      }
+      b.append("\n* При ").append(hours).append(" ч и сохранении тегов");
+      return b.toString();
+    }
+    public String description() {
+      StringBuilder b=new StringBuilder(raritySummary());
+      for(Operator o:operators) b.append("\n").append(o.rarity).append("★ ").append(o.name)
+        .append(" — ").append(operators.size()==1?"100%*":"шанс неизвестен");
       return b.toString();
     }
   }
+
   public static String normalize(String raw) {
     if(raw==null) return null;
     String cleaned=raw.toLowerCase(Locale.ROOT).replace('–','-').replace('—','-')
@@ -87,20 +106,26 @@ public final class RecruitmentEngine {
   }
 
   public static Result best(List<String> visible,List<Operator> operators,boolean chance,int hours) {
-    if(visible==null||visible.isEmpty()||operators==null||operators.isEmpty())return null;
+    List<Result> all=combinations(visible,operators,chance,hours);
+    return all.isEmpty()?null:all.get(0);
+  }
+  /** All viable selections of zero to three tags, ranked by the same priority. */
+  public static List<Result> combinations(List<String> visible,List<Operator> operators,boolean chance,int hours) {
+    ArrayList<Result> results=new ArrayList<>();
+    if(visible==null||operators==null||operators.isEmpty())return results;
     LinkedHashSet<String> valid=new LinkedHashSet<>();
     for(String t:visible) {String n=normalize(t);if(n!=null)valid.add(n);}
     ArrayList<String> tags=new ArrayList<>(valid);if(tags.size()>5)tags=new ArrayList<>(tags.subList(0,5));
-    Result best=null; long bestScore=Long.MIN_VALUE;
-    for(int mask=1;mask<(1<<tags.size());mask++) {
+    for(int mask=0;mask<(1<<tags.size());mask++) {
       if(Integer.bitCount(mask)>3)continue;
       List<String> selected=new ArrayList<>();
       for(int k=0;k<tags.size();k++)if((mask&(1<<k))!=0) selected.add(tags.get(k));
       if(hours>=4&&selected.contains("Robot"))continue;
-      if(hours>3&&hours<4&&selected.contains("Starter"))continue;
+      if(hours>=8&&selected.contains("Starter"))continue;
       ArrayList<Operator> matches=new ArrayList<>();
       for(Operator op:operators) {
         if(hours>=4&&op.rarity<=1)continue;
+        if(hours<4&&op.rarity>=5)continue;
         if(hours>=8&&op.rarity<=2)continue;
         if(op.rarity==6&&!selected.contains("Top Operator"))continue;
         if(op.rarity==5&&selected.contains("Top Operator"))continue;
@@ -110,14 +135,15 @@ public final class RecruitmentEngine {
       }
       if(matches.isEmpty())continue;
       matches.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
-      Result r=new Result(selected,matches);
-      // Guaranteed rarity wins by default. Chance mode first compares highest possible rarity.
-      long score = chance ? r.possible*100000000L + r.guaranteed*1000000L :
-                            r.guaranteed*100000000L + r.possible*1000000L;
-      score += (10000L-Math.min(9999,matches.size()))*10L;
-      score += selected.size();
-      if(score>bestScore){bestScore=score;best=r;}
+      Result r=new Result(selected,matches,hours);
+      results.add(r);
     }
-    return best;
+    results.sort((a,b)->Long.compare(score(b,chance),score(a,chance)));
+    return results;
+  }
+  private static long score(Result r,boolean chance){
+    long value=chance?r.possible*100000000L+r.guaranteed*1000000L:
+      r.guaranteed*100000000L+r.possible*1000000L;
+    return value+(10000L-Math.min(9999,r.operators.size()))*10L+r.tags.size();
   }
 }

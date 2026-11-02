@@ -10,6 +10,7 @@ import java.util.*;
 /** Global recruitment data cache. Source: independent EN API (no user GitHub). */
 public final class OperatorDatabase {
   private OperatorDatabase() {}
+  private static final int CACHE_SCHEMA=2;
   public interface Listener { void onLoaded(List<RecruitmentEngine.Operator> operators, String status); }
   public interface ProgressListener extends Listener { void onProgress(String status); }
   private static final String POOL="https://awedtan.ca/api/recruitpool";
@@ -19,7 +20,10 @@ public final class OperatorDatabase {
     new Thread(()->{
       progress(app,cb,"Проверка локальной базы...");
       SharedPreferences p=app.getSharedPreferences("recruit",Context.MODE_PRIVATE);
-      List<RecruitmentEngine.Operator> cached=parse(p.getString("operators",""));
+      // Old schema conflated Support specialization with Supporter profession.
+      // It cannot be repaired without the original profession data.
+      List<RecruitmentEngine.Operator> cached=p.getInt("schema",0)==CACHE_SCHEMA
+        ?parse(p.getString("operators","")):Collections.emptyList();
       boolean due=System.currentTimeMillis()-p.getLong("updated",0)>24L*3600*1000;
       if(!force&&!due&&cached.size()>=100){post(app,cb,cached,"База Global • локальная");return;}
       try {
@@ -42,7 +46,9 @@ public final class OperatorDatabase {
           if(name.isEmpty()||rarity<1||rarity>6)continue;
           LinkedHashSet<String> tags=new LinkedHashSet<>();
           addTag(tags,data.optString("position",""));
-          addTag(tags,data.optString("profession",""));
+          String profession=OperatorTagMapper.profession(data.optString("profession",""));
+          if(profession==null)continue;
+          tags.add(profession);
           JSONArray special=data.optJSONArray("tagList");
           if(special!=null)for(int j=0;j<special.length();j++)addTag(tags,special.optString(j));
           if(tags.size()<2)continue;
@@ -54,7 +60,7 @@ public final class OperatorDatabase {
         // Fail closed: never replace a reliable cache with incomplete data.
         if(fresh.size()<100||fresh.size()>400)throw new IOException("Неполная база: "+fresh.size());
         progress(app,cb,"Сохранение проверенной базы...");
-        p.edit().putString("operators",extracted.toString()).putLong("updated",System.currentTimeMillis()).apply();
+        p.edit().putString("operators",extracted.toString()).putLong("updated",System.currentTimeMillis()).putInt("schema",CACHE_SCHEMA).apply();
         post(app,cb,fresh,"База Global обновлена: "+fresh.size()+" операторов");
       }catch(Exception e){
         post(app,cb,cached,cached.isEmpty()?
@@ -111,20 +117,7 @@ public final class OperatorDatabase {
     }catch(Exception e){return 0;}
   }
   private static void addTag(Set<String> tags,String original){
-    String t=original.toUpperCase(Locale.ROOT);
-    if(t.equals("MELEE")||t.equals("RANGED")) {tags.add(t.equals("MELEE")?"Melee":"Ranged");return;}
-    switch(t){
-      case "WARRIOR":tags.add("Guard");return;
-      case "TANK":tags.add("Defender");return;
-      case "PIONEER":tags.add("Vanguard");return;
-      case "SPECIAL":tags.add("Specialist");return;
-      case "SUPPORT":tags.add("Supporter");return;
-      case "SNIPER":tags.add("Sniper");return;
-      case "CASTER":tags.add("Caster");return;
-      case "MEDIC":tags.add("Medic");return;
-      default:
-        String canon=RecruitmentEngine.normalize(original);
-        if(canon!=null)tags.add(canon);
-    }
+    String canon=OperatorTagMapper.specialization(original);
+    if(canon!=null)tags.add(canon);
   }
 }

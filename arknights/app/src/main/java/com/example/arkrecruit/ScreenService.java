@@ -36,7 +36,12 @@ public class ScreenService extends Service {
   private List<RecruitmentEngine.Operator> operators=Collections.emptyList();
   private RecruitmentEngine.Result recommendation;
   private TextView panelText,statusText,operatorListText,listToggle;
-  private ScrollView operatorScroll;
+  private ScrollView operatorScroll,variantsScroll;
+  private TextView variantsToggle;
+  private LinearLayout variantsBox;
+  private boolean variantsExpanded;
+  private String selectedVariant,lastVariantsSignature="";
+  private List<RecruitmentEngine.Result> variants=Collections.emptyList();
   private boolean operatorListExpanded=false;
   private SharedPreferences prefs;
   private long lastScan=0; private int missing=0,width,height;
@@ -306,6 +311,9 @@ public class ScreenService extends Service {
         render();return;
       }
       missing=0;
+      HashSet<String> previous=new HashSet<>();
+      for(Recognition r:recognized)previous.add(r.tag);
+      if(!previous.equals(found.keySet()))selectedVariant=null;
       inRecruitment=true;recognized.clear();
       recognized.addAll(found.values());
       recognitionWidth=frameWidth;recognitionHeight=frameHeight;
@@ -315,7 +323,14 @@ public class ScreenService extends Service {
   private void chooseRecommendation(){
     ArrayList<String> tags=new ArrayList<>();
     for(Recognition r:recognized)tags.add(r.tag);
-    recommendation=RecruitmentEngine.best(tags,operators,prefs.getBoolean("chance",false),9);
+    variants=RecruitmentEngine.combinations(tags,operators,prefs.getBoolean("chance",false),9);
+    recommendation=variants.isEmpty()?null:variants.get(0);
+    if(selectedVariant!=null){
+      boolean retained=false;
+      for(RecruitmentEngine.Result choice:variants)
+        if(variantKey(choice).equals(selectedVariant)){recommendation=choice;retained=true;break;}
+      if(!retained)selectedVariant=null;
+    }
     render();
   }
   private void render(){
@@ -325,8 +340,8 @@ public class ScreenService extends Service {
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
         "/5\nНет проверенной комбинации или базы");
-      else panelText.setText("Выбрать: "+String.join(" + ",recommendation.tags)+
-        "\nГарантия "+recommendation.guaranteed+"★; возможно до "+recommendation.possible+"★");
+      else panelText.setText("Выбрать: "+variantLabel(recommendation)+
+        "\n"+recommendation.raritySummary());
     }
     if(listToggle!=null&&operatorScroll!=null&&operatorListText!=null){
       int count=recommendation==null?0:recommendation.operators.size();
@@ -336,14 +351,47 @@ public class ScreenService extends Service {
       if(count>0){
         StringBuilder names=new StringBuilder();
         for(RecruitmentEngine.Operator op:recommendation.operators)
-          names.append(op.rarity).append("★ ").append(op.name).append("\n");
+          names.append(op.rarity).append("★ ").append(op.name).append(" — ")
+            .append(count==1?"100%*":"шанс неизвестен").append("\n");
         operatorListText.setText(names.toString().trim());
       }else operatorListText.setText("");
+    }
+    if(variantsToggle!=null){
+      boolean available=inRecruitment&&!variants.isEmpty()&&recommendation!=null;
+      variantsToggle.setVisibility(available?View.VISIBLE:View.GONE);
+      variantsToggle.setText("Все варианты ("+variants.size()+") "+(variantsExpanded?"▴":"▾"));
+      variantsScroll.setVisibility(available&&variantsExpanded?View.VISIBLE:View.GONE);
+      if(available&&variantsExpanded)renderVariants();
     }
     if(panel!=null){
       panel.setVisibility(projection!=null&&!paused&&
         prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
       panel.post(this::updateOverlayExclusions);
+    }
+  }
+  private static String variantKey(RecruitmentEngine.Result r){
+    return String.join("|",r.tags);
+  }
+  private static String variantLabel(RecruitmentEngine.Result r){
+    return r.tags.isEmpty()?"Без тегов":String.join(" + ",r.tags);
+  }
+  private void renderVariants(){
+    StringBuilder signature=new StringBuilder(variantKey(recommendation));
+    for(RecruitmentEngine.Result r:variants)signature.append(';').append(variantKey(r))
+      .append(':').append(r.description());
+    if(lastVariantsSignature.equals(signature.toString()))return;
+    lastVariantsSignature=signature.toString();
+    variantsBox.removeAllViews();
+    for(RecruitmentEngine.Result choice:variants){
+      TextView row=new TextView(this);
+      row.setText(variantLabel(choice)+"\n"+choice.guaranteed+"–"+choice.possible+
+        "★ • "+choice.operators.size()+" операторов");
+      row.setTextColor(variantKey(choice).equals(variantKey(recommendation))?UiStyle.ACCENT:UiStyle.TEXT);
+      row.setTextSize(11);row.setPadding(dp(3),dp(8),dp(3),dp(8));
+      variantsBox.addView(row,new LinearLayout.LayoutParams(-1,-2));
+      row.setOnClickListener(v->{
+        recommendation=choice;selectedVariant=variantKey(choice);render();
+      });
     }
   }
   private int dp(int px){return (int)(px*getResources().getDisplayMetrics().density+0.5f);}
@@ -434,6 +482,24 @@ public class ScreenService extends Service {
     box.addView(operatorScroll,new LinearLayout.LayoutParams(-1,-2));
     listToggle.setOnClickListener(v->{
       operatorListExpanded=!operatorListExpanded;
+      if(operatorListExpanded)variantsExpanded=false;
+      render();
+    });
+    variantsToggle=new TextView(this);variantsToggle.setTextColor(UiStyle.ACCENT);
+    variantsToggle.setTextSize(12);variantsToggle.setPadding(dp(2),dp(7),dp(2),dp(7));
+    box.addView(variantsToggle);
+    variantsBox=new LinearLayout(this);variantsBox.setOrientation(LinearLayout.VERTICAL);
+    variantsScroll=new ScrollView(this){
+      @Override protected void onMeasure(int w,int h){
+        int cap=Math.min(dp(110),Math.max(dp(35),height/3));
+        if(MeasureSpec.getMode(h)!=MeasureSpec.UNSPECIFIED)cap=Math.min(cap,MeasureSpec.getSize(h));
+        super.onMeasure(w,MeasureSpec.makeMeasureSpec(cap,MeasureSpec.AT_MOST));
+      }
+    };
+    variantsScroll.addView(variantsBox);box.addView(variantsScroll,new LinearLayout.LayoutParams(-1,-2));
+    variantsToggle.setOnClickListener(v->{
+      variantsExpanded=!variantsExpanded;
+      if(variantsExpanded)operatorListExpanded=false;
       render();
     });
     panel=box;
@@ -499,9 +565,9 @@ public class ScreenService extends Service {
     heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));
     box.addView(heading);
     close.setOnClickListener(v->toggleSettings());
-    Switch sw=new Switch(this);sw.setText("Приоритет: шанс");UiStyle.toggle(sw);
+    Switch sw=new Switch(this);sw.setText("Приоритет: максимальная редкость");UiStyle.toggle(sw);
     sw.setChecked(prefs.getBoolean("chance",false));box.addView(sw);
-    sw.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("chance",on).apply();chooseRecommendation();});
+    sw.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("chance",on).apply();selectedVariant=null;chooseRecommendation();});
     Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});

@@ -51,7 +51,7 @@ public class MainActivity extends Activity {
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
     text(root,"Рекомендации",19,Color.WHITE);
-    Switch chance=new Switch(this);chance.setText("Шанс на редкого вместо гарантии");
+    Switch chance=new Switch(this);chance.setText("Приоритет: максимальная редкость");
     UiStyle.toggle(chance);chance.setChecked(prefs.getBoolean("chance",false));
     chance.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("chance",on).apply());root.addView(chance);
     Switch panel=new Switch(this);panel.setText("Показывать панель операторов");
@@ -198,3 +198,4 @@ public class MainActivity extends Activity {
     });
   }
 }
+
