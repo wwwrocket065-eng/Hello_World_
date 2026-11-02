@@ -485,13 +485,13 @@ public class ScreenService extends Service {
       boolean any=!operators.isEmpty();
       listToggle.setVisibility(any?View.VISIBLE:View.GONE);
       int count=displayedOperators().size();
-      String label="Выбор цели ("+count+") ";
+      String label="Список операторов ("+count+") ";
       android.text.SpannableString toggle=new android.text.SpannableString(label+"\uFFFC");
       android.graphics.drawable.Drawable arrow=new DisclosureArrow(UiStyle.ACCENT,operatorListExpanded,dp(1));
       arrow.setBounds(0,0,dp(15),dp(12));
       toggle.setSpan(new android.text.style.ImageSpan(arrow,android.text.style.ImageSpan.ALIGN_BASELINE),label.length(),toggle.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
       listToggle.setText(toggle);
-      listToggle.setContentDescription("Выбор цели ("+count+"). "+(operatorListExpanded?"Свернуть":"Развернуть"));
+      listToggle.setContentDescription("Список операторов ("+count+"). "+(operatorListExpanded?"Свернуть":"Развернуть"));
       operatorScroll.setVisibility(any&&operatorListExpanded?View.VISIBLE:View.GONE);
       if(any&&operatorListExpanded)renderOperatorRows();
     }

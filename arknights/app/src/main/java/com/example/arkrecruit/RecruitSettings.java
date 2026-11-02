@@ -54,7 +54,7 @@ public final class RecruitSettings {
     Context context=parent.getContext();
     LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.CENTER_VERTICAL);
     {
-      TextView prefix=new TextView(context);prefix.setText(region?"Сервер: ":"Выбор цели: ");prefix.setTextSize(14);prefix.setTextColor(Color.WHITE);prefix.setSingleLine(true);
+      TextView prefix=new TextView(context);prefix.setText(region?"Сервер: ":"Список операторов: ");prefix.setTextSize(14);prefix.setTextColor(Color.WHITE);prefix.setSingleLine(true);
       row.addView(prefix,new LinearLayout.LayoutParams(-2,-2));
     }
     TextView label=new TextView(context);
@@ -69,7 +69,7 @@ public final class RecruitSettings {
       label.setText(region?region(prefs):value);
       label.setTextColor(region?regionColor(prefs):Color.WHITE);
       control.setText(region?"↔":level+" / 3");
-      control.setContentDescription(region?"Сервер: "+region(prefs):"Выбор цели: "+value+", "+level+" из 3");
+      control.setContentDescription(region?"Сервер: "+region(prefs):"Список операторов: "+value+", "+level+" из 3");
       int background=region?(prefs.getBoolean("china",false)?0xFF78545A:0xFF4B6489):level==3?UiStyle.ACCENT:level==2?0xFF31534F:UiStyle.RAISED;
       style(control,background,!region&&level==3?UiStyle.BACKGROUND:Color.WHITE);
     };
