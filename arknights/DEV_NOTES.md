@@ -257,3 +257,8 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Goal names carry individual colours. Existing main highlight stays the automatic recommendation; additional bordered colour dots above each tag's top-right corner identify every goal whose independently narrowed valid plan uses that tag. Multiple dots wrap above the tag. Each goal plan has <=3 tags. Do NOT treat the union of differently coloured dots as a jointly valid selection or claim measured odds.
 - Multi-target plan regression added to engine smoke. No false probability numbers, operator counts or All variants interface restored. Capture, scene probe, permission routing and offline portraits unchanged.
 - Version 0.3.13 / code16; baseline 9df11333d076b70a07bc795c4852a4b3e79f33f6. Build and device UX validation pending.
+
+## 0.3.13 delivery checkpoint
+- Source ffc64cb9bde081499cd5423a27cfe9d810ffa891; run 41416976266 SUCCESS; artifact 13127393883. Engine/multi-plan, geometry/probe, API, 158 portraits and APK build passed.
+- APK 47,022,064 bytes; SHA256 2d3de621f80754e7f6aae07dfa4aa95ccad5128bac030be35f9ef71562cb89a8. CRC/version and all portrait files verified; DEX contains persisted goal colours and per-goal plans.
+- Durable APK libfile_eaf4d2e312f48191944d7c223647b0b1. Live multi-selection, colour dots, scrolling and retention require Xiaomi validation. Ephemeral CI signing can require uninstall/reinstall, resetting preferences.
