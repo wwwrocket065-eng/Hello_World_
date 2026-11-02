@@ -112,6 +112,8 @@ public final class EngineSmoke {
       !TargetListFilter.select(2,timed,Collections.singletonList(timed.get(0)),Collections.emptyList()).isEmpty()||
       TargetListFilter.select(2,timed,Collections.singletonList(timed.get(0)),Arrays.asList("Starter two","Five")).size()!=2)
     throw new AssertionError("Three chooser modes must filter independently of availability and never fabricate empty rows");
+  if(FilterCycle.next(2)!=1||FilterCycle.next(1)!=0||FilterCycle.next(0)!=2)
+    throw new AssertionError("Filter button cycle must be selected, tags, all");
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }

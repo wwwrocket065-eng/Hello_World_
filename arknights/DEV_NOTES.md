@@ -303,3 +303,7 @@ Target timing remains 3:50/7:30/9:00; no fabricated probabilities. CI and native
 
 ### 0.3.19 verified delivery checkpoint
 Source 8edb9841ae804ae3cc420dac7f74a5939023a03b; CI run 41432884999 success (engine/filter smoke tests, geometry regressions, CN roster extraction and portraits, assembleDebug). CN pool163 / offline portraits163, APK47064458 bytes, SHA256669043582a4fc31e8a040974211bf7ba4fb3cfe7e7cb84c8dec75d368b18c256. Saved APK identity libfile_8a3863285aa0819190fa8d8d9bde0517. Native Xiaomi16 interactions, marquee/slider and live CN network refresh remain unverified. Build-time CN snapshot validated from client data; English tag OCR remains unchanged. Settings selector is first row as requested. No source code changed after successful build.
+
+
+## 0.3.20 — tap buttons and region label colors
+Replaced both discrete sliders with equally sized 82x42dp tap-to-cycle buttons in shared RecruitSettings. Server stays first: fixed white «Сервер:», dynamic Global muted blue #8B9FBD / China muted red #BE888D; matching muted button backgrounds and ↔ glyph. Panel header uses same muted server text colors. Chooser cycle selected (stored2, visual1/3) → current tags (stored1, visual2/3) → all (stored0, visual3/3, full accent fill); defaults current tags without overriding saved choices. Fixed white prefix and single-line marquee mode label retained. Stored filter semantics/data/recognition unchanged. FilterCycle regression passes locally. Build/native validation pending; debug signing limitation unchanged.
