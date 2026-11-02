@@ -383,3 +383,7 @@ Source ba1439cb86a7ed515626ca2ab82ec65fdf921a34; CI run 41461596630 success. APK
 ## 0.3.28 — independent visible twinkle and main-screen cleanup
 Stable label exclusion derived from tile geometry/name replaces per-OCR text rectangles that could toggle groups of stars. Core alpha remains constant, independent frequencies/phases/depths drive stronger smooth luminance (no motion or size changes), same renderer in live preview. Regression covers90s continuity, nonzero minimum, visible excursion and independent neighboring trajectories.
 Removed staticGlobal, manual calculator, database heading/status/block from main. Update database button now in gear settings with transient progress. Footer retains app version plus current-region cache update date dd.MM.yyyy without time. FillViewport/spacer anchors footer low. Existing rapid-page-transition guard retained. Build/native test pending; no claim phone flicker verified.
+
+
+### 0.3.28 verified delivery
+Source b62feb965d594a3aa80d9fd025fd0bedfbfef46b; CI41474610449 success including engine, geometry and APK compilation. APK47087462 bytes SHA25648d670f7993c3eb287524fd2216ed3f7cc35d4e1a71a5c0d3a3bfd969eabfdac. Saved libfile_dbcfe67beff48191bb56edaaaad0ba03. Native perceived twinkle and rapid navigation still unverified; ephemeral debug signing caveat unchanged.
