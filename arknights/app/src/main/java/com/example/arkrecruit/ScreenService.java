@@ -361,6 +361,17 @@ public class ScreenService extends Service {
         int value=RecruitmentClock.parse(line.getText());if(value>=0)clockValue=value;
       }
     }
+    if(clockValue<0){
+      ArrayList<Text.Element> digits=new ArrayList<>();
+      for(Text.TextBlock block:result.getTextBlocks())for(Text.Line line:block.getLines())for(Text.Element element:line.getElements()){
+        Rect box=element.getBoundingBox();if(box==null)continue;
+        boolean inside=input.clockBox(box)||(timeRegion!=null&&box.centerX()>=timeRegion.left&&box.centerX()<=timeRegion.right&&box.centerY()>=timeRegion.top&&box.centerY()<=timeRegion.bottom);
+        if(inside&&element.getText().matches("[0-9Oo:：]+"))digits.add(element);
+      }
+      digits.sort(Comparator.comparingInt(e->e.getBoundingBox().centerX()));
+      StringBuilder joined=new StringBuilder();for(Text.Element e:digits)joined.append(e.getText());
+      clockValue=RecruitmentClock.parse(joined.toString());
+    }
     final int detectedMinutes=clockValue;
     main.post(()->{
       if(paused||epoch!=scanEpoch.get())return;

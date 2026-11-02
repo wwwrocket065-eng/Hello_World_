@@ -98,7 +98,7 @@ public final class TagGeometrySmoke {
     }
     if(source.getPixel(30,80)==normalized.getPixel(30,80))
       throw new AssertionError("Original capture modified or selected tag not normalized");
-    if(RecruitmentClock.parse("07 : 40 : 00")!=460||RecruitmentClock.parse("01:00:00")!=60||
+    if(RecruitmentClock.parse("074000")!=460||RecruitmentClock.parse("07 : 40 : 00")!=460||RecruitmentClock.parse("01:00:00")!=60||
       RecruitmentClock.parse("09:00:00")!=540||RecruitmentClock.parse("09:10:00")!=-1||RecruitmentClock.parse("12:59:00")!=-1)
       throw new AssertionError("Recruitment time parsing");
     System.out.println("Tag geometry regression tests PASS");

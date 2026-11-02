@@ -5,7 +5,9 @@ public final class RecruitmentClock {
   private RecruitmentClock(){}
   private static final Pattern TIME=Pattern.compile("(?<![0-9])([0-9]{1,2})\\s*[:：]\\s*([0-9]{2})\\s*[:：]\\s*([0-9]{2})(?![0-9])");
   public static int parse(String raw){
-    Matcher m=TIME.matcher(raw==null?"":raw);
+    String valueText=raw==null?"":raw.trim().replace('O','0').replace('o','0');
+    if(valueText.matches("[0-9]{6}"))valueText=valueText.substring(0,2)+":"+valueText.substring(2,4)+":"+valueText.substring(4);
+    Matcher m=TIME.matcher(valueText);
     if(!m.find())return -1;
     int h=Integer.parseInt(m.group(1)),min=Integer.parseInt(m.group(2)),sec=Integer.parseInt(m.group(3));
     int value=h*60+min;
