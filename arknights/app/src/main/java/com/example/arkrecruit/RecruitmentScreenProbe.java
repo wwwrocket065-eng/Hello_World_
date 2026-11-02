@@ -46,6 +46,33 @@ public final class RecruitmentScreenProbe {
     }
     return blue>=2&&dark>=2;
   }
+  private static boolean covered(Rect area,Rect[] exclusions){
+    for(Rect exclusion:exclusions)if(area.left<exclusion.right&&exclusion.left<area.right&&area.top<exclusion.bottom&&exclusion.top<area.bottom)return true;
+    return false;
+  }
+  /** -1 means obscured by our own UI: retain prior state, never infer an exit. */
+  public static int screenEvidence(Pixels pixels,Rect[] tiles,int width,int height,Rect[] exclusions){
+    if(tiles.length!=5)return -1;
+    int visible=0,observed=0;
+    for(Rect tile:tiles){
+      int gap=Math.max(2,tile.height()/12);
+      Rect area=new Rect(tile.left-gap,tile.top-gap,tile.right+gap,tile.bottom+gap);
+      if(covered(area,exclusions))continue;
+      observed++;
+      if(tilePresent(pixels,tile,width,height))visible++;
+    }
+    if(observed<2)return -1;
+    return visible>=Math.min(4,observed)?1:0;
+  }
+  public static int controlEvidence(Pixels pixels,Rect[] tiles,int width,int height,Rect[] exclusions){
+    if(tiles.length!=5)return -1;
+    int right=0,top=height;
+    for(Rect tile:tiles){right=Math.max(right,tile.right);top=Math.min(top,tile.top);}
+    int w=tiles[0].width(),h=tiles[0].height();
+    Rect area=new Rect(right,top+Math.round(h*4.3f),right+Math.round(w*1.5f),top+Math.round(h*6.7f));
+    if(covered(area,exclusions))return -1;
+    return controlsPresent(pixels,tiles,width,height)?1:0;
+  }
   public static boolean present(Pixels pixels,Rect[] tiles,int width,int height){
     if(tiles.length!=5)return false;
     int visible=0;

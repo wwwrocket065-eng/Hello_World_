@@ -281,3 +281,7 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Final source be68fca63459671df682c0455689787cea88ecd1 (includes split-block / colonless timer token handling). Run 41421500824 SUCCESS; artifact 13129069250. Tests, API, portraits and APK build passed.
 - APK 47,040,112 bytes; SHA256 23a01bf6b07ee9ece382ff4565e194c9ec929c6d56ade8302b4e8ffb2f76787e. ZIP CRC, manifest, timer/filter/menu DEX and 158 portraits checked.
 - Durable APK libfile_4c1c4b154e148191812eaa8a3854bd66. Includes neutral single target, filter, Выбор цели label, styled goal removal/clear menu, timer-driven pools and lower-button visual dismissal. Actual Xiaomi timer OCR / popup touch / dismissal latency require device testing. No global touch interception or added accessibility permission. Ephemeral signer can require uninstall/reinstall.
+
+
+## 0.3.16 — overlay occlusion and compact recommendation
+Own panel, controls and settings are excluded from sparse scene and lower-button evidence. Occluded evidence is unknown, preserving prior state; real visible exits remain detectable. Moving/layout overlays briefly defer probes (100 ms), including gear drag. Added regression tests for partial/full occlusion and real scene exit. Goal default: turquoise «Макс цель». Recommendation yellow: time (min★–max★) · tags. Native Xiaomi validation pending; no measured latency claim.

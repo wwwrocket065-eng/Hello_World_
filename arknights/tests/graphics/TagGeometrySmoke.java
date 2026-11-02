@@ -34,6 +34,18 @@ public final class TagGeometrySmoke {
     near(detect(bitmap,new Rect(381,307,490,325)),grid.get(4),2);
     if(!RecruitmentScreenProbe.present(bitmap::getPixel,grid.toArray(new Rect[0]),900,500))
       throw new AssertionError("Live five-button screen rejected");
+    Rect[] tiles=grid.toArray(new Rect[0]);
+    Rect[] covered={new Rect(190,210,690,345)};
+    if(RecruitmentScreenProbe.screenEvidence((x,y)->0xFF263747,tiles,900,500,covered)!=-1)
+      throw new AssertionError("Own panel must produce unknown evidence, not exit");
+    Rect[] partialCover={new Rect(190,210,350,275)};
+    RecruitmentScreenProbe.Pixels occluded=(x,y)->x<350&&y<275?0xFF263747:bitmap.getPixel(x,y);
+    if(RecruitmentScreenProbe.screenEvidence(occluded,tiles,900,500,partialCover)!=1)
+      throw new AssertionError("Own panel over one tile must retain recruitment");
+    if(RecruitmentScreenProbe.screenEvidence((x,y)->0xFFFFFFFF,tiles,900,500,new Rect[0])!=0)
+      throw new AssertionError("Real screen exit must still be detected");
+    if(RecruitmentScreenProbe.controlEvidence((x,y)->0,tiles,900,500,new Rect[]{new Rect(650,400,900,500)})!=-1)
+      throw new AssertionError("Own controls must not cause lower-button exit");
     if(!TagGrid.isRecruitmentGrid(grid))throw new AssertionError("Valid five-tag grid rejected");
     if(TagGrid.isRecruitmentGrid(grid.subList(0,3)))throw new AssertionError("Partial frame accepted");
     ArrayList<Rect> overlay=new ArrayList<>(grid);

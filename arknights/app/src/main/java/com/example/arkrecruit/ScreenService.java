@@ -61,6 +61,7 @@ public class ScreenService extends Service {
   private volatile Rect[] knownTiles=new Rect[0];
   private volatile boolean screenPresent=false;
   private long lastProbe;
+  private volatile long overlaySettlingUntil;
   private int probeMisses,probeHits;
   private volatile int recruitMinutes=-1;
   private boolean controlsSeen;
@@ -199,24 +200,24 @@ public class ScreenService extends Service {
     // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
     // They keep running while an OCR task is in flight.
     if(now<suppressUntil){image.close();return;}
-    if(knownTiles.length==5&&now-lastProbe>=16){
+    if(knownTiles.length==5&&now>=overlaySettlingUntil&&now-lastProbe>=16){
       lastProbe=now;
       Image.Plane probePlane=image.getPlanes()[0];
       ByteBuffer pixels=probePlane.getBuffer();
       int base=pixels.position(),row=probePlane.getRowStride(),step=probePlane.getPixelStride();
-      boolean present=RecruitmentScreenProbe.present((x,y)->{
+      Rect[] exclusions=captureExclusions(image.getWidth(),image.getHeight());
+      RecruitmentScreenProbe.Pixels reader=(x,y)->{
         int offset=base+y*row+x*step;
         return Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);
-      },knownTiles,image.getWidth(),image.getHeight());
-      boolean controls=RecruitmentScreenProbe.controlsPresent((x,y)->{
-        int offset=base+y*row+x*step;
-        return Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);
-      },knownTiles,image.getWidth(),image.getHeight());
-      boolean controlExit=controlsSeen&&!controls;
-      if(controls)controlsSeen=true;
-      if(controlExit)present=false;
-      if(present){probeMisses=0;probeHits++;}
-      else{probeHits=0;probeMisses++;}
+      };
+      int evidence=RecruitmentScreenProbe.screenEvidence(reader,knownTiles,image.getWidth(),image.getHeight(),exclusions);
+      int controls=RecruitmentScreenProbe.controlEvidence(reader,knownTiles,image.getWidth(),image.getHeight(),exclusions);
+      boolean controlExit=controlsSeen&&controls==0;
+      if(controls==1)controlsSeen=true;
+      if(controlExit)evidence=0;
+      if(evidence==1){probeMisses=0;probeHits++;}
+      else if(evidence==0){probeHits=0;probeMisses++;}
+      else{probeHits=probeMisses=0;}
       if(screenPresent&&(controlExit||probeMisses>=1)){
         screenPresent=false;scanEpoch.incrementAndGet();lastScan=0;
         if(controlExit)suppressUntil=now+300;
@@ -298,7 +299,18 @@ public class ScreenService extends Service {
       int[] xy=new int[2];view.getLocationOnScreen(xy);
       areas.add(new Rect(xy[0],xy[1],xy[0]+view.getWidth(),xy[1]+view.getHeight()));
     }
-    overlayExclusions=areas.toArray(new Rect[0]);
+    Rect[] next=areas.toArray(new Rect[0]);
+    if(!java.util.Arrays.equals(overlayExclusions,next))overlaySettlingUntil=SystemClock.elapsedRealtime()+100;
+    overlayExclusions=next;
+  }
+  private Rect[] captureExclusions(int frameWidth,int frameHeight){
+    Rect[] areas=overlayExclusions,result=new Rect[areas.length];
+    float sx=frameWidth/(float)Math.max(1,width),sy=frameHeight/(float)Math.max(1,height);
+    for(int i=0;i<areas.length;i++){
+      Rect r=areas[i];
+      result[i]=new Rect((int)(r.left*sx),(int)(r.top*sy),(int)Math.ceil(r.right*sx),(int)Math.ceil(r.bottom*sy));
+    }
+    return result;
   }
   private void recordTag(Map<String,Recognition> found,String raw,Rect box,
                          Bitmap frame,Rect[] exclusions,TagOcrInput input) {
@@ -319,15 +331,7 @@ public class ScreenService extends Service {
   }
   private void processText(Text result,Bitmap frame,int epoch,TagOcrInput input){
     LinkedHashMap<String,Recognition> found=new LinkedHashMap<>();
-    Rect[] screenAreas=overlayExclusions;
-    Rect[] exclusions=new Rect[screenAreas.length];
-    float sx=frame.getWidth()/(float)Math.max(1,width);
-    float sy=frame.getHeight()/(float)Math.max(1,height);
-    for(int i=0;i<screenAreas.length;i++){
-      Rect r=screenAreas[i];
-      exclusions[i]=new Rect((int)(r.left*sx),(int)(r.top*sy),
-        (int)Math.ceil(r.right*sx),(int)Math.ceil(r.bottom*sy));
-    }
+    Rect[] exclusions=captureExclusions(frame.getWidth(),frame.getHeight());
     for(Text.TextBlock block:result.getTextBlocks()){
       for(Text.Line line:block.getLines()){
         recordTag(found,line.getText(),line.getBoundingBox(),frame,exclusions,input);
@@ -423,8 +427,9 @@ public class ScreenService extends Service {
       else if(recruitMinutes<60)panelText.setText("Время не распознано");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
         "/5\nНет проверенной комбинации или базы");
-      else panelText.setText("Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary()+
-        " · "+String.format(Locale.ROOT,"%d:%02d",recruitMinutes/60,recruitMinutes%60));
+      else panelText.setText(String.format(Locale.ROOT,"%d:%02d",recruitMinutes/60,recruitMinutes%60)+
+        " ("+recommendation.guaranteed+"★"+
+        (recommendation.guaranteed==recommendation.possible?"":"–"+recommendation.possible+"★")+") · "+variantLabel(recommendation));
     }
     if(paused||!screenPresent)closeGoalMenu();
     if(goalText!=null){
@@ -433,7 +438,7 @@ public class ScreenService extends Service {
       if(!key.equals(goalDisplayKey)){
         goalDisplayKey=key;
         android.text.SpannableStringBuilder goals=new android.text.SpannableStringBuilder("Цель: ");
-        if(targets.isEmpty())goals.append("Максимальная редкость");
+        if(targets.isEmpty())goals.append("Макс цель");
         else for(Map.Entry<String,Integer> target:targets.entrySet()){
           if(goals.length()>6)goals.append("\n");
           String name=target.getKey();
@@ -572,6 +577,8 @@ public class ScreenService extends Service {
     gearParams.gravity=Gravity.LEFT|Gravity.TOP;
     gearParams.x=dp(8);gearParams.y=height/2;
     wm.addView(gear,gearParams);
+    gear.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->updateOverlayExclusions());
+    gear.post(this::updateOverlayExclusions);
     playPause.setOnClickListener(v->togglePlayPause());
     g.setOnTouchListener(new View.OnTouchListener(){
       float startX,startY,originX,originY;boolean dragged=false;
@@ -586,7 +593,9 @@ public class ScreenService extends Service {
           if(dragged){
             gearParams.x=Math.max(0,Math.min(width-dp(104),(int)(originX+dx)));
             gearParams.y=Math.max(0,Math.min(height-dp(70),(int)(originY+dy)));
+            overlaySettlingUntil=SystemClock.elapsedRealtime()+100;
             wm.updateViewLayout(gear,gearParams);
+            gear.post(ScreenService.this::updateOverlayExclusions);
           }
           return true;
         }
@@ -609,7 +618,7 @@ public class ScreenService extends Service {
     statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);
     statusText.setTextSize(10);statusText.setText("База Global");
     box.addView(statusText);
-    goalText=new TextView(this);goalText.setTextColor(UiStyle.TEXT);goalText.setTextSize(12);
+    goalText=new TextView(this);goalText.setTextColor(UiStyle.ACCENT);goalText.setTextSize(12);
     goalText.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());goalText.setHighlightColor(Color.TRANSPARENT);
     ScrollView goalScroll=new ScrollView(this){
       @Override protected void onMeasure(int w,int h){
@@ -617,7 +626,7 @@ public class ScreenService extends Service {
       }
     };
     goalScroll.addView(goalText);box.addView(goalScroll,new LinearLayout.LayoutParams(-1,-2));
-    panelText=new TextView(this);panelText.setTextColor(Color.WHITE);
+    panelText=new TextView(this);panelText.setTextColor(0xFFFFD866);
     panelText.setTextSize(12);panelText.setPadding(0,dp(4),0,dp(3));
     box.addView(panelText);
     listToggle=new TextView(this);listToggle.setTextColor(UiStyle.ACCENT);
@@ -669,6 +678,7 @@ public class ScreenService extends Service {
             if(dragging&&panel!=null){
               panelParams.x=Math.max(0,Math.min(Math.max(0,width-dp(192)),fromX+(int)dx));
               panelParams.y=Math.max(0,Math.min(Math.max(0,height-dp(60)),fromY+(int)dy));
+              overlaySettlingUntil=SystemClock.elapsedRealtime()+100;
               wm.updateViewLayout(panel,panelParams);
               panel.post(ScreenService.this::updateOverlayExclusions);
             }
