@@ -327,3 +327,7 @@ Final source a7bc1dcfef6daf3158b01358c5d6868ae5461f24; CI run 41436066230 succes
 
 ## 0.3.22 — restore actual switch appearance
 User rejected rectangular arrow/check/fraction buttons: they intended tap-to-cycle switches with a round thumb. Replaced controls with CycleToggle capsule track and circular 20dp thumb, no symbols/text inside. Server and panel use normal 40dp width; ONLY the three-position operator-list switch is 60dp (1.5x). Same 42dp hit height, 14dp rail height, 140ms thumb transition; tap cycles without dragging. Fixed meanings/order/defaults, all labels/colors/count/empty message retained. Two-state accessibility reports Switch/check state. No recruitment/data/OCR changes. Native device validation pending. Do not reintroduce rectangular settings buttons or lengthen every switch.
+
+
+### 0.3.22 verified delivery
+Source 87ef31f0853933c7085b40be1883042945c5b11d; CI run 41443304470 success. APK47066370 bytes SHA256d6ede162988a741cd365981ca792bbc436cf4dc4cb0366255e0de9c3bfb571d5. Saved libfile_cccfa3c704e48191893ff28b298f0337. All native device appearance/tap/animation checks remain pending. User explicitly corrected: ONLY operator-list switch longer; server and panel normal length. Capsule switches restored, no rectangular buttons or inside symbols. No other UI/data behavior changed.
