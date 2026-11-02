@@ -319,3 +319,7 @@ Chooser labels shortened to «Выбранные» → «Теги» → «Все
 User superseded previous empty selected-only behavior: show «Цели не выбраны» when selected-mode list is empty. Chooser count stays zero; label appears only while list is expanded, not in other modes. Included in 0.3.21 final source build.
 
 Final wording per user correction: «Список операторов» replaces chooser title in both panel and settings/accessibility labels. Mode names remain «Выбранные / Теги / Все»; «Цели не выбраны» placeholder retained. Supersedes the briefly discussed «Выбранный оператор» wording.
+
+
+### 0.3.21 final verified delivery
+Final source a7bc1dcfef6daf3158b01358c5d6868ae5461f24; CI run 41436066230 success. Supersedes intermediate 0.3.21 builds; only final APK delivered. Size47065794, SHA256f4eb2b4964a3b31e29f7bb93d16683e5ea14ea449b9be0468d1b966115ab9e2b. Saved libfile_d2159eddc4dc81918205672830322666. Contains compact Выбранные/Теги/Все labels, equal settings buttons, final «Список операторов (N)» title with existing arrow and empty-selected message. Native Xiaomi layout still unverified; ephemeral CI signing caveat unchanged.
