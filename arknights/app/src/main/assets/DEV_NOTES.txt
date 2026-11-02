@@ -335,3 +335,7 @@ Source 87ef31f0853933c7085b40be1883042945c5b11d; CI run 41443304470 success. APK
 
 ## 0.3.23 — server direction and partial three-state rail
 Server visual positions reversed only: Global right, China left, stored selected server/default unchanged. Three-state operator-list switch paints a neutral rail and clips accent fill to thumb center: selected left/off, tags center/left half lit, all right/full lit (thumb covers end). Standard server/panel switches keep ordinary full-track tint. Widths40/40/60dp, colors, tap order and data unchanged. Native validation pending.
+
+
+### 0.3.23 verified delivery
+Source 26994a5ba402b2c2fc62e14a8b1c21bf03a9d906; CI run 41444396467 success. APK47066806 bytes SHA256056b01e737bb42ed6a0b1d166f09bda9a77d6652f600c433ceaeec6b94b144f0. Saved libfile_f6dcb99109d88191b8da23d1255cafba. Native screenshot validation pending. Global now right without changing selected server; list rail half-lit at tags. Widths unchanged. Debug signing limitation remains.
