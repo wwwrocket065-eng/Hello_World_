@@ -307,3 +307,7 @@ Source 8edb9841ae804ae3cc420dac7f74a5939023a03b; CI run 41432884999 success (eng
 
 ## 0.3.20 — tap buttons and region label colors
 Replaced both discrete sliders with equally sized 82x42dp tap-to-cycle buttons in shared RecruitSettings. Server stays first: fixed white «Сервер:», dynamic Global muted blue #8B9FBD / China muted red #BE888D; matching muted button backgrounds and ↔ glyph. Panel header uses same muted server text colors. Chooser cycle selected (stored2, visual1/3) → current tags (stored1, visual2/3) → all (stored0, visual3/3, full accent fill); defaults current tags without overriding saved choices. Fixed white prefix and single-line marquee mode label retained. Stored filter semantics/data/recognition unchanged. FilterCycle regression passes locally. Build/native validation pending; debug signing limitation unchanged.
+
+
+### 0.3.20 delivery checkpoint
+Source ac0cc7a7af5208d11a0be63fe0890c10ab26ae93; CI run 41434908598 success, all existing checks and APK build passed. APK47065118 bytes, SHA25626fb02b53056032a931b89011697795ecfaaaff2fe5a0510a14d89f45508c09c. Saved libfile_1c1e5222cea08191b9a59104ca197379. User reiterated chooser must cycle on tap and selected/all swapped; implemented selected→tags→all. Native Xiaomi UI unverified; debug signing limitation remains.
