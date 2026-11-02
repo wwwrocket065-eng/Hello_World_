@@ -34,6 +34,10 @@ jobs:
       - name: Validate external Global API
         continue-on-error: true
         run: python3 tools/check_data.py
+      - name: Bundle offline operator portraits
+        run: |
+          python3 -m pip install 'Pillow>=11,<13'
+          python3 tools/prepare_portraits.py
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4

@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
     text(root,"Global",15,0xFFBFD8E3);
     button(root,"Запустить",()->{
       if(!Settings.canDrawOverlays(this)){
-        Toast.makeText(this,"Сначала предоставьте разрешение",Toast.LENGTH_LONG).show();
+        
         openOverlayPermission();return;
       }
       Intent i=new Intent(this,ScreenService.class);i.setAction("SHOW");
@@ -134,21 +134,7 @@ public class MainActivity extends Activity {
     UiStyle.dialog(dialog);
   }
   private void openOverlayPermission(){
-    // Open the relevant *overlay* settings, not Xiaomi's unrelated "Other permissions".
-    // Android 11+ ignores the package URI and may show a list by design.
-    try {
-      Intent overlay=new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
-      if(Build.VERSION.SDK_INT<30)
-        overlay.setData(Uri.parse("package:"+getPackageName()));
-      startActivity(overlay);
-      return;
-    }catch(Exception ignored){}
-    try{
-      startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-        Uri.parse("package:"+getPackageName())));
-    }catch(Exception noSettings){
-      Toast.makeText(this,"Не удалось открыть настройки разрешения",Toast.LENGTH_LONG).show();
-    }
+    OverlayPermissionNavigator.open(this);
   }
   private int dp(int value){
     return (int)(value*getResources().getDisplayMetrics().density+0.5f);

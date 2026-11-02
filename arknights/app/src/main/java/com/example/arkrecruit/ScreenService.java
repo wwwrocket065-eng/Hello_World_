@@ -36,8 +36,9 @@ public class ScreenService extends Service {
   private final List<Recognition> recognized=new ArrayList<>();
   private List<RecruitmentEngine.Operator> operators=Collections.emptyList();
   private RecruitmentEngine.Result recommendation;
-  private TextView panelText,statusText,listToggle,autoRecommendation;
+  private TextView panelText,statusText,listToggle;
   private LinearLayout operatorRows;
+  private OperatorPortraits portraits;
   private String targetName,operatorRowsKey="";
   private List<RecruitmentEngine.Operator> reachableOperators=Collections.emptyList();
   private ScrollView operatorScroll;
@@ -60,6 +61,7 @@ public class ScreenService extends Service {
   }
   @Override public void onCreate(){
     super.onCreate();prefs=getSharedPreferences("settings",MODE_PRIVATE);
+    portraits=new OperatorPortraits(this);
     wm=(WindowManager)getSystemService(WINDOW_SERVICE);
     NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
     nm.createNotificationChannel(new NotificationChannel(CHANNEL,"Анализ рекрутинга",NotificationManager.IMPORTANCE_LOW));
@@ -373,7 +375,6 @@ public class ScreenService extends Service {
       else panelText.setText((targetName==null?"":"Цель: "+targetName+"\n")+
         "Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary());
     }
-    if(autoRecommendation!=null)autoRecommendation.setVisibility(targetName!=null?View.VISIBLE:View.GONE);
     if(listToggle!=null&&operatorScroll!=null&&operatorRows!=null){
       boolean any=recommendation!=null&&!reachableOperators.isEmpty();
       listToggle.setVisibility(any?View.VISIBLE:View.GONE);
@@ -395,11 +396,22 @@ public class ScreenService extends Service {
     int scrollY=operatorScroll.getScrollY();
     operatorRows.removeAllViews();
     for(RecruitmentEngine.Operator op:reachableOperators){
-      TextView row=new TextView(this);
-      row.setText(op.rarity+"★ "+op.name);
-      row.setTextColor(op.name.equals(targetName)?UiStyle.ACCENT:UiStyle.TEXT);
-      row.setTextSize(11);row.setPadding(dp(2),dp(7),dp(3),dp(7));
-      operatorRows.addView(row,new LinearLayout.LayoutParams(-1,-2));
+      LinearLayout row=new LinearLayout(this);
+      row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);
+      int color=op.name.equals(targetName)?UiStyle.ACCENT:UiStyle.TEXT;
+      TextView rarity=new TextView(this);rarity.setText(op.rarity+"★");
+      rarity.setTextColor(color);rarity.setTextSize(11);rarity.setIncludeFontPadding(false);
+      row.addView(rarity,new LinearLayout.LayoutParams(dp(22),-2));
+      ImageView portrait=new ImageView(this);portrait.setScaleType(ImageView.ScaleType.CENTER_CROP);
+      portrait.setBackground(UiStyle.rounded(this,0xFF344653,2));portrait.setClipToOutline(true);
+      LinearLayout.LayoutParams imageParams=new LinearLayout.LayoutParams(dp(20),dp(20));
+      imageParams.setMargins(0,0,dp(4),0);row.addView(portrait,imageParams);
+      portraits.bind(portrait,op.name);
+      TextView name=new TextView(this);name.setText(op.name);name.setTextColor(color);
+      name.setTextSize(11);name.setIncludeFontPadding(false);name.setSingleLine(true);
+      name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+      row.addView(name,new LinearLayout.LayoutParams(0,-2,1f));
+      operatorRows.addView(row,new LinearLayout.LayoutParams(-1,dp(22)));
       row.setOnClickListener(v->{
         targetName=op.name.equals(targetName)?null:op.name;
         chooseRecommendation();
@@ -480,12 +492,8 @@ public class ScreenService extends Service {
     panelText.setTextSize(12);panelText.setPadding(0,dp(4),0,dp(3));
     box.addView(panelText);
     listToggle=new TextView(this);listToggle.setTextColor(UiStyle.ACCENT);
-    listToggle.setTextSize(12);listToggle.setPadding(dp(2),dp(7),dp(2),dp(7));
+    listToggle.setTextSize(12);listToggle.setPadding(dp(2),dp(5),dp(2),dp(3));
     box.addView(listToggle);
-    autoRecommendation=new TextView(this);autoRecommendation.setText("Лучшая рекомендация");
-    autoRecommendation.setTextColor(UiStyle.ACCENT);autoRecommendation.setTextSize(11);
-    autoRecommendation.setPadding(dp(2),dp(5),dp(2),dp(5));box.addView(autoRecommendation);
-    autoRecommendation.setOnClickListener(v->{targetName=null;chooseRecommendation();});
     operatorRows=new LinearLayout(this);operatorRows.setOrientation(LinearLayout.VERTICAL);
     operatorScroll=new ScrollView(this){
       @Override protected void onMeasure(int w,int h){
@@ -667,6 +675,7 @@ public class ScreenService extends Service {
     render();
   }
   @Override public void onDestroy(){
+    if(portraits!=null){portraits.close();portraits=null;}
     if(reader!=null)reader.setOnImageAvailableListener(null,null);
     if(virtualDisplay!=null)virtualDisplay.release();
     if(reader!=null)reader.close();
