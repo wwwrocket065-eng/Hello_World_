@@ -17,7 +17,7 @@ public final class HighlightRenderer {
     int color=HighlightStyle.color(prefs);
     float opacity=1-prefs.getInt("highlightTransparency",20)/100f;
     float unit=Math.max(1,r.height()/42f),radius=3*unit;
-    inset.set(r);inset.inset(2*unit,2*unit);
+    inset.set(r);// Frame centerline follows the measured button boundary.
     p.setStyle(Paint.Style.FILL);p.setShader(null);
     if(prefs.getBoolean("showFill",true)){
       p.setColor(alpha(color,.08f*opacity));c.drawRoundRect(inset,radius,radius,p);
@@ -25,8 +25,8 @@ public final class HighlightRenderer {
     if(prefs.getBoolean("showFrame",true)){
       p.setStyle(Paint.Style.STROKE);
       for(int i=12;i>=4;i-=2){p.setStrokeWidth(i*unit);p.setColor(alpha(color,opacity*.07f));c.drawRoundRect(inset,radius,radius,p);}
-      p.setStrokeWidth(3.6f*unit);p.setColor(alpha(color,opacity));c.drawRoundRect(inset,radius,radius,p);
-      p.setStrokeWidth(1.6f*unit);p.setColor(alpha(Color.WHITE,.98f*opacity));c.drawRoundRect(inset,radius,radius,p);
+      p.setStrokeWidth(3.6f*unit);p.setColor(alpha(color,1));c.drawRoundRect(inset,radius,radius,p);
+      p.setStrokeWidth(1.6f*unit);p.setColor(alpha(Color.WHITE,1));c.drawRoundRect(inset,radius,radius,p);
     }
     p.setStyle(Paint.Style.FILL);
     int save=c.save();c.clipRect(r.left+5*unit,r.top+5*unit,r.right-5*unit,r.bottom-5*unit);
@@ -41,17 +41,11 @@ public final class HighlightRenderer {
     int count=prefs.getBoolean("showStars",true)?HighlightPattern.COUNT:0;
     for(int i=0;i<count;i++){
       float x=r.left+HighlightPattern.x(seed,i)*r.width(),y=r.top+HighlightPattern.y(seed,i)*r.height();
-      float size=(i%5==0?3.3f:i%3==0?2.6f:1.8f)*unit;
+      float size=HighlightPattern.size(seed,i)*unit;
       float pulse=HighlightPattern.pulse(time,seed,i);
-      // Continuous attenuation near letters: no rectangular cutout or dark panel.
-      float textFade=1;
-      if(text!=null){
-        float dx=Math.max(Math.max(text.left-x,0),x-text.right);
-        float dy=Math.max(Math.max(text.top-y,0),y-text.bottom);
-        float distance=(float)Math.hypot(dx,dy);
-        textFade=.28f+.72f*Math.min(1,distance/(5*unit));
-      }
-      pulse*=textFade;
+      // Leave letters clear by omitting overlapping stars, never painting a mask.
+      if(text!=null && x+size*2.8f>text.left && x-size*2.8f<text.right
+          && y+size*2.8f>text.top && y-size*2.8f<text.bottom)continue;
       float fog=.16f;
       haloRect.set(x-size*2.8f,y-size*2.8f,x+size*2.8f,y+size*2.8f);
       p.setColor(Color.WHITE);p.setAlpha(Math.round(255*opacity*pulse*fog*.6f));

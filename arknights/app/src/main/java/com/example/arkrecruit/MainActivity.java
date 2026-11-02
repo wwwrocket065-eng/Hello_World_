@@ -51,12 +51,11 @@ public class MainActivity extends Activity {
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
+    root.addView(new HighlightColorControl(this,prefs,null));
     text(root,"Рекомендации",19,Color.WHITE);
     RecruitSettings.addRegion(root,prefs,()->loadDb(false));
     RecruitSettings.addPanel(root,prefs,null);
     RecruitSettings.addFilter(root,prefs,null);
-    text(root,"Подсветка",19,Color.WHITE);
-    root.addView(new HighlightColorControl(this,prefs,null));
     text(root,"База операторов Global",19,Color.WHITE);
     dbStatus=text(root,"Проверка базы...",15,0xFFBFD8E3);
     dbProgress=new ProgressBar(this);dbProgress.setIndeterminate(true);
