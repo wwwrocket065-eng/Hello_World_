@@ -442,7 +442,7 @@ public class ScreenService extends Service {
       if(!key.equals(goalDisplayKey)){
         goalDisplayKey=key;
         android.text.SpannableStringBuilder goals=new android.text.SpannableStringBuilder("Цель: ");
-        if(targets.isEmpty())goals.append("Макс цель");
+        if(targets.isEmpty())goals.append("Макс редкость");
         else for(Map.Entry<String,Integer> target:targets.entrySet()){
           if(goals.length()>6)goals.append("\n");
           String name=target.getKey();
@@ -462,7 +462,14 @@ public class ScreenService extends Service {
     if(listToggle!=null&&operatorScroll!=null&&operatorRows!=null){
       boolean any=!operators.isEmpty();
       listToggle.setVisibility(any?View.VISIBLE:View.GONE);
-      listToggle.setText("Выбор цели "+(operatorListExpanded?"▴":"▾"));
+      int count=prefs.getBoolean("only_current_tags",true)?reachableOperators.size():operators.size();
+      String label="Выбор цели ("+count+") ";
+      android.text.SpannableString toggle=new android.text.SpannableString(label+"\uFFFC");
+      android.graphics.drawable.Drawable arrow=new DisclosureArrow(UiStyle.ACCENT,operatorListExpanded,dp(1));
+      arrow.setBounds(0,0,dp(15),dp(12));
+      toggle.setSpan(new android.text.style.ImageSpan(arrow,android.text.style.ImageSpan.ALIGN_BASELINE),label.length(),toggle.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      listToggle.setText(toggle);
+      listToggle.setContentDescription("Выбор цели ("+count+"). "+(operatorListExpanded?"Свернуть":"Развернуть"));
       operatorScroll.setVisibility(any&&operatorListExpanded?View.VISIBLE:View.GONE);
       if(any&&operatorListExpanded)renderOperatorRows();
     }
@@ -475,7 +482,7 @@ public class ScreenService extends Service {
   private void renderOperatorRows(){
     HashSet<String> available=new HashSet<>();
     for(RecruitmentEngine.Operator op:reachableOperators)available.add(op.name);
-    boolean onlyCurrent=prefs.getBoolean("only_current_tags",false);
+    boolean onlyCurrent=prefs.getBoolean("only_current_tags",true);
     ArrayList<RecruitmentEngine.Operator> all=new ArrayList<>(onlyCurrent?reachableOperators:operators);
     all.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
     StringBuilder key=new StringBuilder(targets.toString()).append(onlyCurrent).append(available.toString());
@@ -614,7 +621,7 @@ public class ScreenService extends Service {
     box.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
     // Drag using the narrow header; the operator list stays independently scrollable.
     TextView drag=new TextView(this);
-    drag.setText("⠿  Рекомендация");
+    drag.setText("⠿  Рекомендация · Global");
     drag.setTextColor(UiStyle.MUTED);
     drag.setTextSize(12);
     drag.setGravity(Gravity.CENTER_VERTICAL);
@@ -622,6 +629,7 @@ public class ScreenService extends Service {
     box.addView(drag,new LinearLayout.LayoutParams(-1,dp(32)));
     statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);
     statusText.setTextSize(10);statusText.setText("База Global");
+    statusText.setVisibility(View.GONE);
     box.addView(statusText);
     goalText=new TextView(this);goalText.setTextColor(Color.WHITE);goalText.setTextSize(12);
     goalText.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());goalText.setHighlightColor(Color.TRANSPARENT);
@@ -720,8 +728,8 @@ public class ScreenService extends Service {
     Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
-    Switch current=new Switch(this);current.setText("Только операторы с текущими тегами");UiStyle.toggle(current);
-    current.setChecked(prefs.getBoolean("only_current_tags",false));box.addView(current);
+    Switch current=new Switch(this);current.setText("Цели: только текущие теги");UiStyle.toggle(current);current.setTextColor(Color.WHITE);
+    current.setChecked(prefs.getBoolean("only_current_tags",true));box.addView(current);
     current.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("only_current_tags",on).apply();render();});
     box.addView(new HighlightColorControl(this,prefs,
       ()->{if(markers!=null)markers.invalidate();}));

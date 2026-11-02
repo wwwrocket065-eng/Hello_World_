@@ -289,3 +289,7 @@ Own panel, controls and settings are excluded from sparse scene and lower-button
 
 ## 0.3.17 — target duration and exact label colors
 Recommendation plans are independent of the current timer: 9:00 for maximum rarity and 3–6 star targets, 3:50 for robots, 7:30 for 2-star targets. Result stores exact minutes. Reachable target chooser unions valid durations, keeping robots selectable with a 9h dial. Only «Выбрать:» is yellow; duration, rarity and tags are white. Only «Цель:» is turquoise, default «Макс цель» white; individual multiple-goal colors preserved. Rarity interval describes selected tags at recommended time; game Possible Rarity is a general time-only interval. Added duration/low-rarity availability tests; engine passes locally. 0.3.16 occlusion fix retained. Device testing pending. Signing remains ephemeral CI debug key.
+
+
+## 0.3.18 — compact panel labels and chooser defaults
+Default goal renamed «Макс редкость». Header «Рекомендация · Global»; routine OCR row hidden (recognition unchanged). Chooser «Выбор цели (N)» counts the actual filtered/unfiltered list; 15dp rounded triangle rendered as font-independent Drawable/ImageSpan, accessibility label includes state. Setting renamed «Цели: только текущие теги» in both screens, white text; filter defaults true for unset preferences, panel remains default true. Saved user choices preserved. 0.3.17 target durations and 0.3.16 occlusion handling unchanged. Device validation pending.
