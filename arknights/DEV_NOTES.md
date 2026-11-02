@@ -213,3 +213,9 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Local Java regressions pass: original screenshot grid present; 4751 expedited dialog WITH old green fills rejected; 4739 selected blue Medic retained; enlarged-strip coordinates map back exactly; contrast, geometry and engine regressions retained. Private screenshots NOT committed.
 - Device limitations: this sparse gate is tested on supplied frames, not live Xiaomi. Several assistant windows occluding multiple buttons, other skins or changed UI geometry may require tuning. Initial discovery still uses full-frame OCR; automatic game-time/actual user-selection tracking remains outside this change.
 - Version 0.3.10 / code 13. Source baseline 2734ad557b3768e353ff6921cd1bd1605ba69494. CI and artifact verification pending.
+
+## 2026-11-02 — 0.3.10 verified build checkpoint
+- Source commit `f74f676f717f09343298517aa905e3a5b07df405`; successful Actions run `41408199130`, artifact `13123554756`. Engine smoke, geometry/contrast/probe/coordinate tests, live API validation and APK build passed.
+- APK version 0.3.10, 46,387,900 bytes; SHA256 `e909ec24101aa17e48196d8e180221b7c4b2cf7f23e044a7c4d6f151c5461937`. Artifact and APK CRC checked, manifest version confirmed; DEX includes RecruitmentScreenProbe and TagOcrInput; notes asset included.
+- V2 certificate SHA256 `018cf5c97ea381ccad92f5c094a7476631af1acd3a543d09cea67f5fa9ac4a66`, differs from 0.3.9. Uninstall/reinstall required with settings reset. Durable APK identity `libfile_4c92c7e20e80819196a09a9ac978523b`.
+- Pending Xiaomi runtime test: selected tag retention, exit to accelerated recruitment dialog clearing overlays, return detection, real scene-check and OCR throughput. Sparse gate and coordinate tests are confirmed on supplied screenshots only, not measured device fps. Do not label 30fps as measured.
