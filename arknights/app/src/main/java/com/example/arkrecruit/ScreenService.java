@@ -36,7 +36,10 @@ public class ScreenService extends Service {
   private final List<Recognition> recognized=new ArrayList<>();
   private List<RecruitmentEngine.Operator> operators=Collections.emptyList();
   private RecruitmentEngine.Result recommendation;
-  private TextView panelText,statusText,operatorListText,listToggle;
+  private TextView panelText,statusText,listToggle,autoRecommendation;
+  private LinearLayout operatorRows;
+  private String targetName,operatorRowsKey="";
+  private List<RecruitmentEngine.Operator> reachableOperators=Collections.emptyList();
   private ScrollView operatorScroll;
   private boolean operatorListExpanded=false;
   private SharedPreferences prefs;
@@ -350,7 +353,14 @@ public class ScreenService extends Service {
   private void chooseRecommendation(){
     ArrayList<String> tags=new ArrayList<>();
     for(Recognition r:recognized)tags.add(r.tag);
-    recommendation=RecruitmentEngine.best(tags,operators,prefs.getBoolean("chance",false),9);
+    List<RecruitmentEngine.Result> options=RecruitmentEngine.combinations(tags,operators,prefs.getBoolean("chance",false),9);
+    reachableOperators=RecruitmentEngine.reachable(options);
+    recommendation=options.isEmpty()?null:options.get(0);
+    if(targetName!=null){
+      RecruitmentEngine.Result target=RecruitmentEngine.forTarget(options,targetName);
+      if(target!=null)recommendation=target;
+      else targetName=null;
+    }
     render();
   }
   private void render(){
@@ -360,27 +370,42 @@ public class ScreenService extends Service {
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
         "/5\nНет проверенной комбинации или базы");
-      else panelText.setText("Выбрать: "+variantLabel(recommendation)+
-        "\n"+recommendation.raritySummary());
+      else panelText.setText((targetName==null?"":"Цель: "+targetName+"\n")+
+        "Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary());
     }
-    if(listToggle!=null&&operatorScroll!=null&&operatorListText!=null){
-      int count=recommendation==null?0:recommendation.operators.size();
-      listToggle.setVisibility(count>0?View.VISIBLE:View.GONE);
+    if(autoRecommendation!=null)autoRecommendation.setVisibility(targetName!=null?View.VISIBLE:View.GONE);
+    if(listToggle!=null&&operatorScroll!=null&&operatorRows!=null){
+      boolean any=recommendation!=null&&!reachableOperators.isEmpty();
+      listToggle.setVisibility(any?View.VISIBLE:View.GONE);
       listToggle.setText("Операторы "+(operatorListExpanded?"▴":"▾"));
-      operatorScroll.setVisibility(count>0&&operatorListExpanded?View.VISIBLE:View.GONE);
-      if(count>0){
-        StringBuilder names=new StringBuilder();
-        for(RecruitmentEngine.Operator op:recommendation.operators)
-          names.append(op.rarity).append("★ ").append(op.name).append(" — ")
-            .append(count==1?"100%":"шанс неизвестен").append("\n");
-        operatorListText.setText(names.toString().trim());
-      }else operatorListText.setText("");
+      operatorScroll.setVisibility(any&&operatorListExpanded?View.VISIBLE:View.GONE);
+      if(any&&operatorListExpanded)renderOperatorRows();
     }
     if(panel!=null){
       panel.setVisibility(projection!=null&&!paused&&screenPresent&&inRecruitment&&
         prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
       panel.post(this::updateOverlayExclusions);
     }
+  }
+  private void renderOperatorRows(){
+    StringBuilder key=new StringBuilder(targetName==null?"":targetName);
+    for(RecruitmentEngine.Operator op:reachableOperators)key.append('|').append(op.rarity).append(':').append(op.name);
+    if(operatorRowsKey.equals(key.toString()))return;
+    operatorRowsKey=key.toString();
+    int scrollY=operatorScroll.getScrollY();
+    operatorRows.removeAllViews();
+    for(RecruitmentEngine.Operator op:reachableOperators){
+      TextView row=new TextView(this);
+      row.setText(op.rarity+"★ "+op.name);
+      row.setTextColor(op.name.equals(targetName)?UiStyle.ACCENT:UiStyle.TEXT);
+      row.setTextSize(11);row.setPadding(dp(2),dp(7),dp(3),dp(7));
+      operatorRows.addView(row,new LinearLayout.LayoutParams(-1,-2));
+      row.setOnClickListener(v->{
+        targetName=op.name.equals(targetName)?null:op.name;
+        chooseRecommendation();
+      });
+    }
+    operatorScroll.post(()->operatorScroll.scrollTo(0,scrollY));
   }
   private static String variantLabel(RecruitmentEngine.Result r){
     return r.tags.isEmpty()?"Без тегов":String.join(" + ",r.tags);
@@ -457,9 +482,11 @@ public class ScreenService extends Service {
     listToggle=new TextView(this);listToggle.setTextColor(UiStyle.ACCENT);
     listToggle.setTextSize(12);listToggle.setPadding(dp(2),dp(7),dp(2),dp(7));
     box.addView(listToggle);
-    operatorListText=new TextView(this);
-    operatorListText.setTextColor(UiStyle.TEXT);operatorListText.setTextSize(11);
-    operatorListText.setPadding(dp(2),dp(3),dp(3),dp(3));
+    autoRecommendation=new TextView(this);autoRecommendation.setText("Лучшая рекомендация");
+    autoRecommendation.setTextColor(UiStyle.ACCENT);autoRecommendation.setTextSize(11);
+    autoRecommendation.setPadding(dp(2),dp(5),dp(2),dp(5));box.addView(autoRecommendation);
+    autoRecommendation.setOnClickListener(v->{targetName=null;chooseRecommendation();});
+    operatorRows=new LinearLayout(this);operatorRows.setOrientation(LinearLayout.VERTICAL);
     operatorScroll=new ScrollView(this){
       @Override protected void onMeasure(int w,int h){
         int cap=Math.min(dp(150),Math.max(dp(40),height/2));
@@ -468,7 +495,7 @@ public class ScreenService extends Service {
         super.onMeasure(w,MeasureSpec.makeMeasureSpec(cap,MeasureSpec.AT_MOST));
       }
     };
-    operatorScroll.addView(operatorListText);
+    operatorScroll.addView(operatorRows);
     operatorScroll.setFillViewport(false);
     box.addView(operatorScroll,new LinearLayout.LayoutParams(-1,-2));
     listToggle.setOnClickListener(v->{

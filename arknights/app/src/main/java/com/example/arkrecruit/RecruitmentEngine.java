@@ -31,26 +31,12 @@ public final class RecruitmentEngine {
       for(Operator x:ops) { min=Math.min(min,x.rarity); max=Math.max(max,x.rarity); }
       guaranteed=min;possible=max;
     }
-    public String chanceForRarity(int rarity){
-      int count=0;
-      for(Operator op:operators)if(op.rarity==rarity)count++;
-      if(count==0)return "0%";
-      return count==operators.size()?"100%":"шанс неизвестен";
-    }
     public String raritySummary(){
-      StringBuilder b=new StringBuilder();
-      if(guaranteed<possible)b.append("Не ниже ").append(guaranteed).append("★ — 100%\n");
-      for(int rarity=hours>=8?3:hours>=4?2:1;rarity<=6;rarity++){
-        if(rarity==6&&possible<6)continue;
-        if(b.length()>0&&b.charAt(b.length()-1)!='\n')b.append("\n");
-        b.append(rarity).append("★ — ").append(chanceForRarity(rarity));
-      }
-      return b.toString();
+      return guaranteed==possible?guaranteed+"★":"Не ниже "+guaranteed+"★ · возможно "+possible+"★";
     }
     public String description() {
       StringBuilder b=new StringBuilder(raritySummary());
-      for(Operator o:operators) b.append("\n").append(o.rarity).append("★ ").append(o.name)
-        .append(" — ").append(operators.size()==1?"100%":"шанс неизвестен");
+      for(Operator o:operators)b.append("\n").append(o.rarity).append("★ ").append(o.name);
       return b.toString();
     }
   }
@@ -139,6 +125,32 @@ public final class RecruitmentEngine {
     }
     results.sort((a,b)->Long.compare(score(b,chance),score(a,chance)));
     return results;
+  }
+  /** Union over viable nonempty tag selections; never restrict to the best one. */
+  public static List<Operator> reachable(List<Result> options){
+    Map<String,Operator> unique=new LinkedHashMap<>();
+    for(Result result:options){
+      if(result.tags.isEmpty())continue;
+      for(Operator op:result.operators)unique.putIfAbsent(op.name,op);
+    }
+    ArrayList<Operator> all=new ArrayList<>(unique.values());
+    all.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
+    return all;
+  }
+  /** Narrow the candidate pool for a chosen target; does not claim exact odds. */
+  public static Result forTarget(List<Result> options,String name){
+    Result best=null;
+    for(Result result:options){
+      if(result.tags.isEmpty())continue;
+      boolean contains=false;
+      for(Operator op:result.operators)if(op.name.equals(name)){contains=true;break;}
+      if(!contains)continue;
+      if(best==null||result.operators.size()<best.operators.size()||
+          result.operators.size()==best.operators.size()&&
+          (result.guaranteed>best.guaranteed||result.guaranteed==best.guaranteed&&result.tags.size()<best.tags.size()))
+        best=result;
+    }
+    return best;
   }
   private static long score(Result r,boolean chance){
     long value=chance?r.possible*100000000L+r.guaranteed*1000000L:

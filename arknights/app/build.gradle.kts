@@ -6,8 +6,8 @@ android {
     applicationId = "com.example.arkrecruit"
     minSdk = 26
     targetSdk = 35
-    versionCode = 13
-    versionName = "0.3.10"
+    versionCode = 14
+    versionName = "0.3.11"
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17

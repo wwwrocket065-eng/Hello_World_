@@ -45,8 +45,8 @@ public final class EngineSmoke {
       throw new AssertionError("Impossible DP-Recovery + Supporter combination");
     if(choice.tags.isEmpty()){
       baseline=true;
-      if(!"шанс неизвестен".equals(choice.chanceForRarity(5)))
-        throw new AssertionError("Invented a mixed-pool probability");
+      if(choice.description().contains("%")||choice.description().contains("шанс неизвестен"))
+        throw new AssertionError("Removed probability UI reintroduced");
     }
     for(RecruitmentEngine.Operator op:choice.operators){
       three|=op.rarity==3;four|=op.rarity==4;five|=op.rarity==5;
@@ -54,12 +54,33 @@ public final class EngineSmoke {
   }
   if(!baseline||!three||!four||!five)throw new AssertionError("Missing lower-rarity alternatives");
   RecruitmentEngine.Result onlyFive=RecruitmentEngine.best(Arrays.asList("Support"),regression,false,9);
-  if(onlyFive==null||!"100%".equals(onlyFive.chanceForRarity(5))||
-      !"0%".equals(onlyFive.chanceForRarity(3)))
-    throw new AssertionError("Conditional 0/100 probabilities incorrect");
+  if(onlyFive==null||onlyFive.guaranteed!=5||onlyFive.possible!=5)
+    throw new AssertionError("Guaranteed rarity incorrect");
   for(RecruitmentEngine.Result choice:RecruitmentEngine.combinations(Arrays.asList("Support"),regression,false,3))
     for(RecruitmentEngine.Operator op:choice.operators)if(op.rarity>=5)
       throw new AssertionError("Five-star allowed below four hours");
+  List<RecruitmentEngine.Operator> goalRoster=Arrays.asList(
+    new RecruitmentEngine.Operator("Mayer",5,Arrays.asList("Ranged","Supporter","Summon")),
+    new RecruitmentEngine.Operator("Beanstalk",4,Arrays.asList("Ranged","Vanguard","Summon","DP-Recovery")),
+    new RecruitmentEngine.Operator("Kroos",3,Arrays.asList("Ranged","Sniper","DPS")),
+    new RecruitmentEngine.Operator("Exusiai",6,Arrays.asList("Ranged","Sniper","DPS")),
+    new RecruitmentEngine.Operator("Unreachable caster",5,Arrays.asList("Caster","DPS"))
+  );
+  List<RecruitmentEngine.Result> goals=RecruitmentEngine.combinations(
+    Arrays.asList("Summon","Supporter","Sniper","DP-Recovery","Starter"),goalRoster,false,9);
+  List<RecruitmentEngine.Operator> reachable=RecruitmentEngine.reachable(goals);
+  Set<String> names=new HashSet<>();for(RecruitmentEngine.Operator op:reachable)names.add(op.name);
+  if(reachable.size()!=3||!names.equals(new HashSet<>(Arrays.asList("Mayer","Beanstalk","Kroos"))))
+    throw new AssertionError("List must union all tag choices, deduplicate and exclude untaggable/Top-only operators");
+  if(goals.get(0).guaranteed!=5)throw new AssertionError("Automatic best recommendation changed");
+  RecruitmentEngine.Result kroos=RecruitmentEngine.forTarget(goals,"Kroos");
+  if(kroos==null||!kroos.tags.contains("Sniper")||kroos.guaranteed!=3)
+    throw new AssertionError("Lower-rarity target is unavailable outside best combo");
+  RecruitmentEngine.Result mayer=RecruitmentEngine.forTarget(goals,"Mayer");
+  if(mayer==null||mayer.operators.size()!=1||!mayer.operators.get(0).name.equals("Mayer"))
+    throw new AssertionError("Target plan failed to narrow operators");
+  if(RecruitmentEngine.forTarget(goals,"Unreachable caster")!=null)
+    throw new AssertionError("No-tags baseline advertised as a targeted plan");
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }
