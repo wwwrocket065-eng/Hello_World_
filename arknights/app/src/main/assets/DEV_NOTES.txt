@@ -331,3 +331,7 @@ User rejected rectangular arrow/check/fraction buttons: they intended tap-to-cyc
 
 ### 0.3.22 verified delivery
 Source 87ef31f0853933c7085b40be1883042945c5b11d; CI run 41443304470 success. APK47066370 bytes SHA256d6ede162988a741cd365981ca792bbc436cf4dc4cb0366255e0de9c3bfb571d5. Saved libfile_cccfa3c704e48191893ff28b298f0337. All native device appearance/tap/animation checks remain pending. User explicitly corrected: ONLY operator-list switch longer; server and panel normal length. Capsule switches restored, no rectangular buttons or inside symbols. No other UI/data behavior changed.
+
+
+## 0.3.23 — server direction and partial three-state rail
+Server visual positions reversed only: Global right, China left, stored selected server/default unchanged. Three-state operator-list switch paints a neutral rail and clips accent fill to thumb center: selected left/off, tags center/left half lit, all right/full lit (thumb covers end). Standard server/panel switches keep ordinary full-track tint. Widths40/40/60dp, colors, tap order and data unchanged. Native validation pending.

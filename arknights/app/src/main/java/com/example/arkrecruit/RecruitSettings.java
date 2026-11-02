@@ -57,7 +57,7 @@ public final class RecruitSettings {
       label.setText(region?region(prefs):value);
       label.setTextColor(region?regionColor(prefs):Color.WHITE);
       control.setContentDescription(region?"Сервер: "+region(prefs):"Список операторов: "+value+", "+level+" из 3");
-      control.setState(region?(prefs.getBoolean("china",false)?1:0):level-1,
+      control.setState(region?(prefs.getBoolean("china",false)?0:1):level-1,
         region?regionColor(prefs):UiStyle.ACCENT,region||level>1);
     };
     update.run();

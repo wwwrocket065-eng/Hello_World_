@@ -33,9 +33,18 @@ public final class CycleToggle extends View {
     float density=getResources().getDisplayMetrics().density;
     float cy=getHeight()/2f,left=3*density,right=getWidth()-3*density;
     float radius=10*density,halfTrack=7*density;
-    paint.setColor(active?(color&0x00FFFFFF)|0x55000000:0xFF435763);
+    // Neutral rail remains visible beyond the current three-state thumb.
+    paint.setColor(0xFF435763);
     canvas.drawRoundRect(left,cy-halfTrack,right,cy+halfTrack,halfTrack,halfTrack,paint);
     float x=left+radius+(right-left-radius*2)*fraction;
+    if(active){
+      paint.setColor((color&0x00FFFFFF)|0x55000000);
+      if(positions==3){
+        int saved=canvas.save();canvas.clipRect(left,cy-halfTrack,x,cy+halfTrack);
+        canvas.drawRoundRect(left,cy-halfTrack,right,cy+halfTrack,halfTrack,halfTrack,paint);
+        canvas.restoreToCount(saved);
+      }else canvas.drawRoundRect(left,cy-halfTrack,right,cy+halfTrack,halfTrack,halfTrack,paint);
+    }
     paint.setColor(active?color:UiStyle.MUTED);canvas.drawCircle(x,cy,radius,paint);
     if(isPressed()||isFocused()){
       paint.setColor((color&0x00FFFFFF)|0x22000000);canvas.drawCircle(x,cy,radius+4*density,paint);
