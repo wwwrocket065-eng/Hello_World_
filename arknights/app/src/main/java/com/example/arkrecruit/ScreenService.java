@@ -44,6 +44,8 @@ public class ScreenService extends Service {
   private final Map<String,RecruitmentEngine.Result> targetPlans=new LinkedHashMap<>();
   private int nextTargetColor;
   private TextView goalText;
+  private volatile View goalMenu;
+  private String goalDisplayKey="";
   private List<RecruitmentEngine.Operator> reachableOperators=Collections.emptyList();
   private ScrollView operatorScroll;
   private boolean operatorListExpanded=false;
@@ -190,7 +192,7 @@ public class ScreenService extends Service {
       return;
     }
     long now=SystemClock.elapsedRealtime();
-    if(paused){image.close();return;}
+    if(paused||goalMenu!=null){image.close();return;}
     // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
     // They keep running while an OCR task is in flight.
     if(knownTiles.length==5&&now-lastProbe>=33){
@@ -278,7 +280,7 @@ public class ScreenService extends Service {
   }
   private void updateOverlayExclusions(){
     ArrayList<Rect> areas=new ArrayList<>();
-    for(View view:new View[]{panel,gear,settings}){
+    for(View view:new View[]{panel,gear,settings,goalMenu}){
       if(view==null||view.getVisibility()!=View.VISIBLE||view.getWidth()==0)continue;
       int[] xy=new int[2];view.getLocationOnScreen(xy);
       areas.add(new Rect(xy[0],xy[1],xy[0]+view.getWidth(),xy[1]+view.getHeight()));
@@ -372,6 +374,7 @@ public class ScreenService extends Service {
     recommendation=options.isEmpty()?null:options.get(0);
     targetPlans.clear();
     for(String name:targets.keySet())targetPlans.put(name,RecruitmentEngine.forTarget(options,name));
+    if(targets.size()==1)recommendation=targetPlans.get(targets.keySet().iterator().next());
     render();
   }
   private void render(){
@@ -383,21 +386,33 @@ public class ScreenService extends Service {
         "/5\nНет проверенной комбинации или базы");
       else panelText.setText("Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary());
     }
+    if(paused||!screenPresent)closeGoalMenu();
     if(goalText!=null){
-      android.text.SpannableStringBuilder goals=new android.text.SpannableStringBuilder("Цель: ");
-      if(targets.isEmpty())goals.append("Максимальная редкость");
-      else for(Map.Entry<String,Integer> target:targets.entrySet()){
-        if(goals.length()>6)goals.append("\n");
-        int start=goals.length();goals.append("● ").append(target.getKey());
-        if(targetPlans.get(target.getKey())==null)goals.append(" — нет тегов");
-        goals.setSpan(new android.text.style.ForegroundColorSpan(target.getValue()),start,goals.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      String key=targets.toString();
+      for(String name:targets.keySet())key+=targetPlans.get(name)==null?"0":"1";
+      if(!key.equals(goalDisplayKey)){
+        goalDisplayKey=key;
+        android.text.SpannableStringBuilder goals=new android.text.SpannableStringBuilder("Цель: ");
+        if(targets.isEmpty())goals.append("Максимальная редкость");
+        else for(Map.Entry<String,Integer> target:targets.entrySet()){
+          if(goals.length()>6)goals.append("\n");
+          String name=target.getKey();
+          int color=targets.size()>1?target.getValue():UiStyle.TEXT;
+          int start=goals.length();
+          goals.append(targets.size()>1?"● ":"").append(name);
+          if(targetPlans.get(name)==null)goals.append(" — нет тегов");
+          goals.setSpan(new android.text.style.ClickableSpan(){
+            @Override public void onClick(View view){openGoalMenu(name);}
+            @Override public void updateDrawState(android.text.TextPaint paint){paint.setColor(color);paint.setUnderlineText(false);}
+          },start,goals.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        goalText.setText(goals);
       }
-      goalText.setText(goals);
     }
     if(listToggle!=null&&operatorScroll!=null&&operatorRows!=null){
       boolean any=!operators.isEmpty();
       listToggle.setVisibility(any?View.VISIBLE:View.GONE);
-      listToggle.setText("Операторы "+(operatorListExpanded?"▴":"▾"));
+      listToggle.setText("Выбор цели "+(operatorListExpanded?"▴":"▾"));
       operatorScroll.setVisibility(any&&operatorListExpanded?View.VISIBLE:View.GONE);
       if(any&&operatorListExpanded)renderOperatorRows();
     }
@@ -410,9 +425,10 @@ public class ScreenService extends Service {
   private void renderOperatorRows(){
     HashSet<String> available=new HashSet<>();
     for(RecruitmentEngine.Operator op:reachableOperators)available.add(op.name);
-    ArrayList<RecruitmentEngine.Operator> all=new ArrayList<>(operators);
+    boolean onlyCurrent=prefs.getBoolean("only_current_tags",false);
+    ArrayList<RecruitmentEngine.Operator> all=new ArrayList<>(onlyCurrent?reachableOperators:operators);
     all.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
-    StringBuilder key=new StringBuilder(targets.toString()).append(available.toString());
+    StringBuilder key=new StringBuilder(targets.toString()).append(onlyCurrent).append(available.toString());
     for(RecruitmentEngine.Operator op:all)key.append('|').append(op.rarity).append(':').append(op.name);
     if(operatorRowsKey.equals(key.toString()))return;
     operatorRowsKey=key.toString();
@@ -438,16 +454,44 @@ public class ScreenService extends Service {
       row.setOnClickListener(v->{
         if(targets.containsKey(op.name))targets.remove(op.name);
         else targets.put(op.name,Color.HSVToColor(new float[]{(nextTargetColor++*137.508f+15)%360,.68f,1f}));
-        org.json.JSONArray saved=new org.json.JSONArray();
-        for(Map.Entry<String,Integer> target:targets.entrySet()){
-          org.json.JSONObject item=new org.json.JSONObject();
-          try{item.put("name",target.getKey());item.put("color",target.getValue());saved.put(item);}catch(Exception ignored){}
-        }
-        prefs.edit().putString("goals",saved.toString()).putInt("next_goal_color",nextTargetColor).apply();
+        saveGoals();
         chooseRecommendation();
       });
     }
     operatorScroll.post(()->operatorScroll.scrollTo(0,scrollY));
+  }
+  private void saveGoals(){
+    org.json.JSONArray saved=new org.json.JSONArray();
+    for(Map.Entry<String,Integer> target:targets.entrySet()){
+      org.json.JSONObject item=new org.json.JSONObject();
+      try{item.put("name",target.getKey());item.put("color",target.getValue());saved.put(item);}catch(Exception ignored){}
+    }
+    prefs.edit().putString("goals",saved.toString()).putInt("next_goal_color",nextTargetColor).apply();
+  }
+  private void closeGoalMenu(){
+    if(goalMenu!=null){wm.removeView(goalMenu);goalMenu=null;scanEpoch.incrementAndGet();lastScan=0;lastProbe=0;updateOverlayExclusions();}
+  }
+  private void openGoalMenu(String name){
+    closeGoalMenu();
+    FrameLayout shade=new FrameLayout(this);shade.setBackgroundColor(0x66000000);
+    shade.setOnClickListener(v->closeGoalMenu());
+    LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
+    card.setPadding(dp(12),dp(8),dp(12),dp(12));
+    card.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));card.setOnClickListener(v->{});
+    LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);
+    TextView title=new TextView(this);title.setText(name);title.setTextColor(UiStyle.TEXT);title.setTextSize(16);
+    heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+    Button close=new Button(this);close.setText("✕");UiStyle.button(close,false);
+    heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));card.addView(heading);
+    close.setOnClickListener(v->closeGoalMenu());
+    Button remove=new Button(this);remove.setText("Удалить "+name+" из целей");UiStyle.button(remove,false);card.addView(remove);
+    remove.setOnClickListener(v->{targets.remove(name);saveGoals();closeGoalMenu();chooseRecommendation();});
+    Button clear=new Button(this);clear.setText("Очистить все цели");UiStyle.button(clear,false);card.addView(clear);
+    clear.setOnClickListener(v->{targets.clear();saveGoals();closeGoalMenu();chooseRecommendation();});
+    FrameLayout.LayoutParams center=new FrameLayout.LayoutParams(Math.min(dp(290),width-dp(24)),-2,Gravity.CENTER);
+    shade.addView(card,center);scanEpoch.incrementAndGet();goalMenu=shade;
+    wm.addView(goalMenu,layout(-1,-1,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN));
+    goalMenu.post(this::updateOverlayExclusions);
   }
   private static String variantLabel(RecruitmentEngine.Result r){
     return r.tags.isEmpty()?"Без тегов":String.join(" + ",r.tags);
@@ -519,6 +563,7 @@ public class ScreenService extends Service {
     statusText.setTextSize(10);statusText.setText("База Global");
     box.addView(statusText);
     goalText=new TextView(this);goalText.setTextColor(UiStyle.TEXT);goalText.setTextSize(12);
+    goalText.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());goalText.setHighlightColor(Color.TRANSPARENT);
     ScrollView goalScroll=new ScrollView(this){
       @Override protected void onMeasure(int w,int h){
         super.onMeasure(w,MeasureSpec.makeMeasureSpec(Math.min(dp(78),height/4),MeasureSpec.AT_MOST));
@@ -613,6 +658,9 @@ public class ScreenService extends Service {
     Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
+    Switch current=new Switch(this);current.setText("Только операторы с текущими тегами");UiStyle.toggle(current);
+    current.setChecked(prefs.getBoolean("only_current_tags",false));box.addView(current);
+    current.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("only_current_tags",on).apply();render();});
     box.addView(new HighlightColorControl(this,prefs,
       ()->{if(markers!=null)markers.invalidate();}));
     settingSlider(box,"Непрозрачность подсветки","fillAlpha",10,70,35);
@@ -663,7 +711,7 @@ public class ScreenService extends Service {
       }
       // Add goal dots above the top-right edge; leave the existing fill untouched.
       float radius=dp(3),spacing=dp(8);
-      for(Recognition r:recognized){
+      if(targets.size()>1)for(Recognition r:recognized){
         int index=0,columns=Math.max(1,(int)(r.tile.width()*sx/spacing));
         for(Map.Entry<String,Integer> target:targets.entrySet()){
           RecruitmentEngine.Result plan=targetPlans.get(target.getKey());
@@ -722,6 +770,7 @@ public class ScreenService extends Service {
     render();
   }
   @Override public void onDestroy(){
+    closeGoalMenu();
     paused=true;inRecruitment=false;screenPresent=false;
     if(portraits!=null){portraits.close();portraits=null;}
     if(reader!=null)reader.setOnImageAvailableListener(null,null);

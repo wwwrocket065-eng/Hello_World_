@@ -258,7 +258,11 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Multi-target plan regression added to engine smoke. No false probability numbers, operator counts or All variants interface restored. Capture, scene probe, permission routing and offline portraits unchanged.
 - Version 0.3.13 / code16; baseline 9df11333d076b70a07bc795c4852a4b3e79f33f6. Build and device UX validation pending.
 
-## 0.3.13 delivery checkpoint
-- Source ffc64cb9bde081499cd5423a27cfe9d810ffa891; run 41416976266 SUCCESS; artifact 13127393883. Engine/multi-plan, geometry/probe, API, 158 portraits and APK build passed.
-- APK 47,022,064 bytes; SHA256 2d3de621f80754e7f6aae07dfa4aa95ccad5128bac030be35f9ef71562cb89a8. CRC/version and all portrait files verified; DEX contains persisted goal colours and per-goal plans.
-- Durable APK libfile_eaf4d2e312f48191944d7c223647b0b1. Live multi-selection, colour dots, scrolling and retention require Xiaomi validation. Ephemeral CI signing can require uninstall/reinstall, resetting preferences.
+## 2026-11-02 — 0.3.14 target management popup and reachable-only filter
+- User requests neutral single goal without circles; current-tag-only filter near panel switch; selector label Выбор цели; tap a selected goal name for styled remove/clear popup.
+- Single target: neutral name with no bullet/dots, primary fill follows that target's valid plan. Multiple targets retain stable colours and per-goal dots. Stored colours are retained internally when reducing to one so remaining goals regain their colours when more are selected.
+- Added persistent only_current_tags setting both on main UI and floating settings beside panel toggle. It filters selector rows to currently reachable operators (including selected reachable rows); unavailable selected goals remain in goal summary for management.
+- Renamed selector to Выбор цели, no counts. Goal names use individually clickable spans, neutral when alone. Stable display-key prevents OCR refresh from replacing text while tapping.
+- New centered overlay popup uses UiStyle surface, border, rounded controls and X; actions Remove NAME from goals / Clear all goals. Tap outside closes without changes. Removal/clear persists and recomputes plans; clearing restores automatic Maximum rarity goal.
+- While management popup is open, frames are drained without OCR/probe because our modal occludes game buttons. Epoch guards reject in-flight results; closing forces immediate rescan. No new capture session or permissions.
+- Version 0.3.14/code17; baseline 913e6c234a8222f08e436003ee74111f326d3e5d. CI and device interaction tests pending.

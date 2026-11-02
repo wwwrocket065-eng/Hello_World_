@@ -54,6 +54,9 @@ public class MainActivity extends Activity {
     Switch panel=new Switch(this);panel.setText("Показывать панель операторов");
     UiStyle.toggle(panel);panel.setChecked(prefs.getBoolean("panel",true));
     panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
+    Switch current=new Switch(this);current.setText("Только операторы с текущими тегами");UiStyle.toggle(current);
+    current.setChecked(prefs.getBoolean("only_current_tags",false));root.addView(current);
+    current.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("only_current_tags",on).apply());
     text(root,"Подсветка",19,Color.WHITE);
     root.addView(new HighlightColorControl(this,prefs,null));
     slider(root,"Непрозрачность подсветки",10,70,prefs.getInt("fillAlpha",35),

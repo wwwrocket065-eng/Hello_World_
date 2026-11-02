@@ -257,3 +257,12 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Goal names carry individual colours. Existing main highlight stays the automatic recommendation; additional bordered colour dots above each tag's top-right corner identify every goal whose independently narrowed valid plan uses that tag. Multiple dots wrap above the tag. Each goal plan has <=3 tags. Do NOT treat the union of differently coloured dots as a jointly valid selection or claim measured odds.
 - Multi-target plan regression added to engine smoke. No false probability numbers, operator counts or All variants interface restored. Capture, scene probe, permission routing and offline portraits unchanged.
 - Version 0.3.13 / code16; baseline 9df11333d076b70a07bc795c4852a4b3e79f33f6. Build and device UX validation pending.
+
+## 2026-11-02 — 0.3.14 target management popup and reachable-only filter
+- User requests neutral single goal without circles; current-tag-only filter near panel switch; selector label Выбор цели; tap a selected goal name for styled remove/clear popup.
+- Single target: neutral name with no bullet/dots, primary fill follows that target's valid plan. Multiple targets retain stable colours and per-goal dots. Stored colours are retained internally when reducing to one so remaining goals regain their colours when more are selected.
+- Added persistent only_current_tags setting both on main UI and floating settings beside panel toggle. It filters selector rows to currently reachable operators (including selected reachable rows); unavailable selected goals remain in goal summary for management.
+- Renamed selector to Выбор цели, no counts. Goal names use individually clickable spans, neutral when alone. Stable display-key prevents OCR refresh from replacing text while tapping.
+- New centered overlay popup uses UiStyle surface, border, rounded controls and X; actions Remove NAME from goals / Clear all goals. Tap outside closes without changes. Removal/clear persists and recomputes plans; clearing restores automatic Maximum rarity goal.
+- While management popup is open, frames are drained without OCR/probe because our modal occludes game buttons. Epoch guards reject in-flight results; closing forces immediate rescan. No new capture session or permissions.
+- Version 0.3.14/code17; baseline 913e6c234a8222f08e436003ee74111f326d3e5d. CI and device interaction tests pending.
