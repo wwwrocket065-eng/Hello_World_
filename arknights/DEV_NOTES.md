@@ -323,3 +323,7 @@ Final wording per user correction: «Список операторов» replace
 
 ### 0.3.21 final verified delivery
 Final source a7bc1dcfef6daf3158b01358c5d6868ae5461f24; CI run 41436066230 success. Supersedes intermediate 0.3.21 builds; only final APK delivered. Size47065794, SHA256f4eb2b4964a3b31e29f7bb93d16683e5ea14ea449b9be0468d1b966115ab9e2b. Saved libfile_d2159eddc4dc81918205672830322666. Contains compact Выбранные/Теги/Все labels, equal settings buttons, final «Список операторов (N)» title with existing arrow and empty-selected message. Native Xiaomi layout still unverified; ephemeral CI signing caveat unchanged.
+
+
+## 0.3.22 — restore actual switch appearance
+User rejected rectangular arrow/check/fraction buttons: they intended tap-to-cycle switches with a round thumb. Replaced controls with CycleToggle capsule track and circular 20dp thumb, no symbols/text inside. Server and panel use normal 40dp width; ONLY the three-position operator-list switch is 60dp (1.5x). Same 42dp hit height, 14dp rail height, 140ms thumb transition; tap cycles without dragging. Fixed meanings/order/defaults, all labels/colors/count/empty message retained. Two-state accessibility reports Switch/check state. No recruitment/data/OCR changes. Native device validation pending. Do not reintroduce rectangular settings buttons or lengthen every switch.
