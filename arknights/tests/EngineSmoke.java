@@ -54,8 +54,8 @@ public final class EngineSmoke {
   }
   if(!baseline||!three||!four||!five)throw new AssertionError("Missing lower-rarity alternatives");
   RecruitmentEngine.Result onlyFive=RecruitmentEngine.best(Arrays.asList("Support"),regression,false,9);
-  if(onlyFive==null||!"100%*".equals(onlyFive.chanceForRarity(5))||
-      !"0%*".equals(onlyFive.chanceForRarity(3)))
+  if(onlyFive==null||!"100%".equals(onlyFive.chanceForRarity(5))||
+      !"0%".equals(onlyFive.chanceForRarity(3)))
     throw new AssertionError("Conditional 0/100 probabilities incorrect");
   for(RecruitmentEngine.Result choice:RecruitmentEngine.combinations(Arrays.asList("Support"),regression,false,3))
     for(RecruitmentEngine.Operator op:choice.operators)if(op.rarity>=5)

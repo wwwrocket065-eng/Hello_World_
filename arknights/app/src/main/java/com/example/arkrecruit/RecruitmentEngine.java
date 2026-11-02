@@ -34,24 +34,23 @@ public final class RecruitmentEngine {
     public String chanceForRarity(int rarity){
       int count=0;
       for(Operator op:operators)if(op.rarity==rarity)count++;
-      if(count==0)return "0%*";
-      return count==operators.size()?"100%*":"шанс неизвестен";
+      if(count==0)return "0%";
+      return count==operators.size()?"100%":"шанс неизвестен";
     }
     public String raritySummary(){
       StringBuilder b=new StringBuilder();
-      if(guaranteed<possible)b.append("Не ниже ").append(guaranteed).append("★ — 100%*\n");
+      if(guaranteed<possible)b.append("Не ниже ").append(guaranteed).append("★ — 100%\n");
       for(int rarity=hours>=8?3:hours>=4?2:1;rarity<=6;rarity++){
         if(rarity==6&&possible<6)continue;
         if(b.length()>0&&b.charAt(b.length()-1)!='\n')b.append("\n");
         b.append(rarity).append("★ — ").append(chanceForRarity(rarity));
       }
-      b.append("\n* При ").append(hours).append(" ч и сохранении тегов");
       return b.toString();
     }
     public String description() {
       StringBuilder b=new StringBuilder(raritySummary());
       for(Operator o:operators) b.append("\n").append(o.rarity).append("★ ").append(o.name)
-        .append(" — ").append(operators.size()==1?"100%*":"шанс неизвестен");
+        .append(" — ").append(operators.size()==1?"100%":"шанс неизвестен");
       return b.toString();
     }
   }

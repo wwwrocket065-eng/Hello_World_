@@ -55,6 +55,24 @@ public final class TagGeometrySmoke {
       }
       if(!TagGrid.isRecruitmentGrid(hits))throw new AssertionError("Screenshot grid rejected");
     }
+    BufferedImage colors=new BufferedImage(180,160,BufferedImage.TYPE_INT_RGB);
+    Graphics2D color=colors.createGraphics();
+    Rect[] states={new Rect(10,10,150,55),new Rect(10,60,150,105),new Rect(10,110,150,155)};
+    java.awt.Color[] backgrounds={new java.awt.Color(48,48,48),new java.awt.Color(0,155,210),new java.awt.Color(250,210,0)};
+    for(int i=0;i<3;i++){
+      Rect box=states[i];color.setColor(backgrounds[i]);color.fillRect(box.left,box.top,box.width(),box.height());
+      color.setColor(i==2?java.awt.Color.BLACK:java.awt.Color.WHITE);
+      color.fillRect(60,box.top+15,35,15);
+    }
+    color.dispose();Bitmap source=new Bitmap(colors);
+    Bitmap normalized=TagContrastNormalizer.enhance(source,states);
+    for(Rect box:states){
+      if((normalized.getPixel(65,box.top+20)&0xffffff)!=0||
+         (normalized.getPixel(30,box.top+20)&0xffffff)!=0xffffff)
+        throw new AssertionError("Normal/selected/rare tag contrast differs");
+    }
+    if(source.getPixel(30,80)==normalized.getPixel(30,80))
+      throw new AssertionError("Original capture modified or selected tag not normalized");
     System.out.println("Tag geometry regression tests PASS");
   }
 }
