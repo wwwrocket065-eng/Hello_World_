@@ -40,7 +40,7 @@ public class ScreenService extends Service {
   private int dataGeneration;
   private final SharedPreferences.OnSharedPreferenceChangeListener settingsListener=(p,key)->{
     if("china".equals(key))loadOperators();
-    else if("target_filter".equals(key))render();
+    else if("target_filter".equals(key)||"panel".equals(key))render();
   };
   private LinearLayout operatorRows;
   private OperatorPortraits portraits;
@@ -748,9 +748,7 @@ public class ScreenService extends Service {
     box.addView(heading);
     close.setOnClickListener(v->toggleSettings());
     RecruitSettings.addRegion(box,prefs,null);
-    Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
-    show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
-    show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
+    RecruitSettings.addPanel(box,prefs,this::render);
     RecruitSettings.addFilter(box,prefs,this::render);
     box.addView(new HighlightColorControl(this,prefs,
       ()->{if(markers!=null)markers.invalidate();}));

@@ -311,3 +311,7 @@ Replaced both discrete sliders with equally sized 82x42dp tap-to-cycle buttons i
 
 ### 0.3.20 delivery checkpoint
 Source ac0cc7a7af5208d11a0be63fe0890c10ab26ae93; CI run 41434908598 success, all existing checks and APK build passed. APK47065118 bytes, SHA25626fb02b53056032a931b89011697795ecfaaaff2fe5a0510a14d89f45508c09c. Saved libfile_1c1e5222cea08191b9a59104ca197379. User reiterated chooser must cycle on tap and selected/all swapped; implemented selected→tags→all. Native Xiaomi UI unverified; debug signing limitation remains.
+
+
+## 0.3.21 — compact chooser labels and equal settings controls
+Chooser labels shortened to «Выбранные» → «Теги» → «Все» after fixed «Выбор цели:». Stored values, cycle and default unchanged. All three settings controls (server, panel visibility, chooser) now share the same button factory (82x42dp, 13sp symbols, shared background/radius/padding); panel stock switch replaced by tap button. Panel preference listener updates overlay from main settings too. Calculation/data/recognition unchanged. Native layout validation pending.

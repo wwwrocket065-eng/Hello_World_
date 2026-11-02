@@ -24,6 +24,32 @@ public final class RecruitSettings {
   public static void addFilter(LinearLayout parent,SharedPreferences prefs,Runnable changed){
     add(parent,prefs,false,changed);
   }
+  public static void addPanel(LinearLayout parent,SharedPreferences prefs,Runnable changed){
+    Context context=parent.getContext();
+    LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.CENTER_VERTICAL);
+    TextView label=new TextView(context);label.setText("Панель операторов");label.setTextSize(14);label.setTextColor(Color.WHITE);
+    row.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+    Button control=control(context);
+    Runnable update=()->{
+      boolean on=prefs.getBoolean("panel",true);
+      control.setText(on?"✓":"—");control.setContentDescription("Панель операторов: "+(on?"включена":"выключена"));
+      style(control,on?UiStyle.ACCENT:UiStyle.RAISED,on?UiStyle.BACKGROUND:Color.WHITE);
+    };
+    update.run();
+    control.setOnClickListener(v->{prefs.edit().putBoolean("panel",!prefs.getBoolean("panel",true)).apply();update.run();if(changed!=null)changed.run();});
+    row.addView(control,new LinearLayout.LayoutParams(UiStyle.dp(context,82),UiStyle.dp(context,42)));
+    parent.addView(row,new LinearLayout.LayoutParams(-1,-2));
+  }
+  private static Button control(Context context){
+    Button button=new Button(context);UiStyle.button(button,false);
+    button.setMinWidth(0);button.setMinimumWidth(0);button.setMinHeight(0);button.setMinimumHeight(0);
+    button.setPadding(UiStyle.dp(context,4),0,UiStyle.dp(context,4),0);button.setTextSize(13);
+    return button;
+  }
+  private static void style(Button button,int background,int ink){
+    button.setTextColor(ink);
+    button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x4456DCC7),UiStyle.rounded(button.getContext(),background,12),UiStyle.rounded(button.getContext(),Color.WHITE,12)));
+  }
   private static void add(LinearLayout parent,SharedPreferences prefs,boolean region,Runnable changed){
     Context context=parent.getContext();
     LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.CENTER_VERTICAL);
@@ -35,20 +61,17 @@ public final class RecruitSettings {
     label.setSingleLine(true);label.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
     label.setMarqueeRepeatLimit(-1);label.setSelected(true);label.setTextSize(14);label.setTextColor(Color.WHITE);
     row.addView(label,new LinearLayout.LayoutParams(0,-2,1));
-    Button control=new Button(context);UiStyle.button(control,false);
-    control.setMinWidth(0);control.setMinimumWidth(0);control.setMinHeight(0);control.setMinimumHeight(0);
-    control.setPadding(UiStyle.dp(context,4),0,UiStyle.dp(context,4),0);control.setTextSize(13);
+    Button control=control(context);
     row.addView(control,new LinearLayout.LayoutParams(UiStyle.dp(context,82),UiStyle.dp(context,42)));
     Runnable update=()->{
       int mode=filter(prefs),level=mode==2?1:mode==1?2:3;
-      String value=mode==0?"Все операторы":mode==1?"Текущие теги":"Выбранные операторы";
+      String value=mode==0?"Все":mode==1?"Теги":"Выбранные";
       label.setText(region?region(prefs):value);
       label.setTextColor(region?regionColor(prefs):Color.WHITE);
       control.setText(region?"↔":level+" / 3");
       control.setContentDescription(region?"Сервер: "+region(prefs):"Выбор цели: "+value+", "+level+" из 3");
       int background=region?(prefs.getBoolean("china",false)?0xFF78545A:0xFF4B6489):level==3?UiStyle.ACCENT:level==2?0xFF31534F:UiStyle.RAISED;
-      control.setTextColor(!region&&level==3?UiStyle.BACKGROUND:Color.WHITE);
-      control.setBackground(new RippleDrawable(ColorStateList.valueOf(0x4456DCC7),UiStyle.rounded(context,background,12),UiStyle.rounded(context,Color.WHITE,12)));
+      style(control,background,!region&&level==3?UiStyle.BACKGROUND:Color.WHITE);
     };
     update.run();
     control.setOnClickListener(v->{

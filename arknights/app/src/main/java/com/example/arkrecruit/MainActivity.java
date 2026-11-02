@@ -52,9 +52,7 @@ public class MainActivity extends Activity {
     });
     text(root,"Рекомендации",19,Color.WHITE);
     RecruitSettings.addRegion(root,prefs,()->loadDb(false));
-    Switch panel=new Switch(this);panel.setText("Показывать панель операторов");
-    UiStyle.toggle(panel);panel.setChecked(prefs.getBoolean("panel",true));
-    panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
+    RecruitSettings.addPanel(root,prefs,null);
     RecruitSettings.addFilter(root,prefs,null);
     text(root,"Подсветка",19,Color.WHITE);
     root.addView(new HighlightColorControl(this,prefs,null));
