@@ -32,6 +32,8 @@ public final class TagGeometrySmoke {
     Bitmap bitmap=new Bitmap(image);
     near(detect(bitmap,new Rect(244,235,298,253)),grid.get(0),2);
     near(detect(bitmap,new Rect(381,307,490,325)),grid.get(4),2);
+    if(!RecruitmentScreenProbe.present(bitmap::getPixel,grid.toArray(new Rect[0]),900,500))
+      throw new AssertionError("Live five-button screen rejected");
     if(!TagGrid.isRecruitmentGrid(grid))throw new AssertionError("Valid five-tag grid rejected");
     if(TagGrid.isRecruitmentGrid(grid.subList(0,3)))throw new AssertionError("Partial frame accepted");
     ArrayList<Rect> overlay=new ArrayList<>(grid);
@@ -54,6 +56,27 @@ public final class TagGeometrySmoke {
         System.out.println("Screenshot tile "+i+": "+hit);
       }
       if(!TagGrid.isRecruitmentGrid(hits))throw new AssertionError("Screenshot grid rejected");
+      Rect[] physical=hits.toArray(new Rect[0]);
+      if(!RecruitmentScreenProbe.present(shot::getPixel,physical,shot.getWidth(),shot.getHeight()))
+        throw new AssertionError("Recruitment screenshot rejected by fast gate");
+      if(args.length>1){
+        Bitmap modal=new Bitmap(ImageIO.read(new File(args[1])));
+        if(RecruitmentScreenProbe.present(modal::getPixel,physical,modal.getWidth(),modal.getHeight()))
+          throw new AssertionError("Expedited-plan dialog accepted as recruitment");
+        System.out.println("Dialog with stale green overlay correctly rejected");
+      }
+      if(args.length>2){
+        Bitmap selected=new Bitmap(ImageIO.read(new File(args[2])));
+        if(!RecruitmentScreenProbe.present(selected::getPixel,physical,selected.getWidth(),selected.getHeight()))
+          throw new AssertionError("Selected Medic screenshot rejected by fast gate");
+        System.out.println("Selected Medic screen correctly retained");
+      }
+      TagOcrInput strip=TagOcrInput.prepare(shot,physical);
+      for(int i=0;i<5;i++){
+        Rect mapped=strip.map(new Rect(18,i*144+18,442,(i+1)*144-18));
+        near(mapped,physical[i],1);
+      }
+
     }
     BufferedImage colors=new BufferedImage(180,160,BufferedImage.TYPE_INT_RGB);
     Graphics2D color=colors.createGraphics();

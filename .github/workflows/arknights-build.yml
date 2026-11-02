@@ -29,7 +29,7 @@ jobs:
       - name: Test button geometry and partial OCR rejection
         run: |
           mkdir -p build/geometry
-          javac -d build/geometry tests/graphics/android/graphics/*.java app/src/main/java/com/example/arkrecruit/TagBoundsDetector.java app/src/main/java/com/example/arkrecruit/TagGrid.java app/src/main/java/com/example/arkrecruit/TagContrastNormalizer.java tests/graphics/TagGeometrySmoke.java
+          javac -d build/geometry tests/graphics/android/graphics/*.java app/src/main/java/com/example/arkrecruit/TagBoundsDetector.java app/src/main/java/com/example/arkrecruit/TagGrid.java app/src/main/java/com/example/arkrecruit/TagContrastNormalizer.java app/src/main/java/com/example/arkrecruit/RecruitmentScreenProbe.java app/src/main/java/com/example/arkrecruit/TagOcrInput.java tests/graphics/TagGeometrySmoke.java
           java -cp build/geometry com.example.arkrecruit.TagGeometrySmoke
       - name: Validate external Global API
         continue-on-error: true

@@ -2,6 +2,9 @@ package android.graphics;
 import java.awt.image.BufferedImage;
 public final class Bitmap {
   public enum Config { ARGB_8888 }
+  public static Bitmap createBitmap(int w,int h,Config config){return new Bitmap(new BufferedImage(w,h,BufferedImage.TYPE_INT_ARGB));}
+  public void recycle(){}
+  public BufferedImage image(){return image;}
   private final BufferedImage image;
   public Bitmap copy(Config c,boolean mutable){
     BufferedImage next=new BufferedImage(getWidth(),getHeight(),BufferedImage.TYPE_INT_ARGB);

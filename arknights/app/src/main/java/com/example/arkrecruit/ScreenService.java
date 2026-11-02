@@ -30,7 +30,8 @@ public class ScreenService extends Service {
   private TextRecognizer recognizer;
   private WindowManager wm; private Markers markers; private View gear, panel, settings;
   private FloatingControlButton playPause;
-  private boolean paused=true, inRecruitment=false;
+  private volatile boolean paused=true;
+  private boolean inRecruitment=false;
   private WindowManager.LayoutParams gearParams,panelParams;
   private final List<Recognition> recognized=new ArrayList<>();
   private List<RecruitmentEngine.Operator> operators=Collections.emptyList();
@@ -46,8 +47,11 @@ public class ScreenService extends Service {
   // Screen-space rectangles of our own text-bearing windows. Never OCR our panel.
   private volatile Rect[] overlayExclusions=new Rect[0];
   private int recognitionWidth,recognitionHeight;
-  private volatile int scanEpoch;
+  private final java.util.concurrent.atomic.AtomicInteger scanEpoch=new java.util.concurrent.atomic.AtomicInteger();
   private volatile Rect[] knownTiles=new Rect[0];
+  private volatile boolean screenPresent=false;
+  private long lastProbe;
+  private int probeMisses,probeHits;
   private static final class Recognition {
     String tag; Rect bounds; Rect tile; Recognition(String t,Rect r,Rect tile){tag=t;bounds=r;this.tile=tile;}
   }
@@ -147,11 +151,11 @@ public class ScreenService extends Service {
       }
       return;
     }
-    paused=!paused;scanEpoch++;
+    paused=!paused;scanEpoch.incrementAndGet();
     lastScan=0;
     if(paused){
       inRecruitment=false;
-      recognized.clear();recommendation=null;knownTiles=new Rect[0];
+      recognized.clear();recommendation=null;knownTiles=new Rect[0];screenPresent=false;probeHits=probeMisses=0;
     }
     updatePlayButton();render();
   }
@@ -168,10 +172,37 @@ public class ScreenService extends Service {
       main.post(()->{try{refreshDisplaySize();}finally{resizePending=false;}});
       return;
     }
-    if(paused||SystemClock.elapsedRealtime()-lastScan<(inRecruitment?1300:2500)||!busy.compareAndSet(false,true)){
+    long now=SystemClock.elapsedRealtime();
+    if(paused){image.close();return;}
+    // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
+    // They keep running while an OCR task is in flight.
+    if(knownTiles.length==5&&now-lastProbe>=33){
+      lastProbe=now;
+      Image.Plane probePlane=image.getPlanes()[0];
+      ByteBuffer pixels=probePlane.getBuffer();
+      int base=pixels.position(),row=probePlane.getRowStride(),step=probePlane.getPixelStride();
+      boolean present=RecruitmentScreenProbe.present((x,y)->{
+        int offset=base+y*row+x*step;
+        return Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);
+      },knownTiles,image.getWidth(),image.getHeight());
+      if(present){probeMisses=0;probeHits++;}
+      else{probeHits=0;probeMisses++;}
+      if(screenPresent&&probeMisses>=2){
+        screenPresent=false;scanEpoch.incrementAndGet();lastScan=0;
+        main.post(()->{
+          if(screenPresent)return;
+          inRecruitment=false;recognized.clear();recommendation=null;detectedCount=0;
+          render();
+        });
+      }else if(!screenPresent&&probeHits>=2){
+        screenPresent=true;scanEpoch.incrementAndGet();lastScan=0;
+      }
+    }
+    long interval=screenPresent?250:knownTiles.length==0?500:1000;
+    if(now-lastScan<interval||!busy.compareAndSet(false,true)){
       image.close();return;
     }
-    lastScan=SystemClock.elapsedRealtime();
+    lastScan=now;
     Bitmap bmp=null;
     try {
       Image.Plane plane=image.getPlanes()[0];
@@ -188,7 +219,7 @@ public class ScreenService extends Service {
     finally{image.close();}
     if(bmp==null){busy.set(false);return;}
     final Bitmap frame=bmp;
-    final int epoch=scanEpoch;
+    final int epoch=scanEpoch.get();
     // An all-black capture previously looked like OCR simply wasn't working.
     if(isBlankFrame(frame)){
       frame.recycle();busy.set(false);
@@ -205,10 +236,11 @@ public class ScreenService extends Service {
       });
       return;
     }
-    final Bitmap ocrFrame=TagContrastNormalizer.enhance(frame,knownTiles);
+    final TagOcrInput input=TagOcrInput.prepare(frame,screenPresent?knownTiles:new Rect[0]);
+    final Bitmap ocrFrame=input.bitmap;
     try{
       recognizer.process(InputImage.fromBitmap(ocrFrame,0))
-        .addOnSuccessListener(text->processText(text,frame,epoch))
+        .addOnSuccessListener(text->processText(text,frame,epoch,input))
         .addOnFailureListener(e->{
           android.util.Log.w("RecruitAssist","OCR failed",e);
           if(statusText!=null)statusText.setText("Ошибка распознавания текста");
@@ -237,17 +269,23 @@ public class ScreenService extends Service {
     overlayExclusions=areas.toArray(new Rect[0]);
   }
   private void recordTag(Map<String,Recognition> found,String raw,Rect box,
-                         Bitmap frame,Rect[] exclusions) {
+                         Bitmap frame,Rect[] exclusions,TagOcrInput input) {
     if(box==null||box.width()<5||box.height()<5)return;
     String tag=RecruitmentEngine.normalizeOcr(raw);
     if(tag==null)return;
-    for(Rect area:exclusions)if(Rect.intersects(area,box))return;
-    TagBoundsDetector.Detection hit=TagBoundsDetector.detect(frame,box);
-    // A label is not a button. Never draw an estimated rectangle around text.
-    if(hit==null)return;
-    found.putIfAbsent(tag,new Recognition(tag,new Rect(box),hit.tile));
+    Rect physical=input.tileFor(box),mapped=input.map(box);
+    for(Rect area:exclusions)if(Rect.intersects(area,mapped))return;
+    if(physical!=null){
+      // The fast pixel probe independently confirmed this physical button.
+      // A colour change cannot force us back to text-height edge guesses.
+      if(RecruitmentScreenProbe.tilePresent(frame::getPixel,physical,frame.getWidth(),frame.getHeight()))
+        found.putIfAbsent(tag,new Recognition(tag,new Rect(mapped),new Rect(physical)));
+      return;
+    }
+    TagBoundsDetector.Detection hit=TagBoundsDetector.detect(frame,mapped);
+    if(hit!=null)found.putIfAbsent(tag,new Recognition(tag,new Rect(mapped),hit.tile));
   }
-  private void processText(Text result,Bitmap frame,int epoch){
+  private void processText(Text result,Bitmap frame,int epoch,TagOcrInput input){
     LinkedHashMap<String,Recognition> found=new LinkedHashMap<>();
     Rect[] screenAreas=overlayExclusions;
     Rect[] exclusions=new Rect[screenAreas.length];
@@ -260,17 +298,17 @@ public class ScreenService extends Service {
     }
     for(Text.TextBlock block:result.getTextBlocks()){
       for(Text.Line line:block.getLines()){
-        recordTag(found,line.getText(),line.getBoundingBox(),frame,exclusions);
+        recordTag(found,line.getText(),line.getBoundingBox(),frame,exclusions,input);
         List<Text.Element> elements=line.getElements();
         for(int i=0;i<elements.size();i++){
           Text.Element item=elements.get(i);
-          recordTag(found,item.getText(),item.getBoundingBox(),frame,exclusions);
+          recordTag(found,item.getText(),item.getBoundingBox(),frame,exclusions,input);
           if(i+1<elements.size()){
             Text.Element next=elements.get(i+1);
             Rect a=item.getBoundingBox(),b=next.getBoundingBox();
             if(a!=null&&b!=null){
               Rect both=new Rect(a);both.union(b);
-              recordTag(found,item.getText()+" "+next.getText(),both,frame,exclusions);
+              recordTag(found,item.getText()+" "+next.getText(),both,frame,exclusions,input);
             }
           }
         }
@@ -282,7 +320,7 @@ public class ScreenService extends Service {
     final int frameWidth=frame.getWidth(),frameHeight=frame.getHeight();
     int count=found.size();
     main.post(()->{
-      if(paused||epoch!=scanEpoch)return;
+      if(paused||epoch!=scanEpoch.get())return;
       detectedCount=count;
       if(statusText!=null)statusText.setText("Global • OCR: "+count+"/5");
       // In-game OCR sometimes misreads one of the five labels.
@@ -291,20 +329,12 @@ public class ScreenService extends Service {
         // OCR on MediaProjection can miss a frame because transparent
         // overlays or transitions occlude labels. Never clear after a short
         // run of misses while the game remains on the recruitment page.
-        String screen=result.getText().toLowerCase(Locale.ROOT);
-        boolean recruitmentUi=screen.contains("job tags")||
-          screen.contains("recruitment time")||screen.contains("tap to refresh")||
-          screen.contains("contacting hr")||screen.contains("refresh");
-        boolean mainMenu=(screen.contains("terminal")&&screen.contains("operators"))||
-          (screen.contains("missions")&&screen.contains("store"))||
-          (screen.contains("squad")&&screen.contains("depot"));
-        if(!recruitmentUi&&mainMenu){
-          if(++missing>=3){
-            inRecruitment=false;recognized.clear();recommendation=null;knownTiles=new Rect[0];missing=0;
-          }
-        }else missing=0;
-        if(statusText!=null)statusText.setText("Global • OCR: "+count+
-          "/5"+(inRecruitment?" • сохранено":""));
+        if(screenPresent&&inRecruitment){
+          HashSet<String> previous=new HashSet<>();
+          for(Recognition r:recognized)previous.add(r.tag);
+          if(!previous.containsAll(found.keySet()))recommendation=null;
+        }
+        if(statusText!=null)statusText.setText("Global • OCR: "+count+"/5");
         render();return;
       }
       missing=0;
@@ -313,6 +343,7 @@ public class ScreenService extends Service {
       recognized.addAll(found.values());
       recognitionWidth=frameWidth;recognitionHeight=frameHeight;
       knownTiles=found.values().stream().map(r->new Rect(r.tile)).toArray(Rect[]::new);
+      screenPresent=true;probeMisses=0;probeHits=0;
       chooseRecommendation();
     });
   }
@@ -346,7 +377,7 @@ public class ScreenService extends Service {
       }else operatorListText.setText("");
     }
     if(panel!=null){
-      panel.setVisibility(projection!=null&&!paused&&
+      panel.setVisibility(projection!=null&&!paused&&screenPresent&&inRecruitment&&
         prefs.getBoolean("panel",true)?View.VISIBLE:View.GONE);
       panel.post(this::updateOverlayExclusions);
     }
@@ -542,7 +573,7 @@ public class ScreenService extends Service {
     Markers(Context c){super(c);setWillNotDraw(false);}
     @Override protected void onDraw(Canvas canvas){
       super.onDraw(canvas);
-      if(paused||!inRecruitment||recommendation==null)return;
+      if(paused||!screenPresent||!inRecruitment||recommendation==null)return;
       paint.setStyle(Paint.Style.FILL);
       paint.setColor(Color.argb((int)(255*prefs.getInt("fillAlpha",35)/100f),
         prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90)));
@@ -573,7 +604,7 @@ public class ScreenService extends Service {
     wm.getDefaultDisplay().getRealMetrics(dm);
     int nextW=dm.widthPixels,nextH=dm.heightPixels;
     if(nextW==width&&nextH==height)return;
-    width=nextW;height=nextH;scanEpoch++;
+    width=nextW;height=nextH;scanEpoch.incrementAndGet();
     captureWidth=nextW;captureHeight=nextH;
     if(virtualDisplay!=null&&workerHandler!=null){
       try{
@@ -593,7 +624,7 @@ public class ScreenService extends Service {
       }
     }
     lastScan=0;missing=0;detectedCount=0;
-    inRecruitment=false;recognized.clear();recommendation=null;knownTiles=new Rect[0];
+    inRecruitment=false;recognized.clear();recommendation=null;knownTiles=new Rect[0];screenPresent=false;probeHits=probeMisses=0;
     if(gear!=null){
       gearParams.x=Math.min(gearParams.x,Math.max(0,width-dp(104)));
       gearParams.y=Math.min(gearParams.y,Math.max(0,height-dp(70)));
