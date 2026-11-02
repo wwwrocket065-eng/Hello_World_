@@ -800,7 +800,12 @@ public class ScreenService extends Service {
         Rect tile=r.tile;
         RectF rect=new RectF(tile.left*sx-origin[0],tile.top*sy-origin[1],
           tile.right*sx-origin[0],tile.bottom*sy-origin[1]);
-        RectF text=new RectF(r.bounds.left*sx-origin[0]-dp(2),r.bounds.top*sy-origin[1]-dp(1),r.bounds.right*sx-origin[0]+dp(2),r.bounds.bottom*sy-origin[1]+dp(1));
+        // Stable label geometry: OCR boxes jitter as the overlay animates.
+        // Never let those frame-to-frame boxes change which stars exist.
+        paint.setTextSize(rect.height()*.40f);
+        float labelWidth=Math.min(rect.width()*.94f,paint.measureText(r.tag));
+        RectF text=new RectF(rect.centerX()-labelWidth/2-dp(2),rect.centerY()-rect.height()*.25f,
+          rect.centerX()+labelWidth/2+dp(2),rect.centerY()+rect.height()*.25f);
         renderer.draw(canvas,rect,prefs,SystemClock.uptimeMillis(),r.tag.hashCode(),text);
       }
       postInvalidateDelayed(33);

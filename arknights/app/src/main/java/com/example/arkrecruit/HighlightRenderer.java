@@ -55,7 +55,7 @@ public final class HighlightRenderer {
       star.quadTo(x+size*.16f,y+size*.16f,x,y+size*1.4f);
       star.quadTo(x-size*.16f,y+size*.16f,x-size,y);
       star.quadTo(x-size*.16f,y-size*.16f,x,y-size*1.4f);star.close();
-      int light=Math.min(255,Math.round(170+65*Math.min(1.30f,pulse)));
+      int light=Math.min(255,Math.round(80+175*Math.min(1f,pulse)));
       p.setColor(alpha(Color.rgb(light,light,light),opacity));c.drawPath(star,p);
     }
     c.restoreToCount(save);

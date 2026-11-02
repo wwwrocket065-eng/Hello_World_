@@ -15,6 +15,7 @@ public class MainActivity extends Activity {
   private final int REQUEST_CAPTURE=1901;
   private final int REQUEST_NOTIFICATIONS=1902;
   private TextView dbStatus;
+  private TextView footer;
   private ProgressBar dbProgress;
   private SharedPreferences prefs;
   private LinearLayout mainRoot;
@@ -22,7 +23,7 @@ public class MainActivity extends Activity {
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
     prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
-    ScrollView sc=new ScrollView(this); LinearLayout root=new LinearLayout(this);mainRoot=root;
+    ScrollView sc=new ScrollView(this); sc.setFillViewport(true); LinearLayout root=new LinearLayout(this);mainRoot=root;
     root.setOrientation(LinearLayout.VERTICAL); root.setPadding(32,36,32,40);
     root.setBackgroundColor(UiStyle.BACKGROUND);sc.addView(root);setContentView(sc);
     setupSystemBars(root);
@@ -41,7 +42,6 @@ public class MainActivity extends Activity {
     gear.setContentDescription("Настройки");
     header.addView(gear,new LinearLayout.LayoutParams(dp(52),dp(52)));
     gear.setOnClickListener(v->openMainSettings());
-    text(root,"Global",15,0xFFBFD8E3);
     button(root,"Запустить",()->{
       if(!Settings.canDrawOverlays(this)){
         
@@ -56,21 +56,9 @@ public class MainActivity extends Activity {
     RecruitSettings.addRegion(root,prefs,()->loadDb(false));
     RecruitSettings.addPanel(root,prefs,null);
     RecruitSettings.addFilter(root,prefs,null);
-    text(root,"База операторов Global",19,Color.WHITE);
-    dbStatus=text(root,"Проверка базы...",15,0xFFBFD8E3);
-    dbProgress=new ProgressBar(this);dbProgress.setIndeterminate(true);
-    dbProgress.setVisibility(View.GONE);UiStyle.progress(dbProgress);root.addView(dbProgress);
-    button(root,"Обновить базу",()->loadDb(true));
-    text(root,"Проверка комбинаций вручную (через запятую)",17,Color.WHITE);
-    EditText input=new EditText(this);input.setSingleLine(false);input.setTextColor(Color.WHITE);
-    input.setHint("Top Operator, Summon, Ranged, AoE, Elemental");UiStyle.input(input);
-    LinearLayout.LayoutParams inputLayout=new LinearLayout.LayoutParams(-1,-2);
-    inputLayout.setMargins(0,dp(8),0,dp(8));root.addView(input,inputLayout);
-    TextView answer=text(root,"",15,Color.WHITE);
-    button(root,"Рассчитать",()->{
-      RecruitmentEngine.Result r=RecruitmentEngine.best(Arrays.asList(input.getText().toString().split(",")),operators,true,9);
-      answer.setText(r==null?"Нет подходящей комбинации или не загружена база":String.join(" + ",r.tags)+"\n"+r.description());
-    });
+    root.addView(new View(this),new LinearLayout.LayoutParams(1,0,1f));
+    footer=text(root,"",13,UiStyle.MUTED);
+    updateFooter();
     loadDb(false);
   }
   @Override public void onBackPressed(){if(mainRoot!=null&&HighlightColorControl.back(mainRoot))return;super.onBackPressed();}
@@ -81,10 +69,18 @@ public class MainActivity extends Activity {
       @Override public void onProgress(String status){if(dbStatus!=null)dbStatus.setText(status);}
       @Override public void onLoaded(List<RecruitmentEngine.Operator> items,String status){
         if(requestedChina!=prefs.getBoolean("china",false))return;
-        operators=items;if(dbStatus!=null)dbStatus.setText(status);
+        operators=items;updateFooter();if(dbStatus!=null)dbStatus.setText(status);
         if(dbProgress!=null)dbProgress.setVisibility(View.GONE);
       }
     });
+  }
+  private void updateFooter(){
+    if(footer==null)return;
+    String version="";
+    try{version=getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception ignored){}
+    long updated=getSharedPreferences(prefs.getBoolean("china",false)?"recruit_china":"recruit",MODE_PRIVATE).getLong("updated",0);
+    String date=updated>0?new java.text.SimpleDateFormat("dd.MM.yyyy",Locale.getDefault()).format(new Date(updated)):"не обновлена";
+    footer.setText("v"+version+" · База: "+date);
   }
   @Override public void onResume(){super.onResume();hideNavigation();}
   private void openMainSettings(){
@@ -123,6 +119,11 @@ public class MainActivity extends Activity {
       else
         Toast.makeText(this,"Уведомления доступны без отдельного разрешения",Toast.LENGTH_SHORT).show();
     });
+    button(items,"Обновить базу",()->loadDb(true));
+    dbStatus=text(items,"",13,UiStyle.MUTED);
+    dbProgress=new ProgressBar(this);dbProgress.setIndeterminate(true);
+    dbProgress.setVisibility(View.GONE);UiStyle.progress(dbProgress);items.addView(dbProgress);
+    dialog.setOnDismissListener(d->{dbStatus=null;dbProgress=null;});
     dialog.show();
     UiStyle.dialog(dialog);
   }

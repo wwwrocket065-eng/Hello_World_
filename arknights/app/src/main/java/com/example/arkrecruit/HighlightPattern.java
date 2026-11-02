@@ -35,12 +35,11 @@ public final class HighlightPattern {
   public static float size(int seed,int i){return 1.7f+1.6f*random(seed,i,419);}
   public static float pulse(long time,int seed,int i){
     double t=time/1000.0;
-    double base=.90+.035*Math.sin(t*(.35+.16*random(seed,i,227))+random(seed,i,229)*Math.PI*2);
-    double period=19+12*random(seed,i,317);
-    double phase=t+period*random(seed,i,331);
-    double distance=(phase%period+period)%period-period/2;
-    // Smooth rare peak, including continuous derivatives across period boundaries.
-    double bump=.5+.5*Math.cos(distance/period*Math.PI*2);
-    return (float)(base+.35*Math.pow(bump,24));
+    // Incommensurate periods, phases and depths keep stars independent.
+    double phase=random(seed,i,229)*Math.PI*2;
+    double depth=.15+.10*random(seed,i,317);
+    double slow=Math.sin(t*(.65+.75*random(seed,i,227))+phase);
+    double detail=Math.sin(t*(1.35+.60*random(seed,i,331))+random(seed,i,337)*Math.PI*2);
+    return (float)(.74+depth*slow+.055*detail);
   }
 }
