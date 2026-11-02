@@ -76,7 +76,7 @@ public final class HighlightColorControl extends LinearLayout {
       hsv[0]=h;hsv[1]=s;saveColor(hsv);preview.invalidate();
     });
     page.addView(wheel,new LayoutParams(-1,UiStyle.dp(getContext(),200)));
-    SeekBar brightness=slider(page,"Яркость",Math.round(hsv[2]*100),value->{hsv[2]=value/100f;saveColor(hsv);preview.invalidate();});
+    SeekBar brightness=slider(page,"Яркость",prefs.getInt("paletteBrightness",100),value->{prefs.edit().putInt("paletteBrightness",value).apply();notifyChange();preview.invalidate();});
     ArrayList<Runnable> toggles=new ArrayList<>();
     component(page,"Рамка","showFrame",preview,toggles);
     component(page,"Заливка","showFill",preview,toggles);
@@ -102,7 +102,7 @@ public final class HighlightColorControl extends LinearLayout {
   private interface Value{void set(int value);}
   private SeekBar slider(LinearLayout page,String name,int value,Value change){
     TextView label=new TextView(getContext());label.setTextColor(Color.WHITE);label.setTextSize(14);label.setText(name+": "+value+"%");page.addView(label);
-    SeekBar slider=new SeekBar(getContext());slider.setMax(100);slider.setProgress(value);UiStyle.slider(slider);page.addView(slider,new LayoutParams(-1,-2));
+    SeekBar slider=new SeekBar(getContext());slider.setMax(200);slider.setProgress(value);UiStyle.slider(slider);page.addView(slider,new LayoutParams(-1,-2));
     slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
       public void onProgressChanged(SeekBar bar,int progress,boolean user){{label.setText(name+": "+progress+"%");if(user)change.set(progress);}}
       public void onStartTrackingTouch(SeekBar bar){}public void onStopTrackingTouch(SeekBar bar){}

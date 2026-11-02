@@ -387,3 +387,8 @@ Removed staticGlobal, manual calculator, database heading/status/block from main
 
 ### 0.3.28 verified delivery
 Source b62feb965d594a3aa80d9fd025fd0bedfbfef46b; CI41474610449 success including engine, geometry and APK compilation. APK47087462 bytes SHA25648d670f7993c3eb287524fd2216ed3f7cc35d4e1a71a5c0d3a3bfd969eabfdac. Saved libfile_dbcfe67beff48191bb56edaaaad0ba03. Native perceived twinkle and rapid navigation still unverified; ephemeral debug signing caveat unchanged.
+
+
+## 0.3.29 — spoken review: visible twinkle range, edge crop, 200% brightness
+Removed5unit internal clip: fill bands and stars now clip only to actual rounded button boundary. Letter exclusion checks star core rather than full haze, so small top/bottom stars survive. Added4 small stars (22total) in stable central top/bottom positions. Existing independent smooth phases/speeds retained; deeper pulse .59±(.31–.40)±.045 makes luminance clearly vary while keeping constant core alpha and nonzero minimum. Shape/position/size unchanged.
+Brightness now separate0–200% gain, default/reset100%, applied to stars and effect; color wheel hue/saturation separate. Above100 adds star intensity/halo and blends selected rim toward light without clipping HSV value. No further opacity/settings changes.90s continuity, independent trajectories, visible range, top/bottom placement and uncropped core checks pass. Native appearance pending, no claim phone validation.

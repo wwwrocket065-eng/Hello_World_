@@ -4,7 +4,7 @@ import android.graphics.*;
 /** Transparent reference-style gold rim, haze and fixed-shape four-point stars. */
 public final class HighlightRenderer {
   private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-  private final Path star=new Path();
+  private final Path star=new Path(),clip=new Path();
   private final RectF inset=new RectF(),haloRect=new RectF();
   private final Bitmap halo=Bitmap.createBitmap(48,48,Bitmap.Config.ARGB_8888);
   public HighlightRenderer(){
@@ -14,8 +14,9 @@ public final class HighlightRenderer {
   }
   private static int alpha(int c,float a){return (c&0xFFFFFF)|(Math.max(0,Math.min(255,Math.round(a*255)))<<24);}
   public void draw(Canvas c,RectF r,SharedPreferences prefs,long time,int seed,RectF text){
-    int color=HighlightStyle.color(prefs);
-    float opacity=1-prefs.getInt("highlightTransparency",20)/100f;
+    float gain=HighlightStyle.brightness(prefs);
+    int color=HighlightStyle.boosted(HighlightStyle.color(prefs),gain);
+    float opacity=(1-prefs.getInt("highlightTransparency",20)/100f)*Math.min(1,gain);
     float unit=Math.max(1,r.height()/42f),radius=3*unit;
     inset.set(r);// Frame centerline follows the measured button boundary.
     p.setStyle(Paint.Style.FILL);p.setShader(null);
@@ -24,15 +25,16 @@ public final class HighlightRenderer {
     }
     if(prefs.getBoolean("showFrame",true)){
       p.setStyle(Paint.Style.STROKE);
-      for(int i=12;i>=4;i-=2){p.setStrokeWidth(i*unit);p.setColor(alpha(color,opacity*.07f));c.drawRoundRect(inset,radius,radius,p);}
-      p.setStrokeWidth(3.6f*unit);p.setColor(alpha(color,1));c.drawRoundRect(inset,radius,radius,p);
-      p.setStrokeWidth(1.6f*unit);p.setColor(alpha(Color.WHITE,1));c.drawRoundRect(inset,radius,radius,p);
+      for(int i=12;i>=4;i-=2){p.setStrokeWidth(i*unit);p.setColor(alpha(color,opacity*.07f*gain));c.drawRoundRect(inset,radius,radius,p);}
+      p.setStrokeWidth(3.6f*unit);p.setColor(alpha(color,Math.min(1,gain)));c.drawRoundRect(inset,radius,radius,p);
+      p.setStrokeWidth(1.6f*unit);p.setColor(alpha(Color.WHITE,Math.min(1,gain)));c.drawRoundRect(inset,radius,radius,p);
     }
     p.setStyle(Paint.Style.FILL);
-    int save=c.save();c.clipRect(r.left+5*unit,r.top+5*unit,r.right-5*unit,r.bottom-5*unit);
+    // Fill and bands reach the actual rounded button edge. No early inset crop.
+    int save=c.save();clip.reset();clip.addRoundRect(r,radius,radius,Path.Direction.CW);c.clipPath(clip);
 
     // Quiet diagonal glass bands, like the supplied examples.
-    p.setColor(alpha(color,.035f*opacity));
+    p.setColor(alpha(color,.035f*opacity*gain));
     if(prefs.getBoolean("showFill",true))for(int i=-1;i<4;i++){
       Path band=star;band.reset();float x=r.left+r.width()*(i*.35f);
       band.moveTo(x,r.bottom);band.lineTo(x+r.width()*.12f,r.bottom);
@@ -44,18 +46,18 @@ public final class HighlightRenderer {
       float size=HighlightPattern.size(seed,i)*unit;
       float pulse=HighlightPattern.pulse(time,seed,i);
       // Leave letters clear by omitting overlapping stars, never painting a mask.
-      if(text!=null && x+size*2.8f>text.left && x-size*2.8f<text.right
-          && y+size*2.8f>text.top && y-size*2.8f<text.bottom)continue;
+      if(text!=null && x+size>text.left && x-size<text.right
+          && y+size*1.4f>text.top && y-size*1.4f<text.bottom)continue;
       float fog=.16f;
       haloRect.set(x-size*2.8f,y-size*2.8f,x+size*2.8f,y+size*2.8f);
-      p.setColor(Color.WHITE);p.setAlpha(Math.round(255*opacity*pulse*fog*.6f));
+      p.setColor(Color.WHITE);p.setAlpha(Math.round(255*Math.min(1,opacity*pulse*fog*.6f*gain)));
       c.drawBitmap(halo,null,haloRect,p);p.setAlpha(255);
       star.reset();star.moveTo(x,y-size*1.4f);
       star.quadTo(x+size*.16f,y-size*.16f,x+size,y);
       star.quadTo(x+size*.16f,y+size*.16f,x,y+size*1.4f);
       star.quadTo(x-size*.16f,y+size*.16f,x-size,y);
       star.quadTo(x-size*.16f,y-size*.16f,x,y-size*1.4f);star.close();
-      int light=Math.min(255,Math.round(80+175*Math.min(1f,pulse)));
+      int light=Math.min(255,Math.round(Math.min(255,(35+220*Math.min(1f,pulse))*gain)));
       p.setColor(alpha(Color.rgb(light,light,light),opacity));c.drawPath(star,p);
     }
     c.restoreToCount(save);

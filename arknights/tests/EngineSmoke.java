@@ -120,7 +120,11 @@ public final class EngineSmoke {
       float x=HighlightPattern.x(seed,i),y=HighlightPattern.y(seed,i);
       if(x<.06f||x>.94f||y<.1f||y>.9f)throw new AssertionError("Star outside tile");
       if(y<.5f)upper++;else lower++;
-      for(int j=0;j<i;j++){
+      if(i>=HighlightPattern.COUNT-4 && (x<.32f||x>.68f||(y>.2f&&y<.8f)))
+        throw new AssertionError("Added stars must sit above and below the label");
+      if(y*42<HighlightPattern.size(seed,i)*1.4f||(1-y)*42<HighlightPattern.size(seed,i)*1.4f)
+        throw new AssertionError("Star core would be cropped at the button edge");
+      for(int j=0;j<i&&i<HighlightPattern.COUNT-4;j++){
         float dx=(x-HighlightPattern.x(seed,j))*3.2f,dy=y-HighlightPattern.y(seed,j);
         minGap=Math.min(minGap,(float)Math.hypot(dx,dy));
       }
@@ -129,10 +133,10 @@ public final class EngineSmoke {
         float pulse=HighlightPattern.pulse(t,seed,i);
         dimmest=Math.min(dimmest,pulse);brightest=Math.max(brightest,pulse);
         difference+=Math.abs(pulse-HighlightPattern.pulse(t,seed,(i+1)%HighlightPattern.COUNT));
-        if(pulse<.434f||pulse>1.046f||Math.abs(pulse-HighlightPattern.pulse(t+33,seed,i))>.035f)
+        if(pulse<.144f||pulse>1.036f||Math.abs(pulse-HighlightPattern.pulse(t+33,seed,i))>.035f)
           throw new AssertionError("Twinkle disappeared or jumped");
       }
-      if(brightest-dimmest<.25f||difference<100)throw new AssertionError("Stars must visibly vary on independent trajectories");
+      if(brightest-dimmest<.55f||difference<100)throw new AssertionError("Stars must visibly vary on independent trajectories");
     }
     if(upper<5||lower<5||minGap<.15f)throw new AssertionError("Scatter has gaps or clumps");
   }
