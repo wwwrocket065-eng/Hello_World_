@@ -248,3 +248,8 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - New OverlayPermissionNavigator checks whether the explicit app-specific Settings activity is exported AND accessible to this caller on the OEM build; only then launches it. Otherwise uses public overlay app list, naming our app in a toast; app-details last fallback. No protected-permission bypass, root, accessibility service, Xiaomi unrelated Other permissions route, or extra dangerous permission. Added scoped package visibility for com.android.settings only. Both Start and settings Permission button share this handler.
 - IMPORTANT: direct navigation remains dependent on OEM accessibility; not phone-validated. Do not claim it is fixed on user's Xiaomi or that a guaranteed direct toggle exists. Public fallback intentionally remains when Android blocks the direct screen.
 - Version 0.3.12 / code 15; source baseline 01aea5b466be422966dad389c5234c1302d97e34. Pending CI portrait completeness, APK validation and Xiaomi layout/navigation check.
+
+## 0.3.12 verified delivery checkpoint
+- Source 9865747373482819d4f86c986d87a3d2f14557dd; run 41412518914 SUCCESS; artifact 13126585690. All tests, API validation, portrait bundling and APK build passed.
+- APK 47,021,348 bytes; SHA256 8d3308d8c8857aa6668df637e60d6f4083a773b4e6350d3d95ef38f509407c38. ZIP CRC/version verified; all 158 packaged portraits decode as nonempty 72x72 images; removed auto-recommendation string absent from DEX.
+- Durable APK libfile_c0458b4e71688191b6d0a4dfb7b904cf. Device layout still unverified. Direct permission toggle remains OEM/system restricted; do not claim guaranteed direct navigation on Android16.
