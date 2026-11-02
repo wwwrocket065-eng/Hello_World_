@@ -276,3 +276,8 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Tests passed: timer 1h/7h40/9h syntax, rejection out-of-range, minute boundaries 60/230/240/450/460/540, original bottom controls positive, expedited dialog controls negative, existing geometry/selected-Medic/contrast/strip-coordinate regressions.
 - Goal popup also closes on Back and pauses its own scene/OCR checks until dismissed; close forces rescan. UI behaviour still requires Xiaomi validation.
 - Version 0.3.15/code18; builds from 0.3.14 source 267daa4b436bde5d83d983ab40eecf1c5104b8a4. CI/APK pending.
+
+## 0.3.15 verified combined delivery
+- Final source be68fca63459671df682c0455689787cea88ecd1 (includes split-block / colonless timer token handling). Run 41421500824 SUCCESS; artifact 13129069250. Tests, API, portraits and APK build passed.
+- APK 47,040,112 bytes; SHA256 23a01bf6b07ee9ece382ff4565e194c9ec929c6d56ade8302b4e8ffb2f76787e. ZIP CRC, manifest, timer/filter/menu DEX and 158 portraits checked.
+- Durable APK libfile_4c1c4b154e148191812eaa8a3854bd66. Includes neutral single target, filter, Выбор цели label, styled goal removal/clear menu, timer-driven pools and lower-button visual dismissal. Actual Xiaomi timer OCR / popup touch / dismissal latency require device testing. No global touch interception or added accessibility permission. Ephemeral signer can require uninstall/reinstall.
