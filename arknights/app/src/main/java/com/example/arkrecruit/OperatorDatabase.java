@@ -17,6 +17,9 @@ public final class OperatorDatabase {
   private static final String OPERATORS="https://awedtan.ca/api/operator?include=data.name&include=data.rarity&include=data.position&include=data.profession&include=data.tagList";
   public static void load(Context context,boolean force,Listener cb){
     Context app=context.getApplicationContext();
+    if(app.getSharedPreferences("settings",Context.MODE_PRIVATE).getBoolean("china",false)){
+      loadChina(app,force,cb);return;
+    }
     new Thread(()->{
       progress(app,cb,"Проверка локальной базы...");
       SharedPreferences p=app.getSharedPreferences("recruit",Context.MODE_PRIVATE);
@@ -69,6 +72,34 @@ public final class OperatorDatabase {
       }
     },"GlobalRecruitData").start();
   }
+  private static void loadChina(Context app,boolean force,Listener cb){
+    new Thread(()->{
+      SharedPreferences cache=app.getSharedPreferences("recruit_china",Context.MODE_PRIVATE);
+      String bundled="[]";
+      try(InputStream in=app.getAssets().open("operators/china.json");ByteArrayOutputStream out=new ByteArrayOutputStream()){
+        byte[] bytes=new byte[8192];int n;while((n=in.read(bytes))!=-1)out.write(bytes,0,n);
+        bundled=out.toString("UTF-8");
+      }catch(Exception e){android.util.Log.w("RecruitAssist","China bundled data unavailable",e);}
+      String previous=cache.getString("operators",bundled);
+      List<RecruitmentEngine.Operator> cached=parse(previous);
+      if(!cached.isEmpty())new android.os.Handler(app.getMainLooper()).post(()->cb.onLoaded(cached,"База China • локальная"));
+      if(!force&&System.currentTimeMillis()-cache.getLong("updated",0)<24L*3600*1000)return;
+      try{
+        progress(app,cb,"Обновление базы China...");
+        String base="https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/excel/";
+        JSONObject gacha=new JSONObject(fetch(base+"gacha_table.json"));
+        JSONObject characters=new JSONObject(fetch(base+"character_table.json"));
+        JSONArray fresh=ChinaRecruitment.extract(gacha,characters,new JSONArray(bundled));
+        List<RecruitmentEngine.Operator> list=parse(fresh.toString());
+        if(list.size()<100||list.size()>400)throw new IOException("Неполная база China");
+        cache.edit().putString("operators",fresh.toString()).putLong("updated",System.currentTimeMillis()).apply();
+        new android.os.Handler(app.getMainLooper()).post(()->cb.onLoaded(list,"База China обновлена: "+list.size()));
+      }catch(Exception e){
+        android.util.Log.w("RecruitAssist","China data update failed",e);
+        if(cached.isEmpty())new android.os.Handler(app.getMainLooper()).post(()->cb.onLoaded(cached,"Нет проверенной базы China: нужен интернет"));
+      }
+    },"ChinaRecruitData").start();
+  }
   private static String fetch(String url)throws IOException{
     HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
     c.setConnectTimeout(10000);c.setReadTimeout(18000);
@@ -79,7 +110,7 @@ public final class OperatorDatabase {
       try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
         byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1){
           out.write(buffer,0,n);
-          if(out.size()>8_000_000)throw new IOException("Oversized response");
+          if(out.size()>32_000_000)throw new IOException("Oversized response");
         }
         return out.toString("UTF-8");
       }

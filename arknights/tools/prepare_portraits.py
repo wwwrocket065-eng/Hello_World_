@@ -47,6 +47,9 @@ for record in roster:
     assert ident, f"No portrait ID for {name}"
     selected[name] = ident
 assert len(selected) >= 100
+# Include the separately validated China recruitment roster, not CN gacha releases.
+for row in json.loads((OUT / "china.json").read_text(encoding="utf-8")):
+    selected[row["name"]] = row["id"]
 OUT.mkdir(parents=True, exist_ok=True)
 
 def portrait(item):

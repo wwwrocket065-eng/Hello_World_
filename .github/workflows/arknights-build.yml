@@ -24,7 +24,7 @@ jobs:
       - name: Test recruitment algorithm
         run: |
           mkdir -p build/smoke
-          javac -d build/smoke app/src/main/java/com/example/arkrecruit/RecruitmentEngine.java app/src/main/java/com/example/arkrecruit/OperatorTagMapper.java tests/EngineSmoke.java
+          javac -d build/smoke app/src/main/java/com/example/arkrecruit/RecruitmentEngine.java app/src/main/java/com/example/arkrecruit/OperatorTagMapper.java app/src/main/java/com/example/arkrecruit/TargetListFilter.java tests/EngineSmoke.java
           java -cp build/smoke com.example.arkrecruit.EngineSmoke
       - name: Test button geometry and partial OCR rejection
         run: |
@@ -37,6 +37,7 @@ jobs:
       - name: Bundle offline operator portraits
         run: |
           python3 -m pip install 'Pillow>=11,<13'
+          python3 tools/prepare_china.py
           python3 tools/prepare_portraits.py
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug

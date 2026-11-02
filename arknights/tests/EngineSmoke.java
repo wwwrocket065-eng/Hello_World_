@@ -107,6 +107,11 @@ public final class EngineSmoke {
     throw new AssertionError("Target chooser must include low rarity targets at valid durations");
   if(RecruitmentEngine.combinationsAtMinutes(Arrays.asList("Healing"),timed,true,420).get(0).guaranteed!=2)
     throw new AssertionError("Current 7h pool must retain matching 2-star operators");
+  if(TargetListFilter.select(0,timed,Collections.singletonList(timed.get(0)),Collections.emptyList()).size()!=4||
+      TargetListFilter.select(1,timed,Collections.singletonList(timed.get(0)),Collections.emptyList()).size()!=1||
+      !TargetListFilter.select(2,timed,Collections.singletonList(timed.get(0)),Collections.emptyList()).isEmpty()||
+      TargetListFilter.select(2,timed,Collections.singletonList(timed.get(0)),Arrays.asList("Starter two","Five")).size()!=2)
+    throw new AssertionError("Three chooser modes must filter independently of availability and never fabricate empty rows");
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }

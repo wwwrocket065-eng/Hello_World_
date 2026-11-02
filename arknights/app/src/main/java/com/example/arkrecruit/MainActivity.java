@@ -51,12 +51,11 @@ public class MainActivity extends Activity {
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
     text(root,"Рекомендации",19,Color.WHITE);
+    RecruitSettings.addRegion(root,prefs,()->loadDb(false));
     Switch panel=new Switch(this);panel.setText("Показывать панель операторов");
     UiStyle.toggle(panel);panel.setChecked(prefs.getBoolean("panel",true));
     panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
-    Switch current=new Switch(this);current.setText("Цели: только текущие теги");UiStyle.toggle(current);current.setTextColor(Color.WHITE);
-    current.setChecked(prefs.getBoolean("only_current_tags",true));root.addView(current);
-    current.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("only_current_tags",on).apply());
+    RecruitSettings.addFilter(root,prefs,null);
     text(root,"Подсветка",19,Color.WHITE);
     root.addView(new HighlightColorControl(this,prefs,null));
     slider(root,"Непрозрачность подсветки",10,70,prefs.getInt("fillAlpha",35),
@@ -85,9 +84,11 @@ public class MainActivity extends Activity {
   }
   private void loadDb(boolean force) {
     if(dbProgress!=null)dbProgress.setVisibility(View.VISIBLE);
+    boolean requestedChina=prefs.getBoolean("china",false);
     OperatorDatabase.load(this,force,new OperatorDatabase.ProgressListener(){
       @Override public void onProgress(String status){if(dbStatus!=null)dbStatus.setText(status);}
       @Override public void onLoaded(List<RecruitmentEngine.Operator> items,String status){
+        if(requestedChina!=prefs.getBoolean("china",false))return;
         operators=items;if(dbStatus!=null)dbStatus.setText(status);
         if(dbProgress!=null)dbProgress.setVisibility(View.GONE);
       }

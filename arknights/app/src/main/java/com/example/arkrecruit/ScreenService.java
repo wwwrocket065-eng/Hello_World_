@@ -36,7 +36,12 @@ public class ScreenService extends Service {
   private final List<Recognition> recognized=new ArrayList<>();
   private List<RecruitmentEngine.Operator> operators=Collections.emptyList();
   private RecruitmentEngine.Result recommendation;
-  private TextView panelText,statusText,listToggle;
+  private TextView panelText,statusText,listToggle,panelHeading;
+  private int dataGeneration;
+  private final SharedPreferences.OnSharedPreferenceChangeListener settingsListener=(p,key)->{
+    if("china".equals(key))loadOperators();
+    else if("target_filter".equals(key))render();
+  };
   private LinearLayout operatorRows;
   private OperatorPortraits portraits;
   private String operatorRowsKey="";
@@ -80,6 +85,7 @@ public class ScreenService extends Service {
         targets.put(item.getString("name"),item.getInt("color"));
       }
     }catch(Exception ignored){}
+    prefs.registerOnSharedPreferenceChangeListener(settingsListener);
     wm=(WindowManager)getSystemService(WINDOW_SERVICE);
     NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
     nm.createNotificationChannel(new NotificationChannel(CHANNEL,"Анализ рекрутинга",NotificationManager.IMPORTANCE_LOW));
@@ -139,17 +145,27 @@ public class ScreenService extends Service {
       updatePlayButton();render();
       NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
       nm.notify(73,notification());
-      OperatorDatabase.load(this,false,(list,state)->{
-        operators=list;
-        if(statusText!=null)statusText.setText(state);
-        if(!paused&&inRecruitment)chooseRecommendation();
-      });
+      loadOperators();
     }catch(Exception e){
       android.util.Log.e("RecruitAssist","Capture initialization failed",e);
       Toast.makeText(this,"Ошибка захвата экрана. Проверьте разрешения.",Toast.LENGTH_LONG).show();
       stopSelf();
     }
     return START_NOT_STICKY;
+  }
+  private void loadOperators(){
+    int generation=++dataGeneration;
+    operators=Collections.emptyList();reachableOperators=Collections.emptyList();recommendation=null;targetPlans.clear();operatorRowsKey="";
+    render();
+    OperatorDatabase.load(this,false,(list,state)->{
+      if(generation!=dataGeneration)return;
+      operators=list;
+      if(statusText!=null)statusText.setText(state);
+      chooseRecommendation();
+    });
+  }
+  private List<RecruitmentEngine.Operator> displayedOperators(){
+    return TargetListFilter.select(RecruitSettings.filter(prefs),operators,reachableOperators,targets.keySet());
   }
   private void updatePlayButton(){
     if(playPause!=null)playPause.setPlaying(projection!=null&&!paused);
@@ -421,6 +437,12 @@ public class ScreenService extends Service {
   }
   private void render(){
     if(markers!=null)markers.invalidate();
+    if(panelHeading!=null){
+      String title="⠿  Рекомендация · "+RecruitSettings.region(prefs);
+      android.text.SpannableString heading=new android.text.SpannableString(title);
+      heading.setSpan(new android.text.style.ForegroundColorSpan(RecruitSettings.regionColor(prefs)),title.lastIndexOf(' ')+1,title.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      panelHeading.setText(heading);
+    }
     if(panelText!=null){
       if(paused)panelText.setText("Анализ на паузе");
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
@@ -462,7 +484,7 @@ public class ScreenService extends Service {
     if(listToggle!=null&&operatorScroll!=null&&operatorRows!=null){
       boolean any=!operators.isEmpty();
       listToggle.setVisibility(any?View.VISIBLE:View.GONE);
-      int count=prefs.getBoolean("only_current_tags",true)?reachableOperators.size():operators.size();
+      int count=displayedOperators().size();
       String label="Выбор цели ("+count+") ";
       android.text.SpannableString toggle=new android.text.SpannableString(label+"\uFFFC");
       android.graphics.drawable.Drawable arrow=new DisclosureArrow(UiStyle.ACCENT,operatorListExpanded,dp(1));
@@ -482,8 +504,8 @@ public class ScreenService extends Service {
   private void renderOperatorRows(){
     HashSet<String> available=new HashSet<>();
     for(RecruitmentEngine.Operator op:reachableOperators)available.add(op.name);
-    boolean onlyCurrent=prefs.getBoolean("only_current_tags",true);
-    ArrayList<RecruitmentEngine.Operator> all=new ArrayList<>(onlyCurrent?reachableOperators:operators);
+    int onlyCurrent=RecruitSettings.filter(prefs);
+    ArrayList<RecruitmentEngine.Operator> all=new ArrayList<>(displayedOperators());
     all.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
     StringBuilder key=new StringBuilder(targets.toString()).append(onlyCurrent).append(available.toString());
     for(RecruitmentEngine.Operator op:all)key.append('|').append(op.rarity).append(':').append(op.name);
@@ -620,7 +642,7 @@ public class ScreenService extends Service {
     box.setPadding(dp(8),dp(4),dp(8),dp(8));
     box.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
     // Drag using the narrow header; the operator list stays independently scrollable.
-    TextView drag=new TextView(this);
+    TextView drag=new TextView(this);panelHeading=drag;
     drag.setText("⠿  Рекомендация · Global");
     drag.setTextColor(UiStyle.MUTED);
     drag.setTextSize(12);
@@ -725,12 +747,11 @@ public class ScreenService extends Service {
     heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));
     box.addView(heading);
     close.setOnClickListener(v->toggleSettings());
+    RecruitSettings.addRegion(box,prefs,null);
     Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
-    Switch current=new Switch(this);current.setText("Цели: только текущие теги");UiStyle.toggle(current);current.setTextColor(Color.WHITE);
-    current.setChecked(prefs.getBoolean("only_current_tags",true));box.addView(current);
-    current.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("only_current_tags",on).apply();render();});
+    RecruitSettings.addFilter(box,prefs,this::render);
     box.addView(new HighlightColorControl(this,prefs,
       ()->{if(markers!=null)markers.invalidate();}));
     settingSlider(box,"Непрозрачность подсветки","fillAlpha",10,70,35);
@@ -840,6 +861,7 @@ public class ScreenService extends Service {
     render();
   }
   @Override public void onDestroy(){
+    prefs.unregisterOnSharedPreferenceChangeListener(settingsListener);dataGeneration++;
     closeGoalMenu();
     paused=true;inRecruitment=false;screenPresent=false;
     if(portraits!=null){portraits.close();portraits=null;}
