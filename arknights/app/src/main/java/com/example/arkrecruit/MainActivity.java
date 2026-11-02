@@ -51,9 +51,6 @@ public class MainActivity extends Activity {
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
     text(root,"Рекомендации",19,Color.WHITE);
-    Switch chance=new Switch(this);chance.setText("Приоритет: максимальная редкость");
-    UiStyle.toggle(chance);chance.setChecked(prefs.getBoolean("chance",false));
-    chance.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("chance",on).apply());root.addView(chance);
     Switch panel=new Switch(this);panel.setText("Показывать панель операторов");
     UiStyle.toggle(panel);panel.setChecked(prefs.getBoolean("panel",true));
     panel.setOnCheckedChangeListener((v,on)->prefs.edit().putBoolean("panel",on).apply());root.addView(panel);
@@ -78,7 +75,7 @@ public class MainActivity extends Activity {
     inputLayout.setMargins(0,dp(8),0,dp(8));root.addView(input,inputLayout);
     TextView answer=text(root,"",15,Color.WHITE);
     button(root,"Рассчитать",()->{
-      RecruitmentEngine.Result r=RecruitmentEngine.best(Arrays.asList(input.getText().toString().split(",")),operators,prefs.getBoolean("chance",false),9);
+      RecruitmentEngine.Result r=RecruitmentEngine.best(Arrays.asList(input.getText().toString().split(",")),operators,true,9);
       answer.setText(r==null?"Нет подходящей комбинации или не загружена база":String.join(" + ",r.tags)+"\n"+r.description());
     });
     loadDb(false);

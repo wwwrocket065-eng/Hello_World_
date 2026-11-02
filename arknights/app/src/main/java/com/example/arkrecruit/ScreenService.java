@@ -39,7 +39,11 @@ public class ScreenService extends Service {
   private TextView panelText,statusText,listToggle;
   private LinearLayout operatorRows;
   private OperatorPortraits portraits;
-  private String targetName,operatorRowsKey="";
+  private String operatorRowsKey="";
+  private final LinkedHashMap<String,Integer> targets=new LinkedHashMap<>();
+  private final Map<String,RecruitmentEngine.Result> targetPlans=new LinkedHashMap<>();
+  private int nextTargetColor;
+  private TextView goalText;
   private List<RecruitmentEngine.Operator> reachableOperators=Collections.emptyList();
   private ScrollView operatorScroll;
   private boolean operatorListExpanded=false;
@@ -62,6 +66,14 @@ public class ScreenService extends Service {
   @Override public void onCreate(){
     super.onCreate();prefs=getSharedPreferences("settings",MODE_PRIVATE);
     portraits=new OperatorPortraits(this);
+    nextTargetColor=prefs.getInt("next_goal_color",0);
+    try{
+      org.json.JSONArray saved=new org.json.JSONArray(prefs.getString("goals","[]"));
+      for(int i=0;i<saved.length();i++){
+        org.json.JSONObject item=saved.getJSONObject(i);
+        targets.put(item.getString("name"),item.getInt("color"));
+      }
+    }catch(Exception ignored){}
     wm=(WindowManager)getSystemService(WINDOW_SERVICE);
     NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
     nm.createNotificationChannel(new NotificationChannel(CHANNEL,"Анализ рекрутинга",NotificationManager.IMPORTANCE_LOW));
@@ -355,14 +367,11 @@ public class ScreenService extends Service {
   private void chooseRecommendation(){
     ArrayList<String> tags=new ArrayList<>();
     for(Recognition r:recognized)tags.add(r.tag);
-    List<RecruitmentEngine.Result> options=RecruitmentEngine.combinations(tags,operators,prefs.getBoolean("chance",false),9);
+    List<RecruitmentEngine.Result> options=RecruitmentEngine.combinations(tags,operators,true,9);
     reachableOperators=RecruitmentEngine.reachable(options);
     recommendation=options.isEmpty()?null:options.get(0);
-    if(targetName!=null){
-      RecruitmentEngine.Result target=RecruitmentEngine.forTarget(options,targetName);
-      if(target!=null)recommendation=target;
-      else targetName=null;
-    }
+    targetPlans.clear();
+    for(String name:targets.keySet())targetPlans.put(name,RecruitmentEngine.forTarget(options,name));
     render();
   }
   private void render(){
@@ -372,11 +381,21 @@ public class ScreenService extends Service {
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
         "/5\nНет проверенной комбинации или базы");
-      else panelText.setText((targetName==null?"":"Цель: "+targetName+"\n")+
-        "Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary());
+      else panelText.setText("Выбрать: "+variantLabel(recommendation)+"\n"+recommendation.raritySummary());
+    }
+    if(goalText!=null){
+      android.text.SpannableStringBuilder goals=new android.text.SpannableStringBuilder("Цель: ");
+      if(targets.isEmpty())goals.append("Максимальная редкость");
+      else for(Map.Entry<String,Integer> target:targets.entrySet()){
+        if(goals.length()>6)goals.append("\n");
+        int start=goals.length();goals.append("● ").append(target.getKey());
+        if(targetPlans.get(target.getKey())==null)goals.append(" — нет тегов");
+        goals.setSpan(new android.text.style.ForegroundColorSpan(target.getValue()),start,goals.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+      }
+      goalText.setText(goals);
     }
     if(listToggle!=null&&operatorScroll!=null&&operatorRows!=null){
-      boolean any=recommendation!=null&&!reachableOperators.isEmpty();
+      boolean any=!operators.isEmpty();
       listToggle.setVisibility(any?View.VISIBLE:View.GONE);
       listToggle.setText("Операторы "+(operatorListExpanded?"▴":"▾"));
       operatorScroll.setVisibility(any&&operatorListExpanded?View.VISIBLE:View.GONE);
@@ -389,16 +408,20 @@ public class ScreenService extends Service {
     }
   }
   private void renderOperatorRows(){
-    StringBuilder key=new StringBuilder(targetName==null?"":targetName);
-    for(RecruitmentEngine.Operator op:reachableOperators)key.append('|').append(op.rarity).append(':').append(op.name);
+    HashSet<String> available=new HashSet<>();
+    for(RecruitmentEngine.Operator op:reachableOperators)available.add(op.name);
+    ArrayList<RecruitmentEngine.Operator> all=new ArrayList<>(operators);
+    all.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
+    StringBuilder key=new StringBuilder(targets.toString()).append(available.toString());
+    for(RecruitmentEngine.Operator op:all)key.append('|').append(op.rarity).append(':').append(op.name);
     if(operatorRowsKey.equals(key.toString()))return;
     operatorRowsKey=key.toString();
     int scrollY=operatorScroll.getScrollY();
     operatorRows.removeAllViews();
-    for(RecruitmentEngine.Operator op:reachableOperators){
+    for(RecruitmentEngine.Operator op:all){
       LinearLayout row=new LinearLayout(this);
       row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);
-      int color=op.name.equals(targetName)?UiStyle.ACCENT:UiStyle.TEXT;
+      int color=targets.containsKey(op.name)?0xFF69E68B:available.contains(op.name)?0xFFFFD866:UiStyle.MUTED;
       TextView rarity=new TextView(this);rarity.setText(op.rarity+"★");
       rarity.setTextColor(color);rarity.setTextSize(11);rarity.setIncludeFontPadding(false);
       row.addView(rarity,new LinearLayout.LayoutParams(dp(22),-2));
@@ -413,7 +436,14 @@ public class ScreenService extends Service {
       row.addView(name,new LinearLayout.LayoutParams(0,-2,1f));
       operatorRows.addView(row,new LinearLayout.LayoutParams(-1,dp(22)));
       row.setOnClickListener(v->{
-        targetName=op.name.equals(targetName)?null:op.name;
+        if(targets.containsKey(op.name))targets.remove(op.name);
+        else targets.put(op.name,Color.HSVToColor(new float[]{(nextTargetColor++*137.508f+15)%360,.68f,1f}));
+        org.json.JSONArray saved=new org.json.JSONArray();
+        for(Map.Entry<String,Integer> target:targets.entrySet()){
+          org.json.JSONObject item=new org.json.JSONObject();
+          try{item.put("name",target.getKey());item.put("color",target.getValue());saved.put(item);}catch(Exception ignored){}
+        }
+        prefs.edit().putString("goals",saved.toString()).putInt("next_goal_color",nextTargetColor).apply();
         chooseRecommendation();
       });
     }
@@ -488,6 +518,13 @@ public class ScreenService extends Service {
     statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);
     statusText.setTextSize(10);statusText.setText("База Global");
     box.addView(statusText);
+    goalText=new TextView(this);goalText.setTextColor(UiStyle.TEXT);goalText.setTextSize(12);
+    ScrollView goalScroll=new ScrollView(this){
+      @Override protected void onMeasure(int w,int h){
+        super.onMeasure(w,MeasureSpec.makeMeasureSpec(Math.min(dp(78),height/4),MeasureSpec.AT_MOST));
+      }
+    };
+    goalScroll.addView(goalText);box.addView(goalScroll,new LinearLayout.LayoutParams(-1,-2));
     panelText=new TextView(this);panelText.setTextColor(Color.WHITE);
     panelText.setTextSize(12);panelText.setPadding(0,dp(4),0,dp(3));
     box.addView(panelText);
@@ -573,9 +610,6 @@ public class ScreenService extends Service {
     heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));
     box.addView(heading);
     close.setOnClickListener(v->toggleSettings());
-    Switch sw=new Switch(this);sw.setText("Приоритет: максимальная редкость");UiStyle.toggle(sw);
-    sw.setChecked(prefs.getBoolean("chance",false));box.addView(sw);
-    sw.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("chance",on).apply();chooseRecommendation();});
     Switch show=new Switch(this);show.setText("Панель операторов");UiStyle.toggle(show);
     show.setChecked(prefs.getBoolean("panel",true));box.addView(show);
     show.setOnCheckedChangeListener((v,on)->{prefs.edit().putBoolean("panel",on).apply();render();});
@@ -627,6 +661,19 @@ public class ScreenService extends Service {
           tile.right*sx-origin[0],tile.bottom*sy-origin[1]);
         canvas.drawRect(rect,paint);
       }
+      // Add goal dots above the top-right edge; leave the existing fill untouched.
+      float radius=dp(3),spacing=dp(8);
+      for(Recognition r:recognized){
+        int index=0,columns=Math.max(1,(int)(r.tile.width()*sx/spacing));
+        for(Map.Entry<String,Integer> target:targets.entrySet()){
+          RecruitmentEngine.Result plan=targetPlans.get(target.getKey());
+          if(plan==null||!plan.tags.contains(r.tag))continue;
+          float x=r.tile.right*sx-origin[0]-radius-(index%columns)*spacing;
+          float y=r.tile.top*sy-origin[1]-radius-dp(2)-(index/columns)*spacing;
+          paint.setColor(0xFF10202B);canvas.drawCircle(x,y,radius+dp(1),paint);
+          paint.setColor(target.getValue());canvas.drawCircle(x,y,radius,paint);index++;
+        }
+      }
     }
   }
   @Override public void onConfigurationChanged(Configuration c){
@@ -675,6 +722,7 @@ public class ScreenService extends Service {
     render();
   }
   @Override public void onDestroy(){
+    paused=true;inRecruitment=false;screenPresent=false;
     if(portraits!=null){portraits.close();portraits=null;}
     if(reader!=null)reader.setOnImageAvailableListener(null,null);
     if(virtualDisplay!=null)virtualDisplay.release();

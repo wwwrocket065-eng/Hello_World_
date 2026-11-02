@@ -249,7 +249,11 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - IMPORTANT: direct navigation remains dependent on OEM accessibility; not phone-validated. Do not claim it is fixed on user's Xiaomi or that a guaranteed direct toggle exists. Public fallback intentionally remains when Android blocks the direct screen.
 - Version 0.3.12 / code 15; source baseline 01aea5b466be422966dad389c5234c1302d97e34. Pending CI portrait completeness, APK validation and Xiaomi layout/navigation check.
 
-## 0.3.12 verified delivery checkpoint
-- Source 9865747373482819d4f86c986d87a3d2f14557dd; run 41412518914 SUCCESS; artifact 13126585690. All tests, API validation, portrait bundling and APK build passed.
-- APK 47,021,348 bytes; SHA256 8d3308d8c8857aa6668df637e60d6f4083a773b4e6350d3d95ef38f509407c38. ZIP CRC/version verified; all 158 packaged portraits decode as nonempty 72x72 images; removed auto-recommendation string absent from DEX.
-- Durable APK libfile_c0458b4e71688191b6d0a4dfb7b904cf. Device layout still unverified. Direct permission toggle remains OEM/system restricted; do not claim guaranteed direct navigation on Android16.
+## 2026-11-02 — 0.3.13 multiple operator goals and tag colour dots
+- User authorizes discussed multi-target UX after voice-transcription correction.
+- Goal line always present within recruitment panel: Maximum rarity when no manual goals. Automatic ranking uses possible rarity then guaranteed rarity; removed obsolete priority toggles to avoid conflicting modes.
+- Operators list now includes entire validated Global recruitment roster, not only reachable subset. Reachable by current nonempty tag combinations = yellow; selected = green; unavailable/unselected = muted. Existing portraits and compact rows preserved.
+- Selecting another operator adds it; clicking an already selected operator removes only it. LinkedHashMap preserves goal order and stable per-goal HSV colour. Goals, colours and colour sequence persist in preferences. Unavailable goals remain with no-tags label and no circles.
+- Goal names carry individual colours. Existing main highlight stays the automatic recommendation; additional bordered colour dots above each tag's top-right corner identify every goal whose independently narrowed valid plan uses that tag. Multiple dots wrap above the tag. Each goal plan has <=3 tags. Do NOT treat the union of differently coloured dots as a jointly valid selection or claim measured odds.
+- Multi-target plan regression added to engine smoke. No false probability numbers, operator counts or All variants interface restored. Capture, scene probe, permission routing and offline portraits unchanged.
+- Version 0.3.13 / code16; baseline 9df11333d076b70a07bc795c4852a4b3e79f33f6. Build and device UX validation pending.

@@ -81,6 +81,11 @@ public final class EngineSmoke {
     throw new AssertionError("Target plan failed to narrow operators");
   if(RecruitmentEngine.forTarget(goals,"Unreachable caster")!=null)
     throw new AssertionError("No-tags baseline advertised as a targeted plan");
+  RecruitmentEngine.Result goalA=RecruitmentEngine.forTarget(goals,"Mayer"),goalB=RecruitmentEngine.forTarget(goals,"Kroos");
+  if(goalA==null||goalB==null||goalA.tags.size()>3||goalB.tags.size()>3||
+      !goalA.operators.stream().anyMatch(op->op.name.equals("Mayer"))||
+      !goalB.operators.stream().anyMatch(op->op.name.equals("Kroos")))
+    throw new AssertionError("Independent multi-target plans must each remain valid");
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }
