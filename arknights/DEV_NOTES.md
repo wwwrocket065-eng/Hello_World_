@@ -195,3 +195,9 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Probability research follow-up: https://www.reddit.com/r/arknights/comments/1r5cbkb/recruitment_data/ records 3200 9h recruitments but explicitly did NOT log tag occurrence/dropping. Its outcome frequencies are not conditional odds for the user's chosen tags. A commenter links a six-year spreadsheet with tags, but the spreadsheet could not be read via the available lookup tool. No per-operator estimate is added based solely on pool counts.
 - Version 0.3.9 / code 12; build pending. Source baseline 032249a35372be7e7cd531392c2773f35328369a.
 - User-facing panel intentionally omits the removed 9h caption. Engine still evaluates 9h, and 0/100 values still assume selected tags apply; this is an underlying limitation, not a new exact game probability model.
+
+## 2026-11-02 — 0.3.9 CI and APK checkpoint
+- Source commit `0e8353e95ebb1f82320e9647a380ca2db0b1d94f`; Actions run `41405832794` successful, artifact `13123357432`. Engine, geometry/contrast regression, API validation and APK build passed.
+- APK 0.3.9, 46,386,356 bytes; SHA256 `49f87851ce58d559c47ddcacd050da417448b9677af188dacf1a5cefc30e50f2`. ZIP CRC and manifest version passed; DEX contains TagContrastNormalizer and does not contain removed All variants / tag-preservation caption strings.
+- V2 certificate SHA256 `00b4ce0865ad77f2a292c5afe1549fd290216a48bf356892e3fca6c920afc539`, differs from 0.3.8. Uninstall/reinstall required with settings reset. Durable APK identity `libfile_8e59f483815c8191ab1633080ceeb639`.
+- Pending: actual selected-tag OCR test on Xiaomi; full conditional operator probabilities remain unavailable. Counts alone do not establish equal odds. No fabricated empirical rates added.
