@@ -315,3 +315,5 @@ Source ac0cc7a7af5208d11a0be63fe0890c10ab26ae93; CI run 41434908598 success, all
 
 ## 0.3.21 — compact chooser labels and equal settings controls
 Chooser labels shortened to «Выбранные» → «Теги» → «Все» after fixed «Выбор цели:». Stored values, cycle and default unchanged. All three settings controls (server, panel visibility, chooser) now share the same button factory (82x42dp, 13sp symbols, shared background/radius/padding); panel stock switch replaced by tap button. Panel preference listener updates overlay from main settings too. Calculation/data/recognition unchanged. Native layout validation pending.
+
+User superseded previous empty selected-only behavior: show «Цели не выбраны» when selected-mode list is empty. Chooser count stays zero; label appears only while list is expanded, not in other modes. Included in 0.3.21 final source build.

@@ -513,6 +513,12 @@ public class ScreenService extends Service {
     operatorRowsKey=key.toString();
     int scrollY=operatorScroll.getScrollY();
     operatorRows.removeAllViews();
+    if(onlyCurrent==2&&all.isEmpty()){
+      TextView empty=new TextView(this);empty.setText("Цели не выбраны");
+      empty.setTextColor(UiStyle.MUTED);empty.setTextSize(12);
+      empty.setPadding(dp(2),dp(3),dp(2),dp(3));
+      operatorRows.addView(empty,new LinearLayout.LayoutParams(-1,-2));
+    }
     for(RecruitmentEngine.Operator op:all){
       LinearLayout row=new LinearLayout(this);
       row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);
