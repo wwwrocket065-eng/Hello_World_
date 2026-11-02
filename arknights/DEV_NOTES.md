@@ -178,3 +178,10 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 - Local engine regressions passed: profession vs specialization, impossible DP-Recovery+Supporter, lower-rarity alternatives, baseline, unknown mixed-pool chances, conditional 0/100, no 5-star below 4h. Existing geometry unchanged.
 - Version 0.3.8 / code 11. Pending CI build and artifact verification; runtime Xiaomi testing still required.
 - Existing signing limitation remains: ephemeral CI debug signer differs between builds. Never commit private signing keys.
+
+## 2026-11-02 — 0.3.8 build and delivery checkpoint
+- Source commit `6f153f4e61229367caaa1c1e97b6e43f38ecf675`; successful Actions run `41402721034`, artifact `13121454331`. Engine regressions, geometry regressions, live API validation and assembleDebug all passed.
+- APK version 0.3.8, 46,384,896 bytes; SHA256 `ac1e1705fe28c5f00428b2bcbb239d094422f49b776e83fc32a8a639d35b0c94`. Artifact and APK CRC passed; manifest version verified; DEX contains OperatorTagMapper and chanceForRarity; DEV_NOTES asset present.
+- V2 signer certificate SHA256 `cda2c51d8a7545180753ec57b50a838902e759d73ff10eaf6c701334dabe311c`, differs from 0.3.7; uninstall/reinstall needed, settings reset. Durable APK identity `libfile_73fce53170e48191864582706fbb7762`.
+- Delivered all viable combinations and full eligible operator lists with exact conditional 0/100 only; other probabilities explicitly unknown. No exact conditional weights were found. Do not describe unknown rates as implemented numeric estimates.
+- Next: Xiaomi test of variants selector, updated database and conditional probability UI. User may request empirical estimates; do not infer per-combination weights from the general 87/11/2 population estimate.
