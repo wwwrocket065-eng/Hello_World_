@@ -368,3 +368,9 @@ Frame centerline now uses exact measured tile bounds (no2unit inset); gold/white
 
 ### 0.3.26 verified delivery
 Final source 840717d5a6d7704d599c809f7afdc22b9f48398e; CI run 41459134741 success. APK47086086 bytes SHA256581faa6bca00def53cbc10d9fca516e28510957eef8ef13ccebcb96da7c3727e. Saved libfile_411dd1975bdc8191898bc6db282d230b. Recovered unpushed source, completed missing button move/style and built without another user permission prompt. Native phone appearance/animation/halo validation remains pending. Ephemeral debug signing caveat unchanged.
+
+
+## 0.3.27 — video4809 rapid navigation flicker, entry color/arrow, persistent stars
+Inspected local video4809: repeated fast push/pop shows transient/misaligned pages. NewPage now INVISIBLE until measured and translated outside stage; reveal and start animation together. Stage consumes touch events while transitioning, disallowing nested tap-triggered pages. BACK action remains registered through closing (hardware Back consumed idempotently), entry open guard rejects already-active host. Pop restores once, no premature BACK removal. Native rapid-tap validation remains pending.
+Highlight entry now custom Button drawing a rounded trailing chevron in its own onDraw (no elevated button hiding sibling arrow); background follows selected RGB and refreshes on attach after return. Text/arrow contrast selected for light/dark colors. Same placement/shape as Start retained.
+Stars no longer pulse core alpha: core opacity fixed to saved overlay opacity, only core luminance and halo vary continuously. Slow baseline0.90±0.035, rare broader smooth peaks (cosine exponent24 vs100), no resize/movement. Updated90s pulse regression passes locally; actual perceived smoothness requires phone. No list-filter changes. APK/CI pending; signing caveat unchanged.

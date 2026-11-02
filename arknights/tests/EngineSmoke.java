@@ -126,7 +126,7 @@ public final class EngineSmoke {
       }
       for(int t=0;t<90000;t+=33){
         float pulse=HighlightPattern.pulse(t,seed,i);
-        if(pulse<.619f||pulse>1.401f||Math.abs(pulse-HighlightPattern.pulse(t+33,seed,i))>.035f)
+        if(pulse<.864f||pulse>1.286f||Math.abs(pulse-HighlightPattern.pulse(t+33,seed,i))>.035f)
           throw new AssertionError("Twinkle disappeared or jumped");
       }
     }

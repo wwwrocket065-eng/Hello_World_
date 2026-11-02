@@ -16,24 +16,40 @@ public final class HighlightColorControl extends LinearLayout {
   public HighlightColorControl(Context context,SharedPreferences prefs,Runnable changed){
     super(context);this.prefs=prefs;this.changed=changed;HighlightStyle.ensure(prefs);
     setOrientation(VERTICAL);
-    Button entry=new Button(context);UiStyle.button(entry,true);entry.setText("Подсветка");
+    EntryButton entry=new EntryButton(context);
     FrameLayout entryRow=new FrameLayout(context);
     entryRow.addView(entry,new FrameLayout.LayoutParams(-1,-2));
-    TextView arrow=new TextView(context);arrow.setText("›");arrow.setTextColor(UiStyle.BACKGROUND);arrow.setTextSize(26);arrow.setGravity(Gravity.CENTER);
-    FrameLayout.LayoutParams arrowLayout=new FrameLayout.LayoutParams(UiStyle.dp(context,42),-1,Gravity.RIGHT|Gravity.CENTER_VERTICAL);
-    entryRow.addView(arrow,arrowLayout);arrow.setClickable(false);arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
     LayoutParams entryLayout=new LayoutParams(-1,-2);
     entryLayout.setMargins(0,UiStyle.dp(context,5),0,UiStyle.dp(context,5));
     addView(entryRow,entryLayout);
     entry.setOnClickListener(v->open());
   }
+  private final class EntryButton extends Button {
+    private final Paint arrow=new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path chevron=new Path();
+    EntryButton(Context context){super(context);UiStyle.button(this,true);setText("Подсветка");updateColor();}
+    private void updateColor(){
+      int color=HighlightStyle.color(prefs);
+      int ink=(Color.red(color)*299+Color.green(color)*587+Color.blue(color)*114)/1000>=150?UiStyle.BACKGROUND:Color.WHITE;
+      setTextColor(ink);arrow.setColor(ink);
+      setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x44777777),UiStyle.rounded(getContext(),color,12),null));
+    }
+    @Override protected void onAttachedToWindow(){super.onAttachedToWindow();updateColor();}
+    @Override protected void onDraw(Canvas canvas){
+      super.onDraw(canvas);float d=getResources().getDisplayMetrics().density;
+      float x=getWidth()-22*d,y=getHeight()/2f;
+      arrow.setStyle(Paint.Style.STROKE);arrow.setStrokeWidth(2*d);arrow.setStrokeCap(Paint.Cap.ROUND);arrow.setStrokeJoin(Paint.Join.ROUND);
+      chevron.reset();chevron.moveTo(x-3*d,y-6*d);chevron.lineTo(x+3*d,y);chevron.lineTo(x-3*d,y+6*d);canvas.drawPath(chevron,arrow);
+    }
+  }
   public static boolean back(LinearLayout host){java.lang.ref.WeakReference<Runnable> ref=BACK.get(host);Runnable back=ref==null?null:ref.get();if(back==null)return false;back.run();return true;}
   private void open(){
     if(!(getParent() instanceof LinearLayout))return;
     LinearLayout host=(LinearLayout)getParent();
+    if(BACK.containsKey(host))return;
     LinearLayout page=new LinearLayout(getContext());page.setOrientation(VERTICAL);
     final SettingsPageTransition.Session[] session=new SettingsPageTransition.Session[1];
-    Runnable restore=()->{BACK.remove(host);if(session[0]!=null)session[0].close(null);};
+    Runnable restore=()->{if(session[0]!=null)session[0].close(()->BACK.remove(host));};
     BACK.put(host,new java.lang.ref.WeakReference<>(restore));
     LinearLayout heading=new LinearLayout(getContext());heading.setGravity(Gravity.CENTER_VERTICAL);
     Button back=new Button(getContext());back.setText("‹");UiStyle.button(back,false);back.setTextSize(24);back.setBackgroundColor(Color.TRANSPARENT);back.setContentDescription("Назад");
