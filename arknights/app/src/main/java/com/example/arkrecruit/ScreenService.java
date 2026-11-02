@@ -75,7 +75,7 @@ public class ScreenService extends Service {
     String tag; Rect bounds; Rect tile; Recognition(String t,Rect r,Rect tile){tag=t;bounds=r;this.tile=tile;}
   }
   @Override public void onCreate(){
-    super.onCreate();prefs=getSharedPreferences("settings",MODE_PRIVATE);
+    super.onCreate();prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
     portraits=new OperatorPortraits(this);
     nextTargetColor=prefs.getInt("next_goal_color",0);
     try{
@@ -758,7 +758,6 @@ public class ScreenService extends Service {
     RecruitSettings.addFilter(box,prefs,this::render);
     box.addView(new HighlightColorControl(this,prefs,
       ()->{if(markers!=null)markers.invalidate();}));
-    settingSlider(box,"Непрозрачность подсветки","fillAlpha",10,70,35);
     Button off=new Button(this);off.setText("Выключить помощник");UiStyle.button(off,false);box.addView(off);
     off.setOnClickListener(v->stopSelf());
     // The single close control is the compact X at the top right.
@@ -782,13 +781,12 @@ public class ScreenService extends Service {
   }
   private final class Markers extends View {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final HighlightRenderer renderer=new HighlightRenderer();
     Markers(Context c){super(c);setWillNotDraw(false);}
     @Override protected void onDraw(Canvas canvas){
       super.onDraw(canvas);
       if(paused||!screenPresent||!inRecruitment||recommendation==null)return;
       paint.setStyle(Paint.Style.FILL);
-      paint.setColor(Color.argb((int)(255*prefs.getInt("fillAlpha",35)/100f),
-        prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90)));
       // Tile bounds are taken from image edges when available. The OCR
       // text rectangle is only a fallback, not the drawn highlight geometry.
       // Capture uses physical display pixels; overlay may start below an inset.
@@ -802,8 +800,10 @@ public class ScreenService extends Service {
         Rect tile=r.tile;
         RectF rect=new RectF(tile.left*sx-origin[0],tile.top*sy-origin[1],
           tile.right*sx-origin[0],tile.bottom*sy-origin[1]);
-        canvas.drawRect(rect,paint);
+        RectF text=new RectF(r.bounds.left*sx-origin[0]-dp(2),r.bounds.top*sy-origin[1]-dp(1),r.bounds.right*sx-origin[0]+dp(2),r.bounds.bottom*sy-origin[1]+dp(1));
+        renderer.draw(canvas,rect,prefs,SystemClock.uptimeMillis(),r.tag.hashCode(),text);
       }
+      postInvalidateDelayed(33);
       // Add goal dots above the top-right edge; leave the existing fill untouched.
       float radius=dp(3),spacing=dp(8);
       if(targets.size()>1)for(Recognition r:recognized){

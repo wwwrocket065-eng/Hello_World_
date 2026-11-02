@@ -2,142 +2,80 @@ package com.example.arkrecruit;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.ColorStateList;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.RippleDrawable;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.GridLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.SeekBar;
+import android.graphics.*;
+import android.graphics.drawable.Drawable;
+import android.view.*;
+import android.widget.*;
+import java.util.*;
 
-/** Expandable highlight-color palette used by the app and the floating settings. */
+/** Full-width entry into a nested highlight page; never an expanding palette. */
 public final class HighlightColorControl extends LinearLayout {
-  private static final int[] COLORS = {
-    0xFF00FF5A, 0xFF48DBBC, 0xFF32B9FF, 0xFF697DFF, 0xFFB47CFF,
-    0xFFFF6FC3, 0xFFFF667B, 0xFFFF9347, 0xFFFFCC4C, 0xFFC4E85A,
-    0xFF12A567, 0xFF208F95, 0xFF2773B0, 0xFF565FA4, 0xFF8452AA,
-    0xFFC04F91, 0xFFBB5B55, 0xFFB77C4C, 0xFF8D8C51, 0xFF778995
-  };
+  private static final Map<LinearLayout,java.lang.ref.WeakReference<Runnable>> BACK=new WeakHashMap<>();
   private final SharedPreferences prefs;
-  private final Runnable onChange;
-  private final Button trigger;
-  private final GridLayout palette;
-  private final LinearLayout expanded;
-  private final TextView brightnessText;
-  private final SeekBar brightnessBar;
-
-  public HighlightColorControl(Context context, SharedPreferences prefs, Runnable onChange) {
-    super(context);
-    this.prefs=prefs;
-    this.onChange=onChange;
+  private final Runnable changed;
+  public HighlightColorControl(Context context,SharedPreferences prefs,Runnable changed){
+    super(context);this.prefs=prefs;this.changed=changed;HighlightStyle.ensure(prefs);
     setOrientation(VERTICAL);
-    trigger=new Button(context);
-    UiStyle.button(trigger,false);
-    LayoutParams mainButtonLayout=new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
-    mainButtonLayout.setMargins(0,UiStyle.dp(context,5),0,UiStyle.dp(context,5));
-    addView(trigger,mainButtonLayout);
-
-    expanded=new LinearLayout(context);
-    expanded.setOrientation(VERTICAL);
-    expanded.setPadding(UiStyle.dp(context,3),UiStyle.dp(context,8),
-      UiStyle.dp(context,3),UiStyle.dp(context,9));
-    expanded.setBackground(UiStyle.rounded(context,UiStyle.SURFACE,12));
-    addView(expanded,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
-    palette=new GridLayout(context);
-    palette.setColumnCount(5);
-    palette.setPadding(UiStyle.dp(context,3),UiStyle.dp(context,8),UiStyle.dp(context,3),UiStyle.dp(context,9));
-    expanded.addView(palette,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
-    for(int color:COLORS){
-      final int paletteColor=colorAtBrightness(color,100);
-      Button tile=new Button(context);
-      tile.setContentDescription(String.format(java.util.Locale.US,"Цвет #%06X",paletteColor & 0xFFFFFF));
-      tile.setText("");
-      tile.setMinWidth(0);
-      tile.setMinHeight(0);
-      tile.setPadding(0,0,0,0);
-      tile.setBackground(UiStyle.rounded(context,paletteColor,9));
-      GridLayout.LayoutParams cell=new GridLayout.LayoutParams();
-      cell.width=UiStyle.dp(context,42);
-      cell.height=UiStyle.dp(context,42);
-      cell.setMargins(UiStyle.dp(context,3),UiStyle.dp(context,3),UiStyle.dp(context,3),UiStyle.dp(context,3));
-      palette.addView(tile,cell);
-      tile.setOnClickListener(v->selectColor(paletteColor));
-    }
-    brightnessText=new TextView(context);
-    brightnessText.setTextColor(UiStyle.TEXT);
-    brightnessText.setTextSize(14);
-    brightnessText.setPadding(UiStyle.dp(context,6),UiStyle.dp(context,7),0,0);
-    expanded.addView(brightnessText);
-    brightnessBar=new SeekBar(context);
-    brightnessBar.setMax(100);
-    float[] hsv=new float[3];
-    Color.colorToHSV(selectedColor(),hsv);
-    int currentBrightness=prefs.getInt("paletteBrightness",Math.round(hsv[2]*100f));
-    brightnessBar.setProgress(Math.max(0,Math.min(100,currentBrightness)));
-    UiStyle.slider(brightnessBar);
-    expanded.addView(brightnessBar,new LayoutParams(LayoutParams.MATCH_PARENT,
-      LayoutParams.WRAP_CONTENT));
-    updateBrightnessLabel();
-    brightnessBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-      @Override public void onProgressChanged(SeekBar slider,int percent,boolean fromUser){
-        if(fromUser){
-          int base=prefs.getInt("paletteBaseColor",baseColorFromCurrent());
-          applyColor(base,percent);
-        }
+    Button entry=new Button(context);UiStyle.button(entry,false);entry.setText("Подсветка  ›");entry.setTextColor(Color.WHITE);
+    entry.setBackground(new Drawable(){
+      final HighlightRenderer renderer=new HighlightRenderer();
+      public void draw(Canvas c){Rect b=getBounds();renderer.draw(c,new RectF(b),prefs,0,13,null);}
+      public void setAlpha(int a){}
+      public void setColorFilter(ColorFilter filter){}
+      public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+    });
+    addView(entry,new LayoutParams(-1,UiStyle.dp(context,50)));
+    entry.setOnClickListener(v->open());
+  }
+  public static boolean back(LinearLayout host){java.lang.ref.WeakReference<Runnable> ref=BACK.get(host);Runnable back=ref==null?null:ref.get();if(back==null)return false;back.run();return true;}
+  private void open(){
+    if(!(getParent() instanceof LinearLayout))return;
+    LinearLayout host=(LinearLayout)getParent();
+    ArrayList<View> previous=new ArrayList<>();for(int i=0;i<host.getChildCount();i++)previous.add(host.getChildAt(i));
+    Runnable restore=()->{BACK.remove(host);host.removeAllViews();for(View view:previous)host.addView(view);};
+    BACK.put(host,new java.lang.ref.WeakReference<>(restore));host.removeAllViews();
+    LinearLayout page=new LinearLayout(getContext());page.setOrientation(VERTICAL);host.addView(page,new LayoutParams(-1,-2));
+    LinearLayout heading=new LinearLayout(getContext());heading.setGravity(Gravity.CENTER_VERTICAL);
+    Button back=new Button(getContext());back.setText("‹");UiStyle.button(back,false);back.setTextSize(24);
+    heading.addView(back,new LayoutParams(UiStyle.dp(getContext(),44),UiStyle.dp(getContext(),44)));back.setOnClickListener(v->restore.run());
+    TextView title=new TextView(getContext());title.setText("Подсветка");title.setTextColor(Color.WHITE);title.setTextSize(20);title.setPadding(UiStyle.dp(getContext(),10),0,0,0);
+    heading.addView(title,new LayoutParams(0,-2,1));page.addView(heading);
+    final View preview=new View(getContext()){
+      final HighlightRenderer renderer=new HighlightRenderer();
+      protected void onDraw(Canvas c){
+        RectF r=new RectF(8,10,getWidth()-8,getHeight()-10);
+        renderer.draw(c,r,prefs,android.os.SystemClock.uptimeMillis(),13,null);
+        Paint text=new Paint(Paint.ANTI_ALIAS_FLAG);text.setColor(Color.WHITE);text.setTextSize(UiStyle.dp(getContext(),14));text.setTextAlign(Paint.Align.CENTER);
+        c.drawText("Пример тега",getWidth()/2f,getHeight()/2f+text.getTextSize()/3,text);
+        if(isShown())postInvalidateDelayed(50);
       }
-      @Override public void onStartTrackingTouch(SeekBar slider){}
-      @Override public void onStopTrackingTouch(SeekBar slider){}
+    };
+    page.addView(preview,new LayoutParams(-1,UiStyle.dp(getContext(),70)));
+    float[] hsv=new float[3];Color.colorToHSV(HighlightStyle.color(prefs),hsv);
+    ColorWheel wheel=new ColorWheel(getContext(),HighlightStyle.color(prefs),(h,s)->{
+      hsv[0]=h;hsv[1]=s;saveColor(hsv);preview.invalidate();
     });
-    expanded.setVisibility(GONE);
-    updateTrigger();
-    trigger.setOnClickListener(v->{
-      expanded.setVisibility(expanded.getVisibility()==VISIBLE?GONE:VISIBLE);
-      updateTrigger();
+    page.addView(wheel,new LayoutParams(-1,UiStyle.dp(getContext(),200)));
+    slider(page,"Яркость",Math.round(hsv[2]*100),value->{hsv[2]=value/100f;saveColor(hsv);preview.invalidate();});
+    slider(page,"Прозрачность подсветки",prefs.getInt("highlightTransparency",20),value->{prefs.edit().putInt("highlightTransparency",value).apply();notifyChange();preview.invalidate();});
+    LinearLayout stars=new LinearLayout(getContext());stars.setGravity(Gravity.CENTER_VERTICAL);
+    TextView twinkle=new TextView(getContext());twinkle.setText("Мерцание звёзд");twinkle.setTextColor(Color.WHITE);twinkle.setTextSize(14);stars.addView(twinkle,new LayoutParams(0,-2,1));
+    CycleToggle toggle=new CycleToggle(getContext(),2);toggle.setState(prefs.getBoolean("twinkle",true)?1:0,UiStyle.ACCENT,prefs.getBoolean("twinkle",true));
+    stars.addView(toggle,new LayoutParams(UiStyle.dp(getContext(),40),UiStyle.dp(getContext(),42)));
+    toggle.setOnClickListener(v->{boolean on=!prefs.getBoolean("twinkle",true);prefs.edit().putBoolean("twinkle",on).apply();toggle.setState(on?1:0,UiStyle.ACCENT,on);notifyChange();});page.addView(stars);
+    slider(page,"Дымка вокруг звёзд",prefs.getInt("fog",35),value->{prefs.edit().putInt("fog",value).apply();notifyChange();preview.invalidate();});
+    Button reset=new Button(getContext());reset.setText("Сбросить настройки подсветки");UiStyle.button(reset,false);page.addView(reset,new LayoutParams(-1,-2));
+    reset.setOnClickListener(v->{HighlightStyle.reset(prefs);notifyChange();restore.run();open();});
+  }
+  private interface Value{void set(int value);}
+  private void slider(LinearLayout page,String name,int value,Value change){
+    TextView label=new TextView(getContext());label.setTextColor(Color.WHITE);label.setTextSize(14);label.setText(name+": "+value+"%");page.addView(label);
+    SeekBar slider=new SeekBar(getContext());slider.setMax(100);slider.setProgress(value);UiStyle.slider(slider);page.addView(slider,new LayoutParams(-1,-2));
+    slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+      public void onProgressChanged(SeekBar bar,int progress,boolean user){if(user){label.setText(name+": "+progress+"%");change.set(progress);}}
+      public void onStartTrackingTouch(SeekBar bar){}public void onStopTrackingTouch(SeekBar bar){}
     });
   }
-
-  private int selectedColor(){
-    return Color.rgb(prefs.getInt("red",0),prefs.getInt("green",255),prefs.getInt("blue",90));
-  }
-  private int baseColorFromCurrent(){
-    float[] hsv=new float[3];
-    Color.colorToHSV(selectedColor(),hsv);
-    hsv[2]=1f;
-    return Color.HSVToColor(hsv);
-  }
-  private void updateBrightnessLabel(){
-    brightnessText.setText("Яркость: "+brightnessBar.getProgress()+"%");
-  }
-  private static int colorAtBrightness(int base,int percent){
-    float[] hsv=new float[3];
-    Color.colorToHSV(base,hsv);
-    hsv[2]=Math.max(0,Math.min(100,percent))/100f;
-    return Color.HSVToColor(hsv);
-  }
-  private void applyColor(int base,int percent){
-    int result=colorAtBrightness(base,percent);
-    prefs.edit().putInt("paletteBaseColor",base).putInt("paletteBrightness",percent)
-      .putInt("red",Color.red(result)).putInt("green",Color.green(result))
-      .putInt("blue",Color.blue(result)).apply();
-    updateBrightnessLabel();
-    updateTrigger();
-    if(onChange!=null)onChange.run();
-  }
-  private void updateTrigger(){
-    int color=selectedColor();
-    boolean expandedNow=expanded.getVisibility()==VISIBLE;
-    trigger.setText("Цвет подсветки  "+(expandedNow?"▴":"▾"));
-    // Text remains readable even when the chosen palette color is very bright.
-    int brightness=(Color.red(color)*299+Color.green(color)*587+Color.blue(color)*114)/1000;
-    trigger.setTextColor(brightness>=150?UiStyle.BACKGROUND:UiStyle.TEXT);
-    trigger.setBackground(new RippleDrawable(ColorStateList.valueOf(0x55777777),
-      UiStyle.rounded(getContext(),color,12),null));
-  }
-  private void selectColor(int color){
-    applyColor(color,brightnessBar.getProgress());
-  }
+  private void saveColor(float[] hsv){int color=Color.HSVToColor(hsv);prefs.edit().putInt("red",Color.red(color)).putInt("green",Color.green(color)).putInt("blue",Color.blue(color)).apply();notifyChange();}
+  private void notifyChange(){invalidate();if(changed!=null)changed.run();}
 }

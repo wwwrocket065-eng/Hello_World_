@@ -17,11 +17,12 @@ public class MainActivity extends Activity {
   private TextView dbStatus;
   private ProgressBar dbProgress;
   private SharedPreferences prefs;
+  private LinearLayout mainRoot;
   private List<RecruitmentEngine.Operator> operators=new ArrayList<>();
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
-    prefs=getSharedPreferences("settings",MODE_PRIVATE);
-    ScrollView sc=new ScrollView(this); LinearLayout root=new LinearLayout(this);
+    prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
+    ScrollView sc=new ScrollView(this); LinearLayout root=new LinearLayout(this);mainRoot=root;
     root.setOrientation(LinearLayout.VERTICAL); root.setPadding(32,36,32,40);
     root.setBackgroundColor(UiStyle.BACKGROUND);sc.addView(root);setContentView(sc);
     setupSystemBars(root);
@@ -56,13 +57,6 @@ public class MainActivity extends Activity {
     RecruitSettings.addFilter(root,prefs,null);
     text(root,"Подсветка",19,Color.WHITE);
     root.addView(new HighlightColorControl(this,prefs,null));
-    slider(root,"Непрозрачность подсветки",10,70,prefs.getInt("fillAlpha",35),
-      v->prefs.edit().putInt("fillAlpha",v).apply());
-    button(root,"Сбросить подсветку",()->{
-      prefs.edit().remove("paletteBaseColor").remove("paletteBrightness")
-        .putInt("red",0).putInt("green",255).putInt("blue",90).putInt("fillAlpha",35).apply();
-      recreate();
-    });
     text(root,"База операторов Global",19,Color.WHITE);
     dbStatus=text(root,"Проверка базы...",15,0xFFBFD8E3);
     dbProgress=new ProgressBar(this);dbProgress.setIndeterminate(true);
@@ -80,6 +74,7 @@ public class MainActivity extends Activity {
     });
     loadDb(false);
   }
+  @Override public void onBackPressed(){if(mainRoot!=null&&HighlightColorControl.back(mainRoot))return;super.onBackPressed();}
   private void loadDb(boolean force) {
     if(dbProgress!=null)dbProgress.setVisibility(View.VISIBLE);
     boolean requestedChina=prefs.getBoolean("china",false);
