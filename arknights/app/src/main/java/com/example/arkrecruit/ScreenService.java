@@ -411,11 +411,11 @@ public class ScreenService extends Service {
   private void chooseRecommendation(){
     ArrayList<String> tags=new ArrayList<>();
     for(Recognition r:recognized)tags.add(r.tag);
-    List<RecruitmentEngine.Result> options=recruitMinutes<60?Collections.emptyList():RecruitmentEngine.combinationsAtMinutes(tags,operators,true,recruitMinutes);
-    reachableOperators=RecruitmentEngine.reachable(options);
+    List<RecruitmentEngine.Result> options=RecruitmentEngine.combinationsAtMinutes(tags,operators,true,540);
+    reachableOperators=RecruitmentEngine.reachableAtAnyTime(tags,operators);
     recommendation=options.isEmpty()?null:options.get(0);
     targetPlans.clear();
-    for(String name:targets.keySet())targetPlans.put(name,RecruitmentEngine.forTarget(options,name));
+    for(String name:targets.keySet())targetPlans.put(name,RecruitmentEngine.targetPlan(tags,operators,name));
     if(targets.size()==1)recommendation=targetPlans.get(targets.keySet().iterator().next());
     render();
   }
@@ -424,12 +424,16 @@ public class ScreenService extends Service {
     if(panelText!=null){
       if(paused)panelText.setText("Анализ на паузе");
       else if(!inRecruitment)panelText.setText("Ожидаю рекрутинг • "+detectedCount+"/5 тегов");
-      else if(recruitMinutes<60)panelText.setText("Время не распознано");
       else if(recommendation==null)panelText.setText("Тегов: "+detectedCount+
         "/5\nНет проверенной комбинации или базы");
-      else panelText.setText(String.format(Locale.ROOT,"%d:%02d",recruitMinutes/60,recruitMinutes%60)+
-        " ("+recommendation.guaranteed+"★"+
-        (recommendation.guaranteed==recommendation.possible?"":"–"+recommendation.possible+"★")+") · "+variantLabel(recommendation));
+      else {
+        String value="Выбрать: "+String.format(Locale.ROOT,"%d:%02d",recommendation.minutes/60,recommendation.minutes%60)+
+          " ("+recommendation.guaranteed+"★"+
+          (recommendation.guaranteed==recommendation.possible?"":"–"+recommendation.possible+"★")+") · "+variantLabel(recommendation);
+        android.text.SpannableString text=new android.text.SpannableString(value);
+        text.setSpan(new android.text.style.ForegroundColorSpan(0xFFFFD866),0,8,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        panelText.setText(text);
+      }
     }
     if(paused||!screenPresent)closeGoalMenu();
     if(goalText!=null){
@@ -442,7 +446,7 @@ public class ScreenService extends Service {
         else for(Map.Entry<String,Integer> target:targets.entrySet()){
           if(goals.length()>6)goals.append("\n");
           String name=target.getKey();
-          int color=targets.size()>1?target.getValue():UiStyle.TEXT;
+          int color=targets.size()>1?target.getValue():Color.WHITE;
           int start=goals.length();
           goals.append(targets.size()>1?"● ":"").append(name);
           if(targetPlans.get(name)==null)goals.append(" — нет тегов");
@@ -451,6 +455,7 @@ public class ScreenService extends Service {
             @Override public void updateDrawState(android.text.TextPaint paint){paint.setColor(color);paint.setUnderlineText(false);}
           },start,goals.length(),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
+        goals.setSpan(new android.text.style.ForegroundColorSpan(UiStyle.ACCENT),0,5,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         goalText.setText(goals);
       }
     }
@@ -618,7 +623,7 @@ public class ScreenService extends Service {
     statusText=new TextView(this);statusText.setTextColor(UiStyle.MUTED);
     statusText.setTextSize(10);statusText.setText("База Global");
     box.addView(statusText);
-    goalText=new TextView(this);goalText.setTextColor(UiStyle.ACCENT);goalText.setTextSize(12);
+    goalText=new TextView(this);goalText.setTextColor(Color.WHITE);goalText.setTextSize(12);
     goalText.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());goalText.setHighlightColor(Color.TRANSPARENT);
     ScrollView goalScroll=new ScrollView(this){
       @Override protected void onMeasure(int w,int h){
@@ -626,7 +631,7 @@ public class ScreenService extends Service {
       }
     };
     goalScroll.addView(goalText);box.addView(goalScroll,new LinearLayout.LayoutParams(-1,-2));
-    panelText=new TextView(this);panelText.setTextColor(0xFFFFD866);
+    panelText=new TextView(this);panelText.setTextColor(Color.WHITE);
     panelText.setTextSize(12);panelText.setPadding(0,dp(4),0,dp(3));
     box.addView(panelText);
     listToggle=new TextView(this);listToggle.setTextColor(UiStyle.ACCENT);

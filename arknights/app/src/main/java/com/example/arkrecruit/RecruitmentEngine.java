@@ -23,9 +23,9 @@ public final class RecruitmentEngine {
   }
   public static final class Result {
     public final List<String> tags; public final List<Operator> operators;
-    public final int guaranteed, possible, hours;
-    Result(List<String> t,List<Operator> ops,int hours) {
-      this.hours=hours;
+    public final int guaranteed, possible, hours, minutes;
+    Result(List<String> t,List<Operator> ops,int minutes) {
+      this.minutes=minutes;this.hours=minutes/60;
       tags=t; operators=ops;
       int min=7,max=0;
       for(Operator x:ops) { min=Math.min(min,x.rarity); max=Math.max(max,x.rarity); }
@@ -123,11 +123,24 @@ public final class RecruitmentEngine {
       }
       if(matches.isEmpty())continue;
       matches.sort((a,b)->{int c=Integer.compare(b.rarity,a.rarity);return c!=0?c:a.name.compareToIgnoreCase(b.name);});
-      Result r=new Result(selected,matches,minutes/60);
+      Result r=new Result(selected,matches,minutes);
       results.add(r);
     }
     results.sort((a,b)->Long.compare(score(b,chance),score(a,chance)));
     return results;
+  }
+  /** Plans use the longest valid duration for the target rarity, not the current dial. */
+  public static Result targetPlan(List<String> tags,List<Operator> operators,String name){
+    for(Operator op:operators)if(op.name.equals(name)){
+      int minutes=op.rarity==1?230:op.rarity==2?450:540;
+      return forTarget(combinationsAtMinutes(tags,operators,true,minutes),name);
+    }
+    return null;
+  }
+  public static List<Operator> reachableAtAnyTime(List<String> tags,List<Operator> operators){
+    ArrayList<Result> plans=new ArrayList<>();
+    for(int minutes:new int[]{230,450,540})plans.addAll(combinationsAtMinutes(tags,operators,true,minutes));
+    return reachable(plans);
   }
   /** Union over viable nonempty tag selections; never restrict to the best one. */
   public static List<Operator> reachable(List<Result> options){

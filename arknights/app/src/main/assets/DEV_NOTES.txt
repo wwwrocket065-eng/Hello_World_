@@ -285,3 +285,7 @@ Pending device validation: real Xiaomi Android 16 overlay window restrictions, p
 
 ## 0.3.16 — overlay occlusion and compact recommendation
 Own panel, controls and settings are excluded from sparse scene and lower-button evidence. Occluded evidence is unknown, preserving prior state; real visible exits remain detectable. Moving/layout overlays briefly defer probes (100 ms), including gear drag. Added regression tests for partial/full occlusion and real scene exit. Goal default: turquoise «Макс цель». Recommendation yellow: time (min★–max★) · tags. Native Xiaomi validation pending; no measured latency claim.
+
+
+## 0.3.17 — target duration and exact label colors
+Recommendation plans are independent of the current timer: 9:00 for maximum rarity and 3–6 star targets, 3:50 for robots, 7:30 for 2-star targets. Result stores exact minutes. Reachable target chooser unions valid durations, keeping robots selectable with a 9h dial. Only «Выбрать:» is yellow; duration, rarity and tags are white. Only «Цель:» is turquoise, default «Макс цель» white; individual multiple-goal colors preserved. Rarity interval describes selected tags at recommended time; game Possible Rarity is a general time-only interval. Added duration/low-rarity availability tests; engine passes locally. 0.3.16 occlusion fix retained. Device testing pending. Signing remains ephemeral CI debug key.

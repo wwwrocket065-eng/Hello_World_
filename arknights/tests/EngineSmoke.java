@@ -97,6 +97,16 @@ public final class EngineSmoke {
     if(rarities.contains(1)!=(mins<240)||rarities.contains(2)!=(mins<460)||rarities.contains(5)!=(mins>=240))
       throw new AssertionError("Wrong rarity pool at minute "+mins);
   }
+  List<String> targetTags=Arrays.asList("Robot","Starter","Healing");
+  RecruitmentEngine.Result rp=RecruitmentEngine.targetPlan(targetTags,timed,"Robot one");
+  RecruitmentEngine.Result sp=RecruitmentEngine.targetPlan(targetTags,timed,"Starter two");
+  RecruitmentEngine.Result fp=RecruitmentEngine.targetPlan(targetTags,timed,"Five");
+  if(rp==null||rp.minutes!=230||sp==null||sp.minutes!=450||fp==null||fp.minutes!=540)
+    throw new AssertionError("Target must recommend its valid duration independent of current clock");
+  if(RecruitmentEngine.reachableAtAnyTime(targetTags,timed).size()!=4)
+    throw new AssertionError("Target chooser must include low rarity targets at valid durations");
+  if(RecruitmentEngine.combinationsAtMinutes(Arrays.asList("Healing"),timed,true,420).get(0).guaranteed!=2)
+    throw new AssertionError("Current 7h pool must retain matching 2-star operators");
   System.out.println("Recruitment engine smoke tests PASS");
  }
 }
