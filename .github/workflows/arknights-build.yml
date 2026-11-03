@@ -20,7 +20,18 @@ jobs:
           gradle-version: "8.11.1"
       - uses: android-actions/setup-android@v4
       - name: Install SDK platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Fetch pinned local inference runtime
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: fd1234cb468935ea087d6929b2487926c3afff4b
+          path: arknights/third_party/llama.cpp
+      - name: Test translation isolation and motion
+        run: |
+          mkdir -p build/translation-tests
+          javac -d build/translation-tests app/src/main/java/com/example/arkrecruit/translate/TranslationPolicy.java app/src/main/java/com/example/arkrecruit/translate/MotionTracker.java tests/TranslationSmoke.java
+          java -cp build/translation-tests com.example.arkrecruit.translate.TranslationSmoke
       - name: Test recruitment algorithm
         run: |
           mkdir -p build/smoke
@@ -39,10 +50,13 @@ jobs:
           python3 -m pip install 'Pillow>=11,<13'
           python3 tools/prepare_china.py
           python3 tools/prepare_portraits.py
+          python3 tools/prepare_translation.py
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Package signing tool
+        run: cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" app/build/outputs/apk/debug/apksigner.jar
       - uses: actions/upload-artifact@v4
         with:
           name: arknights-debug-apk
-          path: arknights/app/build/outputs/apk/debug/*.apk
+          path: arknights/app/build/outputs/apk/debug/*
 

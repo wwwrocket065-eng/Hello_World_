@@ -7,13 +7,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <queries><package android:name="com.android.settings"/></queries>
     <application android:theme="@android:style/Theme.Material.NoActionBar"
-        android:label="Arknights Recruitment Assistant" android:usesCleartextTraffic="false">
+        android:label="Arknights Assistant" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".TranslationSettingsActivity" android:exported="false"/>
         <activity android:name=".CapturePermissionActivity"
             android:exported="false"
             android:taskAffinity="com.example.arkrecruit.capture"

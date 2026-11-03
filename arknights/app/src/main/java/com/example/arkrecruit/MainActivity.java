@@ -32,7 +32,7 @@ public class MainActivity extends Activity {
     header.setOrientation(LinearLayout.HORIZONTAL);
     header.setGravity(Gravity.CENTER_VERTICAL);
     root.addView(header);
-    TextView title=text(header,"Arknights Recruitment Assistant",24,UiStyle.TEXT);
+    TextView title=text(header,"Arknights Assistant",24,UiStyle.TEXT);
     title.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
     Button gear=new Button(this);
     gear.setText("⚙");
@@ -51,6 +51,7 @@ public class MainActivity extends Activity {
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
+    button(root,"Перевод",()->startActivity(new Intent(this,TranslationSettingsActivity.class)));
     root.addView(new HighlightColorControl(this,prefs,null));
     text(root,"Рекомендации",19,UiStyle.TEXT);
     RecruitSettings.addRegion(root,prefs,()->loadDb(false));
@@ -82,7 +83,8 @@ public class MainActivity extends Activity {
     String date=updated>0?new java.text.SimpleDateFormat("dd.MM.yyyy",Locale.getDefault()).format(new Date(updated)):"не обновлена";
     footer.setText("v"+version+" · База: "+date);
   }
-  @Override public void onResume(){super.onResume();hideNavigation();}
+  @Override public void onResume(){super.onResume();AppVisibility.visible=true;hideNavigation();}
+  @Override public void onPause(){AppVisibility.visible=false;super.onPause();}
   private void openMainSettings(){
     LinearLayout items=new LinearLayout(this);
     items.setOrientation(LinearLayout.VERTICAL);

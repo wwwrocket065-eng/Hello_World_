@@ -29,7 +29,8 @@ public class ScreenService extends Service {
   private ImageReader reader; private HandlerThread worker; private Handler workerHandler;
   private TextRecognizer recognizer;
   private WindowManager wm; private Markers markers; private View gear, panel, settings;
-  private FloatingControlButton playPause;
+  private FloatingControlButton playPause,translateButton;
+  private com.example.arkrecruit.translate.TranslationController translation;
   private volatile boolean paused=true;
   private boolean inRecruitment=false;
   private WindowManager.LayoutParams gearParams,panelParams;
@@ -77,6 +78,7 @@ public class ScreenService extends Service {
   }
   @Override public void onCreate(){
     super.onCreate();UiStyle.init(this);prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
+    translation=new com.example.arkrecruit.translate.TranslationController(this,()->main.post(()->{if(markers!=null)markers.invalidate();}));
     portraits=new OperatorPortraits(this);
     nextTargetColor=prefs.getInt("next_goal_color",0);
     try{
@@ -94,7 +96,7 @@ public class ScreenService extends Service {
   private Notification notification(){
     Intent stop=new Intent(this,ScreenService.class);stop.setAction("STOP");
     PendingIntent pi=PendingIntent.getService(this,0,stop,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-    return new Notification.Builder(this,CHANNEL).setContentTitle("Arknights Recruitment Assistant")
+    return new Notification.Builder(this,CHANNEL).setContentTitle("Arknights Assistant")
       .setContentText(projection==null?"Плавающие кнопки включены":"Анализ экрана активен").setSmallIcon(android.R.drawable.ic_menu_search)
       .setOngoing(true).addAction(android.R.drawable.ic_menu_close_clear_cancel,"Остановить",pi).build();
   }
@@ -191,7 +193,7 @@ public class ScreenService extends Service {
       }
       return;
     }
-    paused=!paused;scanEpoch.incrementAndGet();
+    paused=!paused;if(translation!=null)translation.pause(paused);scanEpoch.incrementAndGet();
     lastScan=0;
     if(paused){
       inRecruitment=false;
@@ -213,6 +215,7 @@ public class ScreenService extends Service {
       return;
     }
     long now=SystemClock.elapsedRealtime();
+    if(translation!=null)translation.frame(image,captureExclusions(image.getWidth(),image.getHeight()),paused||settings!=null||goalMenu!=null||AppVisibility.visible);
     if(paused||goalMenu!=null){image.close();return;}
     // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
     // They keep running while an OCR task is in flight.
@@ -612,9 +615,21 @@ public class ScreenService extends Service {
     playPause=new FloatingControlButton(this,FloatingControlButton.PLAY_PAUSE);
     // Play/Pause on the left, movable settings gear on the right.
     controls.addView(playPause,new LinearLayout.LayoutParams(dp(52),dp(52)));
+    translateButton=new FloatingControlButton(this,FloatingControlButton.TRANSLATE);
+    controls.addView(translateButton,new LinearLayout.LayoutParams(dp(52),dp(52)));
+    translateButton.setOnClickListener(v->{
+      if(!translation.enabled()&&!com.example.arkrecruit.translate.ModelStore.ready(this)){
+        Intent setup=new Intent(this,TranslationSettingsActivity.class);setup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);startActivity(setup);return;
+      }
+      translation.setEnabled(!translation.enabled());translateButton.setPlaying(translation.enabled());
+    });
     controls.addView(g,new LinearLayout.LayoutParams(dp(52),dp(52)));
     gear=controls;
-    gearParams=layout(dp(104),dp(52),WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+    controls.setOnTouchListener((v,event)->{
+      if(event.getAction()==MotionEvent.ACTION_OUTSIDE&&translation.enabled()&&(event.getRawX()!=0||event.getRawY()!=0))translation.touch(event.getRawX()/Math.max(1,width),event.getRawY()/Math.max(1,height));
+      return false;
+    });
+    gearParams=layout(dp(156),dp(52),WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH);
     gearParams.gravity=Gravity.LEFT|Gravity.TOP;
     gearParams.x=dp(8);gearParams.y=height/2;
     wm.addView(gear,gearParams);
@@ -632,7 +647,7 @@ public class ScreenService extends Service {
           float dx=e.getRawX()-startX,dy=e.getRawY()-startY;
           if(Math.abs(dx)+Math.abs(dy)>dp(10))dragged=true;
           if(dragged){
-            gearParams.x=Math.max(0,Math.min(width-dp(104),(int)(originX+dx)));
+            gearParams.x=Math.max(0,Math.min(width-dp(156),(int)(originX+dx)));
             gearParams.y=Math.max(0,Math.min(height-dp(70),(int)(originY+dy)));
             overlaySettlingUntil=SystemClock.elapsedRealtime()+100;
             wm.updateViewLayout(gear,gearParams);
@@ -755,6 +770,8 @@ public class ScreenService extends Service {
     box.addView(heading);
     close.setOnClickListener(v->toggleSettings());
     ThemeControl.add(box,()->{operatorRowsKey="";goalDisplayKey="";render();});
+    Button translateSettings=new Button(this);translateSettings.setText("Перевод");UiStyle.button(translateSettings,false);box.addView(translateSettings);
+    translateSettings.setOnClickListener(v->{Intent intent=new Intent(this,TranslationSettingsActivity.class);intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);startActivity(intent);});
     RecruitSettings.addRegion(box,prefs,null);
     RecruitSettings.addPanel(box,prefs,this::render);
     RecruitSettings.addFilter(box,prefs,this::render);
@@ -787,6 +804,7 @@ public class ScreenService extends Service {
     Markers(Context c){super(c);setWillNotDraw(false);}
     @Override protected void onDraw(Canvas canvas){
       super.onDraw(canvas);
+      if(translation!=null&&!paused){int[] translationOrigin=new int[2];getLocationOnScreen(translationOrigin);translation.overlay.draw(canvas,width,height,translationOrigin[0],translationOrigin[1]);}
       if(paused||!screenPresent||!inRecruitment||recommendation==null)return;
       paint.setStyle(Paint.Style.FILL);
       // Tile bounds are taken from image edges when available. The OCR
@@ -858,7 +876,7 @@ public class ScreenService extends Service {
     lastScan=0;missing=0;detectedCount=0;
     inRecruitment=false;recognized.clear();recommendation=null;knownTiles=new Rect[0];screenPresent=false;probeHits=probeMisses=0;
     if(gear!=null){
-      gearParams.x=Math.min(gearParams.x,Math.max(0,width-dp(104)));
+      gearParams.x=Math.min(gearParams.x,Math.max(0,width-dp(156)));
       gearParams.y=Math.min(gearParams.y,Math.max(0,height-dp(70)));
       wm.updateViewLayout(gear,gearParams);
     }
@@ -880,6 +898,7 @@ public class ScreenService extends Service {
     if(virtualDisplay!=null)virtualDisplay.release();
     if(reader!=null)reader.close();
     if(projection!=null){projection.stop();projection=null;}
+    if(translation!=null)translation.close();
     if(recognizer!=null)recognizer.close();
     if(worker!=null)worker.quitSafely();
     if(settings!=null){wm.removeView(settings);settings=null;}
