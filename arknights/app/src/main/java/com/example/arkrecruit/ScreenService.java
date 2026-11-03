@@ -39,7 +39,8 @@ public class ScreenService extends Service {
   private TextView panelText,statusText,listToggle,panelHeading;
   private int dataGeneration;
   private final SharedPreferences.OnSharedPreferenceChangeListener settingsListener=(p,key)->{
-    if("china".equals(key))loadOperators();
+    if("light_theme".equals(key)){operatorRowsKey="";goalDisplayKey="";render();}
+    else if("china".equals(key))loadOperators();
     else if("target_filter".equals(key)||"panel".equals(key))render();
   };
   private LinearLayout operatorRows;
@@ -75,7 +76,7 @@ public class ScreenService extends Service {
     String tag; Rect bounds; Rect tile; Recognition(String t,Rect r,Rect tile){tag=t;bounds=r;this.tile=tile;}
   }
   @Override public void onCreate(){
-    super.onCreate();prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
+    super.onCreate();UiStyle.init(this);prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
     portraits=new OperatorPortraits(this);
     nextTargetColor=prefs.getInt("next_goal_color",0);
     try{
@@ -142,7 +143,7 @@ public class ScreenService extends Service {
       virtualDisplay=projection.createVirtualDisplay("RecruitOCR",width,height,dm.densityDpi,
         DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,reader.getSurface(),null,workerHandler);
       paused=false;inRecruitment=false;lastScan=0;
-      updatePlayButton();render();
+      UiStyle.watch(gear);UiStyle.watch(panel);updatePlayButton();render();
       NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
       nm.notify(73,notification());
       loadOperators();
@@ -196,7 +197,7 @@ public class ScreenService extends Service {
       inRecruitment=false;
       recognized.clear();recommendation=null;knownTiles=new Rect[0];screenPresent=false;probeHits=probeMisses=0;
     }
-    updatePlayButton();render();
+    UiStyle.watch(gear);UiStyle.watch(panel);updatePlayButton();render();
   }
   private void consumeFrame(ImageReader source){
     Image image;
@@ -451,7 +452,7 @@ public class ScreenService extends Service {
       else {
         String value="Выбрать: "+String.format(Locale.ROOT,"%d:%02d",recommendation.minutes/60,recommendation.minutes%60)+
           " ("+recommendation.guaranteed+"★"+
-          (recommendation.guaranteed==recommendation.possible?"":"–"+recommendation.possible+"★")+") · "+variantLabel(recommendation);
+          (recommendation.guaranteed==recommendation.possible?"":"–"+recommendation.possible+"★")+")\n"+variantLabel(recommendation);
         android.text.SpannableString text=new android.text.SpannableString(value);
         text.setSpan(new android.text.style.ForegroundColorSpan(0xFFFFD866),0,8,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         panelText.setText(text);
@@ -468,7 +469,7 @@ public class ScreenService extends Service {
         else for(Map.Entry<String,Integer> target:targets.entrySet()){
           if(goals.length()>6)goals.append("\n");
           String name=target.getKey();
-          int color=targets.size()>1?target.getValue():Color.WHITE;
+          int color=targets.size()>1?target.getValue():UiStyle.TEXT;
           int start=goals.length();
           goals.append(targets.size()>1?"● ":"").append(name);
           if(targetPlans.get(name)==null)goals.append(" — нет тегов");
@@ -568,7 +569,7 @@ public class ScreenService extends Service {
     });
     LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
     card.setPadding(dp(12),dp(8),dp(12),dp(12));
-    card.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));card.setOnClickListener(v->{});
+    card.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,16));UiStyle.watch(card);card.setOnClickListener(v->{});
     LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);
     TextView title=new TextView(this);title.setText(name);title.setTextColor(UiStyle.TEXT);title.setTextSize(16);
     heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));
@@ -606,7 +607,7 @@ public class ScreenService extends Service {
 
     LinearLayout controls=new LinearLayout(this);
     controls.setOrientation(LinearLayout.HORIZONTAL);
-    controls.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
+    controls.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,14));
     FloatingControlButton g=new FloatingControlButton(this,FloatingControlButton.SETTINGS);
     playPause=new FloatingControlButton(this,FloatingControlButton.PLAY_PAUSE);
     // Play/Pause on the left, movable settings gear on the right.
@@ -646,7 +647,7 @@ public class ScreenService extends Service {
     LinearLayout box=new LinearLayout(this);
     box.setOrientation(LinearLayout.VERTICAL);
     box.setPadding(dp(8),dp(4),dp(8),dp(8));
-    box.setBackground(UiStyle.rounded(this,0xF01D2B36,14));
+    box.setBackground(UiStyle.rounded(this,UiStyle.SURFACE,14));
     // Drag using the narrow header; the operator list stays independently scrollable.
     TextView drag=new TextView(this);panelHeading=drag;
     drag.setText("⠿  Рекомендация · Global");
@@ -659,7 +660,7 @@ public class ScreenService extends Service {
     statusText.setTextSize(10);statusText.setText("База Global");
     statusText.setVisibility(View.GONE);
     box.addView(statusText);
-    goalText=new TextView(this);goalText.setTextColor(Color.WHITE);goalText.setTextSize(12);
+    goalText=new TextView(this);goalText.setTextColor(UiStyle.TEXT);goalText.setTextSize(12);
     goalText.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());goalText.setHighlightColor(Color.TRANSPARENT);
     ScrollView goalScroll=new ScrollView(this){
       @Override protected void onMeasure(int w,int h){
@@ -667,7 +668,7 @@ public class ScreenService extends Service {
       }
     };
     goalScroll.addView(goalText);box.addView(goalScroll,new LinearLayout.LayoutParams(-1,-2));
-    panelText=new TextView(this);panelText.setTextColor(Color.WHITE);
+    panelText=new TextView(this);panelText.setTextColor(UiStyle.TEXT);
     panelText.setTextSize(12);panelText.setPadding(0,dp(4),0,dp(3));
     box.addView(panelText);
     listToggle=new TextView(this);listToggle.setTextColor(UiStyle.ACCENT);
@@ -735,7 +736,7 @@ public class ScreenService extends Service {
         }
       }
     });
-    updatePlayButton();render();
+    UiStyle.watch(gear);UiStyle.watch(panel);updatePlayButton();render();
   }
   private void toggleSettings(){
     if(settings!=null){wm.removeView(settings);settings=null;updateOverlayExclusions();return;}
@@ -753,6 +754,7 @@ public class ScreenService extends Service {
     heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));
     box.addView(heading);
     close.setOnClickListener(v->toggleSettings());
+    ThemeControl.add(box,()->{operatorRowsKey="";goalDisplayKey="";render();});
     RecruitSettings.addRegion(box,prefs,null);
     RecruitSettings.addPanel(box,prefs,this::render);
     RecruitSettings.addFilter(box,prefs,this::render);
@@ -765,10 +767,10 @@ public class ScreenService extends Service {
     WindowManager.LayoutParams p=layout(dp(285),Math.min(dp(520),Math.max(dp(160),height-dp(80))),
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
     p.gravity=Gravity.CENTER;p.alpha=.96f;wm.addView(settings,p);
-    settings.post(this::updateOverlayExclusions);
+    UiStyle.watch(settings);settings.post(this::updateOverlayExclusions);
   }
   private void settingSlider(LinearLayout box,String label,String key,int min,int max,int def){
-    TextView t=new TextView(this);t.setTextColor(Color.WHITE);
+    TextView t=new TextView(this);t.setTextColor(UiStyle.TEXT);
     t.setText(label);box.addView(t);
     SeekBar b=new SeekBar(this);b.setMax(max-min);b.setProgress(prefs.getInt(key,def)-min);UiStyle.slider(b);box.addView(b);
     b.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){

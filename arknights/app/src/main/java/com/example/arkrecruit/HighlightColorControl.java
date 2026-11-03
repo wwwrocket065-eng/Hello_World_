@@ -16,7 +16,7 @@ public final class HighlightColorControl extends LinearLayout {
   public HighlightColorControl(Context context,SharedPreferences prefs,Runnable changed){
     super(context);this.prefs=prefs;this.changed=changed;HighlightStyle.ensure(prefs);
     setOrientation(VERTICAL);
-    EntryButton entry=new EntryButton(context);
+    NavigationButton entry=new NavigationButton(context,"Подсветка",false);
     FrameLayout entryRow=new FrameLayout(context);
     entryRow.addView(entry,new FrameLayout.LayoutParams(-1,-2));
     LayoutParams entryLayout=new LayoutParams(-1,-2);
@@ -24,25 +24,9 @@ public final class HighlightColorControl extends LinearLayout {
     addView(entryRow,entryLayout);
     entry.setOnClickListener(v->open());
   }
-  private final class EntryButton extends Button {
-    private final Paint arrow=new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path chevron=new Path();
-    EntryButton(Context context){super(context);UiStyle.button(this,true);setText("Подсветка");updateColor();}
-    private void updateColor(){
-      int color=HighlightStyle.color(prefs);
-      int ink=(Color.red(color)*299+Color.green(color)*587+Color.blue(color)*114)/1000>=150?UiStyle.BACKGROUND:Color.WHITE;
-      setTextColor(ink);arrow.setColor(ink);
-      setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x44777777),UiStyle.rounded(getContext(),color,12),null));
-    }
-    @Override protected void onAttachedToWindow(){super.onAttachedToWindow();updateColor();}
-    @Override protected void onDraw(Canvas canvas){
-      super.onDraw(canvas);float d=getResources().getDisplayMetrics().density;
-      float x=getWidth()-22*d,y=getHeight()/2f;
-      arrow.setStyle(Paint.Style.STROKE);arrow.setStrokeWidth(2*d);arrow.setStrokeCap(Paint.Cap.ROUND);arrow.setStrokeJoin(Paint.Join.ROUND);
-      chevron.reset();chevron.moveTo(x-3*d,y-6*d);chevron.lineTo(x+3*d,y);chevron.lineTo(x-3*d,y+6*d);canvas.drawPath(chevron,arrow);
-    }
-  }
   public static boolean back(LinearLayout host){java.lang.ref.WeakReference<Runnable> ref=BACK.get(host);Runnable back=ref==null?null:ref.get();if(back==null)return false;back.run();return true;}
+  static void registerBack(LinearLayout host,Runnable action){BACK.put(host,new java.lang.ref.WeakReference<>(action));}
+  static void clearBack(LinearLayout host){BACK.remove(host);}
   private void open(){
     if(!(getParent() instanceof LinearLayout))return;
     LinearLayout host=(LinearLayout)getParent();
@@ -52,9 +36,9 @@ public final class HighlightColorControl extends LinearLayout {
     Runnable restore=()->{if(session[0]!=null)session[0].close(()->BACK.remove(host));};
     BACK.put(host,new java.lang.ref.WeakReference<>(restore));
     LinearLayout heading=new LinearLayout(getContext());heading.setGravity(Gravity.CENTER_VERTICAL);
-    Button back=new Button(getContext());back.setText("‹");UiStyle.button(back,false);back.setTextSize(24);back.setBackgroundColor(Color.TRANSPARENT);back.setContentDescription("Назад");
+    Button back=new NavigationButton(getContext(),"",true);back.setTextSize(24);back.setBackgroundColor(Color.TRANSPARENT);back.setContentDescription("Назад");
     heading.addView(back,new LayoutParams(UiStyle.dp(getContext(),44),UiStyle.dp(getContext(),44)));back.setOnClickListener(v->restore.run());
-    TextView title=new TextView(getContext());title.setText("Подсветка");title.setTextColor(Color.WHITE);title.setTextSize(20);title.setPadding(UiStyle.dp(getContext(),10),0,0,0);
+    TextView title=new TextView(getContext());title.setText("Подсветка");title.setTextColor(UiStyle.TEXT);title.setTextSize(20);title.setPadding(UiStyle.dp(getContext(),10),0,0,0);
     heading.addView(title,new LayoutParams(0,-2,1));page.addView(heading);
     final View preview=new View(getContext()){
       final HighlightRenderer renderer=new HighlightRenderer();
@@ -72,10 +56,10 @@ public final class HighlightColorControl extends LinearLayout {
     };
     page.addView(preview,new LayoutParams(-1,UiStyle.dp(getContext(),70)));
     float[] hsv=new float[3];Color.colorToHSV(HighlightStyle.color(prefs),hsv);
-    ColorWheel wheel=new ColorWheel(getContext(),HighlightStyle.color(prefs),(h,s)->{
-      hsv[0]=h;hsv[1]=s;saveColor(hsv);preview.invalidate();
+    ColorStrips wheel=new ColorStrips(getContext(),HighlightStyle.color(prefs),color->{
+      prefs.edit().putInt("red",Color.red(color)).putInt("green",Color.green(color)).putInt("blue",Color.blue(color)).apply();notifyChange();preview.invalidate();
     });
-    page.addView(wheel,new LayoutParams(-1,UiStyle.dp(getContext(),200)));
+    page.addView(wheel,new LayoutParams(-1,UiStyle.dp(getContext(),88)));
     SeekBar brightness=slider(page,"Яркость",prefs.getInt("paletteBrightness",100),value->{prefs.edit().putInt("paletteBrightness",value).apply();notifyChange();preview.invalidate();});
     ArrayList<Runnable> toggles=new ArrayList<>();
     component(page,"Рамка","showFrame",preview,toggles);
@@ -87,11 +71,11 @@ public final class HighlightColorControl extends LinearLayout {
       brightness.setProgress(100);for(Runnable update:toggles)update.run();
       notifyChange();preview.invalidate();
     });
-    session[0]=SettingsPageTransition.open(host,page);
+    session[0]=SettingsPageTransition.open(host,page);UiStyle.watch(host);
   }
   private void component(LinearLayout page,String name,String key,View preview,ArrayList<Runnable> updates){
     LinearLayout row=new LinearLayout(getContext());row.setGravity(Gravity.CENTER_VERTICAL);
-    TextView label=new TextView(getContext());label.setText(name);label.setTextColor(Color.WHITE);label.setTextSize(14);
+    TextView label=new TextView(getContext());label.setText(name);label.setTextColor(UiStyle.TEXT);label.setTextSize(14);
     row.addView(label,new LayoutParams(0,-2,1));
     CycleToggle toggle=new CycleToggle(getContext(),2);row.addView(toggle,new LayoutParams(UiStyle.dp(getContext(),40),UiStyle.dp(getContext(),42)));
     Runnable update=()->{boolean on=prefs.getBoolean(key,true);toggle.setState(on?1:0,UiStyle.ACCENT,on);toggle.setContentDescription(name+": "+(on?"включено":"выключено"));};
@@ -101,7 +85,7 @@ public final class HighlightColorControl extends LinearLayout {
   }
   private interface Value{void set(int value);}
   private SeekBar slider(LinearLayout page,String name,int value,Value change){
-    TextView label=new TextView(getContext());label.setTextColor(Color.WHITE);label.setTextSize(14);label.setText(name+": "+value+"%");page.addView(label);
+    TextView label=new TextView(getContext());label.setTextColor(UiStyle.TEXT);label.setTextSize(14);label.setText(name+": "+value+"%");page.addView(label);
     SeekBar slider=new SeekBar(getContext());slider.setMax(200);slider.setProgress(value);UiStyle.slider(slider);page.addView(slider,new LayoutParams(-1,-2));
     slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
       public void onProgressChanged(SeekBar bar,int progress,boolean user){{label.setText(name+": "+progress+"%");if(user)change.set(progress);}}

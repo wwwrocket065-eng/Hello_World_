@@ -34,11 +34,11 @@ public final class CycleToggle extends View {
     float cy=getHeight()/2f,left=3*density,right=getWidth()-3*density;
     float radius=10*density,halfTrack=7*density;
     // Neutral rail remains visible beyond the current three-state thumb.
-    paint.setColor(0xFF435763);
+    paint.setColor(UiStyle.BORDER);
     canvas.drawRoundRect(left,cy-halfTrack,right,cy+halfTrack,halfTrack,halfTrack,paint);
     float x=left+radius+(right-left-radius*2)*fraction;
     if(active){
-      paint.setColor((color&0x00FFFFFF)|0x55000000);
+      paint.setColor(color==UiStyle.ACCENT?UiStyle.TRACK:(color&0x00FFFFFF)|0x99000000);
       if(positions==3){
         int saved=canvas.save();canvas.clipRect(left,cy-halfTrack,x,cy+halfTrack);
         canvas.drawRoundRect(left,cy-halfTrack,right,cy+halfTrack,halfTrack,halfTrack,paint);

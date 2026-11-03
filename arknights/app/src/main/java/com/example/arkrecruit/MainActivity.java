@@ -21,7 +21,7 @@ public class MainActivity extends Activity {
   private LinearLayout mainRoot;
   private List<RecruitmentEngine.Operator> operators=new ArrayList<>();
   @Override public void onCreate(Bundle state) {
-    super.onCreate(state);
+    super.onCreate(state);UiStyle.init(this);
     prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
     ScrollView sc=new ScrollView(this); sc.setFillViewport(true); LinearLayout root=new LinearLayout(this);mainRoot=root;
     root.setOrientation(LinearLayout.VERTICAL); root.setPadding(32,36,32,40);
@@ -32,7 +32,7 @@ public class MainActivity extends Activity {
     header.setOrientation(LinearLayout.HORIZONTAL);
     header.setGravity(Gravity.CENTER_VERTICAL);
     root.addView(header);
-    TextView title=text(header,"Arknights Recruitment Assistant",24,Color.WHITE);
+    TextView title=text(header,"Arknights Recruitment Assistant",24,UiStyle.TEXT);
     title.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
     Button gear=new Button(this);
     gear.setText("⚙");
@@ -52,14 +52,14 @@ public class MainActivity extends Activity {
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
     root.addView(new HighlightColorControl(this,prefs,null));
-    text(root,"Рекомендации",19,Color.WHITE);
+    text(root,"Рекомендации",19,UiStyle.TEXT);
     RecruitSettings.addRegion(root,prefs,()->loadDb(false));
     RecruitSettings.addPanel(root,prefs,null);
     RecruitSettings.addFilter(root,prefs,null);
     root.addView(new View(this),new LinearLayout.LayoutParams(1,0,1f));
     footer=text(root,"",13,UiStyle.MUTED);
     updateFooter();
-    loadDb(false);
+    loadDb(false);UiStyle.watch(root);
   }
   @Override public void onBackPressed(){if(mainRoot!=null&&HighlightColorControl.back(mainRoot))return;super.onBackPressed();}
   private void loadDb(boolean force) {
@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
     name.setText("Настройки");
     name.setTextSize(20);
     name.setTextColor(UiStyle.TEXT);
-    name.setTypeface(null,android.graphics.Typeface.BOLD);
+    name.setTypeface(UiStyle.FONT,android.graphics.Typeface.BOLD);
     heading.addView(name,new LinearLayout.LayoutParams(0,dp(48),1f));
     Button close=new Button(this);
     close.setText("✕");
@@ -108,6 +108,7 @@ public class MainActivity extends Activity {
       .setView(items)
       .create();
     close.setOnClickListener(v->dialog.dismiss());
+    ThemeControl.add(items,()->{});
     button(items,"Разрешение",()->{
       dialog.dismiss();
       openOverlayPermission();

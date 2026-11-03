@@ -9,7 +9,7 @@ import android.view.View;
 /** Lightweight floating control. Drawn icons prevent system emoji/color badges. */
 public final class FloatingControlButton extends View {
   public static final int PLAY_PAUSE=0, SETTINGS=1;
-  private static final int ICON_COLOR=0xFF9ECBC7;
+  private static final int ICON_COLOR=UiStyle.ACCENT;
   private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
   private final int kind;
   private boolean playing;
@@ -39,7 +39,7 @@ public final class FloatingControlButton extends View {
     final float cx=getWidth()/2f,cy=getHeight()/2f;
     p.reset();p.setAntiAlias(true);p.setColor(isPressed()?0xFF354D59:UiStyle.RAISED);
     p.setStyle(Paint.Style.FILL);
-    canvas.drawRoundRect(2*s,2*s,getWidth()-2*s,getHeight()-2*s,11*s,11*s,p);
+    canvas.drawRoundRect(2*s,2*s,getWidth()-2*s,getHeight()-2*s,0,0,p);
     p.setColor(kind==SETTINGS?UiStyle.MUTED:ICON_COLOR);
     if(kind==SETTINGS)drawGear(canvas,cx,cy,s);
     else if(playing)drawPause(canvas,cx,cy,s);

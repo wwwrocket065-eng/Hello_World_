@@ -23,10 +23,11 @@ public final class DisclosureArrow extends Drawable {
     float left=b.left+b.width()*.12f,right=b.right-b.width()*.12f;
     float top=b.top+b.height()*.22f,bottom=b.bottom-b.height()*.15f;
     Path path=new Path();
+    paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(Math.max(1,b.width()/8f));
+    paint.setStrokeCap(Paint.Cap.SQUARE);paint.setPathEffect(null);
     path.moveTo(left,expanded?bottom:top);
-    path.lineTo(right,expanded?bottom:top);
     path.lineTo(b.exactCenterX(),expanded?top:bottom);
-    path.close();canvas.drawPath(path,paint);
+    path.lineTo(right,expanded?bottom:top);canvas.drawPath(path,paint);
   }
   @Override public void setAlpha(int alpha){paint.setAlpha(alpha);invalidateSelf();}
   @Override public void setColorFilter(ColorFilter filter){paint.setColorFilter(filter);invalidateSelf();}

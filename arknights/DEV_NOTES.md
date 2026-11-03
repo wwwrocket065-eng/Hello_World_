@@ -396,3 +396,8 @@ Brightness now separate0–200% gain, default/reset100%, applied to stars and ef
 
 ### 0.3.29 verified delivery
 Source22a43e95ce7ee73d19fca6b60ee8d3007336fdb4; CI41486339777 success. APK47088034 bytes SHA2568b706c2dda2ab1997134733cac7867dfcbc1e25a402998e6353c2cfc35be37b6. Saved libfile_e93ff49497048191ae9e5cdd3e1429c8. Native smoothness/edge appearance/brightness range unverified on device; no native-test claim. Signing caveat unchanged.
+
+
+## 0.3.30 — shared Arknights UI themes (2026-11-03)
+Base: branch arknights-recruitment-starter, source962972db; verified prior APK0.3.29. User completed spoken review: preserve placements and tag highlight renderer/pattern/style; new common rectangular UI, condensed Cyrillic-capable system typeface, reference-inspired neutral light/dark palettes, brighter Global/China, bright cyan thumbs and darker cyan rails/Start. Theme entry at top of both settings opens existing animated nested page; light/dark selection saved and applied to registered activity/overlay trees. Shared drawn navigation chevrons replace font glyphs; list disclosure uses same stroked family. Removed inherited double outline from pushed settings pages (plain child background). Replaced200dp wheel with88dp two unlabeled continuous strips: rainbow, then white->selected hue->black. Separate effect gain0–200% retained; renderer/pattern/style untouched. Recommendation tags start after explicit newline below time/rarity.
+Build/CI and native Xiaomi verification pending. Do not claim native appearance verified. New UI must use UiStyle, NavigationButton and shared controls; no per-screen alternate palette/icon family. Existing capture/OCR/data/target behavior stays frozen.

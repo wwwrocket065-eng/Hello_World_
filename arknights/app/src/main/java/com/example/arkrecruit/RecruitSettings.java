@@ -8,8 +8,8 @@ import android.widget.*;
 
 /** Shared tap-to-cycle controls; stored filter values retain their old meaning. */
 public final class RecruitSettings {
-  public static final int CHINA_COLOR=0xFFBE888D;
-  public static final int GLOBAL_COLOR=0xFF8B9FBD;
+  public static final int CHINA_COLOR=0xFFE66170;
+  public static final int GLOBAL_COLOR=0xFF5B9DE5;
   private RecruitSettings(){}
   public static int filter(SharedPreferences prefs){
     return Math.max(0,Math.min(2,prefs.getInt("target_filter",prefs.getBoolean("only_current_tags",true)?1:0)));
@@ -25,7 +25,7 @@ public final class RecruitSettings {
   public static void addPanel(LinearLayout parent,SharedPreferences prefs,Runnable changed){
     Context context=parent.getContext();
     LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.CENTER_VERTICAL);
-    TextView label=new TextView(context);label.setText("Панель операторов");label.setTextSize(14);label.setTextColor(Color.WHITE);
+    TextView label=new TextView(context);label.setText("Панель операторов");label.setTextSize(14);label.setTextColor(UiStyle.TEXT);
     row.addView(label,new LinearLayout.LayoutParams(0,-2,1));
     CycleToggle control=new CycleToggle(context,2);
     Runnable update=()->{
@@ -42,12 +42,12 @@ public final class RecruitSettings {
     Context context=parent.getContext();
     LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.CENTER_VERTICAL);
     {
-      TextView prefix=new TextView(context);prefix.setText(region?"Сервер: ":"Список операторов: ");prefix.setTextSize(14);prefix.setTextColor(Color.WHITE);prefix.setSingleLine(true);
+      TextView prefix=new TextView(context);prefix.setText(region?"Сервер: ":"Список операторов: ");prefix.setTextSize(14);prefix.setTextColor(UiStyle.TEXT);prefix.setSingleLine(true);
       row.addView(prefix,new LinearLayout.LayoutParams(-2,-2));
     }
     TextView label=new TextView(context);
     label.setSingleLine(true);label.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
-    label.setMarqueeRepeatLimit(-1);label.setSelected(true);label.setTextSize(14);label.setTextColor(Color.WHITE);
+    label.setMarqueeRepeatLimit(-1);label.setSelected(true);label.setTextSize(14);label.setTextColor(UiStyle.TEXT);
     row.addView(label,new LinearLayout.LayoutParams(0,-2,1));
     CycleToggle control=new CycleToggle(context,region?2:3);
     row.addView(control,new LinearLayout.LayoutParams(UiStyle.dp(context,region?40:60),UiStyle.dp(context,42)));
@@ -55,7 +55,7 @@ public final class RecruitSettings {
       int mode=filter(prefs),level=mode==2?1:mode==1?2:3;
       String value=mode==0?"Все":mode==1?"Теги":"Выбранные";
       label.setText(region?region(prefs):value);
-      label.setTextColor(region?regionColor(prefs):Color.WHITE);
+      label.setTextColor(region?regionColor(prefs):UiStyle.TEXT);
       control.setContentDescription(region?"Сервер: "+region(prefs):"Список операторов: "+value+", "+level+" из 3");
       control.setState(region?(prefs.getBoolean("china",false)?0:1):level-1,
         region?regionColor(prefs):UiStyle.ACCENT,region||level>1);
