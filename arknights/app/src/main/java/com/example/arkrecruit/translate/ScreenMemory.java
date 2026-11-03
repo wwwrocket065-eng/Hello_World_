@@ -3,12 +3,12 @@ import java.util.*;
 /** Inverted anchor index: expected neighbors first, then matching anchors, not a full screen scan. */
 final class ScreenMemory {
   private final TranslationStore store;
-  private final Map<Long,Set<String>> templates=new HashMap<>();
+  private final Map<Long,Set<String>> templates=new LinkedHashMap<>();
   private final Map<String,Set<Long>> index=new HashMap<>();
   private long current;private String zone="visual";
   ScreenMemory(TranslationStore s){store=s;for(Map.Entry<Long,String> e:s.screens().entrySet())add(e.getKey(),words(e.getValue()));}
   static Set<String> words(String s){Set<String> r=new HashSet<>();for(String w:s.toLowerCase(Locale.ROOT).split("[^a-z0-9]+"))if(w.length()>2)r.add(w);return r;}
-  private void add(long id,Set<String> words){templates.put(id,words);for(String w:words)index.computeIfAbsent(w,k->new HashSet<>()).add(id);}
+  private void add(long id,Set<String> words){if(templates.size()>=256){long oldest=templates.keySet().iterator().next();Set<String> removed=templates.remove(oldest);for(String w:removed){Set<Long> ids=index.get(w);if(ids!=null){ids.remove(oldest);if(ids.isEmpty())index.remove(w);}}}templates.put(id,words);for(String w:words)index.computeIfAbsent(w,k->new HashSet<>()).add(id);}
   void touch(float x,float y){zone=(int)(x*8)+":"+(int)(y*8);}
   long identify(String anchorText){
     Set<String> a=words(anchorText);if(a.size()<2)return current;

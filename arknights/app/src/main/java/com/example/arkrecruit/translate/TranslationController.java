@@ -51,6 +51,7 @@ public final class TranslationController implements AutoCloseable {
       for(Rect area:exclusions)if(area.contains(sx,sy)){mask[i]=true;break;}
       for(TranslationOverlay.Item item:overlay.items)if(item.box.contains(x/(float)w,y/(float)h)){mask[i]=true;break;}
     }
+    if(previous!=null&&previous.length!=gray.length){previous=null;epoch.advance();overlay.items=Collections.emptyList();overlay.hidden=true;nextRead=0;}
     MotionTracker.Shift shift=MotionTracker.estimate(previous,gray,w,h,mask);
     long difference=previous==null?255:MotionTracker.error(previous,gray,w,h,0,0,mask);
     if(previous!=null&&difference>9&&!cleanRequested){

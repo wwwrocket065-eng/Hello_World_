@@ -1,0 +1,32 @@
+name: Arknights Qwen real inference smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [arknights-recruitment-starter]
+    paths: [.github/workflows/arknights-translation-smoke.yml]
+jobs:
+  qwen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: fd1234cb468935ea087d6929b2487926c3afff4b
+      - name: Build pinned CPU runtime
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=OFF -DGGML_OPENMP=OFF -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF
+          cmake --build build --target llama-cli -j 4
+      - name: Verify exact Qwen model and Russian inference
+        run: |
+          curl --fail --location --retry 3 --output qwen.gguf 'https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf'
+          echo '3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597  qwen.gguf' | sha256sum --check
+          python3 - <<'PY'
+          import subprocess,re
+          prompt='<|im_start|>system\nTranslate Arknights English into Russian. Return only the translation. Glossary: Mudrock = Мадрок; Oripathy = орипатия.\n<|im_end|>\n<|im_start|>user\nMudrock has Oripathy.\n<|im_end|>\n<|im_start|>assistant\n'
+          r=subprocess.run(['build/bin/llama-cli','-m','qwen.gguf','-p',prompt,'-n','96','--temp','0','-c','2048','-t','4','--no-display-prompt','--no-conversation'],text=True,capture_output=True,timeout=180)
+          print(r.stdout)
+          if r.returncode or not re.search('Мадрок',r.stdout) or not re.search('орипати',r.stdout,re.I):
+              print(r.stderr[-4000:]);raise SystemExit('Qwen real model glossary smoke failed')
+          print('REAL QWEN RUSSIAN INFERENCE PASS (Linux CPU, not Android device)')
+          PY
