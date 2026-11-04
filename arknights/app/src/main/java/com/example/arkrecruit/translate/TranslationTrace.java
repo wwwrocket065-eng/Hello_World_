@@ -6,7 +6,7 @@ public final class TranslationTrace {
   private final LinkedHashMap<String,Row> rows=new LinkedHashMap<>();
   private Row row(String source){Row r=rows.get(source);if(r==null){if(rows.size()>=96)rows.remove(rows.keySet().iterator().next());r=new Row();r.source=source;rows.put(source,r);}return r;}
   public synchronized void seen(String source,String geometry){row(source).geometry=geometry;}
-  public synchronized void start(String source,long now){Row r=row(source);r.start=now;r.finish=0;r.attempts++;r.state="Qwen обрабатывает";r.error="";}
+  public synchronized void start(String source,long now){Row r=row(source);r.start=now;r.finish=0;r.attempts++;r.output="";r.state="Qwen обрабатывает";r.error="";}
   public synchronized void finish(String source,String output,long now){Row r=row(source);r.output=output;r.finish=now;r.state=output.isEmpty()?"Qwen вернул пустой ответ":"ответ получен";}
   public synchronized void error(String source,String error,long now){Row r=row(source);r.error=error;r.finish=now;r.state="ошибка/прерывание";}
   public synchronized void skip(String source,String reason){Row r=row(source);r.state="пропущено";r.error=reason;}

@@ -12,31 +12,38 @@ public final class TranslationOverlay {
     public Item(String s,String t,RectF b,RectF c,int bg,int fg,float degrees){this(s,t,b,c,bg,fg,degrees,null,b.height(),null);}
     public Item(String s,String t,RectF b,RectF c,int bg,int fg,float degrees,float[] q,float line,Bitmap patch){angle=degrees;source=s;translated=t;box=new RectF(b);clip=new RectF(c);background=bg;ink=fg;quad=q==null?null:q.clone();lineHeight=line;mask=patch;}
     public Item translated(String value){return new Item(source,value,box,clip,background,ink,angle,quad,lineHeight,mask);}
+    public Item posed(float[] q){float l=q[0],r=l,t=q[1],b=t;for(int i=2;i<8;i+=2){l=Math.min(l,q[i]);r=Math.max(r,q[i]);t=Math.min(t,q[i+1]);b=Math.max(b,q[i+1]);}return new Item(source,translated,new RectF(l,t,r,b),clip,background,ink,angle,q,lineHeight,mask);}
     public Item move(float dx,float dy){RectF b=new RectF(box);b.offset(dx,dy);float[] q=quad==null?null:quad.clone();if(q!=null)for(int i=0;i<8;i+=2){q[i]+=dx;q[i+1]+=dy;}return new Item(source,translated,b,clip,background,ink,angle,q,lineHeight,mask);}
   }
   public volatile List<Item> items=Collections.emptyList();public volatile boolean hidden;
-  private final Paint bg=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);private final TextPaint text=new TextPaint(Paint.ANTI_ALIAS_FLAG);
-  public volatile int drawn;public volatile float lastFontSize;
+  public final OverlayReadback readback=new OverlayReadback();
+  private static final class Render {Bitmap bitmap;int[] pixels;float font;}
+  private final LinkedHashMap<String,Render> cache=new LinkedHashMap<String,Render>(64,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,Render> e){return size()>64;}};
+  private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+  public volatile int drawn;public volatile float lastFontSize,drawMs;
+  private Render render(Item item,int w,int h,int displayHeight){
+    String key=item.source+"|"+item.translated+"|"+System.identityHashCode(item.mask)+"|"+w+"x"+h+"|"+item.background+"|"+item.ink;
+    Render cached=cache.get(key);if(cached!=null)return cached;
+    Render out=new Render();out.bitmap=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(out.bitmap);Paint bg=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);bg.setColor(item.background);
+    if(item.mask!=null)c.drawBitmap(item.mask,null,new RectF(0,0,w,h),bg);else c.drawRect(0,0,w,h,bg);
+    TextPaint text=new TextPaint(Paint.ANTI_ALIAS_FLAG);text.setColor(item.ink);float line=Math.min(h,item.lineHeight*displayHeight);text.setTypeface(Typeface.create("sans-serif-condensed",line>=32?Typeface.BOLD:Typeface.NORMAL));text.setTextSize(100);
+    float size=Math.max(9,line*100/(text.descent()-text.ascent())*.94f);StaticLayout layout;
+    do{text.setTextSize(size);layout=StaticLayout.Builder.obtain(item.translated,0,item.translated.length(),text,Math.max(1,w-2)).setIncludePad(false).setAlignment(Layout.Alignment.ALIGN_NORMAL).setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE).build();if(layout.getHeight()<=h-1||size<=9)break;size-=.75f;}while(true);
+    out.font=size;c.translate(1,Math.max(0,(h-layout.getHeight())/2));layout.draw(c);out.pixels=new int[w*h];out.bitmap.getPixels(out.pixels,0,w,0,0,w,h);cache.put(key,out);return out;
+  }
   public void draw(Canvas canvas,int width,int height,int originX,int originY){
-    drawn=0;if(hidden)return;
+    long started=System.nanoTime();drawn=0;List<OverlayReadback.Patch> patches=new ArrayList<>();if(hidden){readback.publish(patches);return;}
     for(Item item:items){
-      RectF r=new RectF(item.box.left*width-originX,item.box.top*height-originY,item.box.right*width-originX,item.box.bottom*height-originY);
-      RectF clip=new RectF(item.clip.left*width-originX,item.clip.top*height-originY,item.clip.right*width-originX,item.clip.bottom*height-originY);
-      if(!RectF.intersects(r,clip)||r.width()<5||r.height()<5)continue;
-      int save=canvas.save();canvas.clipRect(clip);float localW=r.width(),localH=r.height();
-      if(item.quad!=null){float[] q=item.quad.clone();for(int i=0;i<8;i+=2){q[i]=q[i]*width-originX;q[i+1]=q[i+1]*height-originY;}
-        localW=(float)(Math.hypot(q[2]-q[0],q[3]-q[1])+Math.hypot(q[4]-q[6],q[5]-q[7]))/2;
-        localH=(float)(Math.hypot(q[6]-q[0],q[7]-q[1])+Math.hypot(q[4]-q[2],q[5]-q[3]))/2;
-        Matrix transform=new Matrix();if(!transform.setPolyToPoly(new float[]{0,0,localW,0,localW,localH,0,localH},0,q,0,4)){canvas.restoreToCount(save);continue;}canvas.concat(transform);
-      }else{canvas.rotate(item.angle,r.centerX(),r.centerY());canvas.translate(r.left,r.top);}
-      canvas.clipRect(0,0,localW,localH);bg.setColor(item.background);
-      if(item.mask!=null)canvas.drawBitmap(item.mask,null,new RectF(0,0,localW,localH),bg);else canvas.drawRect(0,0,localW,localH,bg);
-      int available=Math.max(1,(int)localW-2);text.setColor(item.ink);
-      float line=Math.min(localH,item.lineHeight*height);text.setTypeface(Typeface.create("sans-serif-condensed",line>=32?Typeface.BOLD:Typeface.NORMAL));
-      text.setTextSize(100);float size=Math.max(9,line*100/(text.descent()-text.ascent())*.94f);StaticLayout layout;
-      // Fit to both bounds while retaining the source's line scale; no fixed26px cap.
-      do{text.setTextSize(size);layout=StaticLayout.Builder.obtain(item.translated,0,item.translated.length(),text,available).setIncludePad(false).setAlignment(Layout.Alignment.ALIGN_NORMAL).setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE).build();if(layout.getHeight()<=localH-1||size<=9)break;size-=.75f;}while(true);
-      lastFontSize=size;canvas.translate(1,Math.max(0,(localH-layout.getHeight())/2));layout.draw(canvas);drawn++;canvas.restoreToCount(save);
-    }
+      float[] norm=item.quad==null?new float[]{item.box.left,item.box.top,item.box.right,item.box.top,item.box.right,item.box.bottom,item.box.left,item.box.bottom}:item.quad.clone();
+      if(item.quad==null&&item.angle!=0){Matrix rotation=new Matrix();rotation.setRotate(item.angle,item.box.centerX()*width,item.box.centerY()*height);for(int i=0;i<8;i+=2){norm[i]*=width;norm[i+1]*=height;}rotation.mapPoints(norm);for(int i=0;i<8;i+=2){norm[i]/=width;norm[i+1]/=height;}}
+      float[] q=norm.clone();for(int i=0;i<8;i+=2){q[i]=q[i]*width-originX;q[i+1]=q[i+1]*height-originY;}
+      int w=Math.max(1,Math.round((float)(Math.hypot(q[2]-q[0],q[3]-q[1])+Math.hypot(q[4]-q[6],q[5]-q[7]))/2)),h=Math.max(1,Math.round((float)(Math.hypot(q[6]-q[0],q[7]-q[1])+Math.hypot(q[4]-q[2],q[5]-q[3]))/2));
+      if(w<5||h<5||w>width*2||h>height*2)continue;
+      Render render=render(item,w,h,height);Matrix draw=new Matrix();if(!draw.setPolyToPoly(new float[]{0,0,w,0,w,h,0,h},0,q,0,4))continue;
+      int save=canvas.save();canvas.clipRect(item.clip.left*width-originX,item.clip.top*height-originY,item.clip.right*width-originX,item.clip.bottom*height-originY);canvas.drawBitmap(render.bitmap,draw,paint);canvas.restoreToCount(save);drawn++;lastFontSize=render.font;
+      Matrix forward=new Matrix(),inverse=new Matrix();forward.setPolyToPoly(new float[]{0,0,w,0,w,h,0,h},0,norm,0,4);if(!forward.invert(inverse))continue;
+      float l=norm[0],r=l,t=norm[1],b=t;for(int i=2;i<8;i+=2){l=Math.min(l,norm[i]);r=Math.max(r,norm[i]);t=Math.min(t,norm[i+1]);b=Math.max(b,norm[i+1]);}
+      patches.add(new OverlayReadback.Patch(render.pixels,w,h,inverse,new RectF(l,t,r,b),new RectF(item.clip)));
+    }readback.publish(patches);drawMs=Math.round((System.nanoTime()-started)/100000f)/10f;
   }
 }

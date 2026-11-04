@@ -26,7 +26,7 @@ public class ScreenService extends Service {
   private final Handler main=new Handler(Looper.getMainLooper());
   private final AtomicBoolean busy=new AtomicBoolean(false);
   private MediaProjection projection; private VirtualDisplay virtualDisplay;
-  private ImageReader reader; private HandlerThread worker; private Handler workerHandler;
+  private volatile ImageReader reader; private HandlerThread worker; private Handler workerHandler;
   private TextRecognizer recognizer;
   private WindowManager.LayoutParams markerParams;
   private WindowManager wm; private Markers markers; private View gear, panel, settings;
@@ -203,29 +203,33 @@ public class ScreenService extends Service {
     UiStyle.watch(gear);UiStyle.watch(panel);updatePlayButton();render();
   }
   private void consumeFrame(ImageReader source){
-    Image image;
-    try{image=source.acquireLatestImage();}catch(IllegalStateException closed){return;}
-    if(image==null)return;
+    if(source!=reader)return;
+    Image owned=null;
+    try{owned=source.acquireLatestImage();if(owned!=null)consumeOwnedFrame(owned);}
+    catch(IllegalStateException retired){android.util.Log.d("RecruitAssist","Dropped retired capture frame",retired);}
+    finally{if(owned!=null)try{owned.close();}catch(IllegalStateException ignored){}}
+  }
+  private void consumeOwnedFrame(Image image){
     // Catch rotations even when Android does not invoke the Service callback promptly.
     DisplayMetrics measured=new DisplayMetrics();
     wm.getDefaultDisplay().getRealMetrics(measured);
     if((width!=measured.widthPixels||height!=measured.heightPixels)&&!resizePending){
       resizePending=true;
-      image.close();
+
       main.post(()->{try{refreshDisplaySize();}finally{resizePending=false;}});
       return;
     }
     long now=SystemClock.elapsedRealtime();
     if(translation!=null)try{
-      translation.frame(image,captureExclusions(image.getWidth(),image.getHeight()),paused||settings!=null||goalMenu!=null||AppVisibility.visible);
+      translation.frame(image,captureExclusions(image.getWidth(),image.getHeight()),paused,settings!=null||goalMenu!=null||AppVisibility.visible);
     }catch(RuntimeException error){
       translation.failFrame(error);
       main.post(()->{if(translateButton!=null)translateButton.setPlaying(false);});
     }
-    if(paused||goalMenu!=null){image.close();return;}
+    if(paused||goalMenu!=null){return;}
     // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
     // They keep running while an OCR task is in flight.
-    if(now<suppressUntil){image.close();return;}
+    if(now<suppressUntil){return;}
     if(knownTiles.length==5&&now>=overlaySettlingUntil&&now-lastProbe>=16){
       lastProbe=now;
       Image.Plane probePlane=image.getPlanes()[0];
@@ -256,10 +260,10 @@ public class ScreenService extends Service {
         screenPresent=true;scanEpoch.incrementAndGet();lastScan=0;
       }
     }
-    if(now<suppressUntil){image.close();return;}
+    if(now<suppressUntil){return;}
     long interval=screenPresent?250:knownTiles.length==0?500:1000;
     if(now-lastScan<interval||!busy.compareAndSet(false,true)){
-      image.close();return;
+      return;
     }
     lastScan=now;
     Bitmap bmp=null;
@@ -275,7 +279,7 @@ public class ScreenService extends Service {
       if(bmp!=paddedBitmap)paddedBitmap.recycle();
       captureWidth=imageWidth;captureHeight=imageHeight;
     }catch(Exception e){android.util.Log.w("RecruitAssist","Capture frame read failed",e);}
-    finally{image.close();}
+
     if(bmp==null){busy.set(false);return;}
     final Bitmap frame=bmp;
     final int epoch=scanEpoch.get();
@@ -879,7 +883,7 @@ public class ScreenService extends Service {
         reader=next;
         if(old!=null){
           old.setOnImageAvailableListener(null,null);
-          old.close();
+          FrameLifetime.retire(task->workerHandler.post(task),old::close);
         }
       }catch(Exception e){
         android.util.Log.e("RecruitAssist","Capture resize failed",e);
@@ -909,10 +913,13 @@ public class ScreenService extends Service {
     if(portraits!=null){portraits.close();portraits=null;}
     if(reader!=null)reader.setOnImageAvailableListener(null,null);
     if(virtualDisplay!=null)virtualDisplay.release();
-    if(reader!=null)reader.close();
+    ImageReader retiring=reader;reader=null;
+    if(retiring!=null&&workerHandler!=null)FrameLifetime.retire(task->workerHandler.post(task),retiring::close);
     if(projection!=null){projection.stop();projection=null;}
-    if(translation!=null)translation.close();
-    if(recognizer!=null)recognizer.close();
+    if(translation!=null&&workerHandler!=null)FrameLifetime.retire(task->workerHandler.post(task),translation::close);
+    else if(translation!=null)translation.close();
+    if(recognizer!=null&&workerHandler!=null)FrameLifetime.retire(task->workerHandler.post(task),recognizer::close);
+    else if(recognizer!=null)recognizer.close();
     if(worker!=null)worker.quitSafely();
     if(settings!=null){wm.removeView(settings);settings=null;}
     if(panel!=null){wm.removeView(panel);panel=null;}

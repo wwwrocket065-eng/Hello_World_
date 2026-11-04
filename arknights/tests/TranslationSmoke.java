@@ -21,6 +21,27 @@ public class TranslationSmoke {
     int w=80,h=100;int[] pixels=new int[w*h],shifted=new int[w*h];java.util.Random random=new java.util.Random(19);for(int i=0;i<pixels.length;i++)pixels[i]=random.nextInt(256);for(int y=0;y<h-6;y++)for(int x=0;x<w;x++)shifted[(y+6)*w+x]=pixels[y*w+x];
     MotionTracker.Shift motion=MotionTracker.estimate(pixels,shifted,w,h,null);if(!motion.confident||motion.dy!=6)throw new AssertionError("Scroll shift incorrect");
     int[] unrelated=new int[w*h];for(int i=0;i<unrelated.length;i++)unrelated[i]=random.nextInt(256);if(MotionTracker.estimate(pixels,unrelated,w,h,null).confident)throw new AssertionError("Unrelated screen mistaken for scroll");
+    int[] motionA=new int[w*h],motionB=new int[w*h];java.util.Random texture=new java.util.Random(88);
+    for(int y=25;y<60;y++)for(int x=15;x<65;x++)motionA[y*w+x]=texture.nextInt(256);
+    for(int y=0;y<h;y++)for(int x=0;x<w;x++)motionB[y*w+x]=(x>=3&&y>=2)?motionA[(y-2)*w+x-3]:0;
+    RegionalTracker.Pose tracked=RegionalTracker.track(motionA,motionB,w,h,20,30,60,55);
+    if(!tracked.reliable||Math.abs(tracked.x(40,40)-43)>.5||Math.abs(tracked.y(40,40)-42)>.5)throw new AssertionError("Per-label motion lagged or lost its displacement");
+    RegionalTracker.Pose steady=RegionalTracker.track(motionA,motionA,w,h,20,30,60,55);
+    if(!steady.reliable||Math.abs(steady.x(40,40)-40)>.01)throw new AssertionError("Static label jittered");
+    java.util.concurrent.ExecutorService owner=java.util.concurrent.Executors.newSingleThreadExecutor();java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1),release=new java.util.concurrent.CountDownLatch(1);java.util.concurrent.atomic.AtomicBoolean retired=new java.util.concurrent.atomic.AtomicBoolean();
+    owner.execute(()->{entered.countDown();try{release.await();}catch(InterruptedException interrupted){throw new RuntimeException(interrupted);}if(retired.get())throw new AssertionError("Reader closed during owned frame");});
+    try{entered.await();com.example.arkrecruit.FrameLifetime.retire(owner,()->retired.set(true));if(retired.get())throw new AssertionError("Retirement bypassed owner queue");release.countDown();owner.shutdown();if(!owner.awaitTermination(5,java.util.concurrent.TimeUnit.SECONDS)||!retired.get())throw new AssertionError("Reader not retired after frame completion");}catch(InterruptedException interrupted){throw new RuntimeException(interrupted);}
+    trace.start("story paragraph",10000);if(trace.report(11000).contains("Ответ: перевод"))throw new AssertionError("Retry retained stale answer");
+    int[] pattern=new int[40*20];for(int i=0;i<pattern.length;i++)pattern[i]=texture.nextInt(256);int[] oldFrame=null;int oldOffset=0;
+    for(int frame=0;frame<60;frame++){
+      int period=frame%24,offset=period<12?period-6:18-period;int[] next=new int[160*100];
+      for(int y=0;y<20;y++)for(int x=0;x<40;x++)next[(y+30)*160+x+30+offset]=pattern[y*40+x];
+      for(int y=60;y<80;y++)for(int x=105;x<145;x++)next[y*160+x]=pattern[(y-60)*40+x-105];
+      for(int y=0;y<15;y++)for(int x=0;x<160;x++)next[y*160+x]=texture.nextInt(256);
+      if(oldFrame!=null){RegionalTracker.Pose moving=RegionalTracker.track(oldFrame,next,160,100,32+oldOffset,32,68+oldOffset,48);RegionalTracker.Pose fixed=RegionalTracker.track(oldFrame,next,160,100,107,62,143,78);
+        if(!moving.reliable||Math.abs(moving.x(50+oldOffset,40)-(50+offset))>.6||!fixed.reliable||Math.abs(fixed.x(120,70)-120)>.1)throw new AssertionError("60-frame independent tracking lost moving/static labels");}
+      oldFrame=next;oldOffset=offset;
+    }
     System.out.println("Translation generation/cache/glossary/motion PASS");
   }
 }
