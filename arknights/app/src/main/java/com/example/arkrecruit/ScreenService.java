@@ -215,7 +215,12 @@ public class ScreenService extends Service {
       return;
     }
     long now=SystemClock.elapsedRealtime();
-    if(translation!=null)translation.frame(image,captureExclusions(image.getWidth(),image.getHeight()),paused||settings!=null||goalMenu!=null||AppVisibility.visible);
+    if(translation!=null)try{
+      translation.frame(image,captureExclusions(image.getWidth(),image.getHeight()),paused||settings!=null||goalMenu!=null||AppVisibility.visible);
+    }catch(RuntimeException error){
+      translation.failFrame(error);
+      main.post(()->{if(translateButton!=null)translateButton.setPlaying(false);});
+    }
     if(paused||goalMenu!=null){image.close();return;}
     // Sparse checks read the Image plane directly: no bitmap copy and no OCR.
     // They keep running while an OCR task is in flight.

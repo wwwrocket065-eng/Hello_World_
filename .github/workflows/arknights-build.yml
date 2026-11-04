@@ -51,6 +51,8 @@ jobs:
           python3 tools/prepare_china.py
           python3 tools/prepare_portraits.py
           python3 tools/prepare_translation.py
+      - name: Test mutable OCR frames on Android graphics
+        run: gradle --no-daemon :app:testDebugUnitTest
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Package signing tool

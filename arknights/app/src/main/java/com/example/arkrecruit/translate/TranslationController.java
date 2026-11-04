@@ -70,17 +70,23 @@ public final class TranslationController implements AutoCloseable {
     nextRead=now+(now<movingUntil?330:1800);cleanRequested=false;
     int ow=Math.min(1280,iw),oh=ih*ow/iw;int[] color=new int[ow*oh];
     for(int y=0;y<oh;y++)for(int x=0;x<ow;x++){int sx=x*iw/ow,sy=y*ih/oh,offset=base+sy*stride+sx*step;color[y*ow+x]=Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);}
-    Bitmap bitmap=Bitmap.createBitmap(color,ow,oh,Bitmap.Config.ARGB_8888);
-    Canvas erase=new Canvas(bitmap);Paint paint=new Paint();paint.setColor(Color.BLACK);
-    for(Rect r:exclusions)erase.drawRect(r.left*ow/(float)iw,r.top*oh/(float)ih,r.right*ow/(float)iw,r.bottom*oh/(float)ih,paint);
+    Bitmap bitmap=TranslationFrame.create(color,ow,oh,exclusions,iw,ih);
     long generation=epoch.current();
-    ocr.process(InputImage.fromBitmap(bitmap,0)).addOnSuccessListener(vision,text->{try{accept(text,bitmap,generation);}finally{bitmap.recycle();scanning.set(false);}})
+    try{ocr.process(InputImage.fromBitmap(bitmap,0)).addOnSuccessListener(vision,text->{try{accept(text,bitmap,generation);}catch(RuntimeException error){failFrame(error);}finally{bitmap.recycle();scanning.set(false);}})
       .addOnFailureListener(vision,e->{bitmap.recycle();scanning.set(false);overlay.hidden=false;status="OCR: "+e.getMessage();redraw.run();});
+    }catch(RuntimeException error){bitmap.recycle();scanning.set(false);failFrame(error);}
+  }
+  public void failFrame(RuntimeException error){
+    android.util.Log.e("ArknightsTranslate","Translation frame failed",error);
+    java.io.StringWriter trace=new java.io.StringWriter();error.printStackTrace(new java.io.PrintWriter(trace));
+    context.getSharedPreferences("translation_model",0).edit().putString("last_error",trace.toString()).apply();
+    setEnabled(false);scanning.set(false);status="Ошибка обработки кадра: "+error.getClass().getSimpleName();
+    main.post(()->android.widget.Toast.makeText(context,"Перевод остановлен из-за ошибки обработки кадра",android.widget.Toast.LENGTH_LONG).show());
   }
   private void accept(Text result,Bitmap frame,long generation){
     if(closed||!enabled||!epoch.accepts(generation))return;
     List<Text.TextBlock> blocks=result.getTextBlocks();String full=result.getText();
-    if(full.isBlank()){overlay.items=Collections.emptyList();overlay.hidden=false;status="Текст не найден";redraw.run();return;}
+    if(full.trim().isEmpty()){overlay.items=Collections.emptyList();overlay.hidden=false;status="Текст не найден";redraw.run();return;}
     TranslationPolicy.Kind kind=TranslationPolicy.classify(full);
     // Stable anchors: short button/header labels, excluding long story paragraphs.
     StringBuilder anchors=new StringBuilder();for(Text.TextBlock b:blocks)if(b.getText().length()<60)anchors.append(b.getText()).append(' ');screens.identify(anchors.toString());
