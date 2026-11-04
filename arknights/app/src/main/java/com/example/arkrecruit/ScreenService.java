@@ -322,7 +322,9 @@ public class ScreenService extends Service {
     for(View view:new View[]{panel,gear,settings,goalMenu}){
       if(view==null||view.getVisibility()!=View.VISIBLE||view.getWidth()==0)continue;
       int[] xy=new int[2];view.getLocationOnScreen(xy);
-      areas.add(new Rect(xy[0],xy[1],xy[0]+view.getWidth(),xy[1]+view.getHeight()));
+      Rect own=new Rect(xy[0],xy[1],xy[0]+view.getWidth(),xy[1]+view.getHeight());
+      if(view==gear){own.top=Math.max(0,own.top-dp(18));own.bottom=Math.min(height,own.bottom+dp(18));}
+      areas.add(own);
     }
     Rect[] next=areas.toArray(new Rect[0]);
     if(!java.util.Arrays.equals(overlayExclusions,next))overlaySettlingUntil=SystemClock.elapsedRealtime()+100;
@@ -809,7 +811,12 @@ public class ScreenService extends Service {
     Markers(Context c){super(c);setWillNotDraw(false);}
     @Override protected void onDraw(Canvas canvas){
       super.onDraw(canvas);
-      if(translation!=null&&!paused){int[] translationOrigin=new int[2];getLocationOnScreen(translationOrigin);translation.overlay.draw(canvas,width,height,translationOrigin[0],translationOrigin[1]);}
+      if(translation!=null&&!paused){int[] translationOrigin=new int[2];getLocationOnScreen(translationOrigin);translation.overlay.draw(canvas,width,height,translationOrigin[0],translationOrigin[1]);
+        if(translation.enabled()&&gearParams!=null){
+          paint.setStyle(Paint.Style.FILL);paint.setColor(UiStyle.TEXT);paint.setTextSize(dp(10));paint.setTypeface(UiStyle.FONT);paint.setShadowLayer(dp(2),0,0,Color.BLACK);
+          float progressY=gearParams.y+dp(64)-translationOrigin[1];if(progressY>getHeight()-dp(5))progressY=gearParams.y-dp(5)-translationOrigin[1];
+          canvas.drawText(translation.progress(),gearParams.x-translationOrigin[0]+dp(3),progressY,paint);paint.clearShadowLayer();
+        }}
       if(paused||!screenPresent||!inRecruitment||recommendation==null)return;
       paint.setStyle(Paint.Style.FILL);
       // Tile bounds are taken from image edges when available. The OCR

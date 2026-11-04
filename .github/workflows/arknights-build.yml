@@ -30,7 +30,7 @@ jobs:
       - name: Test translation isolation and motion
         run: |
           mkdir -p build/translation-tests
-          javac -d build/translation-tests app/src/main/java/com/example/arkrecruit/translate/TranslationPolicy.java app/src/main/java/com/example/arkrecruit/translate/MotionTracker.java tests/TranslationSmoke.java
+          javac -d build/translation-tests app/src/main/java/com/example/arkrecruit/translate/TranslationPolicy.java app/src/main/java/com/example/arkrecruit/translate/TranslationVisibility.java app/src/main/java/com/example/arkrecruit/translate/InterfaceGlossary.java app/src/main/java/com/example/arkrecruit/translate/MotionTracker.java tests/TranslationSmoke.java
           java -cp build/translation-tests com.example.arkrecruit.translate.TranslationSmoke
       - name: Test recruitment algorithm
         run: |
