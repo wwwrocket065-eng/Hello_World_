@@ -17,6 +17,7 @@ public final class TranslationController implements AutoCloseable {
   private final Handler main=new Handler(Looper.getMainLooper());
   private final ExecutorService vision=Executors.newSingleThreadExecutor(),inference=Executors.newSingleThreadExecutor();
   private final TextRecognizer ocr=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+  private final ConcurrentMap<String,String> readyResults=new ConcurrentHashMap<>();
   private final TranslationVisibility visible=new TranslationVisibility();
   private volatile String processingSource="";
   private volatile int recognizedLines,completedLines;
@@ -61,7 +62,7 @@ public final class TranslationController implements AutoCloseable {
   public String status(){return status;}
   public boolean enabled(){return enabled;}
   public void setEnabled(boolean on){
-    enabled=on;if(on)context.getSharedPreferences("translation_model",0).edit().remove("last_error").apply();cancellation=on?"новая сессия":"перевод выключен";synchronized(nodes){nodes.clear();}visible.clear();recognizedLines=completedLines=0;epoch.advance();if(engine!=null)engine.cancel();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();overlay.hidden=true;previousText="";history="";nextRead=0;cleanRequested=false;report(on?"Ожидание кадра":"Выключен");redraw.run();
+    enabled=on;readyResults.clear();if(on)context.getSharedPreferences("translation_model",0).edit().remove("last_error").apply();cancellation=on?"новая сессия":"перевод выключен";synchronized(nodes){nodes.clear();}visible.clear();recognizedLines=completedLines=0;epoch.advance();if(engine!=null)engine.cancel();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();overlay.hidden=true;previousText="";history="";nextRead=0;cleanRequested=false;report(on?"Ожидание кадра":"Выключен");redraw.run();
   }
   public void pause(boolean p){if(paused==p)return;paused=p;if(p)cancellation="пауза пользователя";if(p&&!processingSource.isEmpty())trace.error(processingSource,"Пауза/открыты настройки",SystemClock.elapsedRealtime());epoch.advance();if(engine!=null)engine.cancel();if(p){visible.clear();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();}overlay.hidden=p;nextRead=0;redraw.run();}
   public void touch(float x,float y){if(!enabled||closed)return;movingUntil=SystemClock.elapsedRealtime()+900;nextRead=0;vision.execute(()->screens.touch(x,y));}
@@ -113,7 +114,7 @@ public final class TranslationController implements AutoCloseable {
       }else{node.misses++;if(node.misses>3)nextRead=0;}
       if(node.misses<=3)poses.put(node.item.source,node.item);
     }}
-    List<TranslationOverlay.Item> display=new ArrayList<>();for(TranslationOverlay.Item shown:overlay.items){TranslationOverlay.Item pose=poses.get(shown.source);if(pose!=null)display.add(pose.translated(shown.translated));}
+    List<TranslationOverlay.Item> display=new ArrayList<>();for(TranslationOverlay.Item pose:poses.values()){String value=readyResults.get(activeTarget+"|"+pose.source);if(value!=null)display.add(pose.translated(value));}
     boolean changed=display.size()!=overlay.items.size();overlay.items=display;if(moved||changed)redraw.run();
   }
   private TranslationOverlay.Item currentPose(TranslationOverlay.Item item){synchronized(nodes){Node node=nodes.get(item.source);return node==null?item:node.item;}}
@@ -183,8 +184,8 @@ public final class TranslationController implements AutoCloseable {
     // Stable labels first; changing counters never hold up the rest of the screen.
     sources.sort((a,b)->kind==TranslationPolicy.Kind.STORY?Integer.compare(b.source.length(),a.source.length()):Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));
     String context=history;final String language=activeTarget;
-    for(TranslationOverlay.Item item:sources){String translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null){ready.add(currentPose(item).translated(translated));trace.shown(item.source,translated,true);}}
-    sourceItems=sources;overlay.items=ready;completedLines=ready.size();overlay.hidden=paused||blocked||!enabled;if(!requesting.get())report("Распознано строк: "+recognizedLines);else liveDetails=diagnostics()+"\n"+status;redraw.run();
+    for(TranslationOverlay.Item item:sources){String translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null){readyResults.put(language+"|"+item.source,translated);ready.add(currentPose(item).translated(translated));trace.shown(item.source,translated,true);}}
+    sourceItems=sources;synchronized(nodes){ready.clear();for(Node node:nodes.values()){String value=readyResults.get(activeTarget+"|"+node.item.source);if(value!=null&&node.misses<=3)ready.add(node.item.translated(value));}overlay.items=ready;}completedLines=ready.size();overlay.hidden=paused||blocked||!enabled;if(!requesting.get())report("Распознано строк: "+recognizedLines);else liveDetails=diagnostics()+"\n"+status;redraw.run();
     if(requesting.compareAndSet(false,true)){
       final long request=generation;
       inference.execute(()->{try{
@@ -204,7 +205,7 @@ public final class TranslationController implements AutoCloseable {
               if(!epoch.accepts(request)){trace.error(item.source,"Ответ получен после смены сессии",SystemClock.elapsedRealtime());break;}store.put(key,translated);
             }catch(RuntimeException error){trace.error(item.source,error.toString(),SystemClock.elapsedRealtime());report("Qwen: "+error.getMessage());continue;}
           }
-          if(epoch.accepts(request)&&visible.contains(item.source)){List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(currentPose(current).translated(translated));break;}overlay.items=display;trace.shown(item.source,translated,false);completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=paused||blocked;redraw.run();}
+          if(epoch.accepts(request)&&visible.contains(item.source)){readyResults.put(language+"|"+item.source,translated);List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(currentPose(current).translated(translated));break;}overlay.items=display;trace.shown(item.source,translated,false);completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=paused||blocked;redraw.run();}
         }
         if(epoch.accepts(request)){report("Перевод активен · кэш сохранён");}
       }catch(Throwable e){report("Qwen: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(()->android.widget.Toast.makeText(context(),status,android.widget.Toast.LENGTH_LONG).show());}

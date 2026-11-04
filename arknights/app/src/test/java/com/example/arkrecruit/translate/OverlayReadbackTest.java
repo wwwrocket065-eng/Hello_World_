@@ -14,6 +14,7 @@ public class OverlayReadbackTest {
   Bitmap original=Bitmap.createBitmap(300,120,Bitmap.Config.ARGB_8888);original.eraseColor(0xff444444);Paint glyph=new Paint();glyph.setColor(Color.WHITE);new Canvas(original).drawRect(40,40,240,50,glyph);
   TranslationOverlay layer=new TranslationOverlay();layer.items=java.util.Collections.singletonList(new TranslationOverlay.Item("Terminal","Терминал",new RectF(.05f,.1f,.95f,.9f),new RectF(0,0,1,1),0xff444444,Color.WHITE));
   for(int frame=0;frame<6;frame++){
+   layer.items=java.util.Collections.singletonList(layer.items.get(0).move(.004f,0));
    Bitmap overlay=Bitmap.createBitmap(300,120,Bitmap.Config.ARGB_8888);layer.draw(new Canvas(overlay),300,120,0,0);assertFalse(layer.hidden);assertEquals(1,layer.drawn);
    Bitmap capture=original.copy(Bitmap.Config.ARGB_8888,true);Paint alpha=new Paint();alpha.setAlpha(Math.round(255*TranslationOverlay.WINDOW_ALPHA));new Canvas(capture).drawBitmap(overlay,0,0,alpha);
    int[] colors=new int[300*120];capture.getPixels(colors,0,300,0,0,300,120);layer.readback.at(0).restore(colors,300,120);
