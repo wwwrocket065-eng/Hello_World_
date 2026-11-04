@@ -4,6 +4,7 @@ import java.util.*;
 public final class InterfaceGlossary {
   private static final Map<String,String[]> LABELS=new HashMap<>();
   static{
+    add("AUTO","Авто","Авто");add("OFF","Выкл.","Вимк.");add("SKIP","Пропустить","Пропустити");add("LOG","История","Історія");
     add("Terminal","Терминал","Термінал");add("Squads","Отряды","Загони");
     add("Operator","Операторы","Оператори");add("Operator Management","Управление операторами","Керування операторами");
     add("Store","Магазин","Крамниця");add("Recruitment","Набор","Набір");add("Recruit","Набор","Набір");

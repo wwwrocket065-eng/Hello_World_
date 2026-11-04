@@ -22,6 +22,15 @@ public final class TranslationController implements AutoCloseable {
   private volatile int recognizedLines,completedLines;
   private volatile long translatedAt;
   public String progress(){return "OCR "+recognizedLines+" · перевод "+completedLines+"/"+recognizedLines;}
+  private final TranslationTrace trace=new TranslationTrace();
+  private volatile long operationStarted,lastOcrMs,lastZoom;
+  private volatile String rawOcr="",ocrDescription="ещё не выполнено",lastModelProgress="";
+  private String diagnostics(){
+    String model=lastModelProgress;try{if(engine!=null)model=engine.progress();}catch(Throwable ignored){}
+    return progress()+"\nЭтап: "+status+"\nВремя этапа: "+Math.max(0,SystemClock.elapsedRealtime()-operationStarted)/1000+" с\nQwen: "+model+
+      "\nOCR: "+ocrDescription+" · "+lastOcrMs+" мс\nСлой скрыт: "+overlay.hidden+" · нарисовано: "+overlay.drawn+" · последний шрифт: "+overlay.lastFontSize+" px\nИсходный OCR:\n"+rawOcr+"\nСтроки:"+trace.report(SystemClock.elapsedRealtime());
+  }
+  private final Runnable heartbeat=new Runnable(){public void run(){if(closed)return;if(enabled){liveDetails=diagnostics();context.getSharedPreferences("translation_model",0).edit().putString("last_report",liveDetails).apply();redraw.run();}main.postDelayed(this,1000);}};
   public static volatile String liveDetails="";
   private final TranslationPolicy.Epoch epoch=new TranslationPolicy.Epoch();
   private final AtomicBoolean scanning=new AtomicBoolean(),requesting=new AtomicBoolean();
@@ -32,12 +41,12 @@ public final class TranslationController implements AutoCloseable {
   public static volatile String liveStatus="Перевод не запущен";
   private String target(){return context.getSharedPreferences("translation_preferences",0).getString("target","ru");}
   private volatile String activeTarget="";
-  private void report(String value){status=value;liveStatus=value;liveDetails=progress()+"\n"+value;redraw.run();}
+  private void report(String value){if(!value.equals(status))operationStarted=SystemClock.elapsedRealtime();status=value;liveStatus=value;liveDetails=diagnostics()+"\n"+value;redraw.run();}
   private volatile long nextRead,lastTick,movingUntil,hiddenAt;
   private int[] previous;private int thumbW,thumbH;private volatile boolean cleanRequested;
   private volatile String previousText="",history="";
   private volatile List<TranslationOverlay.Item> sourceItems=Collections.emptyList();
-  public TranslationController(Context c,Runnable draw){context=c;redraw=draw;store=new TranslationStore(c);screens=new ScreenMemory(store);
+  public TranslationController(Context c,Runnable draw){context=c;main.post(heartbeat);redraw=draw;store=new TranslationStore(c);screens=new ScreenMemory(store);
     // All recruitable names are protected by default, even without a transliteration.
     try{org.json.JSONArray data=new org.json.JSONArray(readAsset(c,"translation_names.json"));for(int i=0;i<data.length();i++){String n=data.getString(i);if(!n.isEmpty())names.put(n,n);}}catch(Exception ignored){}
     for(Map.Entry<String,String> e:TranslationPolicy.TERMS.entrySet())names.remove(e.getKey());
@@ -48,7 +57,7 @@ public final class TranslationController implements AutoCloseable {
   public void setEnabled(boolean on){
     enabled=on;visible.clear();recognizedLines=completedLines=0;epoch.advance();if(engine!=null)engine.cancel();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();overlay.hidden=true;previous=null;previousText="";history="";nextRead=0;cleanRequested=false;report(on?"Ожидание кадра":"Выключен");redraw.run();
   }
-  public void pause(boolean p){if(paused==p)return;paused=p;epoch.advance();if(engine!=null)engine.cancel();if(p){visible.clear();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();}overlay.hidden=p;nextRead=0;previous=null;redraw.run();}
+  public void pause(boolean p){if(paused==p)return;paused=p;if(p&&!processingSource.isEmpty())trace.error(processingSource,"Пауза/открыты настройки",SystemClock.elapsedRealtime());epoch.advance();if(engine!=null)engine.cancel();if(p){visible.clear();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();}overlay.hidden=p;nextRead=0;previous=null;redraw.run();}
   public void touch(float x,float y){if(!enabled)return;movingUntil=SystemClock.elapsedRealtime()+900;epoch.advance();if(engine!=null)engine.cancel();overlay.hidden=true;cleanRequested=true;hiddenAt=SystemClock.elapsedRealtime();vision.execute(()->screens.touch(x,y));redraw.run();}
   public void frame(Image image,Rect[] exclusions,boolean analysisPaused){
     pause(analysisPaused);if(!enabled||closed||analysisPaused)return;
@@ -79,14 +88,42 @@ public final class TranslationController implements AutoCloseable {
     if(cleanRequested&&now-hiddenAt<45)return;
     if(!scanning.compareAndSet(false,true))return;
     nextRead=now+(now<movingUntil?330:1800);cleanRequested=false;
-    int ow=Math.min(1280,iw),oh=ih*ow/iw;int[] color=new int[ow*oh];
+    int ow=Math.min(2048,iw),oh=ih*ow/iw;int[] color=new int[ow*oh];
     for(int y=0;y<oh;y++)for(int x=0;x<ow;x++){int sx=x*iw/ow,sy=y*ih/oh,offset=base+sy*stride+sx*step;color[y*ow+x]=Color.rgb(pixels.get(offset)&255,pixels.get(offset+1)&255,pixels.get(offset+2)&255);}
     Bitmap bitmap=TranslationFrame.create(color,ow,oh,exclusions,iw,ih);
-    long generation=epoch.current();
-    try{ocr.process(InputImage.fromBitmap(bitmap,0)).addOnSuccessListener(vision,text->{try{accept(text,bitmap,generation);}catch(RuntimeException error){failFrame(error);}finally{bitmap.recycle();scanning.set(false);overlay.hidden=TranslationVisibility.hiddenAfterOcr(enabled,paused,cleanRequested);redraw.run();}})
-      .addOnFailureListener(vision,e->{bitmap.recycle();scanning.set(false);overlay.hidden=false;report("OCR: "+e.getMessage());redraw.run();});
-    }catch(RuntimeException error){bitmap.recycle();scanning.set(false);failFrame(error);}
+    long generation=epoch.current();overlay.hidden=paused||!enabled;redraw.run();
+    scanOcr(bitmap,generation);
   }
+  private void finishOcr(Bitmap frame){frame.recycle();scanning.set(false);overlay.hidden=TranslationVisibility.hiddenAfterOcr(enabled,paused,cleanRequested);redraw.run();}
+  private void scanOcr(Bitmap bitmap,long generation){
+    long started=SystemClock.elapsedRealtime();
+    try{ocr.process(InputImage.fromBitmap(bitmap,0)).addOnSuccessListener(vision,text->{
+      try{
+        if(!enabled||closed||!epoch.accepts(generation)){finishOcr(bitmap);return;}
+        List<OcrText> found=OcrText.collect(text,1,0,0);rawOcr=text.getText();lastOcrMs=SystemClock.elapsedRealtime()-started;
+        ocrDescription=bitmap.getWidth()+"×"+bitmap.getHeight()+"; основной проход";
+        accept(found,bitmap,generation);
+        boolean small=found.size()<8;for(OcrText r:found)if(r.lineHeight<19)small=true;
+        if(small&&SystemClock.elapsedRealtime()-lastZoom>12000){lastZoom=SystemClock.elapsedRealtime();zoomOcr(bitmap,generation,found,0,started);}else finishOcr(bitmap);
+      }catch(RuntimeException error){finishOcr(bitmap);failFrame(error);}
+    }).addOnFailureListener(vision,e->{finishOcr(bitmap);report("OCR: "+e.getMessage());});
+    }catch(RuntimeException error){finishOcr(bitmap);failFrame(error);}
+  }
+  private void zoomOcr(Bitmap frame,long generation,List<OcrText> found,int index,long started){
+    if(index>=4||closed||!enabled||!epoch.accepts(generation)){
+      try{if(enabled&&epoch.accepts(generation)){StringBuilder raw=new StringBuilder();for(OcrText r:found)raw.append(r.text).append('\n');rawOcr=raw.toString();lastOcrMs=SystemClock.elapsedRealtime()-started;ocrDescription=frame.getWidth()+"×"+frame.getHeight()+"; основной + 4 увеличенных участка";accept(found,frame,generation);}}catch(RuntimeException error){failFrame(error);}finally{finishOcr(frame);}return;
+    }
+    int halfW=(frame.getWidth()+1)/2,halfH=(frame.getHeight()+1)/2;
+    int left=Math.max(0,(index%2)*halfW-18),top=Math.max(0,(index/2)*halfH-18);
+    int w=Math.min(halfW+36,frame.getWidth()-left),h=Math.min(halfH+36,frame.getHeight()-top);
+    Bitmap crop=Bitmap.createBitmap(frame,left,top,w,h),zoom=Bitmap.createScaledBitmap(crop,w*2,h*2,true);if(crop!=frame&&crop!=zoom)crop.recycle();
+    try{ocr.process(InputImage.fromBitmap(zoom,0)).addOnSuccessListener(vision,text->{
+      try{OcrText.merge(found,OcrText.collect(text,2,left,top));}finally{zoom.recycle();}
+      zoomOcr(frame,generation,found,index+1,started);
+    }).addOnFailureListener(vision,e->{zoom.recycle();zoomOcr(frame,generation,found,index+1,started);});}
+    catch(RuntimeException error){zoom.recycle();finishOcr(frame);failFrame(error);}
+  }
+
   public void failFrame(RuntimeException error){
     android.util.Log.e("ArknightsTranslate","Translation frame failed",error);
     java.io.StringWriter trace=new java.io.StringWriter();error.printStackTrace(new java.io.PrintWriter(trace));
@@ -94,53 +131,62 @@ public final class TranslationController implements AutoCloseable {
     setEnabled(false);scanning.set(false);report("Ошибка обработки кадра: "+error.getClass().getSimpleName());
     main.post(()->android.widget.Toast.makeText(context,"Перевод остановлен из-за ошибки обработки кадра",android.widget.Toast.LENGTH_LONG).show());
   }
-  private void accept(Text result,Bitmap frame,long generation){
+  private void accept(List<OcrText> regions,Bitmap frame,long generation){
     if(closed||!enabled||!epoch.accepts(generation))return;
-    List<Text.TextBlock> blocks=result.getTextBlocks();String full=result.getText();
+    StringBuilder transcript=new StringBuilder();for(OcrText r:regions)transcript.append(r.text).append("\n");String full=transcript.toString();
     if(full.trim().isEmpty()){visible.clear();recognizedLines=completedLines=0;overlay.items=Collections.emptyList();overlay.hidden=false;report("Текст не найден");redraw.run();return;}
     TranslationPolicy.Kind kind=TranslationPolicy.classify(full);
     // Stable anchors: short button/header labels, excluding long story paragraphs.
-    StringBuilder anchors=new StringBuilder();for(Text.TextBlock b:blocks)if(b.getText().length()<60)anchors.append(b.getText()).append(' ');screens.identify(anchors.toString());
+    StringBuilder anchors=new StringBuilder();for(OcrText r:regions)if(r.text.length()<60)anchors.append(r.text).append(' ');screens.identify(anchors.toString());
     if(!similar(previousText,full)){if(kind==TranslationPolicy.Kind.STORY)history=previousText.substring(Math.max(0,previousText.length()-400));overlay.items=Collections.emptyList();}
     previousText=full;
     List<TranslationOverlay.Item> sources=new ArrayList<>(),ready=new ArrayList<>();
-    for(Text.TextBlock block:blocks){
-      if(block.getText().length()>650){for(Text.Line line:block.getLines())addSource(sources,line.getText(),line.getBoundingBox(),frame);}else addSource(sources,block.getText(),block.getBoundingBox(),frame);
-    }
+    for(OcrText r:regions)addSource(sources,r.text,r.bounds,r.corners,r.lineHeight,frame);
     List<String> admitted=new ArrayList<>();for(TranslationOverlay.Item item:sources)admitted.add(item.source);
     visible.update(admitted);recognizedLines=sources.size();
     if(!processingSource.isEmpty()&&!visible.contains(processingSource)&&engine!=null)engine.cancel();
     // Stable labels first; changing counters never hold up the rest of the screen.
-    sources.sort((a,b)->Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));
+    sources.sort((a,b)->kind==TranslationPolicy.Kind.STORY?Integer.compare(b.source.length(),a.source.length()):Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));
     String context=history;final String language=activeTarget;
-    for(TranslationOverlay.Item item:sources){String translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null)ready.add(new TranslationOverlay.Item(item.source,translated,item.box,item.clip,item.background,item.ink));}
-    sourceItems=sources;overlay.items=ready;completedLines=ready.size();overlay.hidden=false;if(!requesting.get())report("Распознано строк: "+recognizedLines);else liveDetails=progress()+"\n"+status;redraw.run();
+    for(TranslationOverlay.Item item:sources){String translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null){ready.add(item.translated(translated));trace.shown(item.source,translated,true);}}
+    sourceItems=sources;overlay.items=ready;completedLines=ready.size();overlay.hidden=false;if(!requesting.get())report("Распознано строк: "+recognizedLines);else liveDetails=diagnostics()+"\n"+status;redraw.run();
     if(requesting.compareAndSet(false,true)){
       final long request=generation;
       inference.execute(()->{try{
         if(!ModelStore.ready(context())){report("Нужна модель Qwen · откройте настройки перевода");return;}
-        report("Загрузка Qwen в память…");if(engine==null)engine=new QwenEngine();engine.load(ModelStore.file(context()));
+
         for(TranslationOverlay.Item item:sources){
           if(closed||!enabled||paused||!epoch.accepts(request))break;
           if(!visible.contains(item.source))continue;
           String key=TranslationPolicy.cacheKey(item.source,kind,context,language),translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(key);
-          if(translated==null){processingSource=item.source;report("Qwen: перевод строки…");translated=engine.translate(TranslationPolicy.prompt(item.source,kind,context,names,language)).trim();if(translated.isEmpty())continue;if(!epoch.accepts(request))break;store.put(key,translated);}
-          if(epoch.accepts(request)&&visible.contains(item.source)){List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(new TranslationOverlay.Item(current.source,translated,current.box,current.clip,current.background,current.ink));break;}overlay.items=display;completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=cleanRequested||scanning.get();redraw.run();}
+          if(translated==null){
+            processingSource=item.source;trace.start(item.source,SystemClock.elapsedRealtime());
+            try{
+              if(engine==null){report("Загрузка Qwen в память…");engine=new QwenEngine();engine.load(ModelStore.file(context()));}
+              report("Qwen: перевод строки…");translated=engine.translate(TranslationPolicy.prompt(item.source,kind,context,names,language),Math.min(480,Math.max(64,item.source.length()*2))).trim();
+              trace.finish(item.source,translated,SystemClock.elapsedRealtime());lastModelProgress=engine.progress();
+              if(translated.isEmpty()){trace.error(item.source,"Пустой ответ: отмена или генерация не началась",SystemClock.elapsedRealtime());continue;}
+              if(!epoch.accepts(request)){trace.error(item.source,"Ответ получен после смены сессии",SystemClock.elapsedRealtime());break;}store.put(key,translated);
+            }catch(RuntimeException error){trace.error(item.source,error.toString(),SystemClock.elapsedRealtime());report("Qwen: "+error.getMessage());continue;}
+          }
+          if(epoch.accepts(request)&&visible.contains(item.source)){List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(current.translated(translated));break;}overlay.items=display;trace.shown(item.source,translated,false);completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=cleanRequested||paused;redraw.run();}
         }
         if(epoch.accepts(request)){report("Перевод активен · кэш сохранён");}
       }catch(Throwable e){report("Qwen: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(()->android.widget.Toast.makeText(context(),status,android.widget.Toast.LENGTH_LONG).show());}
-      finally{processingSource="";requesting.set(false);liveDetails=progress()+"\n"+status;}});
+      finally{processingSource="";requesting.set(false);liveDetails=diagnostics()+"\n"+status;}});
     }
   }
   private Context context(){return context;}
   private static boolean similar(String a,String b){Set<String>x=ScreenMemory.words(a),y=ScreenMemory.words(b);if(x.isEmpty())return false;int common=0;for(String t:x)if(y.contains(t))common++;return common/(double)Math.max(x.size(),y.size())>.68;}
-  private void addSource(List<TranslationOverlay.Item> out,String s,Rect b,Bitmap frame){
-    s=TranslationPolicy.normalize(s);if(b==null||s.length()<2||!s.matches("(?s).*[A-Za-z]{2}.*")||s.length()>900)return;
-    int w=frame.getWidth(),h=frame.getHeight();RectF r=new RectF(Math.max(0,b.left-2)/(float)w,Math.max(0,b.top-2)/(float)h,Math.min(w,b.right+2)/(float)w,Math.min(h,b.bottom+2)/(float)h);
-    int[] red=new int[10],green=new int[10],blue=new int[10];for(int i=0;i<10;i++){int x=Math.max(0,Math.min(w-1,b.left+(b.width()*i/9))),y=Math.max(0,Math.min(h-1,b.top-3));int c=frame.getPixel(x,y);red[i]=Color.red(c);green[i]=Color.green(c);blue[i]=Color.blue(c);}Arrays.sort(red);Arrays.sort(green);Arrays.sort(blue);int bg=Color.rgb(red[5],green[5],blue[5]);int fg=(red[5]*3+green[5]*6+blue[5])/10>140?Color.BLACK:Color.WHITE;
-    // Restrict every mask to its own text panel box; never cover neighboring controls.
-    out.add(new TranslationOverlay.Item(s,"",r,new RectF(0,0,1,1),bg,fg));
+  private void addSource(List<TranslationOverlay.Item> out,String s,Rect b,Point[] corners,float lineHeight,Bitmap frame){
+    s=TranslationPolicy.normalize(s);if(b==null||s.length()<2||!s.matches("(?s).*[A-Za-z]{2}.*")||s.length()>900){if(!s.isEmpty())trace.skip(s,b==null?"Нет границ OCR":s.length()>900?"Слишком длинный блок": "Нет латинского текста для перевода");return;}
+    int w=frame.getWidth(),h=frame.getHeight();TextPlacement placement=TextPlacement.from(b,corners);
+    RectF r=new RectF(placement.bounds.left/w,placement.bounds.top/h,placement.bounds.right/w,placement.bounds.bottom/h);
+    int bg=placement.background(frame),fg=(Color.red(bg)*3+Color.green(bg)*6+Color.blue(bg))/10>140?Color.BLACK:Color.WHITE;
+    trace.seen(s,"угол "+String.format(java.util.Locale.ROOT,"%.1f",placement.angle)+"°; область "+r+"; цвет #"+Integer.toHexString(bg));
+    out.add(new TranslationOverlay.Item(s,"",r,new RectF(0,0,1,1),bg,fg,placement.angle,placement.normalized(w,h),lineHeight/h,placement.mask(frame,bg,TranslationOverlay.WINDOW_ALPHA)));
   }
-  public void close(){closed=true;enabled=false;epoch.advance();if(engine!=null)engine.cancel();ocr.close();vision.shutdown();inference.execute(()->{if(engine!=null)engine.close();store.close();});inference.shutdown();overlay.items=Collections.emptyList();}
+
+  public void close(){closed=true;main.removeCallbacks(heartbeat);enabled=false;epoch.advance();if(engine!=null)engine.cancel();ocr.close();vision.shutdown();inference.execute(()->{if(engine!=null)engine.close();store.close();});inference.shutdown();overlay.items=Collections.emptyList();}
 }
 

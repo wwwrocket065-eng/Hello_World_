@@ -28,6 +28,7 @@ public class ScreenService extends Service {
   private MediaProjection projection; private VirtualDisplay virtualDisplay;
   private ImageReader reader; private HandlerThread worker; private Handler workerHandler;
   private TextRecognizer recognizer;
+  private WindowManager.LayoutParams markerParams;
   private WindowManager wm; private Markers markers; private View gear, panel, settings;
   private FloatingControlButton playPause,translateButton;
   private com.example.arkrecruit.translate.TranslationController translation;
@@ -78,7 +79,7 @@ public class ScreenService extends Service {
   }
   @Override public void onCreate(){
     super.onCreate();UiStyle.init(this);prefs=getSharedPreferences("settings",MODE_PRIVATE);HighlightStyle.ensure(prefs);
-    translation=new com.example.arkrecruit.translate.TranslationController(this,()->main.post(()->{if(markers!=null)markers.invalidate();}));
+    translation=new com.example.arkrecruit.translate.TranslationController(this,()->main.post(()->{if(markers!=null){float alpha=translation.enabled()?com.example.arkrecruit.translate.TranslationOverlay.WINDOW_ALPHA:.70f;if(markerParams!=null&&markerParams.alpha!=alpha){markerParams.alpha=alpha;wm.updateViewLayout(markers,markerParams);}markers.invalidate();}}));
     portraits=new OperatorPortraits(this);
     nextTargetColor=prefs.getInt("next_goal_color",0);
     try{
@@ -612,7 +613,7 @@ public class ScreenService extends Service {
     markers=new Markers(this);
     WindowManager.LayoutParams pass=layout(-1,-1,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
       WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
-    pass.alpha=.70f;
+    pass.alpha=.70f;markerParams=pass;
     wm.addView(markers,pass);
 
     LinearLayout controls=new LinearLayout(this);
