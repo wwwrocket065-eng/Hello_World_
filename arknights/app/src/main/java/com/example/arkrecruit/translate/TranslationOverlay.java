@@ -18,6 +18,8 @@ public final class TranslationOverlay {
   public volatile List<Item> items=Collections.emptyList();public volatile boolean hidden;
   public final OverlayReadback readback=new OverlayReadback();
   private static final class Render {Bitmap bitmap;int[] pixels;float font;}
+  private static final class Pose {Bitmap bitmap;int left,top;OverlayReadback.Patch patch;}
+  private final LinkedHashMap<String,Pose> poses=new LinkedHashMap<String,Pose>(64,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,Pose> e){return size()>64;}};
   private final LinkedHashMap<String,Render> cache=new LinkedHashMap<String,Render>(64,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,Render> e){return size()>64;}};
   private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
   public volatile int drawn;public volatile float lastFontSize,drawMs;
@@ -40,10 +42,21 @@ public final class TranslationOverlay {
       int w=Math.max(1,Math.round((float)(Math.hypot(q[2]-q[0],q[3]-q[1])+Math.hypot(q[4]-q[6],q[5]-q[7]))/2)),h=Math.max(1,Math.round((float)(Math.hypot(q[6]-q[0],q[7]-q[1])+Math.hypot(q[4]-q[2],q[5]-q[3]))/2));
       if(w<5||h<5||w>width*2||h>height*2)continue;
       Render render=render(item,w,h,height);Matrix draw=new Matrix();if(!draw.setPolyToPoly(new float[]{0,0,w,0,w,h,0,h},0,q,0,4))continue;
-      int save=canvas.save();canvas.clipRect(item.clip.left*width-originX,item.clip.top*height-originY,item.clip.right*width-originX,item.clip.bottom*height-originY);canvas.drawBitmap(render.bitmap,draw,paint);canvas.restoreToCount(save);drawn++;lastFontSize=render.font;
-      Matrix forward=new Matrix(),inverse=new Matrix();forward.setPolyToPoly(new float[]{0,0,w,0,w,h,0,h},0,norm,0,4);if(!forward.invert(inverse))continue;
-      float l=norm[0],r=l,t=norm[1],b=t;for(int i=2;i<8;i+=2){l=Math.min(l,norm[i]);r=Math.max(r,norm[i]);t=Math.min(t,norm[i+1]);b=Math.max(b,norm[i+1]);}
-      patches.add(new OverlayReadback.Patch(render.pixels,w,h,inverse,new RectF(l,t,r,b),new RectF(item.clip)));
+      // Rasterize with Canvas once per pose, then present and invert the exact same pixels.
+      // Analytic bilinear sampling differs from Skia at fractional positions and amplifies
+      // the mismatch through the translucent window.
+      String poseKey=System.identityHashCode(render)+"|"+Arrays.toString(q)+"|"+item.clip+"|"+width+"x"+height+"|"+originX+","+originY;
+      Pose pose=poses.get(poseKey);
+      if(pose==null){
+        float l=q[0],r=l,t=q[1],b=t;for(int i=2;i<8;i+=2){l=Math.min(l,q[i]);r=Math.max(r,q[i]);t=Math.min(t,q[i+1]);b=Math.max(b,q[i+1]);}
+        int left=Math.max(-originX,(int)Math.floor(l)-1),top=Math.max(-originY,(int)Math.floor(t)-1),right=Math.min(width-originX,(int)Math.ceil(r)+1),bottom=Math.min(height-originY,(int)Math.ceil(b)+1);
+        if(right<=left||bottom<=top)continue;
+        pose=new Pose();pose.left=left;pose.top=top;pose.bitmap=Bitmap.createBitmap(right-left,bottom-top,Bitmap.Config.ARGB_8888);
+        Canvas raster=new Canvas(pose.bitmap);raster.translate(-left,-top);raster.clipRect(item.clip.left*width-originX,item.clip.top*height-originY,item.clip.right*width-originX,item.clip.bottom*height-originY);raster.drawBitmap(render.bitmap,draw,paint);
+        float[] rasterQuad={(left+originX)/(float)width,(top+originY)/(float)height,(right+originX)/(float)width,(top+originY)/(float)height,(right+originX)/(float)width,(bottom+originY)/(float)height,(left+originX)/(float)width,(bottom+originY)/(float)height};
+        pose.patch=new OverlayReadback.Patch(pose.bitmap,rasterQuad,new RectF(0,0,1,1));poses.put(poseKey,pose);
+      }
+      canvas.drawBitmap(pose.bitmap,pose.left,pose.top,null);drawn++;lastFontSize=render.font;patches.add(pose.patch);
     }readback.publish(patches);drawMs=Math.round((System.nanoTime()-started)/100000f)/10f;
   }
 }

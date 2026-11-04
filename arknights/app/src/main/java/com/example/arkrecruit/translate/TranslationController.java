@@ -94,10 +94,12 @@ public final class TranslationController implements AutoCloseable {
     vision.execute(()->{
       Bitmap bitmap=null;
       try{
+        // Undo compositing at capture resolution before any downsampling mixes edge pixels.
+        int[] nativeColors=new int[iw*ih];captured.getPixels(nativeColors,0,iw,0,0,iw,ih);decoder.restore(nativeColors,iw,ih);captured.setPixels(nativeColors,0,iw,0,0,iw,ih);
         int ow=Math.min(2048,iw),oh=ih*ow/iw;Bitmap scaled=captured;
         if(ow!=iw)scaled=Bitmap.createScaledBitmap(captured,ow,oh,true);
         int[] color=new int[ow*oh];scaled.getPixels(color,0,ow,0,0,ow,oh);if(scaled!=captured)scaled.recycle();captured.recycle();
-        decoder.restore(color,ow,oh);bitmap=TranslationFrame.create(color,ow,oh,exclusions,iw,ih);scanOcr(bitmap,generation);
+        bitmap=TranslationFrame.create(color,ow,oh,exclusions,iw,ih);scanOcr(bitmap,generation);
       }catch(RuntimeException error){if(!captured.isRecycled())captured.recycle();if(bitmap!=null&&!bitmap.isRecycled())bitmap.recycle();scanning.set(false);failFrame(error);}
     });
   }
