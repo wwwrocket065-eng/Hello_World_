@@ -42,11 +42,23 @@ public final class FloatingControlButton extends View {
     canvas.drawRoundRect(2*s,2*s,getWidth()-2*s,getHeight()-2*s,0,0,p);
     p.setColor(kind==SETTINGS?UiStyle.MUTED:ICON_COLOR);
     if(kind==TRANSLATE){
-      p.setColor(playing?UiStyle.ACCENT:UiStyle.MUTED);p.setTypeface(UiStyle.FONT);p.setTextSize(22*s);p.setTextAlign(Paint.Align.CENTER);canvas.drawText("A/Я",cx,cy+8*s,p);
+      drawTranslate(canvas,cx,cy,s);
     }
     else if(kind==SETTINGS)drawGear(canvas,cx,cy,s);
     else if(playing)drawPause(canvas,cx,cy,s);
     else drawPlay(canvas,cx,cy,s);
+  }
+
+  private void drawTranslate(Canvas c,float x,float y,float s){
+    c.save();c.translate(x-18*s,y-18*s);c.scale(s,s);
+    p.setStyle(Paint.Style.FILL);p.setColor(0xFF50595C);
+    c.drawRoundRect(13,7,36,36,3,3,p);
+    p.setColor(0xFFBFE9EC);p.setTypeface(UiStyle.FONT);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(20);
+    c.drawText("文",26,29,p);
+    p.setColor(playing?UiStyle.ACCENT:0xFF64888B);
+    Path card=new Path();card.moveTo(3,0);card.lineTo(19,0);card.lineTo(27,29);card.lineTo(3,29);card.quadTo(0,29,0,26);card.lineTo(0,3);card.quadTo(0,0,3,0);card.close();c.drawPath(card,p);
+    p.setColor(0xFF176C75);Path fold=new Path();fold.moveTo(18,29);fold.lineTo(27,29);fold.lineTo(21,36);fold.close();c.drawPath(fold,p);
+    p.setColor(0xFFFFFFFF);p.setTextSize(24);c.drawText("A",12,23,p);c.restore();
   }
 
   private void drawPause(Canvas c,float x,float y,float s) {
@@ -86,3 +98,4 @@ public final class FloatingControlButton extends View {
     super.setPressed(pressed);invalidate();
   }
 }
+

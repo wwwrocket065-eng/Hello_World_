@@ -15,6 +15,12 @@ public final class TranslationPolicy {
   public static String cacheKey(String text,Kind kind,String history){
     return VERSION+"|"+kind+"|"+(kind==Kind.STORY?normalize(history):"")+"|"+normalize(text);
   }
+  public static String cacheKey(String text,Kind kind,String history,String target){return target+"|"+cacheKey(text,kind,history);}
+  public static String prompt(String text,Kind kind,String history,Map<String,String> names,String target){
+    String p=prompt(text,kind,history,names);
+    if("uk".equals(target))p=p.replace("into Russian", "into Ukrainian").replace("орипатия","оріпатія").replace("ориджиниум","оріджиніум").replace("Воссоединение","Возз’єднання").replace("рассудок","розсудок");
+    return p.replace("Translate English game Arknights text", "Detect the source language automatically and translate the game Arknights text");
+  }
   public static final class Epoch {
     private long value;
     public synchronized long current(){return value;}
@@ -38,3 +44,4 @@ public final class TranslationPolicy {
     return "<|im_start|>system\n"+rules+"<|im_end|>\n<|im_start|>user\n"+text.replace("<|","< |")+"<|im_end|>\n<|im_start|>assistant\n";
   }
 }
+

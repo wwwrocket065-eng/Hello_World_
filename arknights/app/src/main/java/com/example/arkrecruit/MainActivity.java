@@ -51,18 +51,34 @@ public class MainActivity extends Activity {
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
       Toast.makeText(this,"Плавающие кнопки включены. В игре нажмите ▶.",Toast.LENGTH_LONG).show();
     });
-    button(root,"Перевод",()->startActivity(new Intent(this,TranslationSettingsActivity.class)));
-    root.addView(new HighlightColorControl(this,prefs,null));
-    text(root,"Рекомендации",19,UiStyle.TEXT);
-    RecruitSettings.addRegion(root,prefs,()->loadDb(false));
-    RecruitSettings.addPanel(root,prefs,null);
-    RecruitSettings.addFilter(root,prefs,null);
+    navigation(root,"Перевод",()->startActivity(new Intent(this,TranslationSettingsActivity.class)));
+    navigation(root,"Рекрутинг",this::openRecruitment);
     root.addView(new View(this),new LinearLayout.LayoutParams(1,0,1f));
     footer=text(root,"",13,UiStyle.MUTED);
     updateFooter();
     loadDb(false);UiStyle.watch(root);
   }
-  @Override public void onBackPressed(){if(mainRoot!=null&&HighlightColorControl.back(mainRoot))return;super.onBackPressed();}
+  @Override public void onBackPressed(){if(recruitRoot!=null&&HighlightColorControl.back(recruitRoot))return;if(recruitPage!=null){closeRecruitment();return;}if(mainRoot!=null&&HighlightColorControl.back(mainRoot))return;super.onBackPressed();}
+  private SettingsPageTransition.Session recruitPage;
+  private LinearLayout recruitRoot;
+  private void navigation(LinearLayout parent,String label,Runnable action){
+    NavigationButton entry=new NavigationButton(this,label,false);
+    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));
+    parent.addView(entry,lp);entry.setOnClickListener(v->action.run());
+  }
+  private void closeRecruitment(){if(recruitPage!=null)recruitPage.close(()->{recruitPage=null;recruitRoot=null;});}
+  private void openRecruitment(){
+    if(recruitPage!=null)return;
+    LinearLayout page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);recruitRoot=page;
+    LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);
+    NavigationButton back=new NavigationButton(this,"",true);heading.addView(back,new LinearLayout.LayoutParams(dp(44),dp(48)));back.setOnClickListener(v->closeRecruitment());
+    text(heading,"Рекрутинг",23,UiStyle.TEXT);page.addView(heading);
+    page.addView(new HighlightColorControl(this,prefs,null));
+    text(page,"Рекомендации",19,UiStyle.TEXT);
+    RecruitSettings.addRegion(page,prefs,()->loadDb(false));
+    RecruitSettings.addPanel(page,prefs,null);RecruitSettings.addFilter(page,prefs,null);
+    recruitPage=SettingsPageTransition.open(mainRoot,page);UiStyle.watch(page);
+  }
   private void loadDb(boolean force) {
     if(dbProgress!=null)dbProgress.setVisibility(View.VISIBLE);
     boolean requestedChina=prefs.getBoolean("china",false);
@@ -181,4 +197,5 @@ public class MainActivity extends Activity {
     });
   }
 }
+
 

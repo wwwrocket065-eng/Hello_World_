@@ -23,6 +23,10 @@ public final class TranslationController implements AutoCloseable {
   private final Map<String,String> names=new LinkedHashMap<>();
   private volatile QwenEngine engine;private volatile boolean enabled,closed,paused;
   private volatile String status="Выключен";
+  public static volatile String liveStatus="Перевод не запущен";
+  private String target(){return context.getSharedPreferences("translation_preferences",0).getString("target","ru");}
+  private volatile String activeTarget="";
+  private void report(String value){status=value;liveStatus=value;}
   private volatile long nextRead,lastTick,movingUntil,hiddenAt;
   private int[] previous;private int thumbW,thumbH;private volatile boolean cleanRequested;
   private volatile String previousText="",history="";
@@ -36,12 +40,13 @@ public final class TranslationController implements AutoCloseable {
   public String status(){return status;}
   public boolean enabled(){return enabled;}
   public void setEnabled(boolean on){
-    enabled=on;epoch.advance();if(engine!=null)engine.cancel();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();overlay.hidden=true;previous=null;previousText="";history="";nextRead=0;cleanRequested=false;status=on?"Ожидание кадра":"Выключен";redraw.run();
+    enabled=on;epoch.advance();if(engine!=null)engine.cancel();overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();overlay.hidden=true;previous=null;previousText="";history="";nextRead=0;cleanRequested=false;report(on?"Ожидание кадра":"Выключен");redraw.run();
   }
   public void pause(boolean p){if(paused==p)return;paused=p;epoch.advance();if(engine!=null)engine.cancel();if(p){overlay.items=Collections.emptyList();sourceItems=Collections.emptyList();}overlay.hidden=p;nextRead=0;previous=null;redraw.run();}
   public void touch(float x,float y){if(!enabled)return;movingUntil=SystemClock.elapsedRealtime()+900;epoch.advance();if(engine!=null)engine.cancel();overlay.hidden=true;cleanRequested=true;hiddenAt=SystemClock.elapsedRealtime();vision.execute(()->screens.touch(x,y));redraw.run();}
   public void frame(Image image,Rect[] exclusions,boolean analysisPaused){
     pause(analysisPaused);if(!enabled||closed||analysisPaused)return;
+    String selected=target();if(!selected.equals(activeTarget)){activeTarget=selected;setEnabled(true);}
     long now=SystemClock.elapsedRealtime();if(now-lastTick<(now<movingUntil?66:160))return;lastTick=now;
     Image.Plane p=image.getPlanes()[0];ByteBuffer pixels=p.getBuffer();int base=pixels.position(),stride=p.getRowStride(),step=p.getPixelStride(),iw=image.getWidth(),ih=image.getHeight();
     int w=160,h=Math.max(60,ih*w/iw);int[] gray=new int[w*h];boolean[] mask=new boolean[w*h];
@@ -58,7 +63,7 @@ public final class TranslationController implements AutoCloseable {
       movingUntil=now+600;
       if(shift.confident&&(shift.dx!=0||shift.dy!=0)&&Math.abs(shift.dy)<18){
         List<TranslationOverlay.Item> moved=new ArrayList<>();for(TranslationOverlay.Item item:overlay.items)moved.add(item.move(shift.dx/(float)w,shift.dy/(float)h));overlay.items=moved;redraw.run();
-      }else if(!shift.confident){epoch.advance();if(engine!=null)engine.cancel();overlay.hidden=true;cleanRequested=true;hiddenAt=now;redraw.run();}
+      }else if(!shift.confident){overlay.hidden=true;cleanRequested=true;hiddenAt=now;redraw.run();}
       nextRead=Math.min(nextRead,now+100);
     }
     previous=gray;thumbW=w;thumbH=h;
@@ -73,20 +78,20 @@ public final class TranslationController implements AutoCloseable {
     Bitmap bitmap=TranslationFrame.create(color,ow,oh,exclusions,iw,ih);
     long generation=epoch.current();
     try{ocr.process(InputImage.fromBitmap(bitmap,0)).addOnSuccessListener(vision,text->{try{accept(text,bitmap,generation);}catch(RuntimeException error){failFrame(error);}finally{bitmap.recycle();scanning.set(false);}})
-      .addOnFailureListener(vision,e->{bitmap.recycle();scanning.set(false);overlay.hidden=false;status="OCR: "+e.getMessage();redraw.run();});
+      .addOnFailureListener(vision,e->{bitmap.recycle();scanning.set(false);overlay.hidden=false;report("OCR: "+e.getMessage());redraw.run();});
     }catch(RuntimeException error){bitmap.recycle();scanning.set(false);failFrame(error);}
   }
   public void failFrame(RuntimeException error){
     android.util.Log.e("ArknightsTranslate","Translation frame failed",error);
     java.io.StringWriter trace=new java.io.StringWriter();error.printStackTrace(new java.io.PrintWriter(trace));
     context.getSharedPreferences("translation_model",0).edit().putString("last_error",trace.toString()).apply();
-    setEnabled(false);scanning.set(false);status="Ошибка обработки кадра: "+error.getClass().getSimpleName();
+    setEnabled(false);scanning.set(false);report("Ошибка обработки кадра: "+error.getClass().getSimpleName());
     main.post(()->android.widget.Toast.makeText(context,"Перевод остановлен из-за ошибки обработки кадра",android.widget.Toast.LENGTH_LONG).show());
   }
   private void accept(Text result,Bitmap frame,long generation){
     if(closed||!enabled||!epoch.accepts(generation))return;
     List<Text.TextBlock> blocks=result.getTextBlocks();String full=result.getText();
-    if(full.trim().isEmpty()){overlay.items=Collections.emptyList();overlay.hidden=false;status="Текст не найден";redraw.run();return;}
+    if(full.trim().isEmpty()){overlay.items=Collections.emptyList();overlay.hidden=false;report("Текст не найден");redraw.run();return;}
     TranslationPolicy.Kind kind=TranslationPolicy.classify(full);
     // Stable anchors: short button/header labels, excluding long story paragraphs.
     StringBuilder anchors=new StringBuilder();for(Text.TextBlock b:blocks)if(b.getText().length()<60)anchors.append(b.getText()).append(' ');screens.identify(anchors.toString());
@@ -96,22 +101,22 @@ public final class TranslationController implements AutoCloseable {
     for(Text.TextBlock block:blocks){
       if(block.getText().length()>650){for(Text.Line line:block.getLines())addSource(sources,line.getText(),line.getBoundingBox(),frame);}else addSource(sources,block.getText(),block.getBoundingBox(),frame);
     }
-    String context=history;
-    for(TranslationOverlay.Item item:sources){String translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context));if(translated!=null)ready.add(new TranslationOverlay.Item(item.source,translated,item.box,item.clip,item.background,item.ink));}
+    String context=history;final String language=activeTarget;
+    for(TranslationOverlay.Item item:sources){String translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null)ready.add(new TranslationOverlay.Item(item.source,translated,item.box,item.clip,item.background,item.ink));}
     sourceItems=sources;overlay.items=ready;overlay.hidden=false;redraw.run();
     if(requesting.compareAndSet(false,true)){
       final long request=generation;
       inference.execute(()->{try{
-        if(!ModelStore.ready(context())){status="Нужна модель Qwen · откройте настройки перевода";return;}
-        if(engine==null)engine=new QwenEngine();engine.load(ModelStore.file(context()));
+        if(!ModelStore.ready(context())){report("Нужна модель Qwen · откройте настройки перевода");return;}
+        report("Загрузка Qwen в память…");if(engine==null)engine=new QwenEngine();engine.load(ModelStore.file(context()));
         for(TranslationOverlay.Item item:sources){
           if(closed||!enabled||paused||!epoch.accepts(request))break;
-          String key=TranslationPolicy.cacheKey(item.source,kind,context),translated=store.get(key);
-          if(translated==null){status="Перевод…";translated=engine.translate(TranslationPolicy.prompt(item.source,kind,context,names)).trim();if(translated.isEmpty())continue;if(!epoch.accepts(request))break;store.put(key,translated);}
-          if(epoch.accepts(request)){List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(new TranslationOverlay.Item(current.source,translated,current.box,current.clip,current.background,current.ink));break;}overlay.items=display;overlay.hidden=false;redraw.run();}
+          String key=TranslationPolicy.cacheKey(item.source,kind,context,language),translated=store.get(key);
+          if(translated==null){report("Перевод…");translated=engine.translate(TranslationPolicy.prompt(item.source,kind,context,names,language)).trim();if(translated.isEmpty())continue;if(!epoch.accepts(request))break;store.put(key,translated);}
+          if(epoch.accepts(request)){List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(new TranslationOverlay.Item(current.source,translated,current.box,current.clip,current.background,current.ink));break;}overlay.items=display;overlay.hidden=cleanRequested||scanning.get();redraw.run();}
         }
-        if(epoch.accepts(request)){status="Перевод активен · кэш сохранён";}
-      }catch(Throwable e){status="Qwen: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());main.post(()->android.widget.Toast.makeText(context(),status,android.widget.Toast.LENGTH_LONG).show());}
+        if(epoch.accepts(request)){report("Перевод активен · кэш сохранён");}
+      }catch(Throwable e){report("Qwen: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(()->android.widget.Toast.makeText(context(),status,android.widget.Toast.LENGTH_LONG).show());}
       finally{requesting.set(false);}});
     }
   }
@@ -126,3 +131,4 @@ public final class TranslationController implements AutoCloseable {
   }
   public void close(){closed=true;enabled=false;epoch.advance();if(engine!=null)engine.cancel();ocr.close();vision.shutdown();inference.execute(()->{if(engine!=null)engine.close();store.close();});inference.shutdown();overlay.items=Collections.emptyList();}
 }
+
