@@ -24,8 +24,11 @@ public final class TextPlacement {
   public float[] normalized(int w,int h){float[] out=quad.clone();for(int i=0;i<8;i+=2){out[i]/=w;out[i+1]/=h;}return out;}
   public int background(Bitmap frame){
     Map<Integer,List<Integer>> buckets=new HashMap<>();
-    for(int row=0;row<7;row++)for(int col=0;col<13;col++){
-      float u=.06f+.88f*col/12f,v=.08f+.84f*row/6f;
+    // Sample the margin around the ink first: dense white glyphs must not become
+    // a white background. Stay close to the text plane to avoid nearby decorations.
+    float padU=Math.min(.08f,3/Math.max(1,width)),padV=Math.min(.22f,3/Math.max(1,height));
+    for(int row=0;row<2;row++)for(int col=0;col<31;col++){
+      float u=col/30f,v=row==0?-padV:1+padV;
       float x=(1-v)*((1-u)*quad[0]+u*quad[2])+v*((1-u)*quad[6]+u*quad[4]);
       float y=(1-v)*((1-u)*quad[1]+u*quad[3])+v*((1-u)*quad[7]+u*quad[5]);
       int c=frame.getPixel(Math.max(0,Math.min(frame.getWidth()-1,Math.round(x))),Math.max(0,Math.min(frame.getHeight()-1,Math.round(y))));

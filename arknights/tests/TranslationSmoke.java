@@ -42,6 +42,23 @@ public class TranslationSmoke {
         if(!moving.reliable||Math.abs(moving.x(50+oldOffset,40)-(50+offset))>.6||!fixed.reliable||Math.abs(fixed.x(120,70)-120)>.1)throw new AssertionError("60-frame independent tracking lost moving/static labels");}
       oldFrame=next;oldOffset=offset;
     }
+
+    RegionalTracker.Groups group=new RegionalTracker.Groups();
+    for(int frame=0;frame<60;frame++){
+      RegionalTracker.Pose left=new RegionalTracker.Pose(1,0,2.1f,1,true),right=new RegionalTracker.Pose(1,0,1.9f,1,true);
+      java.util.List<RegionalTracker.Groups.Sample> peers=java.util.Arrays.asList(new RegionalTracker.Groups.Sample("left",30,30,left),new RegionalTracker.Groups.Sample("right",90,30,right),new RegionalTracker.Groups.Sample("third",60,70,new RegionalTracker.Pose(1,0,2,1,true)));
+      java.util.Map<String,RegionalTracker.Pose> resolved=group.resolve(peers);
+      if(frame>=2&&resolved.get("left")!=resolved.get("right"))throw new AssertionError("Synchronous panel not sharing a transform");
+    }
+    java.util.Map<String,RegionalTracker.Pose> rescued=group.resolve(java.util.Arrays.asList(new RegionalTracker.Groups.Sample("left",30,30,new RegionalTracker.Pose(1,0,2,1,true)),new RegionalTracker.Groups.Sample("right",90,30,new RegionalTracker.Pose(1,0,2,1,true)),new RegionalTracker.Groups.Sample("third",60,70,new RegionalTracker.Pose(1,0,0,0,false))));
+    if(!rescued.get("third").reliable||Math.abs(rescued.get("third").tx-2)>.01)throw new AssertionError("Panel peer cannot bridge a temporary missed label");
+    java.util.Map<String,RegionalTracker.Pose> split=group.resolve(java.util.Arrays.asList(new RegionalTracker.Groups.Sample("left",30,30,new RegionalTracker.Pose(1,0,2,1,true)),new RegionalTracker.Groups.Sample("right",90,30,new RegionalTracker.Pose(1,0,-3,-2,true)),new RegionalTracker.Groups.Sample("third",60,70,new RegionalTracker.Pose(1,0,2,1,true))));
+    if(split.get("left")==split.get("right")||Math.abs(split.get("right").tx+3)>.01)throw new AssertionError("Independent element remained locked to panel");
+    group.clear();
+    for(int f=0;f<5;f++){
+      java.util.Map<String,RegionalTracker.Pose> scaled=group.resolve(java.util.Arrays.asList(new RegionalTracker.Groups.Sample("a",30,30,new RegionalTracker.Pose(1.01f,.006f,1,2,true)),new RegionalTracker.Groups.Sample("b",100,70,new RegionalTracker.Pose(1.01f,.006f,1,2,true))));
+      if(f>=2&&(scaled.get("a")!=scaled.get("b")||Math.abs(scaled.get("a").a-1.01f)>.001))throw new AssertionError("Common scale/rotation not preserved");
+    }
     System.out.println("Translation generation/cache/glossary/motion PASS");
   }
 }

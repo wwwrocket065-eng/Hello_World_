@@ -29,4 +29,14 @@ public class TextPlacementTest {
     layer.items=java.util.Collections.singletonList(new TranslationOverlay.Item("Terminal","Терминал",new RectF(.09f,.25f,.9f,.75f),new RectF(0,0,1,1),Color.BLACK,Color.WHITE,2,q,.43f,null));
     layer.draw(new Canvas(output),600,220,0,0);assertEquals(Color.MAGENTA,output.getPixel(280,30));assertEquals(1,layer.drawn);assertTrue("Large menu labels must not retain the old26px cap",layer.lastFontSize>35);output.recycle();
   }
+
+  @Test public void denseWhiteInkDoesNotInvertDarkOrBlueButtonBackground(){
+    for(int background:new int[]{0xff383838,0xff119cb8,0xffededed}){
+      Bitmap source=Bitmap.createBitmap(260,100,Bitmap.Config.ARGB_8888);source.eraseColor(background);
+      Paint ink=new Paint();ink.setColor(background==0xffededed?Color.BLACK:Color.WHITE);
+      new Canvas(source).drawRect(32,32,228,68,ink);
+      TextPlacement placement=TextPlacement.from(new Rect(30,30,230,70),null);
+      assertEquals("Use button margin, not dense foreground glyphs",background,placement.background(source));source.recycle();
+    }
+  }
 }
