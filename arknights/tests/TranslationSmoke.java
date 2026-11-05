@@ -48,7 +48,7 @@ public class TranslationSmoke {
       RegionalTracker.Pose left=new RegionalTracker.Pose(1,0,2.1f,1,true),right=new RegionalTracker.Pose(1,0,1.9f,1,true);
       java.util.List<RegionalTracker.Groups.Sample> peers=java.util.Arrays.asList(new RegionalTracker.Groups.Sample("left",30,30,left),new RegionalTracker.Groups.Sample("right",90,30,right),new RegionalTracker.Groups.Sample("third",60,70,new RegionalTracker.Pose(1,0,2,1,true)));
       java.util.Map<String,RegionalTracker.Pose> resolved=group.resolve(peers);
-      if(frame>=2&&resolved.get("left")!=resolved.get("right"))throw new AssertionError("Synchronous panel not sharing a transform");
+      if(frame>=2&&(resolved.get("left")!=resolved.get("right")||resolved.get("left").a!=1||resolved.get("left").b!=0))throw new AssertionError("Synchronous panel not sharing a transform");
     }
     java.util.Map<String,RegionalTracker.Pose> rescued=group.resolve(java.util.Arrays.asList(new RegionalTracker.Groups.Sample("left",30,30,new RegionalTracker.Pose(1,0,2,1,true)),new RegionalTracker.Groups.Sample("right",90,30,new RegionalTracker.Pose(1,0,2,1,true)),new RegionalTracker.Groups.Sample("third",60,70,new RegionalTracker.Pose(1,0,0,0,false))));
     if(!rescued.get("third").reliable||Math.abs(rescued.get("third").tx-2)>.01)throw new AssertionError("Panel peer cannot bridge a temporary missed label");

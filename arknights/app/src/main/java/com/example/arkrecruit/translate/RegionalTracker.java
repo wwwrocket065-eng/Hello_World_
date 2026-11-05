@@ -73,6 +73,10 @@ public final class RegionalTracker {
       x/=count;y/=count;u/=count;v/=count;double den=0,aa=0,bb=0;
       for(Sample s:samples)for(int k=0;k<3;k++){double px=s.x+(k==1?12:0),py=s.y+(k==2?12:0),xx=px-x,yy=py-y,uu=s.pose.x((float)px,(float)py)-u,vv=s.pose.y((float)px,(float)py)-v;den+=xx*xx+yy*yy;aa+=xx*uu+yy*vv;bb+=xx*vv-yy*uu;}
       float a=den>1?(float)(aa/den):1,b=den>1?(float)(bb/den):0;
+      // Local trackers report pure translation explicitly. Do not manufacture scale
+      // or rotation from small differences in their displacement estimates.
+      boolean translationOnly=true;for(Sample s:samples)if(s.pose.a!=1||s.pose.b!=0)translationOnly=false;
+      if(translationOnly){a=1;b=0;}
       return new Pose(a,b,(float)(u-a*x+b*y),(float)(v-b*x-a*y),true);
     }
     private static float error(Sample s,Pose p){float worst=0;for(int k=0;k<3;k++){float x=s.x+(k==1?12:0),y=s.y+(k==2?12:0);worst=Math.max(worst,(float)Math.hypot(s.pose.x(x,y)-p.x(x,y),s.pose.y(x,y)-p.y(x,y)));}return worst;}

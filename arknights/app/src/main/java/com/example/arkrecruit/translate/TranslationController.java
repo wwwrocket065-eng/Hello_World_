@@ -135,7 +135,7 @@ public final class TranslationController implements AutoCloseable {
       previousGray=gray;
     }
     List<TranslationOverlay.Item> display=new ArrayList<>();for(TranslationOverlay.Item pose:poses.values()){String value=readyResults.get(activeTarget+"|"+pose.source);if(value!=null)display.add(pose.translated(value));}
-    boolean changed=display.size()!=overlay.items.size();overlay.items=display;if(moved||changed)redraw.run();
+    boolean changed=display.size()!=overlay.items.size();overlay.items=display;completedLines=display.size();if(moved||changed)redraw.run();
   }
   private TranslationOverlay.Item currentPose(TranslationOverlay.Item item){synchronized(nodes){Node node=nodes.get(item.source);return node==null?item:node.item;}}
   private void finishOcr(Bitmap frame){frame.recycle();scanning.set(false);overlay.hidden=!enabled||paused||blocked;redraw.run();}
@@ -199,7 +199,12 @@ public final class TranslationController implements AutoCloseable {
     }}
     List<String> admitted=new ArrayList<>();for(TranslationOverlay.Item item:sources)admitted.add(item.source);
     visible.update(admitted);recognizedLines=sources.size();
-    synchronized(nodes){nodes.keySet().retainAll(admitted);for(TranslationOverlay.Item item:sources){Node node=nodes.get(item.source);if(node==null)nodes.put(item.source,new Node(item,ocrGray));else if(node.misses>3){node.item=item;node.reference=ocrGray;node.misses=0;node.lastReliable=SystemClock.elapsedRealtime();} }}
+    synchronized(nodes){nodes.keySet().retainAll(admitted);for(TranslationOverlay.Item item:sources){Node node=nodes.get(item.source);if(node==null)nodes.put(item.source,new Node(item,ocrGray));else {
+      // Refresh OCR geometry/style only after matching its capture to the latest
+      // tracked image. An asynchronous OCR result must not jump back in time.
+      RegionalTracker.Pose alignment=RegionalTracker.track(ocrGray,node.reference,trackWidth,trackHeight,item.box.left*trackWidth,item.box.top*trackHeight,item.box.right*trackWidth,item.box.bottom*trackHeight);
+      if(alignment.reliable){float[] q=item.quad.clone();for(int i=0;i<8;i+=2){float x=q[i]*trackWidth,y=q[i+1]*trackHeight;q[i]=alignment.x(x,y)/trackWidth;q[i+1]=alignment.y(x,y)/trackHeight;}node.item=item.posed(q);node.misses=0;node.lastReliable=SystemClock.elapsedRealtime();}
+    } }}
 
     // Stable labels first; changing counters never hold up the rest of the screen.
     sources.sort((a,b)->kind==TranslationPolicy.Kind.STORY?Integer.compare(b.source.length(),a.source.length()):Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));
