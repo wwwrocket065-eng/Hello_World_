@@ -1,0 +1,2 @@
+## 0.3.38 — 2026-11-07
+Read-only screen map authorized. Translation settings → Карта экранов: persisted screenshot nodes, pan/pinch, observed touch-zone route arrows, numbered text quads and saved translations. SQLite v1→v2 preserves translation cache/model/settings. New screens require agreeing distinct OCR frames >=500ms apart. No exact button semantic or instant-screen-restoration claim. Tests added for migration/target isolation and independent-frame/touch-route confirmation. Android CI and phone validation pending. Must sign delivery with permanent0.3.31 key.

@@ -18,6 +18,7 @@ public final class TranslationSettingsActivity extends Activity {
     Runnable label=()->target.setText("Язык перевода: "+("uk".equals(language.getString("target","ru"))?"Українська":"Русский"));label.run();
     target.setOnClickListener(v->{AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Язык перевода").setSingleChoiceItems(new String[]{"Русский","Українська"},"uk".equals(language.getString("target","ru"))?1:0,(d,which)->{language.edit().putString("target",which==1?"uk":"ru").apply();label.run();d.dismiss();}).create();dialog.show();UiStyle.dialog(dialog);});
     status=new TextView(this);status.setTextColor(UiStyle.TEXT);status.setPadding(0,dp(16),0,dp(16));page.addView(status);
+    add(page,"Карта экранов",()->startActivity(new Intent(this,com.example.arkrecruit.translate.ScreenMapActivity.class)));
     add(page,"Отчёт перевода",()->{
       ScrollView scroll=new ScrollView(this);TextView body=new TextView(this);body.setTextColor(UiStyle.TEXT);body.setTextSize(13);body.setTextIsSelectable(true);body.setPadding(dp(12),dp(12),dp(12),dp(12));
       body.setText(ModelStore.status+"\n"+com.example.arkrecruit.translate.TranslationController.liveDetails+"\n"+getSharedPreferences("translation_model",0).getString("last_error",""));scroll.addView(body);

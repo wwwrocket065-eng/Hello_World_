@@ -185,7 +185,7 @@ public final class TranslationController implements AutoCloseable {
     }
     TranslationPolicy.Kind kind=TranslationPolicy.classify(full);
     // Stable anchors: short button/header labels, excluding long story paragraphs.
-    StringBuilder anchors=new StringBuilder();for(OcrText r:regions)if(r.text.length()<60)anchors.append(r.text).append(' ');screens.identify(anchors.toString());
+    StringBuilder anchors=new StringBuilder();for(OcrText r:regions)if(r.text.length()<60)anchors.append(r.text).append(' ');final long screenId=screens.identify(anchors.toString(),System.identityHashCode(frame));
     if(!similar(previousText,full)&&kind==TranslationPolicy.Kind.STORY)history=previousText.substring(Math.max(0,previousText.length()-400));
     previousText=full;
     List<TranslationOverlay.Item> sources=new ArrayList<>(),ready=new ArrayList<>();
@@ -210,6 +210,7 @@ public final class TranslationController implements AutoCloseable {
     sources.sort((a,b)->kind==TranslationPolicy.Kind.STORY?Integer.compare(b.source.length(),a.source.length()):Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));
     String context=history;final String language=activeTarget;
     for(TranslationOverlay.Item item:sources){String translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null){readyResults.put(language+"|"+item.source,translated);ready.add(currentPose(item).translated(translated));trace.shown(item.source,translated,true);}}
+    saveScreen(screenId,frame,sources,language);
     sourceItems=sources;synchronized(nodes){ready.clear();for(Node node:nodes.values()){String value=readyResults.get(activeTarget+"|"+node.item.source);if(value!=null&&retained(node,SystemClock.elapsedRealtime()))ready.add(node.item.translated(value));}overlay.items=ready;}completedLines=ready.size();overlay.hidden=paused||blocked||!enabled;if(!requesting.get())report("Распознано строк: "+recognizedLines);else liveDetails=diagnostics()+"\n"+status;redraw.run();
     if(requesting.compareAndSet(false,true)){
       final long request=generation;
@@ -230,12 +231,24 @@ public final class TranslationController implements AutoCloseable {
               if(!epoch.accepts(request)){trace.error(item.source,"Ответ получен после смены сессии",SystemClock.elapsedRealtime());break;}store.put(key,translated);
             }catch(RuntimeException error){trace.error(item.source,error.toString(),SystemClock.elapsedRealtime());report("Qwen: "+error.getMessage());continue;}
           }
+          store.visualTranslation(screenId,item.source,translated,language);
           if(epoch.accepts(request)&&visible.contains(item.source)){readyResults.put(language+"|"+item.source,translated);List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(currentPose(current).translated(translated));break;}overlay.items=display;trace.shown(item.source,translated,false);completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=paused||blocked;redraw.run();}
         }
         if(epoch.accepts(request)){report("Перевод активен · кэш сохранён");}
       }catch(Throwable e){report("Qwen: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(()->android.widget.Toast.makeText(context(),status,android.widget.Toast.LENGTH_LONG).show());}
       finally{processingSource="";requesting.set(false);liveDetails=diagnostics()+"\n"+status;}});
     }
+  }
+  private void saveScreen(long id,Bitmap frame,List<TranslationOverlay.Item> sources,String language){
+    if(id<=0)return;
+    try{
+      org.json.JSONArray labels=new org.json.JSONArray();
+      for(TranslationOverlay.Item item:sources){org.json.JSONObject label=new org.json.JSONObject();label.put("source",item.source);String translated=readyResults.get(language+"|"+item.source);label.put("translated",translated==null?"":translated);label.put("angle",item.angle);label.put("background",item.background);label.put("ink",item.ink);
+        org.json.JSONArray q=new org.json.JSONArray();float[] quad=item.quad==null?new float[]{item.box.left,item.box.top,item.box.right,item.box.top,item.box.right,item.box.bottom,item.box.left,item.box.bottom}:item.quad;for(float v:quad)q.put(v);label.put("quad",q);labels.put(label);
+      }
+      int width=Math.min(640,frame.getWidth());Bitmap small=Bitmap.createScaledBitmap(frame,width,Math.max(1,frame.getHeight()*width/frame.getWidth()),true);
+      java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();small.compress(Bitmap.CompressFormat.JPEG,75,bytes);if(small!=frame)small.recycle();store.visual(id,bytes.toByteArray(),labels.toString(),language);
+    }catch(org.json.JSONException e){android.util.Log.w("ScreenMap","Cannot save screen",e);}
   }
   private Context context(){return context;}
   private static boolean similar(String a,String b){Set<String>x=ScreenMemory.words(a),y=ScreenMemory.words(b);if(x.isEmpty())return false;int common=0;for(String t:x)if(y.contains(t))common++;return common/(double)Math.max(x.size(),y.size())>.68;}
