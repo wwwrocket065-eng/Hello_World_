@@ -36,7 +36,7 @@ public final class ScreenMapActivity extends Activity {
         while(c.moveToNext()){Entry e=new Entry();e.id=c.getLong(0);e.anchors=c.getString(1);e.labels=c.isNull(3)?"[]":c.getString(3);e.target=c.isNull(4)?"":c.getString(4);
           if(!c.isNull(2)){byte[] data=c.getBlob(2);BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=4;e.thumb=BitmapFactory.decodeByteArray(data,0,data.length,options);}int i=entries.size();e.x=24+(i%3)*266;e.y=24+(i/3)*210;entries.add(e);}
       }
-      try(Cursor c=store.getReadableDatabase().rawQuery("SELECT origin,dest,zone,hits FROM routes WHERE zone!='visual' AND origin IN (SELECT id FROM screen_visuals) AND dest IN (SELECT id FROM screen_visuals)",null)){
+      try(Cursor c=store.getReadableDatabase().rawQuery("SELECT origin,dest,zone,hits FROM routes WHERE confirmed=1 AND zone!='visual' AND origin IN (SELECT id FROM screen_visuals) AND dest IN (SELECT id FROM screen_visuals)",null)){
         while(c.moveToNext()){Route r=new Route();r.from=c.getLong(0);r.to=c.getLong(1);r.zone=c.getString(2);r.hits=c.getInt(3);routes.add(r);}
       }
       main.post(()->{if(destroyed)return;map.entries=entries;map.routes=routes;status.setText(entries.isEmpty()?"Карта пока пуста. Включите перевод и откройте экраны игры.":"Экранов: "+entries.size()+" · переходов: "+routes.size()+"\nДва пальца — масштаб; перетаскивание — обзор; тап — открыть.");map.invalidate();});

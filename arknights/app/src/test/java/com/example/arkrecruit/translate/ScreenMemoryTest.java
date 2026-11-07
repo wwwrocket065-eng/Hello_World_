@@ -8,7 +8,7 @@ import org.robolectric.*;
 import org.robolectric.annotation.Config;
 import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk=35,manifest=Config.NONE)
+@Config(sdk=34,manifest=Config.NONE)
 public class ScreenMemoryTest {
   Context context;TranslationStore store;
   @Before public void setup(){context=RuntimeEnvironment.getApplication();context.deleteDatabase("translation.db");store=new TranslationStore(context);}

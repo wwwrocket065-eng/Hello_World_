@@ -10,9 +10,9 @@ final class TranslationStore extends SQLiteOpenHelper {
     createVisuals(db);
     db.execSQL("CREATE TABLE translations(k TEXT PRIMARY KEY,v TEXT NOT NULL,t INTEGER NOT NULL)");
     db.execSQL("CREATE TABLE screens(id INTEGER PRIMARY KEY AUTOINCREMENT,anchors TEXT NOT NULL)");
-    db.execSQL("CREATE TABLE routes(origin INTEGER,zone TEXT,dest INTEGER,hits INTEGER,PRIMARY KEY(origin,zone,dest))");
+    db.execSQL("CREATE TABLE routes(origin INTEGER,zone TEXT,dest INTEGER,hits INTEGER,confirmed INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(origin,zone,dest))");
   }
-  public void onUpgrade(SQLiteDatabase db,int a,int b){if(a<2)createVisuals(db);}
+  public void onUpgrade(SQLiteDatabase db,int a,int b){if(a<2){createVisuals(db);db.execSQL("ALTER TABLE routes ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0");}}
   private void createVisuals(SQLiteDatabase db){db.execSQL("CREATE TABLE IF NOT EXISTS screen_visuals(id INTEGER PRIMARY KEY,jpeg BLOB,labels TEXT,target TEXT,updated INTEGER)");}
   synchronized void visual(long id,byte[] jpeg,String labels,String target){
     if(id<=0)return;ContentValues v=new ContentValues();v.put("id",id);v.put("jpeg",jpeg);v.put("labels",labels);v.put("target",target);v.put("updated",System.currentTimeMillis());
@@ -35,5 +35,5 @@ final class TranslationStore extends SQLiteOpenHelper {
   LinkedHashMap<Long,String> screens(){LinkedHashMap<Long,String> r=new LinkedHashMap<>();try(Cursor c=getReadableDatabase().rawQuery("SELECT id,anchors FROM screens ORDER BY id DESC LIMIT 256",null)){while(c.moveToNext())r.put(c.getLong(0),c.getString(1));}return r;}
   long addScreen(String anchors){ContentValues c=new ContentValues();c.put("anchors",anchors);long id=getWritableDatabase().insert("screens",null,c);getWritableDatabase().execSQL("DELETE FROM screens WHERE id NOT IN (SELECT id FROM screens ORDER BY id DESC LIMIT 256)");return id;}
   List<Long> destinations(long origin,String zone){List<Long> r=new ArrayList<>();try(Cursor c=getReadableDatabase().rawQuery("SELECT dest FROM routes WHERE origin=? AND zone=? ORDER BY hits DESC LIMIT 8",new String[]{""+origin,zone})){while(c.moveToNext())r.add(c.getLong(0));}return r;}
-  void route(long origin,String zone,long dest){if(origin<=0||dest<=0||origin==dest)return;getWritableDatabase().execSQL("INSERT OR IGNORE INTO routes(origin,zone,dest,hits) VALUES(?,?,?,0)",new Object[]{origin,zone,dest});getWritableDatabase().execSQL("UPDATE routes SET hits=hits+1 WHERE origin=? AND zone=? AND dest=?",new Object[]{origin,zone,dest});}
+  void route(long origin,String zone,long dest){if(origin<=0||dest<=0||origin==dest)return;getWritableDatabase().execSQL("INSERT OR IGNORE INTO routes(origin,zone,dest,hits) VALUES(?,?,?,0)",new Object[]{origin,zone,dest});getWritableDatabase().execSQL("UPDATE routes SET hits=hits+1,confirmed=1 WHERE origin=? AND zone=? AND dest=?",new Object[]{origin,zone,dest});}
 }
