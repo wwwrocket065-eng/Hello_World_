@@ -9,7 +9,10 @@ public final class TranslationPolicy {
     String s=text.toLowerCase(Locale.ROOT);
     if(s.matches("(?s).*(skill|sp cost|initial sp|attack interval|talent|duration).*"))return Kind.SKILL;
     if(s.matches("(?s).*(archive|clinical|infection status|combat experience|personnel file).*"))return Kind.PROFILE;
-    if(s.matches("(?s).*(auto|log|skip).*" )&&s.length()>100)return Kind.STORY;
+    // Dialogue controls are whole words; Login/Auto-Select on settings pages
+    // must not turn the entire interface into context-dependent story text.
+    int dialogueControls=0;for(String marker:new String[]{"auto","log","skip"})if(java.util.regex.Pattern.compile("(?<![a-z-])"+marker+"(?![a-z-])").matcher(s).find())dialogueControls++;
+    if(dialogueControls>=2&&s.length()>100)return Kind.STORY;
     return Kind.UI;
   }
   public static String cacheKey(String text,Kind kind,String history){

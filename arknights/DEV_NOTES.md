@@ -519,4 +519,5 @@ Automatic review initially rejected git push without explicit publication consen
 - Inference now selects the next untranslated item from the latest visible screen after each result. Two OCR observations of an absent in-flight source cancel obsolete generation; one missed OCR or motion alone does not cancel. Already completed translations/cache remain intact.
 - Added RU/UK settings labels, explanatory lines and home/event labels. Cosmetic bullets, dash variants and final punctuation normalize for exact glossary lookup; unknown text still uses Qwen, no fuzzy substring substitution.
 - Regression fixture covers screenshot settings labels in both languages. Recruitment logic remains untouched.
+- Fixed UI/story classification: Auto-Select and Login in settings no longer select story context or long-paragraph priority. Story detection requires two whole-word dialogue controls.
 - Pending: CI Android tests/build and permanent delivery signing. This is not proof that arbitrary unseen windows translate instantly.
