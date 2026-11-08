@@ -50,6 +50,7 @@ public final class TranslationController implements AutoCloseable {
   private volatile boolean cleanRequested;
   private static final class Node {TranslationOverlay.Item item;int[] reference;long last,moving;int misses;long lastReliable=SystemClock.elapsedRealtime();Node(TranslationOverlay.Item item,int[] image){this.item=item;reference=image;}}
   private final Map<String,Node> nodes=new LinkedHashMap<>();
+  private long nextNodeId;
   private final RegionalTracker.Groups groups=new RegionalTracker.Groups();
   private int[] previousGray;
   private static boolean retained(Node node,long now){return now-node.lastReliable<=700;}
@@ -113,16 +114,16 @@ public final class TranslationController implements AutoCloseable {
     boolean moved=false;Map<String,TranslationOverlay.Item> poses=new HashMap<>();
     synchronized(nodes){
       Map<String,RegionalTracker.Pose> local=new HashMap<>();List<RegionalTracker.Groups.Sample> samples=new ArrayList<>();
-      for(Node node:nodes.values()){
-        TranslationOverlay.Item item=node.item;
+      for(Map.Entry<String,Node> entry:nodes.entrySet()){
+        Node node=entry.getValue();TranslationOverlay.Item item=node.item;
         RegionalTracker.Pose p=RegionalTracker.track(node.reference,gray,w,h,item.box.left*w,item.box.top*h,item.box.right*w,item.box.bottom*h);
-        local.put(item.source,p);
-        samples.add(new RegionalTracker.Groups.Sample(item.source,item.box.centerX()*w,item.box.centerY()*h,
+        local.put(entry.getKey(),p);
+        samples.add(new RegionalTracker.Groups.Sample(entry.getKey(),item.box.centerX()*w,item.box.centerY()*h,
           node.reference==previousGray?p:new RegionalTracker.Pose(1,0,0,0,false)));
       }
       Map<String,RegionalTracker.Pose> shared=groups.resolve(samples);
-      for(Node node:nodes.values()){
-        TranslationOverlay.Item item=node.item;RegionalTracker.Pose direct=local.get(item.source),p=shared.get(item.source);
+      for(Map.Entry<String,Node> entry:nodes.entrySet()){
+        Node node=entry.getValue();TranslationOverlay.Item item=node.item;RegionalTracker.Pose direct=local.get(entry.getKey()),p=shared.get(entry.getKey());
         if(direct.reliable){node.lastReliable=now;node.misses=0;}else{node.misses++;if(node.misses>3)nextRead=0;}
         if(p==null||!p.reliable)p=direct;
         if(p.reliable&&retained(node,now)){
@@ -133,14 +134,14 @@ public final class TranslationController implements AutoCloseable {
         }
         // Advance all references together, so panel transforms describe the same interval.
         node.reference=gray;node.last=now;
-        if(retained(node,now))poses.put(node.item.source,node.item);
+        if(retained(node,now))poses.put(entry.getKey(),node.item);
       }
       previousGray=gray;
     }
     List<TranslationOverlay.Item> display=new ArrayList<>();for(TranslationOverlay.Item pose:poses.values()){String value=readyResults.get(activeTarget+"|"+pose.source);if(value!=null)display.add(pose.translated(value));}
     boolean changed=display.size()!=overlay.items.size();overlay.items=display;completedLines=display.size();if(moved||changed)redraw.run();
   }
-  private TranslationOverlay.Item currentPose(TranslationOverlay.Item item){synchronized(nodes){Node node=nodes.get(item.source);return node==null?item:node.item;}}
+  private TranslationOverlay.Item currentPose(TranslationOverlay.Item item){synchronized(nodes){Node best=null;float distance=Float.MAX_VALUE;for(Node n:nodes.values())if(n.item.source.equals(item.source)){float d=(float)Math.hypot(n.item.box.centerX()-item.box.centerX(),n.item.box.centerY()-item.box.centerY());if(d<distance){best=n;distance=d;}}return best==null?item:best.item;}}
   private void finishOcr(Bitmap frame){frame.recycle();scanning.set(false);overlay.hidden=!enabled||paused||blocked;redraw.run();}
   private void scanOcr(Bitmap bitmap,long generation){
     long started=SystemClock.elapsedRealtime();
@@ -207,12 +208,24 @@ public final class TranslationController implements AutoCloseable {
     if(!processingSource.isEmpty()&&!admitted.contains(processingSource)){
       if(++absentScans>=2&&engine!=null){cancellation="строка ушла с экрана";engine.cancel();}
     }else absentScans=0;
-    synchronized(nodes){nodes.keySet().retainAll(admitted);for(TranslationOverlay.Item item:sources){Node node=nodes.get(item.source);if(node==null)nodes.put(item.source,new Node(item,ocrGray));else {
-      // Refresh OCR geometry/style only after matching its capture to the latest
-      // tracked image. An asynchronous OCR result must not jump back in time.
-      RegionalTracker.Pose alignment=RegionalTracker.track(ocrGray,node.reference,trackWidth,trackHeight,item.box.left*trackWidth,item.box.top*trackHeight,item.box.right*trackWidth,item.box.bottom*trackHeight);
-      if(alignment.reliable){float[] q=item.quad.clone();for(int i=0;i<8;i+=2){float x=q[i]*trackWidth,y=q[i+1]*trackHeight;q[i]=alignment.x(x,y)/trackWidth;q[i+1]=alignment.y(x,y)/trackHeight;}node.item=item.posed(q);node.misses=0;node.lastReliable=SystemClock.elapsedRealtime();}
-    } }}
+    synchronized(nodes){
+      Map<String,Node> refreshed=new LinkedHashMap<>();
+      for(TranslationOverlay.Item item:sources){
+        String identity=null;Node node=null;float distance=Float.MAX_VALUE;
+        for(Map.Entry<String,Node> entry:nodes.entrySet()){
+          Node old=entry.getValue();if(refreshed.containsKey(entry.getKey())||!old.item.source.equals(item.source))continue;
+          float d=(float)Math.hypot(old.item.box.centerX()-item.box.centerX(),old.item.box.centerY()-item.box.centerY());
+          if(d<distance){identity=entry.getKey();node=old;distance=d;}
+        }
+        if(node==null||distance>.12f){identity="region-"+(++nextNodeId);node=new Node(item,ocrGray);}
+        else {
+          RegionalTracker.Pose alignment=RegionalTracker.track(ocrGray,node.reference,trackWidth,trackHeight,item.box.left*trackWidth,item.box.top*trackHeight,item.box.right*trackWidth,item.box.bottom*trackHeight);
+          if(alignment.reliable){float[] q=item.quad.clone();for(int i=0;i<8;i+=2){float x=q[i]*trackWidth,y=q[i+1]*trackHeight;q[i]=alignment.x(x,y)/trackWidth;q[i+1]=alignment.y(x,y)/trackHeight;}node.item=item.posed(q);node.misses=0;node.lastReliable=SystemClock.elapsedRealtime();}
+        }
+        refreshed.put(identity,node);
+      }
+      nodes.clear();nodes.putAll(refreshed);
+    }
 
     // Stable labels first; changing counters never hold up the rest of the screen.
     sources.sort((a,b)->kind==TranslationPolicy.Kind.STORY?Integer.compare(b.source.length(),a.source.length()):Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));

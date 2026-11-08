@@ -520,4 +520,5 @@ Automatic review initially rejected git push without explicit publication consen
 - Added RU/UK settings labels, explanatory lines and home/event labels. Cosmetic bullets, dash variants and final punctuation normalize for exact glossary lookup; unknown text still uses Qwen, no fuzzy substring substitution.
 - Regression fixture covers screenshot settings labels in both languages. Recruitment logic remains untouched.
 - Fixed UI/story classification: Auto-Select and Login in settings no longer select story context or long-paragraph priority. Story detection requires two whole-word dialogue controls.
+- Repeated identical labels (On/Off etc.) now have separate spatial tracking identities while sharing one translation/cache entry; previously the nodes map kept only one region per source text.
 - Pending: CI Android tests/build and permanent delivery signing. This is not proof that arbitrary unseen windows translate instantly.
