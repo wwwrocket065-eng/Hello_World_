@@ -6,8 +6,8 @@ android {
     applicationId = "com.example.arkrecruit"
     minSdk = 26
     targetSdk = 35
-    versionCode = 41
-    versionName = "0.3.38"
+    versionCode = 42
+    versionName = "0.3.39"
     ndk { abiFilters += listOf("arm64-v8a") }
     externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
   }

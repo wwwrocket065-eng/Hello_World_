@@ -20,6 +20,9 @@ public final class TranslationController implements AutoCloseable {
   private final ConcurrentMap<String,String> readyResults=new ConcurrentHashMap<>();
   private final TranslationVisibility visible=new TranslationVisibility();
   private volatile String processingSource="";
+  private int absentScans;
+  private static final class Work {final List<TranslationOverlay.Item> items;final TranslationPolicy.Kind kind;final String context,language;final long screen;Work(List<TranslationOverlay.Item> i,TranslationPolicy.Kind k,String c,String l,long s){items=i;kind=k;context=c;language=l;screen=s;}}
+  private volatile Work latestWork;
   private volatile int recognizedLines,completedLines;
   private volatile long translatedAt;
   public String progress(){return "OCR "+recognizedLines+" · перевод "+completedLines+"/"+recognizedLines;}
@@ -199,6 +202,11 @@ public final class TranslationController implements AutoCloseable {
     }}
     List<String> admitted=new ArrayList<>();for(TranslationOverlay.Item item:sources)admitted.add(item.source);
     visible.update(admitted);recognizedLines=sources.size();
+    // Cancel only after two OCR observations agree that the in-flight text is gone.
+    // Motion or one missed line must not restart generation.
+    if(!processingSource.isEmpty()&&!admitted.contains(processingSource)){
+      if(++absentScans>=2&&engine!=null){cancellation="строка ушла с экрана";engine.cancel();}
+    }else absentScans=0;
     synchronized(nodes){nodes.keySet().retainAll(admitted);for(TranslationOverlay.Item item:sources){Node node=nodes.get(item.source);if(node==null)nodes.put(item.source,new Node(item,ocrGray));else {
       // Refresh OCR geometry/style only after matching its capture to the latest
       // tracked image. An asynchronous OCR result must not jump back in time.
@@ -209,6 +217,7 @@ public final class TranslationController implements AutoCloseable {
     // Stable labels first; changing counters never hold up the rest of the screen.
     sources.sort((a,b)->kind==TranslationPolicy.Kind.STORY?Integer.compare(b.source.length(),a.source.length()):Boolean.compare(a.source.matches(".*\\d.*"),b.source.matches(".*\\d.*")));
     String context=history;final String language=activeTarget;
+    latestWork=new Work(new ArrayList<>(sources),kind,context,language,screenId);
     for(TranslationOverlay.Item item:sources){String translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(TranslationPolicy.cacheKey(item.source,kind,context,language));if(translated!=null){readyResults.put(language+"|"+item.source,translated);ready.add(currentPose(item).translated(translated));trace.shown(item.source,translated,true);}}
     saveScreen(screenId,frame,sources,language);
     sourceItems=sources;synchronized(nodes){ready.clear();for(Node node:nodes.values()){String value=readyResults.get(activeTarget+"|"+node.item.source);if(value!=null&&retained(node,SystemClock.elapsedRealtime()))ready.add(node.item.translated(value));}overlay.items=ready;}completedLines=ready.size();overlay.hidden=paused||blocked||!enabled;if(!requesting.get())report("Распознано строк: "+recognizedLines);else liveDetails=diagnostics()+"\n"+status;redraw.run();
@@ -217,22 +226,30 @@ public final class TranslationController implements AutoCloseable {
       inference.execute(()->{try{
         if(!ModelStore.ready(context())){report("Нужна модель Qwen · откройте настройки перевода");return;}
 
-        for(TranslationOverlay.Item item:sources){
-          if(closed||!enabled||paused||!epoch.accepts(request))break;
-          if(!visible.contains(item.source))continue;
-          String key=TranslationPolicy.cacheKey(item.source,kind,context,language),translated=InterfaceGlossary.find(item.source,language);if(translated==null)translated=store.get(key);
+        Set<String> attempted=new HashSet<>();
+        while(!closed&&enabled&&!paused&&epoch.accepts(request)){
+          // Re-read the latest screen after EVERY result, rather than drain the
+          // obsolete screen snapshot captured when this worker was started.
+          Work work=latestWork;if(work==null)break;
+          TranslationOverlay.Item item=null;String key=null;
+          for(TranslationOverlay.Item candidate:work.items){
+            String candidateKey=TranslationPolicy.cacheKey(candidate.source,work.kind,work.context,work.language);
+            if(visible.contains(candidate.source)&&!readyResults.containsKey(work.language+"|"+candidate.source)&&!attempted.contains(candidateKey)){item=candidate;key=candidateKey;break;}
+          }
+          if(item==null)break;attempted.add(key);
+          String translated=InterfaceGlossary.find(item.source,work.language);if(translated==null)translated=store.get(key);
           if(translated==null){
             processingSource=item.source;trace.start(item.source,SystemClock.elapsedRealtime());
             try{
               if(engine==null){report("Загрузка Qwen в память…");engine=new QwenEngine();engine.load(ModelStore.file(context()));}
-              report("Qwen: перевод строки…");translated=engine.translate(TranslationPolicy.prompt(item.source,kind,context,names,language),Math.min(480,Math.max(64,item.source.length()*2))).trim();
+              report("Qwen: перевод строки…");translated=engine.translate(TranslationPolicy.prompt(item.source,work.kind,work.context,names,work.language),Math.min(480,Math.max(64,item.source.length()*2))).trim();
               trace.finish(item.source,translated,SystemClock.elapsedRealtime());lastModelProgress=engine.progress();
               if(translated.isEmpty()){trace.error(item.source,"Пустой ответ: отмена или генерация не началась",SystemClock.elapsedRealtime());continue;}
               if(!epoch.accepts(request)){trace.error(item.source,"Ответ получен после смены сессии",SystemClock.elapsedRealtime());break;}store.put(key,translated);
             }catch(RuntimeException error){trace.error(item.source,error.toString(),SystemClock.elapsedRealtime());report("Qwen: "+error.getMessage());continue;}
           }
-          store.visualTranslation(screenId,item.source,translated,language);
-          if(epoch.accepts(request)&&visible.contains(item.source)){readyResults.put(language+"|"+item.source,translated);List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(currentPose(current).translated(translated));break;}overlay.items=display;trace.shown(item.source,translated,false);completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=paused||blocked;redraw.run();}
+          store.visualTranslation(work.screen,item.source,translated,work.language);
+          if(epoch.accepts(request)&&visible.contains(item.source)){readyResults.put(work.language+"|"+item.source,translated);List<TranslationOverlay.Item> display=new ArrayList<>(overlay.items);boolean exists=false;for(TranslationOverlay.Item shown:display)if(shown.source.equals(item.source)){exists=true;break;}if(!exists)for(TranslationOverlay.Item current:sourceItems)if(current.source.equals(item.source)){display.add(currentPose(current).translated(translated));break;}overlay.items=display;trace.shown(item.source,translated,false);completedLines=display.size();translatedAt=SystemClock.elapsedRealtime();overlay.hidden=paused||blocked;redraw.run();}
         }
         if(epoch.accepts(request)){report("Перевод активен · кэш сохранён");}
       }catch(Throwable e){report("Qwen: "+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()));main.post(()->android.widget.Toast.makeText(context(),status,android.widget.Toast.LENGTH_LONG).show());}
