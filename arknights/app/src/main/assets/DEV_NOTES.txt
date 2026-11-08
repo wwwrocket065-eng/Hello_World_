@@ -521,4 +521,6 @@ Automatic review initially rejected git push without explicit publication consen
 - Regression fixture covers screenshot settings labels in both languages. Recruitment logic remains untouched.
 - Fixed UI/story classification: Auto-Select and Login in settings no longer select story context or long-paragraph priority. Story detection requires two whole-word dialogue controls.
 - Repeated identical labels (On/Off etc.) now have separate spatial tracking identities while sharing one translation/cache entry; previously the nodes map kept only one region per source text.
-- Pending: CI Android tests/build and permanent delivery signing. This is not proof that arbitrary unseen windows translate instantly.
+- Delivery verified: source e6fe3323fc3784d5c99e9f7a6f51c302c71a7155; CI 42501131672/job128793911771 success (translation/recruitment/geometry smoke, Android graphics/database tests, assembleDebug); artifact13625179536 ZIP SHA256 ec2fafaa439a4a00b434bb3aafcc36ce939406ad62837627a3ac73835be06bc7.
+- APK 0.3.39/code42, 25070000 bytes, SHA256 16d2e5e9424a31e0b52b0ea9507f04d4b973cd46f58f3872a4195213653b8341, permanent certificate 2278ac5532d689ca76ef727a7a11e0dfe9ae5cb4badc32462d2ed0dba1ac4476; v2/v3 valid; CRC/hash rechecked after saving.
+- Saved libfile_a5300aa6f6708191a694aa003f93c073, file_00000000a86c81f6ae045533a9854004, version0. Device runtime not measured; unknown strings still use serial Qwen. No guarantee that arbitrary unseen windows translate instantly.
