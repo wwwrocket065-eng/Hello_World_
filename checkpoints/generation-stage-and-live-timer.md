@@ -1,0 +1,7 @@
+# Generation status requirement — 2026-11-09
+
+User reports v0.1.2 remains at 0 percent / step0 of20 /0.0 seconds and requests visibility of actual internal work (e.g. caching if that is really happening).
+
+Add explicit truthful stages from actual engine events: model reading/loading and quantization when confirmed; positive/negative text encoding; preparing sampling/computation buffers; computing current denoising step; VAE decoding; saving result. Do NOT invent caching or fake percentage. During an unfinished first step show step1 in progress /0 completed, with a live monotonic total elapsed timer independent of native step callbacks. Show time since last engine event separately; high CPU alone is not proof of useful forward progress or absence of a hang. If exact substage unavailable, say first step computing / internal substage unavailable. Keep technical details in copyable diagnostics.
+
+Diagnostic evidence received: CPU backend,Q4_0,flash attention; model loaded successfully in217.88s, parameters2488.26MB. Generation started20:07:00, text conditioning finished20:07:29 (~29.1s), sampling entered20:07:29 and callback0/20. At20:08:24 elapsed82s,CPU302.1 percent (~3 core equivalents),RSS2767.5MiB,MemAvailable3353MiB. No first-step completion in supplied report. Cannot conclude successful forward progress solely from this activity. User subsequently reports no UI change; no newer diagnostic provided yet. Earlier claim 'progress is going' was too strong; it only proves sampling was entered and CPU active.
