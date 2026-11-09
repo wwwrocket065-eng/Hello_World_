@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'model_download.dart';
 import 'diagnostics.dart';
@@ -27,6 +28,7 @@ import 'image_processing_utils.dart'; // Import the new utility
 void main() {
   // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   // Initialize FFI bindings with the default backend BEFORE running the app
   FFIBindings.initializeBindings('CPU');
   runApp(const MyApp());
@@ -173,6 +175,8 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
   String _progressMessage = '';
   String _totalTime = '';
   int _cores = 0;
+  int _cpuThreads = 4;
+  bool _samplingComplete = false;
   List<String> _loraNames = [];
   final TextEditingController _promptController = TextEditingController();
   final Map<String, OverlayEntry?> _overlayEntries = {};
@@ -402,13 +406,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
     setState(() {
       isModelLoading = true;
       Diagnostics.instance.stage = 'Загрузка модели в память';
-      Diagnostics.instance.event('Загрузка модели: $modelPath · $_selectedBackend · $modelType');
+      Diagnostics.instance.event('Загрузка модели: $modelPath · $_selectedBackend · $modelType · CPU-потоки: $_cpuThreads');
       loadingText = 'Загрузка модели…'; // Set loading text immediately
     });
     _processor?.dispose();
     _processor = StableDiffusionProcessor(
       // Removed backend: _selectedBackend,
       modelPath: modelPath,
+      cpuThreads: _cpuThreads,
       useFlashAttention: useFlashAttention,
       modelType: modelType,
       schedule: schedule,
@@ -445,6 +450,10 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
       },
       onLog: (log) {
         Diagnostics.instance.event(log.message);
+        final message = log.message;
+        if (message.contains('computing condition graph completed')) Diagnostics.instance.stage = 'Подготовка описаний';
+        if (message.contains('get_learned_condition completed')) Diagnostics.instance.stage = 'Подготовка первого шага';
+        if (message.contains('decoding') || message.contains('Decode')) Diagnostics.instance.stage = 'Преобразование результата в изображение (VAE)';
         // Handle RAM usage log
         if (log.message.contains('total params memory size')) {
           final regex = RegExp(r'total params memory size = ([\d.]+)MB');
@@ -471,7 +480,12 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
         }
       },
       onProgress: (progress) {
-        Diagnostics.instance.stage = "Генерация: шаг ${progress.step}/${progress.totalSteps}, время движка ${progress.time.toStringAsFixed(1)} с";
+        if (!_samplingComplete && progress.step >= progress.totalSteps) _samplingComplete = true;
+        Diagnostics.instance.stage = _samplingComplete && progress.totalSteps != steps
+            ? 'VAE: обработано частей ${progress.step}/${progress.totalSteps}'
+            : progress.step < progress.totalSteps
+                ? 'Расчёт шага ${progress.step + 1}/${progress.totalSteps} · завершено ${progress.step}'
+                : 'Основные шаги завершены · подготовка VAE';
         Diagnostics.instance.event(Diagnostics.instance.stage);
         setState(() {
           this.progress = progress.progress;
@@ -1115,7 +1129,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
       ),
       body: SingleChildScrollView(
         controller: _scrollController, // Attach ScrollController
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewPadding.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1277,6 +1291,24 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               clipSkip = 2;
               _initializeProcessor(path, true, SDType.SD_TYPE_Q4_0, Schedule.DEFAULT);
             }),
+            if (_selectedBackend == 'CPU')
+              Row(children: [
+                const Text('Потоки CPU:'),
+                const SizedBox(width: 8),
+                Expanded(child: ShadSelect<int>(
+                  placeholder: Text('$_cpuThreads'),
+                  enabled: !(isModelLoading || isGenerating),
+                  options: [2, 4, 6, 8].where((n) => n <= FFIBindings.getCores()).map((n) => ShadOption(value: n, child: Text('$n'))).toList(),
+                  selectedOptionBuilder: (context, n) => Text('$n'),
+                  onChanged: (n) {
+                    if (n == null || n == _cpuThreads || isGenerating || isModelLoading) return;
+                    final previous = _processor;
+                    setState(() => _cpuThreads = n);
+                    Diagnostics.instance.event('Выбрано потоков CPU: $n');
+                    if (previous != null) _initializeProcessor(previous.modelPath, previous.useFlashAttention, previous.modelType, previous.schedule);
+                  },
+                )),
+              ]),
             // --- Model Loading Row ---
             Row(
               children: [
@@ -3293,6 +3325,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                       });
                     }
                     setState(() {
+                      _samplingComplete = false;
                       Diagnostics.instance.generationWatch..reset()..start();
                       Diagnostics.instance.stage = 'Начало генерации';
                       Diagnostics.instance.event('Генерация: ${width}x$height · $steps шагов · CFG $cfg · $samplingMethod · $_selectedBackend');
@@ -3439,7 +3472,12 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               color: theme.colorScheme.primary,
             ),
             const SizedBox(height: 8),
-            Text(status, style: theme.textTheme.p),
+            ValueListenableBuilder<int>(
+              valueListenable: Diagnostics.instance.changed,
+              builder: (context, _, __) => Text(isGenerating
+                ? '${Diagnostics.instance.stage} · ${Diagnostics.instance.generationWatch.elapsed.inSeconds} с'
+                : status, style: theme.textTheme.p),
+            ),
             if (_generatedImage != null) ...[
               const SizedBox(height: 20),
               _generatedImage!,

@@ -11,12 +11,14 @@ class Diagnostics {
   final generationWatch = Stopwatch();
   String stage = 'Ожидание';
   String metrics = '';
+  DateTime? lastEngineEvent;
   Timer? timer;
   int? previousTicks;
   DateTime? previousTime;
   int samples = 0;
   Diagnostics._();
   void event(String message) {
+    if (!message.startsWith('Телеметрия')) lastEngineEvent = DateTime.now();
     lines.add('${DateTime.now().toIso8601String()} $message');
     while(lines.length > 500) { lines.removeFirst(); }
     changed.value++;
@@ -50,7 +52,7 @@ class Diagnostics {
     if(samples % 5 == 0) event('Телеметрия · $stage · ${metrics.replaceAll("\n", " · ")}');
     changed.value++;
   }
-  String report() => 'Local SDXL · 0.1.2\n${DateTime.now().toIso8601String()}\n${Platform.operatingSystem} ${Platform.operatingSystemVersion}\nЭтап: $stage\n$metrics\nCPU: процесс приложения, не общая нагрузка устройства\nЖурнал (последние 500 событий):\n${lines.join("\n")}';
+  String report() => 'Local SDXL · 0.1.3\n${DateTime.now().toIso8601String()}\n${Platform.operatingSystem} ${Platform.operatingSystemVersion}\nЭтап: $stage\nС последнего события: ${lastEngineEvent == null ? "нет данных" : DateTime.now().difference(lastEngineEvent!).inSeconds.toString() + " с"}\n$metrics\nCPU: процесс приложения, не общая нагрузка устройства\nСвежие записи сверху (последние 80 событий):\n${lines.toList().reversed.take(80).join("\n")}';
 }
 Future<void> showDiagnostics(BuildContext context) async {
   final d=Diagnostics.instance;

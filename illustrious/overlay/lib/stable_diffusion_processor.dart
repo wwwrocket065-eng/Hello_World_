@@ -122,6 +122,7 @@ class StableDiffusionProcessor {
   final String? stackedIdEmbedDir;
   final int clipSkip;
   final bool vaeTiling;
+  final int cpuThreads;
   final String? controlNetPath;
   final Uint8List? controlImageData;
   final int? controlImageWidth;
@@ -170,6 +171,7 @@ class StableDiffusionProcessor {
     this.stackedIdEmbedDir,
     this.clipSkip = 1,
     this.vaeTiling = false,
+    this.cpuThreads = 4,
     this.controlNetPath,
     this.controlImageData,
     this.controlImageWidth,
@@ -244,6 +246,7 @@ class StableDiffusionProcessor {
             'stackedIdEmbedDir': stackedIdEmbedDir,
             'clipSkip': clipSkip,
             'vaeTiling': vaeTiling,
+            'cpuThreads': cpuThreads,
             'controlNetPath': controlNetPath,
             'isDiffusionModelType': isDiffusionModelType, // Pass the flag
           });
@@ -428,7 +431,7 @@ class StableDiffusionProcessor {
                 false, // 12 vae_decode_only (Assuming false, make configurable if needed)
                 message['vaeTiling'], // 13
                 false, // 14 free_params_immediately
-                FFIBindings.getCores() * 2, // 15 n_threads
+                (message['cpuThreads'] as int? ?? 4).clamp(1, FFIBindings.getCores()).toInt(), // 15 n_threads
                 mapModelTypeToIndex(
                     SDType.values[message['modelType']]), // 16 wtype
                 0, // 17 rng_type (STD_DEFAULT_RNG)
