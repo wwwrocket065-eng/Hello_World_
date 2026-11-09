@@ -1,3 +1,4 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'model_download.dart';
 import 'diagnostics.dart';
 import 'dart:io';
@@ -35,7 +36,11 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) => ShadApp(
-    darkTheme: ShadThemeData(brightness: Brightness.dark, colorScheme: const ShadSlateColorScheme.dark()),
+    themeMode: ThemeMode.dark,
+    locale: const Locale('ru'),
+    supportedLocales: const [Locale('ru')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    darkTheme: ShadThemeData(brightness: Brightness.dark, colorScheme: const ShadSlateColorScheme.dark(background: Color(0xff000000), card: Color(0xff000000), popover: Color(0xff111111))),
     home: const StableDiffusionApp(),
   );
 }
@@ -66,20 +71,20 @@ class PermissionRequiredScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Storage Permission Required',
+                'Требуется доступ к файлам',
                 style: theme.textTheme.h2.copyWith(fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               Text(
-                'This app needs permission to read and write files (including models) in storage to function correctly. Please grant the "All files access" permission in the app settings.',
+                'Для выбранной операции требуется доступ к файлам.',
                 style: theme.textTheme.p,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               ShadButton(
                 onPressed: onRequestPermission, // Use the passed function
-                child: const Text('Grant Permission'), // Changed button text
+                child: const Text('Предоставить доступ'), // Changed button text
               ),
             ],
           ),
@@ -247,7 +252,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
   CannyProcessor? _cannyProcessor;
   bool isCannyProcessing = false;
   Image? _cannyImage;
-  String _controlImageProcessingMode = 'Resize'; // 'Resize' or 'Crop'
+  String _controlImageProcessingMode = 'Изменить размер'; // 'Изменить размер' or 'Обрезать'
 
   final List<String> samplingMethods = const [
     'euler_a',
@@ -359,7 +364,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
     final decodedImage = img.decodeImage(bytes);
 
     if (decodedImage == null) {
-      _showTemporaryError('Failed to decode image');
+      _showTemporaryError('Не удалось прочитать изображение');
       return;
     }
 
@@ -430,7 +435,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
         Diagnostics.instance.event("Модель загружена в память");
         setState(() {
           isModelLoading = false;
-          _message = 'Model initialized successfully';
+          _message = 'Модель готова';
           loadedComponents['Model'] = true;
           loadingText = '';
           _loadingError = ''; // Clear any previous loading errors on success
@@ -446,7 +451,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
           final match = regex.firstMatch(log.message);
           if (match != null) {
             setState(() {
-              _ramUsage = 'Total RAM: ${match.group(1)}MB';
+              _ramUsage = 'Память модели: ${match.group(1)} МБ';
             });
           }
         }
@@ -471,7 +476,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
         setState(() {
           this.progress = progress.progress;
           status =
-              'Generating image... ${(progress.progress * 100).toInt()}% • Step ${progress.step}/${progress.totalSteps} • ${progress.time.toStringAsFixed(1)}s';
+              'Генерация: ${(progress.progress * 100).toInt()}% • Шаг ${progress.step}/${progress.totalSteps} • ${progress.time.toStringAsFixed(1)} с';
         });
       },
     );
@@ -499,8 +504,8 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
         _generatedImage = Image.memory(bytes!.buffer.asUint8List());
         // Update status using the extracted time
         status = generationTime != null
-            ? 'Generation completed in $generationTime'
-            : 'Generation complete';
+            ? 'Генерация завершена за $generationTime'
+            : 'Генерация завершена';
         _showLogsButton = true; // Show the log button
       });
 
@@ -537,7 +542,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
 
       // Handle generation-specific errors separately if needed
       if (errorType == 'generationError') {
-        status = 'Generation failed: $errorMessage';
+        status = 'Не удалось создать изображение: $errorMessage';
         isGenerating = false; // Stop generation indicator
       } else {
         // For loading errors, clear status too
@@ -628,7 +633,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
       // height = 512;
       // seed = "-1";
       // controlStrength = 0.9;
-      // _controlImageProcessingMode = 'Resize';
+      // _controlImageProcessingMode = 'Изменить размер';
       // _isDiffusionModelType = false;
     });
   }
@@ -670,13 +675,13 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => ShadDialog.alert(
           constraints: const BoxConstraints(maxWidth: 300),
-          title: const Text('Load Model Settings'),
+          title: const Text('Настройки загрузки модели'),
           description: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Text('Quantization Type:'),
+                  const Text('Тип квантования:'),
                   const SizedBox(width: 8),
                   Expanded(
                     child: ShadSelect<String>(
@@ -697,7 +702,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Text('Schedule:'),
+                  const Text('Расписание шума:'),
                   const SizedBox(width: 8),
                   Expanded(
                     child: ShadSelect<String>(
@@ -724,7 +729,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                     // Trying to enable on non-CPU backend
                     setState(() {
                       flashAttentionError =
-                          'Flash Attention is supported only on CPU';
+                          'Flash Attention поддерживается только в режиме CPU';
                       // Do NOT set useFlashAttention = true
                     });
                   } else {
@@ -735,7 +740,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                     });
                   }
                 },
-                label: const Text('Use Flash Attention'),
+                label: const Text('Использовать Flash Attention'),
               ),
               // Display error message if it exists
               if (flashAttentionError != null)
@@ -756,7 +761,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
           actions: [
             ShadButton.outline(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: const Text('Отмена'),
             ),
             ShadButton(
               enabled: !(isModelLoading || isGenerating),
@@ -783,7 +788,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         return ShadDialog.alert(
                           constraints: const BoxConstraints(
                               maxWidth: 400), // Increased dialog width
-                          title: const Text('Select Model'),
+                          title: const Text('Выбрать модель'),
                           description: SizedBox(
                             height: 300,
                             child: Material(
@@ -791,12 +796,12 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                               child: ShadTable.list(
                                 header: const [
                                   ShadTableCell.header(
-                                    child: Text('Model',
+                                    child: Text('Модель',
                                         style: TextStyle(fontSize: 16)),
                                   ),
                                   ShadTableCell.header(
                                     alignment: Alignment.centerRight,
-                                    child: Text('Size',
+                                    child: Text('Размер',
                                         style: TextStyle(fontSize: 16)),
                                   ),
                                 ],
@@ -843,7 +848,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                             onTap: () => Navigator.pop(
                                                 context, entry.value.path),
                                             child: Text(
-                                              '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                              '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                               style:
                                                   const TextStyle(fontSize: 12),
                                             ),
@@ -858,7 +863,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           actions: [
                             ShadButton.outline(
                               onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
+                              child: const Text('Отмена'),
                             ),
                           ],
                         );
@@ -866,7 +871,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                     );
 
                     if (selectedModel != null) {
-                      setState(() => loadingText = 'Loading Model...');
+                      setState(() => loadingText = 'Загрузка модели…');
                       _initializeProcessor(
                         selectedModel,
                         useFlashAttention,
@@ -884,7 +889,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                 }
                 Navigator.of(context).pop();
               },
-              child: const Text('Load Model'),
+              child: const Text('Загрузить модель'),
             ),
           ],
         ),
@@ -922,7 +927,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               padding: const EdgeInsets.only(right: 8.0),
               // Wrap the button with a Tooltip widget
               child: Tooltip(
-                message: 'Unload Model & Reset', // Use the message property
+                message: 'Выгрузить модель и сбросить', // Use the message property
                 child: ShadButton.ghost(
                   icon: const Icon(
                     LucideIcons
@@ -937,20 +942,20 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           showShadDialog(
                             context: context,
                             builder: (context) => ShadDialog.alert(
-                              title: const Text('Confirm Unload'),
+                              title: const Text('Выгрузить'),
                               description: const Text(
-                                  'Are you sure you want to unload the current model and reset all settings?'),
+                                  'Выгрузить текущую модель и сбросить настройки?'),
                               actions: [
                                 ShadButton.outline(
                                   onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('Cancel'),
+                                  child: const Text('Отмена'),
                                 ),
                                 ShadButton.destructive(
                                   onPressed: () {
                                     Navigator.of(context).pop(); // Close dialog
                                     _resetState(); // Call the reset function
                                   },
-                                  child: const Text('Confirm Unload'),
+                                  child: const Text('Выгрузить'),
                                 ),
                               ],
                             ),
@@ -983,7 +988,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                 ),
               ),
               child: Text(
-                'Menu',
+                'Меню',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -994,7 +999,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ListTile(
               leading: const Icon(LucideIcons.type, size: 32),
               title: const Text(
-                'Text to Image',
+                'Изображение по описанию',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               tileColor: theme.colorScheme.secondary.withOpacity(0.2),
@@ -1005,7 +1010,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ListTile(
               leading: const Icon(LucideIcons.images, size: 32),
               title: const Text(
-                'Image to Image',
+                'Изображение по изображению',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
@@ -1023,7 +1028,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ListTile(
               leading: const Icon(LucideIcons.imageUpscale, size: 32),
               title: const Text(
-                'Upscaler',
+                'Увеличение',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
@@ -1040,7 +1045,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ),
             ListTile(
               leading: const Icon(LucideIcons.aperture, size: 32),
-              title: const Text('Photomaker',
+              title: const Text('PhotoMaker',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 if (_processor != null) {
@@ -1057,7 +1062,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ),
             ListTile(
               leading: const Icon(Icons.draw, size: 32),
-              title: const Text('Scribble to Image',
+              title: const Text('Изображение по наброску',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 if (_processor != null) {
@@ -1073,7 +1078,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ),
             ListTile(
               leading: const Icon(LucideIcons.palette, size: 32),
-              title: const Text('Inpainting',
+              title: const Text('Изменение по маске',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 if (_processor != null) {
@@ -1090,7 +1095,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ),
             ListTile(
               leading: const Icon(LucideIcons.expand, size: 32),
-              title: const Text('Outpainting',
+              title: const Text('Расширение изображения',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 if (_processor != null) {
@@ -1156,7 +1161,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: '${entry.key} loaded ',
+                                text: '${entry.key == "Model" ? "Модель" : entry.key} загружено ',
                                 style: theme.textTheme.p.copyWith(
                                   color: Colors.green,
                                   fontWeight: FontWeight.bold,
@@ -1193,7 +1198,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             // --- Backend Selection Row ---
             Row(
               children: [
-                const Text('Backend:'),
+                const Text('Вычисления:'),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ShadSelect<String>(
@@ -1216,13 +1221,13 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           showShadDialog(
                             context: context,
                             builder: (context) => ShadDialog.alert(
-                              title: const Text('Change Backend?'),
+                              title: const Text('Сменить режим вычислений?'),
                               description: const Text(
-                                  'Changing the backend requires unloading the current model and resetting settings. Proceed?'),
+                                  'Для смены режима нужно выгрузить модель и сбросить настройки. Продолжить?'),
                               actions: [
                                 ShadButton.outline(
                                   onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text('Cancel'),
+                                  child: const Text('Отмена'),
                                 ),
                                 ShadButton.destructive(
                                   onPressed: () {
@@ -1242,7 +1247,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     print(
                                         "Backend changed to: $_selectedBackend");
                                   },
-                                  child: const Text('Confirm Change'),
+                                  child: const Text('Сменить'),
                                 ),
                               ],
                             ),
@@ -1278,7 +1283,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                 ShadButton(
                   enabled: !(isModelLoading || isGenerating),
                   onPressed: showModelLoadDialog,
-                  child: const Text('Load Model'),
+                  child: const Text('Загрузить модель'),
                 ),
                 const SizedBox(width: 8),
                 if (_ramUsage.isNotEmpty)
@@ -1295,36 +1300,36 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                     showShadDialog(
                       context: context,
                       builder: (context) => ShadDialog.alert(
-                        title: const Text('Model Information'),
+                        title: const Text('Информация о модели'),
                         constraints: const BoxConstraints(maxWidth: 400),
                         description: const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Load an SD or Flux model'),
+                            Text('Загрузите модель SD или Flux'),
                             SizedBox(height: 8),
-                            Text('Supported models:',
+                            Text('Поддерживаемые модели:',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                             Text('\nSD 1.x, SD 2.x, SDXL, SDXL Turbo'),
                             Text('SD 3 Medium/Large, SD 3.5 Medium/Large'),
                             Text('Flux 1 Dev, Flux 1 Schnell, Flux Lite'),
                             SizedBox(height: 16),
-                            Text('Supported formats:',
+                            Text('Поддерживаемые форматы:',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                             Text('\nSafeTensors, CKPT, GGUF'),
-                            Text('FP32/FP16 and quantized GGUF formats'),
+                            Text('FP32/FP16 и квантованные модели GGUF'),
                             Text(
-                                'Distilled formats: Turbo, LCM, Lightning, Hyper'),
+                                'Ускоренные модели: Turbo, LCM, Lightning, Hyper'),
                             SizedBox(height: 16),
-                            Text('Where to download models?',
+                            Text('Где скачать модели?',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text('\nRecommended websites:'),
+                            Text('\nРекомендуемые сайты:'),
                             Text('• civitai.com'),
                             Text('• huggingface.co'),
                           ],
                         ),
                         actions: [
                           ShadButton(
-                            child: const Text('Close'),
+                            child: const Text('Закрыть'),
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ],
@@ -1360,7 +1365,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           builder: (BuildContext context) {
                             return ShadDialog.alert(
                               constraints: const BoxConstraints(maxWidth: 400),
-                              title: const Text('Select TAESD Model'),
+                              title: const Text('Выбрать модель TAESD'),
                               description: SizedBox(
                                 height: 300,
                                 child: Material(
@@ -1368,12 +1373,12 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                   child: ShadTable.list(
                                     header: const [
                                       ShadTableCell.header(
-                                        child: Text('Model',
+                                        child: Text('Модель',
                                             style: TextStyle(fontSize: 16)),
                                       ),
                                       ShadTableCell.header(
                                         alignment: Alignment.centerRight,
-                                        child: Text('Size',
+                                        child: Text('Размер',
                                             style: TextStyle(fontSize: 16)),
                                       ),
                                     ],
@@ -1416,7 +1421,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                 onTap: () => Navigator.pop(
                                                     context, entry.value.path),
                                                 child: Text(
-                                                  '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                  '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                                   style: const TextStyle(
                                                       fontSize: 12),
                                                 ),
@@ -1431,7 +1436,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                               actions: [
                                 ShadButton.outline(
                                   onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
+                                  child: const Text('Отмена'),
                                 ),
                               ],
                             );
@@ -1464,7 +1469,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                       }
                     }
                   },
-                  child: const Text('Load TAESD'),
+                  child: const Text('Загрузить TAESD'),
                 ),
                 const SizedBox(width: 8),
                 // Update the TAESD checkbox onChanged handler:
@@ -1492,7 +1497,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                             }
                           });
                         },
-                  label: const Text('Use TAESD'),
+                  label: const Text('Использовать TAESD'),
                 ),
               ],
             ),
@@ -1511,7 +1516,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               children: [
                 ShadAccordionItem<Map<String, dynamic>>(
                   value: const {},
-                  title: const Text('Advanced Model Options'), // Renamed title
+                  title: const Text('Дополнительные параметры модели'), // Renamed title
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Column(
@@ -1579,7 +1584,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     });
                                   }
                                 },
-                                child: const Text('Load Lora'),
+                                child: const Text('Загрузить LoRA'),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1695,7 +1700,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                             onChanged: (v) =>
                                 setState(() => _isDiffusionModelType = v),
                             label:
-                                const Text('Standalone Model'), // Renamed label
+                                const Text('Отдельная модель'), // Renamed label
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -1732,7 +1737,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                           return ShadDialog.alert(
                                             constraints: const BoxConstraints(
                                                 maxWidth: 400),
-                                            title: const Text('Select Clip_L'),
+                                            title: const Text('Выбрать CLIP_L'),
                                             description: SizedBox(
                                               height: 300,
                                               child: Material(
@@ -1740,14 +1745,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                 child: ShadTable.list(
                                                   header: const [
                                                     ShadTableCell.header(
-                                                      child: Text('Model',
+                                                      child: Text('Модель',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
                                                     ShadTableCell.header(
                                                       alignment:
                                                           Alignment.centerRight,
-                                                      child: Text('Size',
+                                                      child: Text('Размер',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
@@ -1812,7 +1817,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                                           .value
                                                                           .path),
                                                               child: Text(
-                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                                                 style:
                                                                     const TextStyle(
                                                                         fontSize:
@@ -1830,7 +1835,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               ShadButton.outline(
                                                 onPressed: () =>
                                                     Navigator.pop(context),
-                                                child: const Text('Cancel'),
+                                                child: const Text('Отмена'),
                                               ),
                                             ],
                                           );
@@ -1864,7 +1869,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     }
                                   }
                                 },
-                                child: const Text('Load Clip_L'),
+                                child: const Text('Загрузить CLIP_L'),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1899,7 +1904,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                           return ShadDialog.alert(
                                             constraints: const BoxConstraints(
                                                 maxWidth: 400),
-                                            title: const Text('Select Clip_G'),
+                                            title: const Text('Выбрать CLIP_G'),
                                             description: SizedBox(
                                               height: 300,
                                               child: Material(
@@ -1907,14 +1912,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                 child: ShadTable.list(
                                                   header: const [
                                                     ShadTableCell.header(
-                                                      child: Text('Model',
+                                                      child: Text('Модель',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
                                                     ShadTableCell.header(
                                                       alignment:
                                                           Alignment.centerRight,
-                                                      child: Text('Size',
+                                                      child: Text('Размер',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
@@ -1979,7 +1984,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                                           .value
                                                                           .path),
                                                               child: Text(
-                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                                                 style:
                                                                     const TextStyle(
                                                                         fontSize:
@@ -1997,7 +2002,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               ShadButton.outline(
                                                 onPressed: () =>
                                                     Navigator.pop(context),
-                                                child: const Text('Cancel'),
+                                                child: const Text('Отмена'),
                                               ),
                                             ],
                                           );
@@ -2031,7 +2036,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     }
                                   }
                                 },
-                                child: const Text('Load Clip_G'),
+                                child: const Text('Загрузить CLIP_G'),
                               ),
                             ),
                           ],
@@ -2070,7 +2075,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                           return ShadDialog.alert(
                                             constraints: const BoxConstraints(
                                                 maxWidth: 400),
-                                            title: const Text('Select T5XXL'),
+                                            title: const Text('Выбрать T5XXL'),
                                             description: SizedBox(
                                               height: 300,
                                               child: Material(
@@ -2078,14 +2083,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                 child: ShadTable.list(
                                                   header: const [
                                                     ShadTableCell.header(
-                                                      child: Text('Model',
+                                                      child: Text('Модель',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
                                                     ShadTableCell.header(
                                                       alignment:
                                                           Alignment.centerRight,
-                                                      child: Text('Size',
+                                                      child: Text('Размер',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
@@ -2150,7 +2155,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                                           .value
                                                                           .path),
                                                               child: Text(
-                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                                                 style:
                                                                     const TextStyle(
                                                                         fontSize:
@@ -2168,7 +2173,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               ShadButton.outline(
                                                 onPressed: () =>
                                                     Navigator.pop(context),
-                                                child: const Text('Cancel'),
+                                                child: const Text('Отмена'),
                                               ),
                                             ],
                                           );
@@ -2202,7 +2207,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     }
                                   }
                                 },
-                                child: const Text('Load T5XXL'),
+                                child: const Text('Загрузить T5XXL'),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -2241,7 +2246,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     });
                                   }
                                 },
-                                child: const Text('Load Embed'),
+                                child: const Text('Загрузить эмбеддинг'),
                               ),
                             ),
                           ],
@@ -2278,7 +2283,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                           return ShadDialog.alert(
                                             constraints: const BoxConstraints(
                                                 maxWidth: 400),
-                                            title: const Text('Select VAE'),
+                                            title: const Text('Выбрать VAE'),
                                             description: SizedBox(
                                               height: 300,
                                               child: Material(
@@ -2286,14 +2291,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                 child: ShadTable.list(
                                                   header: const [
                                                     ShadTableCell.header(
-                                                      child: Text('Model',
+                                                      child: Text('Модель',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
                                                     ShadTableCell.header(
                                                       alignment:
                                                           Alignment.centerRight,
-                                                      child: Text('Size',
+                                                      child: Text('Размер',
                                                           style: TextStyle(
                                                               fontSize: 16)),
                                                     ),
@@ -2358,7 +2363,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                                           .value
                                                                           .path),
                                                               child: Text(
-                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                                '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                                                 style:
                                                                     const TextStyle(
                                                                         fontSize:
@@ -2376,7 +2381,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               ShadButton.outline(
                                                 onPressed: () =>
                                                     Navigator.pop(context),
-                                                child: const Text('Cancel'),
+                                                child: const Text('Отмена'),
                                               ),
                                             ],
                                           );
@@ -2410,7 +2415,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     }
                                   }
                                 },
-                                child: const Text('Load VAE'),
+                                child: const Text('Загрузить VAE'),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -2421,7 +2426,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                   : (bool v) {
                                       if (_vaePath == null) {
                                         _showTemporaryError(
-                                            'Please load VAE model first');
+                                            'Сначала загрузите модель VAE');
                                         return;
                                       }
                                       setState(() {
@@ -2445,7 +2450,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                         }
                                       });
                                     },
-                              label: const Text('Use VAE'),
+                              label: const Text('Использовать VAE'),
                             ),
                           ],
                         ),
@@ -2459,13 +2464,13 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             const SizedBox(height: 16),
             ShadInput(
               key: _promptFieldKey,
-              placeholder: const Text('Prompt'),
+              placeholder: const Text('Описание изображения'),
               controller: _promptController,
               onChanged: (String? v) => setState(() => prompt = v ?? ''),
             ),
             const SizedBox(height: 16),
             ShadInput(
-              placeholder: const Text('Negative Prompt'),
+              placeholder: const Text('Нежелательные элементы'),
               onChanged: (String? v) =>
                   setState(() => negativePrompt = v ?? ''),
             ),
@@ -2476,7 +2481,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               children: [
                 ShadAccordionItem<Map<String, dynamic>>(
                   value: const {}, // Unique value for this item
-                  title: const Text('Advanced Sampling Options'),
+                  title: const Text('Дополнительные параметры генерации'),
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Column(
@@ -2510,14 +2515,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                     }
                                   });
                                 },
-                          label: const Text('VAE Tiling'),
+                          label: const Text('Обработка VAE частями'),
                         ),
                         const SizedBox(height: 16),
 
                         // Clip Skip Slider
                         Row(
                           children: [
-                            const Text('Clip Skip'),
+                            const Text('Пропуск слоёв CLIP'),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ShadSlider(
@@ -2536,7 +2541,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         // Eta Slider
                         Row(
                           children: [
-                            const Text('Eta'),
+                            const Text('Эта'),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ShadSlider(
@@ -2555,7 +2560,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         // Guidance Slider
                         Row(
                           children: [
-                            const Text('Guidance'),
+                            const Text('Сила следования описанию'),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ShadSlider(
@@ -2574,7 +2579,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         // SLG Scale Slider
                         Row(
                           children: [
-                            const Text('SLG Scale'),
+                            const Text('Сила SLG'),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ShadSlider(
@@ -2597,7 +2602,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                             ShadInput(
                               controller: _skipLayersController,
                               placeholder:
-                                  const Text('Skip Layers (e.g., 7,8,9)'),
+                                  const Text('Пропускаемые слои (например, 7,8,9)'),
                               keyboardType: TextInputType.text,
                               // Removed errorText, handled below
                               onChanged: (String? v) {
@@ -2613,7 +2618,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                   setState(() {
                                     // Keep skipLayersText as is, but show error
                                     _skipLayersErrorText =
-                                        'Invalid format (use numbers separated by commas)';
+                                        'Неверный формат: введите числа через запятую';
                                   });
                                 }
                               },
@@ -2637,7 +2642,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         // Skip Layer Start Slider
                         Row(
                           children: [
-                            const Text('Skip Layer Start'),
+                            const Text('Начало пропуска слоёв'),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ShadSlider(
@@ -2660,7 +2665,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         // Skip Layer End Slider
                         Row(
                           children: [
-                            const Text('Skip Layer End'),
+                            const Text('Конец пропуска слоёв'),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ShadSlider(
@@ -2690,7 +2695,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             const SizedBox(height: 16),
             Row(
               children: [
-                const Text('Use ControlNet'),
+                const Text('Использовать ControlNet'),
                 const SizedBox(width: 8),
                 ShadSwitch(
                   value: useControlNet,
@@ -2769,7 +2774,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                   // Replace the ControlNet options section with this improved version
                   ShadAccordionItem<Map<String, dynamic>>(
                     value: const {},
-                    title: const Text('ControlNet Options'),
+                    title: const Text('Параметры ControlNet'),
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Column(
@@ -2812,7 +2817,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               constraints: const BoxConstraints(
                                                   maxWidth: 400),
                                               title: const Text(
-                                                  'Select ControlNet Model'),
+                                                  'Выбрать модель ControlNet'),
                                               description: SizedBox(
                                                 height: 300,
                                                 child: Material(
@@ -2820,14 +2825,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                   child: ShadTable.list(
                                                     header: const [
                                                       ShadTableCell.header(
-                                                          child: Text('Model',
+                                                          child: Text('Модель',
                                                               style: TextStyle(
                                                                   fontSize:
                                                                       16))),
                                                       ShadTableCell.header(
                                                           alignment: Alignment
                                                               .centerRight,
-                                                          child: Text('Size',
+                                                          child: Text('Размер',
                                                               style: TextStyle(
                                                                   fontSize:
                                                                       16))),
@@ -2886,7 +2891,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                                           .value
                                                                           .path),
                                                                   child: Text(
-                                                                    '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                                    '${(entry.value.lengthSync() / (1024 * 1024)).toStringAsFixed(1)} МБ',
                                                                     style: const TextStyle(
                                                                         fontSize:
                                                                             12),
@@ -2902,7 +2907,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                                 ShadButton.outline(
                                                   onPressed: () =>
                                                       Navigator.pop(context),
-                                                  child: const Text('Cancel'),
+                                                  child: const Text('Отмена'),
                                                 ),
                                               ],
                                             );
@@ -2936,13 +2941,13 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                       }
                                     }
                                   },
-                                  child: const Text('Load ControlNet'),
+                                  child: const Text('Загрузить ControlNet'),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
-                          // Removed "Use Image Reference" checkbox
+                          // Removed "Использовать изображение-образец" checkbox
                           // Always show image input and Canny options when ControlNet is enabled
                           ...[
                             const SizedBox(height: 16),
@@ -2962,7 +2967,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
 
                                         if (decodedImage == null) {
                                           _showTemporaryError(
-                                              'Failed to decode image');
+                                              'Не удалось прочитать изображение');
                                           return;
                                         }
 
@@ -3022,7 +3027,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               ),
                                               const SizedBox(height: 12),
                                               Text(
-                                                'Load control image',
+                                                'Загрузить управляющее изображение',
                                                 style: TextStyle(
                                                     color: theme
                                                         .colorScheme.primary
@@ -3041,7 +3046,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                             // Dropdown for Crop/Resize
                             Row(
                               children: [
-                                const Text('Reference Handling:'),
+                                const Text('Обработка образца:'),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: ShadSelect<String>(
@@ -3049,10 +3054,10 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                         Text(_controlImageProcessingMode),
                                     options: const [
                                       ShadOption(
-                                          value: 'Resize',
-                                          child: Text('Resize')),
+                                          value: 'Изменить размер',
+                                          child: Text('Изменить размер')),
                                       ShadOption(
-                                          value: 'Crop', child: Text('Crop')),
+                                          value: 'Обрезать', child: Text('Обрезать')),
                                     ],
                                     selectedOptionBuilder: (context, value) =>
                                         Text(value),
@@ -3068,7 +3073,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                               ],
                             ),
                             const SizedBox(height: 16),
-                            // Left-aligned checkbox for "Use Canny"
+                            // Left-aligned checkbox for "Использовать Canny"
                             Align(
                               alignment: Alignment.centerLeft,
                               child: Row(
@@ -3089,7 +3094,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                                               }
                                             });
                                           },
-                                    label: const Text('Use Canny'),
+                                    label: const Text('Использовать Canny'),
                                   ),
                                   if (isCannyProcessing)
                                     Padding(
@@ -3108,7 +3113,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                             ),
                             if (useCanny && _cannyImage != null) ...[
                               const SizedBox(height: 16),
-                              const Text('Canny Edge Detection Result',
+                              const Text('Результат выделения контуров Canny',
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 8),
@@ -3130,7 +3135,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              const Text('Control Strength'),
+                              const Text('Сила управления'),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: ShadSlider(
@@ -3155,7 +3160,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             const SizedBox(height: 16), // Added spacing
             Row(
               children: [
-                const Text('Sampling Method'),
+                const Text('Метод генерации'),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ShadSelect<String>(
@@ -3193,7 +3198,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             const SizedBox(height: 16),
             Row(
               children: [
-                const Text('Steps'),
+                const Text('Шаги'),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ShadSlider(
@@ -3210,7 +3215,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             const SizedBox(height: 16),
             Row(
               children: [
-                const Text('Width'),
+                const Text('Ширина'),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ShadSelect<int>(
@@ -3230,7 +3235,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                   ),
                 ),
                 const SizedBox(width: 16),
-                const Text('Height'),
+                const Text('Высота'),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ShadSelect<int>(
@@ -3252,10 +3257,10 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Seed (-1 for random)'),
+            const Text('Начальное число (-1 — случайное)'),
             const SizedBox(height: 8),
             ShadInput(
-              placeholder: const Text('Seed'),
+              placeholder: const Text('Начальное число'),
               keyboardType: TextInputType.number,
               onChanged: (String? v) => setState(() => seed = v ?? "-1"),
               initialValue: seed,
@@ -3270,7 +3275,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                     if (_processor == null) {
                       // Show error if no model is loaded
                       _handleLoadingError(
-                          'modelError', 'Please load a model first.');
+                          'modelError', 'Сначала загрузите модель.');
                       // Scroll to top to show the error
                       _scrollController.animateTo(
                         0.0,
@@ -3293,7 +3298,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                       Diagnostics.instance.event('Генерация: ${width}x$height · $steps шагов · CFG $cfg · $samplingMethod · $_selectedBackend');
                       isGenerating = true;
                       // _modelError = ''; // Replaced by _loadingError logic
-                      status = 'Generating image...';
+                      status = 'Генерация изображения…';
                       progress = 0;
                       _generationLogs = []; // Clear previous logs
                       _showLogsButton =
@@ -3335,7 +3340,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           print(
                               'Control image dimensions ($sourceWidth x $sourceHeight) differ from target ($width x $height). Processing using $_controlImageProcessingMode...');
                           ProcessedImageData processedData;
-                          if (_controlImageProcessingMode == 'Crop') {
+                          if (_controlImageProcessingMode == 'Обрезать') {
                             processedData = cropImage(sourceBytes, sourceWidth,
                                 sourceHeight, width, height);
                           } else {
@@ -3348,9 +3353,9 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                           print(
                               'Control image processed to $finalControlWidth x $finalControlHeight.');
                         } catch (e) {
-                          print("Error processing control image: $e");
+                          print("Ошибка обработки управляющего изображения: $e");
                           _showTemporaryError(
-                              'Error processing control image: $e');
+                              'Ошибка обработки управляющего изображения: $e');
                           setState(() => isGenerating = false);
                           return;
                         }
@@ -3414,7 +3419,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                       controlStrength: controlStrength,
                     );
                   },
-                  child: const Text('Generate'),
+                  child: const Text('Генерировать'),
                 ),
                 const SizedBox(width: 8), // Add spacing between buttons
                 if (_showLogsButton &&
@@ -3422,7 +3427,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                         .isNotEmpty) // Conditionally show the log button only if logs exist
                   ShadButton.outline(
                     onPressed: _showLogsDialog,
-                    child: const Text('Show Logs'),
+                    child: const Text('Показать журнал'),
                   ),
               ],
             ),
@@ -3452,7 +3457,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
       builder: (context) => ShadDialog.alert(
         constraints:
             const BoxConstraints(maxWidth: 600, maxHeight: 500), // Adjust size
-        title: const Text('Generation Logs'),
+        title: const Text('Журнал генерации'),
         description: SizedBox(
           // Constrain the height of the scrollable area
           height: 300, // Adjust height as needed
@@ -3470,7 +3475,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
         actions: [
           ShadButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: const Text('Закрыть'),
           ),
         ],
       ),

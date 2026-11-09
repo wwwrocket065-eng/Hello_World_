@@ -21,6 +21,9 @@ class ModelDownload extends StatefulWidget {
 class _ModelDownloadState extends State<ModelDownload> {
   bool busy = false, paused = false, verified = false;
   int received = 0, total = 0;
+  double speed = 0;
+  int speedBytes = 0;
+  final speedWatch = Stopwatch();
   String stage = 'Модель ещё не скачана (около 6,94 ГБ)';
   HttpClient? client;
   final watch = Stopwatch();
@@ -80,6 +83,7 @@ class _ModelDownloadState extends State<ModelDownload> {
         total = response.contentLength > 0 ? response.contentLength : 0;
       }
       received = offset;
+      speed = 0; speedBytes = offset; speedWatch..reset()..start();
       final output = await part.open(mode: offset > 0 ? FileMode.append : FileMode.write);
       var lastUpdate = DateTime.now();
       Diagnostics.instance.event('Скачивание модели: продолжение с $offset байт');
@@ -90,8 +94,14 @@ class _ModelDownloadState extends State<ModelDownload> {
           received += bytes.length;
           final now = DateTime.now();
           if(now.difference(lastUpdate).inMilliseconds > 250 && mounted) {
+            final seconds = speedWatch.elapsedMilliseconds / 1000;
+            if(seconds >= 1) {
+              final measured = (received - speedBytes) / seconds;
+              speed = speed == 0 ? measured : speed * 0.65 + measured * 0.35;
+              speedBytes = received; speedWatch.reset();
+            }
             setState(() => stage = 'Скачивание модели');
-            Diagnostics.instance.stage = 'Скачивание: $received / $total байт, ${watch.elapsed.inSeconds} с';
+            Diagnostics.instance.stage = 'Скачивание: $received / $total байт · ${(speed / 1000000).toStringAsFixed(2)} МБ/с · ${watch.elapsed.inSeconds} с';
             lastUpdate = now;
           }
         }
@@ -107,7 +117,7 @@ class _ModelDownloadState extends State<ModelDownload> {
       Diagnostics.instance.event('Загрузка: $e');
       if(mounted) setState(() { verified=false; stage = paused ? 'Пауза — можно продолжить' : 'Ошибка: $e'; });
     } finally {
-      watch.stop(); client?.close(force:true); client=null;
+      watch.stop(); speedWatch.stop(); client?.close(force:true); client=null;
       if(mounted) setState(() => busy=false);
     }
   }
@@ -121,6 +131,7 @@ class _ModelDownloadState extends State<ModelDownload> {
       Text(stage),
       if(busy) LinearProgressIndicator(value: total > 0 && stage == 'Скачивание модели' ? received/total : null),
       if(received > 0) Text('${(received/1073741824).toStringAsFixed(2)} / ${total > 0 ? (total/1073741824).toStringAsFixed(2) : "?"} ГиБ${total > 0 ? " · ${(100*received/total).toStringAsFixed(1)}%" : ""}'),
+      if(busy && stage == 'Скачивание модели') Text(speed > 0 ? '${(speed / 1000000).toStringAsFixed(2)} МБ/с · ${total > received ? "осталось около ${Duration(seconds: ((total - received) / speed).ceil()).toString().split(".").first}" : "расчёт времени…"}' : 'Расчёт скорости…'),
       if(!verified) TextButton.icon(
         icon: Icon(busy ? Icons.pause : Icons.download),
         label:Text(busy ? 'Приостановить' : received > 0 ? 'Продолжить скачивание' : 'Скачать модель'),

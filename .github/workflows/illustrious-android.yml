@@ -36,18 +36,18 @@ jobs:
           cp illustrious/DEV_NOTES.md source/DEV_NOTES.md
       - name: Apply downloader and diagnostics
         run: |
-          cp illustrious/overlay/lib/*.dart source/lib/
+          cp -a illustrious/overlay/lib/. source/lib/
           python3 illustrious/patch_build.py
       - name: Resolve dependencies and compile baseline
         working-directory: source
         run: |
           flutter pub get
           dart format lib/model_download.dart lib/diagnostics.dart
-          flutter analyze --no-fatal-infos --no-fatal-warnings > analysis.txt 2>&1 || cat analysis.txt
+          flutter analyze lib --no-fatal-infos --no-fatal-warnings > analysis.txt 2>&1 || { cat analysis.txt; exit 1; }
           flutter build apk --release --target-platform android-arm64
       - uses: actions/upload-artifact@v4
         with:
-          name: Local-SDXL-v0.1.1-arm64
+          name: Local-SDXL-v0.1.2-arm64
           path: |
             source/build/app/outputs/flutter-apk/app-release.apk
             source/analysis.txt

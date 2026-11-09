@@ -50,7 +50,7 @@ class Diagnostics {
     if(samples % 5 == 0) event('Телеметрия · $stage · ${metrics.replaceAll("\n", " · ")}');
     changed.value++;
   }
-  String report() => 'Local SDXL · 0.1.1\n${DateTime.now().toIso8601String()}\n${Platform.operatingSystem} ${Platform.operatingSystemVersion}\nЭтап: $stage\n$metrics\nCPU: процесс приложения, не общая нагрузка устройства\nЖурнал (последние 500 событий):\n${lines.join("\n")}';
+  String report() => 'Local SDXL · 0.1.2\n${DateTime.now().toIso8601String()}\n${Platform.operatingSystem} ${Platform.operatingSystemVersion}\nЭтап: $stage\n$metrics\nCPU: процесс приложения, не общая нагрузка устройства\nЖурнал (последние 500 событий):\n${lines.join("\n")}';
 }
 Future<void> showDiagnostics(BuildContext context) async {
   final d=Diagnostics.instance;
