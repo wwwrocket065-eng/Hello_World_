@@ -1,0 +1,13 @@
+# Mali SDXL acceleration: verified source review, 2026-11-09
+
+User explicitly requests reuse/adaptation of existing implementations; preserve Flutter app and UI, no full rewrite, keep local generation and Illustrious model identity.
+
+Primary candidates reviewed:
+- https://github.com/xororz/local-dream : app/src/main/cpp/src/PipelineSdxlMnn.hpp is real imported-SDXL MNN/OpenCL integration. UNet uses OpenCL buffer storage with FAST tuning and saved unet.mnnc cache; CLIPs/VAE staged with low-memory settings; current loadStage explicitly keeps VAE on CPU. Uses 4 CPU threads. Requires converted MNN graph package (dual CLIP, UNet, encoder/decoder), not drop-in existing safetensors. Its SafeTensor2MNN.hpp contains SD1.x-specific cond_stage_model mappings; not proof of generic SDXL conversion. Full CMake depends on Qualcomm QNN SDK; must extract optional MNN-only module rather than copying full build onto MediaTek. License CC BY-NC4; preserve attribution and full notice if adapting source.
+- https://github.com/alibaba/MNN/issues/4782 : detailed SDXL OpenCL report on Xiaomi MT6897/Mali/Android16. Author reports completed8-stepCFG1 generations ~7m30 cold/~5m13 warm after memory patches; this is OTHER hardware/model/settings, not expected performance on Xiaomi15T or same20-step CFG7Illustrious. PR4783 caps Winograd transform buffers under Memory_Low,4784 fixes dynamic memory reporting; include follow-up96338b37 for image storage if adopting. No unsupported speedup promises.
+- https://github.com/Witnessweave/phone-gpu-diffusion : Mali Vulkan example exists, but its README explicitly reports noisy/blank GPU output for SD1.5 while CPU correct. Not an acceptable fast production path; do not cite as successful correct SDXL acceleration.
+- https://huggingface.co/cuio/SDXL-MNN : converted mobile MNN/OpenCL SDXL packages, CPU/OpenCL only. Model availability must be checked for exact Illustriousv2 before replacing user's downloaded weights.
+
+Immediate current-engine experiment being implemented: remove unconditional getCores()*2 from text-to-image initialization; expose bounded2/4/6/8 CPU threads, default4, compare short identical-seed runs. This is a tuning option, NOT measured speedup. Underlying Mali GPU acceleration is NOT integrated or benchmarked yet. No model deleted/replaced.
+
+Next native integration task: isolate standalone MNN OpenCL runner and inspect full PipelineSdxl/Clip/tokenizer/scheduler dependencies and converter before model packaging. Preserve existing CPU runner as fallback; require output correctness AND measured step-time improvement. Use same permanent0.1.2 signing key/package for future APK.
