@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'model_download.dart';
@@ -163,6 +165,37 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
   Timer? _modelErrorTimer;
   Timer? _errorMessageTimer;
   StableDiffusionProcessor? _processor;
+  final TextEditingController _negativePromptController = TextEditingController();
+  Future<void> _promptWrites = Future<void>.value();
+  Future<void> _restorePrompts() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File('${dir.path}/prompt-draft.json');
+      if (!await file.exists()) return;
+      final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        if (prompt.isEmpty) {
+          prompt = data['prompt'] as String? ?? '';
+          _promptController.text = prompt;
+        }
+        if (negativePrompt.isEmpty) {
+          negativePrompt = data['negative'] as String? ?? '';
+          _negativePromptController.text = negativePrompt;
+        }
+      });
+    } catch (e) { debugPrint('Восстановление описания: $e'); }
+  }
+  void _savePrompts() {
+    final snapshot = jsonEncode({'prompt': prompt, 'negative': negativePrompt});
+    _promptWrites = _promptWrites.then((_) async {
+      final dir = await getApplicationSupportDirectory();
+      final tmp = File('${dir.path}/prompt-draft.tmp');
+      await tmp.writeAsString(snapshot, flush: true);
+      await tmp.rename('${dir.path}/prompt-draft.json');
+    }).catchError((Object e) { debugPrint('Сохранение описания: $e'); });
+  }
+  final GlobalKey _resultPanelKey = GlobalKey();
   Image? _generatedImage;
   bool isModelLoading = false;
   bool isGenerating = false;
@@ -296,6 +329,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
     // Ensure bindings are initialized before getting cores
     // FFIBindings.initializeBindings(_selectedBackend); // Moved to main()
     Diagnostics.instance.start();
+    _restorePrompts();
     _cores = FFIBindings.getCores() * 2;
     _cannyProcessor = CannyProcessor();
     _cannyProcessor!.init();
@@ -323,6 +357,7 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
     _cannyProcessor?.dispose();
     _promptController.dispose();
     _skipLayersController.dispose(); // Dispose the new controller
+    _negativePromptController.dispose();
     _scrollController.dispose(); // Dispose ScrollController
     super.dispose();
   }
@@ -2498,13 +2533,13 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
               key: _promptFieldKey,
               placeholder: const Text('Описание изображения'),
               controller: _promptController,
-              onChanged: (String? v) => setState(() => prompt = v ?? ''),
+              onChanged: (String? v) { setState(() => prompt = v ?? ''); _savePrompts(); },
             ),
             const SizedBox(height: 16),
             ShadInput(
               placeholder: const Text('Нежелательные элементы'),
-              onChanged: (String? v) =>
-                  setState(() => negativePrompt = v ?? ''),
+              controller: _negativePromptController,
+              onChanged: (String? v) { setState(() => negativePrompt = v ?? ''); _savePrompts(); },
             ),
             const SizedBox(height: 16),
 
@@ -3420,6 +3455,14 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                     }
                     // --- End Skip Layers Formatting ---
 
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final resultContext = _resultPanelKey.currentContext;
+                      if (resultContext != null && mounted) {
+                        Scrollable.ensureVisible(resultContext,
+                          duration: const Duration(milliseconds: 300),
+                          alignment: 0.05);
+                      }
+                    });
                     _processor!.generateImage(
                       prompt: prompt,
                       negativePrompt: negativePrompt,
@@ -3466,6 +3509,20 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
             ),
             // Removed the old _modelError display, it's handled above
             const SizedBox(height: 16),
+            Container(
+              key: _resultPanelKey,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF101214),
+                border: Border.all(color: const Color(0xFF343A46)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Результат генерации'),
+                  const SizedBox(height: 12),
             LinearProgressIndicator(
               value: progress,
               backgroundColor: theme.colorScheme.background,
@@ -3478,10 +3535,18 @@ class _StableDiffusionAppState extends State<StableDiffusionApp>
                 ? '${Diagnostics.instance.stage} · ${Diagnostics.instance.generationWatch.elapsed.inSeconds} с'
                 : status, style: theme.textTheme.p),
             ),
-            if (_generatedImage != null) ...[
-              const SizedBox(height: 20),
-              _generatedImage!,
-            ],
+                  const SizedBox(height: 12),
+                  AspectRatio(
+                    aspectRatio: width / height,
+                    child: _generatedImage != null
+                      ? FittedBox(fit: BoxFit.contain, child: _generatedImage!)
+                      : Center(child: Text(isGenerating
+                          ? 'Изображение рассчитывается…'
+                          : 'Здесь появится изображение')),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

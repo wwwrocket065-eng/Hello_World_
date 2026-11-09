@@ -22,3 +22,8 @@ CRITICAL: 0.1.1 signing private key was ephemeral on GitHub Actions and not reta
 Research: checkpoints/mali-acceleration-research.md. Real reusable MNN SDXL/OpenCL path found in Local Dream; needs converted SDXL graph bundle and MNN-only native integration, not implemented in this build. Do not describe this release as GPU accelerated.
 Current runner: replace forced getCores()*2 with user-selectable bounded CPU thread count (2/4/6/8, default4); forward through isolate initialization into native context. Optional defaults preserve other constructors. Changes require model reload and are disabled during generation. No measured speedup claimed. Compare same512x512/seed/CFG/model and2 steps at4vs8 threads before long runs.
 Status: live total elapsed timer independent of native callbacks; show next step in progress and VAE-part counter separately after denoise. Stage inference uses engine messages; raw native logs retained. Copy newest80 events first, current metrics above, avoiding clipping by long download history. Set immersiveSticky and add bottom system inset padding. No model format/path changes. Same com.localsdxl.mobile and permanent key.
+
+
+UI work in progress: persistent result area and automatic scroll on generation added locally. Not yet built or verified. Pending actual cancellation, prompt persistence, MNN and progressive preview.
+
+Prompt drafts: positive and negative fields persist via queued atomic JSON writes in app support. Result panel contains progress and elapsed stage; auto-scroll on start. Cancellation remains blocked by baseline native synchronous API (no abort binding); do not claim stop implemented. No MNN/preview implementation yet. Local edits pending CI.
