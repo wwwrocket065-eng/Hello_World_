@@ -1,0 +1,47 @@
+name: Local SDXL Android build
+on:
+  push:
+    branches: [illustrious-android-ci]
+    paths: ['.github/workflows/illustrious-android.yml', 'illustrious/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      - name: Fetch pinned baseline
+        run: |
+          git clone https://github.com/rmatif/Local-Diffusion.git source
+          git -C source checkout 184b7f92cf2f810e7d5eb4b04b190a5da829005f
+      - name: Generate current Android build scaffold
+        run: |
+          flutter create --platforms android --org com.example --project-name local_diffusion scaffold
+          cp -a source/android/app/src/main/jniLibs scaffold/android/app/src/main/
+          rm scaffold/android/app/src/main/jniLibs/arm64-v8a/libc.so scaffold/android/app/src/main/jniLibs/arm64-v8a/libm.so scaffold/android/app/src/main/jniLibs/arm64-v8a/libdl.so
+          cp source/android/app/src/main/AndroidManifest.xml scaffold/android/app/src/main/AndroidManifest.xml
+          rm -rf source/android
+          mv scaffold/android source/android
+          cp illustrious/DEV_NOTES.md source/DEV_NOTES.md
+      - name: Resolve dependencies and compile baseline
+        working-directory: source
+        run: |
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Local-SDXL-baseline-NOT-FINAL
+          path: source/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
