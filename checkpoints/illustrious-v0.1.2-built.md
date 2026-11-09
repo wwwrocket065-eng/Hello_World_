@@ -1,0 +1,7 @@
+# v0.1.2 verified delivery checkpoint
+
+Source 03d74acd7f267e941b072668fab53a0e93c0bcdd; Actions run 42663892524 succeeded; artifact 13696365996. flutter analyze lib has no errors; release compiled. Final APK re-signed locally with dedicated preserved permanent key. apksigner verification passed; certificate SHA256 96f5f12e71b6e4f6bb6c544cd258e6022205997e3c13e16edea866dd9d2a1e31. Package com.localsdxl.mobile, version 0.1.2 (3), ARM64. Future updates MUST use same package and permanent key. Private key backup is in the user's private Library file Local_SDXL_signing_backup.zip (libfile_9592b990a7948191bfe5e1e8394a2244); never add private bytes/password to GitHub or logs. CI APK is only an intermediate; re-sign before delivery.
+
+Contains Russian UI translations across app pages, forced black/dark theme preserving structure, Russian Material controls, smoothed MB/s and ETA. Raw native technical logs remain original. Installs SEPARATELY from com.example.local_diffusion v0.1.1; its model storage is also separate. Do not misrepresent this as an in-place update or shared model access. Need separate model download for this installation. Original0.1.1 remains untouched.
+
+User just confirmed model downloaded and SHA256 checked successfully in installed0.1.1. Loading in memory/generation result not yet reported. Do not repeat obvious untested-device disclaimers or tell user to leave app untouched repeatedly; user explicitly requested concise updates.
