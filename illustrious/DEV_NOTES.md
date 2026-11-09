@@ -1,9 +1,13 @@
-# Local SDXL on Xiaomi 15T
+# Local SDXL v0.1.1 — 2026-11-09
 
-Goal: fully offline Illustrious XL v2.0 generation; Russian UI, in-app resumable model download with SHA256, visible generation progress, memory/time diagnostics. First test without LoRA.
+Device: Xiaomi 15T, Android 16, Dimensity 8400-Ultra, Mali-G720. Fully local generation.
+Repository: wwwrocket065-eng/Hello_World_, branch illustrious-android-ci.
+Pinned upstream rmatif/Local-Diffusion 184b7f92cf2f810e7d5eb4b04b190a5da829005f.
+Baseline GitHub Actions run 42655632161 succeeded. Local Flutter download failure was bypassed by CI.
 
-2026-11-09: GitHub connector access and repository write permission verified. Local Flutter download returned 404; use GitHub Actions instead. This is a build toolchain probe of pinned upstream Local-Diffusion 184b7f92cf2f810e7d5eb4b04b190a5da829005f, NOT a completed customized APK. Downloader, permission cleanup, localization, Android 16 native compatibility and Mali performance still need implementation/verification. No device generation tests yet.
+Changes: in-app Illustrious XL v2.0 download, app-private model directory, byte/percent progress, HTTP Range resume, streamed SHA256 validation before rename/loading, automatic model connection using CPU/Q4/Flash Attention and VAE tiling. App no longer requires broad storage access on startup. Internet permission added. Diagnostics dialog with copy action, bounded log history, generation step callbacks, elapsed stopwatch, process RSS/peak RSS, available memory, process CPU using Android proc tick assumption 100Hz, explicit unavailable GPU/temperature. Sample interval two seconds; retained telemetry every ten seconds, at most 500 events.
+Official model: https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0
+SHA256 c2a1a3eaa13d4c107dc7e00c3fe830cab427aa026362740ea094745b3422a331.
 
-Official model: OnomaAIResearch/Illustrious-XL-v2.0 on Hugging Face; file Illustrious-XL-v2.0.safetensors, approximately 6.94GB; SHA256 c2a1a3eaa13d4c107dc7e00c3fe830cab427aa026362740ea094745b3422a331.
-
-Build: GitHub Actions .github/workflows/illustrious-android.yml. Output baseline artifact is explicitly NOT FINAL. No model weights are downloaded during CI.
+Pending verification: compilation of changes, Android 16 native library compatibility and actual Illustrious generation on Xiaomi hardware. No claim of device success or generation speed. Existing upstream advanced UI remains mostly English. Downloader pauses when process dies; resume from partial file next launch. Foreground/background persistent download service not implemented. Native engine version supplied by upstream; page-size support requires device verification.
+Build via .github/workflows/illustrious-android.yml. Source overrides in illustrious/overlay/lib; patch_build.py wires dependency, manifest and notes. Do not overwrite overrides with upstream. Diagnostics embedded as asset.
