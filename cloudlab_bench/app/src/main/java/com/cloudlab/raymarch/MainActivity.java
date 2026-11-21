@@ -124,6 +124,18 @@ public final class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(),"CloudLabNative");
         setContentView(web);
+        // Android 15+ enforces edge-to-edge for apps targeting API 35.
+        // Keep the cloud scene and controls clear of the system bars.
+        if (android.os.Build.VERSION.SDK_INT >= 35) {
+            web.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets safe = insets.getInsets(
+                    android.view.WindowInsets.Type.systemBars() |
+                    android.view.WindowInsets.Type.displayCutout());
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                return insets;
+            });
+            web.requestApplyInsets();
+        }
         web.loadUrl("file:///android_asset/index.html");
     }
     @Override public void onDestroy(){executor.shutdownNow();if(web!=null){web.destroy();web=null;}super.onDestroy();}
