@@ -1,0 +1,103 @@
+name: CloudLab three real languages - Android APK
+on:
+  push:
+    branches: [cloudlab-three-lang-apk]
+  workflow_dispatch:
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK and Rust target
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+          rustup target add aarch64-linux-android
+      - name: Build real Goose compiler
+        shell: bash
+        run: |
+          git clone --depth 1 --shallow-submodules --recursive --branch v2026.4 https://github.com/aardappel/goose.git /tmp/cloudlab-goose
+          cmake -S /tmp/cloudlab-goose -B /tmp/cloudlab-goose/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/cloudlab-goose/build --target goose -j 3
+          /tmp/cloudlab-goose/build/goose version
+      - name: Translate Goose to C and verify all three languages match on host
+        shell: bash
+        working-directory: cloudlab_bench
+        run: |
+          set -euxo pipefail
+          /tmp/cloudlab-goose/build/goose --standalone --header native/cloud_goose.h -o native/cloud_goose.c native/cloud.goose
+          cat > /tmp/cloudlab_host_goose.c <<'EOF'
+          #include <stdlib.h>
+          #include <stdio.h>
+          #include "cloud_goose.h"
+          int main(int argc,char **argv){
+              goose_init(0,(char**)0);
+              printf("%.14f\n",cloud_batch(atof(argv[1]),atoll(argv[2])));
+              return 0;
+          }
+          EOF
+          cat > /tmp/cloudlab_host_cpp.cpp <<'EOF'
+          #include <cstdio>
+          #include <cstdlib>
+          #include "cloud.cpp"
+          int main(int argc,char** argv){
+              printf("%.14f\n",batch(atof(argv[1]),atoll(argv[2])));
+              return 0;
+          }
+          EOF
+          cat > /tmp/cloudlab_host_rust.rs <<'EOF'
+          include!(concat!(env!("GITHUB_WORKSPACE"),"/cloudlab_bench/native/cloud.rs"));
+          fn main(){
+              let a:Vec<String>=std::env::args().collect();
+              println!("{:.14}",batch(a[1].parse().unwrap(),a[2].parse().unwrap()));
+          }
+          EOF
+          gcc -O3 -fno-fast-math -I native native/cloud_goose.c /tmp/cloudlab_host_goose.c -lm -o /tmp/bench_goose
+          g++ -O3 -fno-fast-math -I native -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" /tmp/cloudlab_host_cpp.cpp -o /tmp/bench_cpp
+          rustc -O /tmp/cloudlab_host_rust.rs -o /tmp/bench_rust
+          python3 - <<'PY'
+          import subprocess,math
+          for cover in ['0','0.25','0.54','0.77','1.0']:
+              for tick in ['0','37','512','4095']:
+                  values=[float(subprocess.check_output(['/tmp/bench_'+x,cover,tick],text=True)) for x in ['goose','rust','cpp']]
+                  if not all(math.isfinite(x) and abs(x-values[2])<=1e-6*max(1,abs(values[2])) for x in values):
+                      raise RuntimeError(f'MISMATCH {cover} {tick} {values}')
+          print('PASS: 20 reference cases x 3 independently compiled languages')
+          PY
+      - name: Build 3 independent Android ARM64 JNI libraries
+        shell: bash
+        working-directory: cloudlab_bench
+        run: |
+          set -euxo pipefail
+          TOOLS="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          CC="$TOOLS/aarch64-linux-android26-clang"
+          CXX="$TOOLS/aarch64-linux-android26-clang++"
+          DIR=app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$DIR"
+          "$CC" -O3 -fno-fast-math -fno-strict-aliasing -fPIC -shared -I native native/cloud_goose.c native/cloud_goose_jni.c -lm -o "$DIR/libcloud_goose.so"
+          "$CXX" -O3 -fno-fast-math -fPIC -shared -I native native/cloud.cpp -o "$DIR/libcloud_cpp.so"
+          rustc --edition=2021 -O -C linker="$CC" --target aarch64-linux-android --crate-type cdylib native/cloud.rs -o "$DIR/libcloud_rust.so"
+          for f in "$DIR"/*.so; do file "$f"; readelf -Ws "$f" | grep -E 'Java_com_cloudlab_raymarch_MainActivity_(goose|rust|cpp)Batch'; done
+      - name: Build installable Android APK
+        shell: bash
+        run: |
+          gradle --no-daemon -p cloudlab_bench :app:assembleDebug --stacktrace
+          test -s cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -E 'lib/arm64-v8a/libcloud_(goose|rust|cpp).so'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CloudLab-3RealLanguages-APK
+          path: cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
