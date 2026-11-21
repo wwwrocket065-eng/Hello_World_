@@ -87,10 +87,16 @@ jobs:
           CXX="$TOOLS/aarch64-linux-android26-clang++"
           DIR=app/src/main/jniLibs/arm64-v8a
           mkdir -p "$DIR"
-          "$CC" -O3 -fno-fast-math -fno-strict-aliasing -fPIC -shared -I native native/cloud_goose.c native/cloud_goose_jni.c -lm -o "$DIR/libcloud_goose.so"
-          "$CXX" -O3 -fno-fast-math -fPIC -shared -I native native/cloud.cpp -o "$DIR/libcloud_cpp.so"
-          rustc --edition=2021 -O -C linker="$CC" --target aarch64-linux-android --crate-type cdylib native/cloud.rs -o "$DIR/libcloud_rust.so"
-          for f in "$DIR"/*.so; do file "$f"; readelf -Ws "$f" | grep -E 'Java_com_cloudlab_raymarch_MainActivity_(goose|rust|cpp)Batch'; done
+          "$CC" -O3 -fno-fast-math -fno-strict-aliasing -fPIC -shared -Wl,-z,max-page-size=16384 -I native native/cloud_goose.c native/cloud_goose_jni.c -lm -o "$DIR/libcloud_goose.so"
+          "$CXX" -O3 -fno-fast-math -fPIC -c -I native native/cloud.cpp -o /tmp/cloud_cpp.o
+          "$CC" -shared -Wl,-z,max-page-size=16384 /tmp/cloud_cpp.o -o "$DIR/libcloud_cpp.so"
+          rustc --edition=2021 -O -C linker="$CC" -C link-arg=-Wl,-z,max-page-size=16384 --target aarch64-linux-android --crate-type cdylib native/cloud.rs -o "$DIR/libcloud_rust.so"
+          for f in "$DIR"/*.so; do
+            file "$f"
+            readelf -Ws "$f" | grep -E 'Java_com_cloudlab_raymarch_MainActivity_(goose|rust|cpp)Batch'
+            readelf -lW "$f" | grep " LOAD " | awk '{if ($NF != "0x4000" && $NF != "0x10000") {print "Unsupported page alignment:", $NF;exit 1}}'
+          done
+          if readelf -d "$DIR/libcloud_cpp.so" | grep -q "libc++_shared"; then echo "Missing C++ runtime dependency"; exit 1; fi
       - name: Build installable Android APK
         shell: bash
         run: |
