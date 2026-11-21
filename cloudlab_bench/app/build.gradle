@@ -1,5 +1,5 @@
 plugins { id 'com.android.application' }
 android { namespace 'com.cloudlab.raymarch'; compileSdk 35
- defaultConfig { applicationId 'com.cloudlab.raymarch'; minSdk 26; targetSdk 28; versionCode 3; versionName '3.0' }
+ defaultConfig { applicationId 'com.cloudlab.raymarch'; minSdk 26; targetSdk 35; versionCode 4; versionName '3.1' }
  buildTypes { release { minifyEnabled false } }
 }
