@@ -3,6 +3,9 @@ on:
   push:
     branches: [cloudlab-three-lang-apk]
   workflow_dispatch:
+concurrency:
+  group: cloudlab-android-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   android:
     runs-on: ubuntu-24.04
@@ -100,7 +103,12 @@ jobs:
       - name: Build installable Android APK
         shell: bash
         run: |
-          gradle --no-daemon -p cloudlab_bench :app:assembleDebug --stacktrace
+          for attempt in 1 2 3; do
+            if gradle --no-daemon -p cloudlab_bench :app:assembleDebug --stacktrace; then break; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            echo "Transient Gradle dependency failure; retry $attempt/3"
+            sleep 12
+          done
           test -s cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -F "targetSdkVersion:'35'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -F "versionCode='5'"
