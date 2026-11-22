@@ -89,8 +89,11 @@ float density(vec3 p){
  float nB=texture(uNoise,d1*vec3(6.2,5.1,2.7)+vec3(.41,.09,.39)+vec3(uTime*.002,-uTime*.001,0.)).g;
  float edge=.68+.48*(nA-.5)+.22*(nB-.5);
  float erosion=mix(smoothstep(.35,.78,edge),.78+.3*nA,overcast);
+ // Thin high-altitude cirrus wisps form above the lower cumulus/stratus.
+ float highNoise=texture(uNoise,vec3(pos*2.7+.19,h*3.7+.23)).a;
+ float cirrus=heightBand(h,.80,.99,.055)*smoothstep(.55,.80,highNoise)*mask*.23*(1.-overcast);
  // Guaranteed substantial optical depth for full sky coverage.
- return max(0.,profile*mask*(.78+.60*erosion));
+ return max(0.,profile*mask*(.78+.60*erosion)+cirrus);
 }
 float phaseHG(float c,float g){float g2=g*g;return (1.-g2)/pow(max(.075,1.+g2-2.*g*c),1.5);}
 vec3 sky(vec3 rd){
@@ -455,10 +458,10 @@ $('#start').onclick=async()=>{
   await getStatus();
 };
 $('#csv').onclick=()=>{
-  const hdr='язык;движок;облачность %;батч/сек;мс/батч;CPU % одного ядра;RSS MiB;млн выборок/сек;контроль;совпадение;ошибка';
+  const hdr='язык;движок;облачность %;батч/сек;мс/батч;CPU % одного ядра;млн выборок/сек;контроль;совпадение;ошибка';
   const lines=['goose','rust','cpp'].map(k=>{
     const r=results[k]||{};
-    return [names[k],r.engine||'',r.cloud??'',r.batch??'',r.ms??'',r.cpu??'',r.mem??'',r.samples??'',r.checksum??'',r.validity??'',r.error??''].join(';');
+    return [names[k],r.engine||'',r.cloud??'',r.batch??'',r.ms??'',r.cpu??'',r.samples??'',r.checksum??'',r.validity??'',r.error??''].join(';');
   });
   const url=URL.createObjectURL(new Blob(['\ufeff'+[hdr,...lines].join('\n')],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download='cloudlab_native_benchmark.csv';a.click();
