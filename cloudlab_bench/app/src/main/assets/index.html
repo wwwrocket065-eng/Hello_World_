@@ -306,7 +306,7 @@ function updateVerdict(){
  }
 }
 $('#copyReport').onclick=async()=>{const report=reportText();if(!report)return;
- try{if(window.CloudLabNative?.copyReport){window.CloudLabNative.copyReport(report);}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(report);}else{const e=document.createElement('textarea');e.value=report;e.style.position='fixed';e.style.opacity='0';document.body.appendChild(e);e.select();if(!document.execCommand('copy'))throw Error('clipboard');e.remove();}
+ try{if(window.CloudLabNative?.copyReport){if(window.CloudLabNative.copyReport(report)!==true)throw Error('clipboard');}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(report);}else{const e=document.createElement('textarea');e.value=report;e.style.position='fixed';e.style.opacity='0';document.body.appendChild(e);e.select();if(!document.execCommand('copy'))throw Error('clipboard');e.remove();}
  $('#copyReport').textContent='✓ Отчёт скопирован';
  }catch(err){$('#copyReport').textContent='Не удалось скопировать';console.warn(err);}
 };
