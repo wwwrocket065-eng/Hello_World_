@@ -103,7 +103,7 @@ jobs:
           gradle --no-daemon -p cloudlab_bench :app:assembleDebug --stacktrace
           test -s cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -F "targetSdkVersion:'35'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -F "versionCode='4'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -F "versionCode='5'"
           unzip -l cloudlab_bench/app/build/outputs/apk/debug/app-debug.apk | grep -E 'lib/arm64-v8a/libcloud_(goose|rust|cpp).so'
       - uses: actions/upload-artifact@v4
         with:
