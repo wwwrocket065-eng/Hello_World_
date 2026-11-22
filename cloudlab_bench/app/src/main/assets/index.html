@@ -1,1 +1,467 @@
-<!doctype html><html lang="ru"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CloudLab</title><body style="background:#080d1b;color:white;font:16px system-ui;padding:24px"><h2>CloudLab · 3 языка</h2><p>Три нативных модуля Goose, Rust и C++</p><button onclick="CloudLabNative.start(55,15)">▶ Тест · 15 сек</button><pre id="log"></pre><script>window.CloudLabNativeEvent=e=>document.getElementById("log").textContent+=JSON.stringify(e)+"\n";</script></body></html>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><meta name="theme-color" content="#080d1b"/><title>CloudLab v8 · Living Clouds + Benchmark</title>
+<style>
+:root{color-scheme:dark;--bg:#080d1b;--panel:#111a2c;--line:#27354b;--muted:#95a5bc;--cyan:#56d7f4;--pur:#ae8aff;--green:#5ae2b2;--red:#ff8291}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 25% -10%,#173153 0,transparent 44%),#080d1b;color:#eef5ff;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.4}.app{max-width:1180px;padding:calc(20px + env(safe-area-inset-top,0px)) 18px calc(50px + env(safe-area-inset-bottom,0px));margin:auto}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.brand{font-size:20px;font-weight:750;letter-spacing:-.5px}.brand b{color:var(--cyan)}.tag{border:1px solid #37506f;border-radius:99px;color:#a8c7df;background:#17263c;padding:4px 10px;font-size:11px}.stage{overflow:hidden;position:relative;border:1px solid #3c5974;border-radius:19px;background:#122c4e;box-shadow:0 20px 60px #0006}.stage canvas{display:block;width:100%;height:auto;aspect-ratio:16/8.5;touch-action:none;cursor:grab;user-select:none}.stage canvas:active{cursor:grabbing}.stage .reset{position:absolute;bottom:12px;right:12px;border:1px solid #a1d5ee47;background:#09162ccc;color:#def5ff;border-radius:10px;font-size:17px;padding:4px 10px;cursor:pointer} .motion{position:absolute;left:12px;bottom:12px;display:flex;align-items:center;gap:7px;border:1px solid #7fc6e347;background:#0b1c31e5;color:#e0f4ff;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:650;backdrop-filter:blur(9px)}.motion[aria-pressed="true"]{border-color:#6be0bb;background:#103b41e8;color:#bafbea}.motion[disabled]{opacity:.65;cursor:default}.motion .indicator{width:7px;height:7px;border-radius:50%;background:#648296}.motion[aria-pressed="true"] .indicator{background:#61e5b9;box-shadow:0 0 8px #61e5b9}.sceneui{position:absolute;left:15px;top:13px;right:15px;display:flex;justify-content:space-between;pointer-events:none}.glass{background:#09162cc9;border:1px solid #a1d5ee47;border-radius:10px;backdrop-filter:blur(10px);padding:6px 10px;font-size:12px}.fps{font-variant-numeric:tabular-nums;color:#b8eaff}.section{margin:23px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}.section h2{font-size:13px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:#b2c2da;margin:0}.section small{color:#8395ad}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.cloudcard{background:linear-gradient(150deg,#16243a,#101827);border:1px solid #30405b;border-radius:15px;padding:14px;min-width:0;transition:border-color .15s,background .15s}.cloudcard.selected{border-color:var(--accent);background:linear-gradient(145deg,#20344c,#111a2b)}.cardtop{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:12px}.lang{display:flex;gap:8px;align-items:center;font-size:15px;font-weight:730}.dot{background:var(--accent);width:8px;height:8px;border-radius:50%;box-shadow:0 0 12px var(--accent)}.val{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:750}input[type=range]{width:100%;margin:2px 0 5px;accent-color:var(--accent);cursor:pointer}.micro{font-size:11px;color:#8ba0b9}.controls{border:1px solid var(--line);background:#0f192b;border-radius:15px;padding:15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:13px}.times{display:flex;gap:5px;border-radius:9px;background:#081120;padding:4px;border:1px solid #27364b}.times button{color:#a9bcd0;border:0;background:transparent;padding:8px 13px;border-radius:7px}.times button.active{background:#314760;color:white}.run{background:linear-gradient(110deg,#33c5e7,#9f91ff);font-weight:750;color:#081426;border:0;border-radius:10px;padding:11px 22px;min-width:140px;box-shadow:0 6px 26px #4bc8fc24}.run:disabled{opacity:.55}.mode{display:flex;gap:7px;align-items:center;margin-left:auto;font-size:11px;color:#c0d3e8}.mode select{background:#152943;border:1px solid #34506a;border-radius:8px;color:#edf7ff;padding:8px}.progress{display:none;margin-top:12px;background:#101b2b;border:1px solid var(--line);border-radius:12px;padding:11px 14px}.progress.show{display:block}.track{height:5px;border-radius:100px;background:#263854;overflow:hidden;margin-top:8px}.track>div{width:0;height:100%;background:linear-gradient(90deg,#61dff4,#b895ff);transition:width .2s}.prows{display:flex;justify-content:space-between;color:#dbe6f8;font-size:12px}.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric{border:1px solid #283b54;background:#0f192b;border-radius:14px;padding:16px;min-width:0}.metric h3{color:#b7c9dd;font-size:12px;font-weight:670;margin:0 0 15px}.barrow{display:grid;grid-template-columns:52px minmax(0,1fr) 76px;align-items:center;gap:8px;margin:10px 0;font-size:12px;min-height:24px}.barlabel{color:#d0ddef}.bartrack{height:18px;background:#1c2c43;border-radius:5px;overflow:hidden}.bar{height:100%;width:0;background:var(--accent);border-radius:5px;transition:width .45s}.barnum{font-variant-numeric:tabular-nums;text-align:right;color:#e4f4ff;font-size:12px}.summary{margin-top:12px;overflow:auto;border:1px solid var(--line);border-radius:14px;background:#0f192b}table{width:100%;min-width:600px;border-collapse:collapse;text-align:right;font-size:12px}th,td{padding:10px 13px;border-bottom:1px solid #263248;font-variant-numeric:tabular-nums}tr:last-child td{border:0}th{font-weight:600;color:#a4b6cf}th:first-child,td:first-child{text-align:left}td:first-child{font-weight:740}.source{font-size:11px;color:#7f90a9;margin-top:9px}.bottom{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}.quiet{font-size:11px;color:#9db0c9}.linkbtn{border:1px solid #344762;background:#17243b;color:#cfe4fb;padding:7px 10px;border-radius:8px}.empty{color:#667f9c}.warning{color:#ffb2a9}@media(max-width:680px){.app{padding:calc(14px + env(safe-area-inset-top,0px)) 11px calc(38px + env(safe-area-inset-bottom,0px))}.brand{font-size:18px}.stage canvas{aspect-ratio:16/10.5}.cards{grid-template-columns:1fr;gap:8px}.cloudcard{padding:10px 13px}.cardtop{margin-bottom:3px}.charts{grid-template-columns:1fr}.controls{gap:10px;padding:11px}.run{flex:1}.mode{width:100%;justify-content:space-between}.glass{font-size:10px;padding:5px 8px}.section{margin-top:20px}.tag{font-size:10px}}
+</style></head><body><div class="app"><div class="head"><div class="brand"><b>☁</b> CloudLab <span style="font-weight:430;color:#93aec6">/ Raymarch</span></div><div class="tag" id="connection">WebGL2 · просмотр</div></div>
+<div class="stage"><canvas id="world" aria-label="3D-сцена: перемещение пальцем поворачивает камеру, два пальца меняют масштаб"></canvas><div class="sceneui"><div class="glass" id="sceneName">GOOSE · 55%</div><div class="glass fps" id="fps">— FPS</div></div><button class="motion" id="toggleMotion" type="button" aria-pressed="true"><span class="indicator"></span><span id="motionText">⏸ Динамика</span></button><button class="reset" id="resetCam" title="Сбросить камеру" aria-label="Сбросить камеру">↺</button></div>
+<div class="section"><h2>Облачность</h2><small>Одинаковая для Goose · Rust · C++</small></div>
+<div class="cloudcard selected" style="--accent:var(--cyan);padding:15px 17px" id="cloudControl"><div class="cardtop"><span class="lang"><span class="dot"></span>Общая облачность</span><span class="val" id="cloudValue">55%</span></div><input id="cloudRange" aria-label="Общая облачность" type="range" min="0" max="100" value="55"/></div>
+<div class="controls"><div class="times"><button class="active" data-time="15">15 сек</button><button data-time="30">30 сек</button><button data-time="60">1 мин</button></div><button class="run" id="start">▶ Тест</button><div class="mode"><span id="modeLabel">Проверка 3 ядер</span></div></div>
+<div class="progress" id="progress"><div class="prows"><span id="progressText">Подготовка</span><span id="countdown">—</span></div><div class="track"><div id="fill"></div></div></div>
+<div class="section"><h2>Сравнение</h2><small id="resultTitle">Ожидание теста</small></div>
+<div class="charts" id="charts"></div>
+<div class="summary"><table><thead><tr><th>Язык</th><th>Облачность</th><th>Батч/сек</th><th>мс/батч</th><th>CPU</th><th>Память</th><th>Контроль</th></tr></thead><tbody id="resultBody"></tbody></table></div>
+<div id="verdict" class="metric" style="display:none;margin-top:12px" aria-live="polite"></div>
+<div class="bottom"><button id="copyReport" class="linkbtn" style="display:none">📋 Скопировать отчёт</button><button id="csv" class="linkbtn" style="display:none">↓ CSV</button><span id="note" class="quiet">Для сравнения откройте проект через локальный сервер.</span></div>
+<div class="source">CPU: 80×45 лучей · 22 шага · 2 выборки/шаг. Браузер без сервера: настоящий C++ WebAssembly; CPU% и RSS недоступны, Goose/Rust не подменяются. Живая объёмная облачность: образование, рост, перенос, слияние и рассеивание · WebGL2 · 64³.</div>
+</div>
+<script>
+'use strict';
+const names={goose:'Goose',rust:'Rust',cpp:'C++'}, colors={goose:'#56d7f4',rust:'#ae8aff',cpp:'#5ae2b2'};
+let cloudiness=55;const results={};
+let active='goose', duration=15, benchActive=false, forceDraw=false, nativeReady={}, serverAvailable=false, drawFPS=0;
+let motionOn=true, motionTime=0, lastCloudFrame=0, offlineMode=false, wasmBatch=null;
+const camera={yaw:0,pitch:.24,fov:.68};const pointers=new Map();let previousPinch=null;
+const $=q=>document.querySelector(q);
+const glCanvas=$('#world'), gl=glCanvas.getContext('webgl2',{alpha:false,antialias:false,depth:false,powerPreference:'high-performance'});
+const vertex=`#version 300 es
+precision highp float;
+void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.0-1.0,0,1);}`;
+const fragment=`#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler3D;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uCloud;
+uniform float uYaw;
+uniform float uPitch;
+uniform float uFov;
+uniform sampler3D uNoise;
+out vec4 fragColor;
+const float CLOUD_BOTTOM=2.8;
+const float CLOUD_TOP=19.2;
+const float PI=3.14159265359;
+const vec3 sunDir=vec3(-.4905,.8637,-.1177);
+
+// Same 3D density field is sampled by the camera, the sun and ground shadows.
+// Two independently shaped cloud volumes morph smoothly to avoid texture scrolling alone.
+// Weather-driven volumetric field: no copies of a fixed cloud mesh.
+// Independent scales cover broad stratus, scattered cumulus and wispy edges.
+float heightBand(float h,float low,float high,float softness){
+ return smoothstep(low,low+softness,h)*(1.-smoothstep(high-softness,high,h));
+}
+float density(vec3 p){
+ if(p.y<CLOUD_BOTTOM||p.y>CLOUD_TOP||uCloud<=.0001)return 0.;
+ float cover=clamp(uCloud,0.,1.);
+ float h=(p.y-CLOUD_BOTTOM)/(CLOUD_TOP-CLOUD_BOTTOM);
+ // Advection plus wind shear: upper cloud layers move differently.
+ vec2 wind=vec2(uTime*(.25+.18*h),uTime*(.11+.09*h));
+ vec2 pos=(p.xz-wind)/240.;
+ // Weather maps use two differently scaled fields. Their changing blend
+ // causes cloud banks to form, split, merge and dissipate as time advances.
+ float w1=texture(uNoise,vec3(pos*.84+.19,.35)).r;
+ float w2=texture(uNoise,vec3(pos*1.71+.43,.69)).g;
+ float w3=texture(uNoise,vec3(pos*.51+vec2(.21,-.15)+uTime*vec2(-.0014,.0008),.53)).b;
+ float life=.5+.5*sin(uTime*.042+pos.x*9.5-pos.y*7.3+w3*4.0);
+ float weather=mix(mix(w1,w2,.36),w3,.22+life*.25);
+ // Coverage is a map occupancy control, not just the cloud opacity.
+ float mask=smoothstep(.93-cover*.91-.12,.93-cover*.91+.12,weather);
+ float overcast=smoothstep(.80,1.0,cover);
+ mask=mix(mask,1.,overcast);
+ if(mask<=.002)return 0.;
+ // Distinct local profiles: some formations are squat/flat, others tall.
+ float shape=clamp(.62*w1+.38*w2,0.,1.);
+ float tower=smoothstep(.30,.74,shape);
+ float localTop=mix(.32,.88,tower);
+ float flatTop=mix(.31,.58,w3);
+ float cumulus=heightBand(h,.015,localTop,.085);
+ float stratus=heightBand(h,.04,flatTop,.095);
+ float mixType=smoothstep(.31,.75,w2);
+ float profile=mix(stratus,cumulus,mixType);
+ // Under an overcast sky a continuous cloud deck still has uneven relief.
+ float deck=heightBand(h,.04,.62,.095);
+ profile=mix(profile,deck,overcast);
+ // Fine billows vary over time, not a frozen texture scrolling sideways.
+ vec3 uv=vec3(pos*.94+.5,h*.78+.12);
+ vec3 d1=vec3(uv.x,uv.z,uv.y);
+ float nA=texture(uNoise,d1*vec3(3.4,3.0,1.5)+vec3(.17,.23,.07)).b;
+ float nB=texture(uNoise,d1*vec3(6.2,5.1,2.7)+vec3(.41,.09,.39)+vec3(uTime*.002,-uTime*.001,0.)).g;
+ float edge=.68+.48*(nA-.5)+.22*(nB-.5);
+ float erosion=mix(smoothstep(.35,.78,edge),.78+.3*nA,overcast);
+ // Guaranteed substantial optical depth for full sky coverage.
+ return max(0.,profile*mask*(.78+.60*erosion));
+}
+float phaseHG(float c,float g){float g2=g*g;return (1.-g2)/pow(max(.075,1.+g2-2.*g*c),1.5);}
+vec3 sky(vec3 rd){
+  float h=max(0.,rd.y);
+  vec3 zenith=vec3(.069,.208,.48);
+  vec3 middle=vec3(.19,.43,.77);
+  vec3 horizon=vec3(.69,.79,.87);
+  float t=pow(1.-h,1.8);
+  vec3 s=mix(zenith,middle,t);
+  s=mix(s,horizon,exp(-h*10.)*.84);
+  float mu=max(dot(rd,sunDir),0.);
+  // Broad atmospheric aureole + intense, finite solar disc.
+  s+=vec3(.90,.72,.47)*.31*pow(mu,25.);
+  s+=vec3(1.,.91,.79)*.27*pow(mu,200.);
+  s+=vec3(2.4,2.15,1.7)*smoothstep(.99955,.99996,mu);
+  return s;
+}
+vec3 groundColor(vec3 p){
+  vec3 uv=vec3(p.x/204.8+.5,.26,p.z/204.8+.5);
+  float low=texture(uNoise,uv*vec3(1.,1.,1.)).b;
+  float high=texture(uNoise,uv*vec3(6.,1.,6.)).b;
+  float mixGrass=smoothstep(.33,.68,low*.65+high*.35);
+  vec3 grass=mix(vec3(.32,.29,.19),vec3(.19,.33,.16),mixGrass);
+  grass*=mix(.83,1.12,high);
+  // Volumetric shadow: sunward ray crosses the same cloud density().
+  float optical=0.;
+  for(int i=0;i<11;i++){
+    float dist=3.3+float(i)*2.25;
+    vec3 testP=p+sunDir*dist;
+    optical+=density(testP)*2.25;
+  }
+  float direct=exp(-optical*.46);
+  return grass*(.46+.78*direct);
+}
+void main(){
+  vec2 xy=gl_FragCoord.xy/uRes*2.-1.;xy.x*=uRes.x/uRes.y;
+  float cp=cos(uPitch),sp=sin(uPitch),cy=cos(uYaw),sy=sin(uYaw);
+  vec3 forward=vec3(sy*cp,sp,cy*cp);
+  vec3 right=vec3(cy,0.,-sy);
+  vec3 up=vec3(-sy*sp,cp,-cy*sp);
+  vec3 rd=normalize(forward+uFov*(xy.x*right+xy.y*up));
+  vec3 ro=vec3(0.,2.18,13.);
+  float groundT=1.e6;
+  if(rd.y<-.00001)groundT=-ro.y/rd.y;
+  vec3 bg=sky(rd);
+  float overcastSky=smoothstep(.82,1.,uCloud);
+  if(rd.y>=0.)bg=mix(bg,vec3(.58,.62,.66),overcastSky*(.89+.11*exp(-max(rd.y,0.)*5.)));
+  if(groundT<260.){
+    vec3 gp=ro+rd*groundT;
+    float haze=1.-exp(-groundT*.008);
+    bg=mix(groundColor(gp),sky(vec3(rd.x,max(rd.y,0.),rd.z)),haze*.79);
+  }
+  float trans=1.; vec3 scatter=vec3(0.);
+  if(rd.y>.003&&uCloud>.002){
+    float start=max(0.,(CLOUD_BOTTOM-ro.y)/rd.y);
+    float end=min(min((CLOUD_TOP-ro.y)/rd.y,110.),groundT);
+    if(end>start){
+      float span=end-start;
+      float stepLen=span/56.;
+      float mu=dot(rd,sunDir);
+      float anisotropic=clamp(.67+.14*phaseHG(mu,.56),.7,1.65);
+      // Jitter to break banding; stable during static rendering and camera motion.
+      float jitter=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-.5;
+      for(int i=0;i<56;i++){
+        float t=start+(float(i)+.5+jitter*.75)*stepLen;
+        vec3 pos=ro+rd*t;
+        float d=density(pos);
+        if(d<.015)continue;
+        float shadow=0.;float firstSunSample=0.;
+        // Light march, progressively larger steps to catch deep self-shadowing.
+        for(int j=0;j<3;j++){
+          float dist=(float(j)+.6)*2.65;
+          float ds=density(pos+sunDir*dist);
+          if(j==0)firstSunSample=ds;
+          shadow+=ds*2.65;
+        }
+        float surface=clamp(.85+(d-firstSunSample)*.56,.65,1.23);
+        float light=exp(-shadow*.22)*surface;
+        float softAmbient=.63+.23*exp(-max(0.,pos.y-CLOUD_BOTTOM)*.08);
+        vec3 ambient=vec3(.43,.51,.61)*softAmbient;
+        vec3 sunlight=vec3(1.53,1.47,1.35)*light*(.65+.35*max(0.,sunDir.y));
+        // Forward Mie silverlining: sunlight scatters toward camera near silhouette.
+        float silver=pow(max(mu,0.),8.)*.58*light + pow(max(dot(rd,sunDir),0.),48.)*.16*surface;
+        vec3 cloudColor=ambient+sunlight*(anisotropic+silver);
+        float a=1.-exp(-d*stepLen*.93);
+        scatter+=trans*a*cloudColor;
+        trans*=1.-a;
+        if(trans<.009)break;
+      }
+    }
+  }
+  vec3 outCol=scatter+trans*bg;
+  // Filmic-ish exposure retaining blue sky and sunlit cloud highlight contrast.
+  outCol=outCol/(outCol+vec3(.62));
+  outCol=pow(max(outCol,vec3(0.)),vec3(.93));
+  fragColor=vec4(outCol,1.);
+}`;
+let rendererOK=false, program, uni={};
+if(gl){try{function compile(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+program=gl.createProgram();gl.attachShader(program,compile(gl.VERTEX_SHADER,vertex));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));
+for(const key of ['uRes','uTime','uCloud','uYaw','uPitch','uFov','uNoise'])uni[key]=gl.getUniformLocation(program,key);
+// Procedural 64³ multi-scale density field. All computation stays offline.
+const tex=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,tex);
+gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_R,gl.REPEAT);
+gl.useProgram(program);gl.uniform1i(uni.uNoise,0);gl.bindVertexArray(gl.createVertexArray());
+// Procedural tileable four-channel noise volume, generated once offline on the device.
+// Multiple independent scales break the previous repeated tower silhouettes.
+const N=64, data=new Uint8Array(N*N*N*4);
+function lattice(x,y,z,period,seed){
+  x=((x%period)+period)%period; y=((y%period)+period)%period; z=((z%period)+period)%period;
+  let h=Math.imul(x+seed,73856093)^Math.imul(y+seed*7,19349663)^Math.imul(z+seed*13,83492791);
+  h=Math.imul(h^(h>>>15),2246822519);h=Math.imul(h^(h>>>13),3266489917);
+  return (h>>>0)/4294967295;
+}
+function noise(x,y,z,period,seed){
+  x*=period;y*=period;z*=period;
+  const ix=Math.floor(x),iy=Math.floor(y),iz=Math.floor(z);
+  let fx=x-ix,fy=y-iy,fz=z-iz;
+  fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);fz=fz*fz*(3-2*fz);
+  const a=(x,y,z)=>lattice(x,y,z,period,seed);
+  const m=(a,b,t)=>a+(b-a)*t;
+  return m(m(m(a(ix,iy,iz),a(ix+1,iy,iz),fx),m(a(ix,iy+1,iz),a(ix+1,iy+1,iz),fx),fy),
+       m(m(a(ix,iy,iz+1),a(ix+1,iy,iz+1),fx),m(a(ix,iy+1,iz+1),a(ix+1,iy+1,iz+1),fx),fy),fz);
+}
+for(let z=0;z<N;z++)for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+ const a=x/N,b=y/N,c=z/N,i=((z*N+y)*N+x)*4;
+ const r=.54*noise(a,b,c,4,17)+.30*noise(a,b,c,8,17)+.16*noise(a,b,c,16,17);
+ const g=.53*noise(a,b,c,5,29)+.30*noise(a,b,c,10,29)+.17*noise(a,b,c,20,29);
+ const bl=.54*noise(a,b,c,11,43)+.46*noise(a,b,c,22,43);
+ const w=.53*noise(a,b,c,13,67)+.47*noise(a,b,c,26,67);
+ data[i]=Math.round(r*255);data[i+1]=Math.round(g*255);
+ data[i+2]=Math.round(bl*255);data[i+3]=Math.round(w*255);
+}
+gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,tex);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA8,N,N,N,0,gl.RGBA,gl.UNSIGNED_BYTE,data);
+rendererOK=true;forceDraw=true;
+
+}catch(e){console.error(e);$('#fps').textContent='Ошибка шейдера';}}
+else{$('#fps').textContent='WebGL2 недоступен';}
+let lastTime=performance.now(),frames=0,lastFps=performance.now(),renderScale=.86;
+function render(now){requestAnimationFrame(render);if(lastCloudFrame===0)lastCloudFrame=now;const dt=Math.min(.08,Math.max(0,(now-lastCloudFrame)*.001));lastCloudFrame=now;if(motionOn&&!benchActive)motionTime+=dt; if(!rendererOK||(benchActive&&!forceDraw))return;forceDraw=false;
+const w=Math.max(200,Math.min(940,Math.round(glCanvas.clientWidth*Math.min(devicePixelRatio||1,1)*renderScale)));
+const h=Math.max(120,Math.round(w/(glCanvas.clientWidth/glCanvas.clientHeight)));
+if(glCanvas.width!==w||glCanvas.height!==h){glCanvas.width=w;glCanvas.height=h;gl.viewport(0,0,w,h);}
+gl.useProgram(program);gl.uniform2f(uni.uRes,w,h);gl.uniform1f(uni.uCloud,cloudiness/100);gl.uniform1f(uni.uTime,motionTime);gl.uniform1f(uni.uYaw,camera.yaw);gl.uniform1f(uni.uPitch,camera.pitch);gl.uniform1f(uni.uFov,camera.fov);
+gl.drawArrays(gl.TRIANGLES,0,3);frames++;if(now-lastFps>1100){drawFPS=Math.round(frames*1000/(now-lastFps));if(drawFPS<18)renderScale=Math.max(.40,renderScale*.86);else if(drawFPS>44)renderScale=Math.min(.90,renderScale*1.035);$('#fps').textContent=drawFPS+' FPS';frames=0;lastFps=now;}lastTime=now;}
+requestAnimationFrame(render);
+function selectLang(lang){active=lang;$('#sceneName').textContent=names[lang].toUpperCase()+' · '+cloudiness+'%';}
+$('#cloudRange').addEventListener('input',e=>{cloudiness=+e.target.value;$('#cloudValue').textContent=cloudiness+'%';selectLang(active);});
+// Pointer Events: one-finger/left-mouse look, two-finger pinch field of view, wheel zoom.
+function pinchDistance(){const pts=[...pointers.values()];return pts.length>=2?Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y):null;}
+glCanvas.addEventListener('pointerdown',e=>{e.preventDefault();glCanvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});previousPinch=pinchDistance();});
+glCanvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;e.preventDefault();const prev=pointers.get(e.pointerId);
+ if(pointers.size===1){const sensitivity=.0041;camera.yaw+=(e.clientX-prev.x)*sensitivity;camera.pitch=Math.max(-1.35,Math.min(1.35,camera.pitch-(e.clientY-prev.y)*sensitivity));}
+ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size>=2){let d=pinchDistance();if(previousPinch&&d>0)camera.fov=Math.max(.32,Math.min(1.12,camera.fov*previousPinch/d));previousPinch=d;}
+});
+function pointerExit(e){pointers.delete(e.pointerId);previousPinch=pinchDistance();}
+glCanvas.addEventListener('pointerup',pointerExit);glCanvas.addEventListener('pointercancel',pointerExit);glCanvas.addEventListener('lostpointercapture',pointerExit);
+glCanvas.addEventListener('wheel',e=>{e.preventDefault();camera.fov=Math.max(.32,Math.min(1.12,camera.fov*Math.exp(e.deltaY*.001)));},{passive:false});
+$('#resetCam').onclick=()=>{camera.yaw=0;camera.pitch=.24;camera.fov=.68;};
+$('#toggleMotion').onclick=()=>{if(benchActive)return;motionOn=!motionOn;$('#toggleMotion').setAttribute('aria-pressed',String(motionOn));$('#motionText').textContent=motionOn?'⏸ Динамика':'▶ Динамика';};
+document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{duration=+b.dataset.time;document.querySelectorAll('[data-time]').forEach(x=>x.classList.toggle('active',x===b));});
+function fmt(value,digits=1){return value==null||!Number.isFinite(value)?'—':Number(value).toFixed(digits);}
+const specs=[['batch','Батчи/сек','батч/с',v=>fmt(v,1)],['ms','Время одного батча','мс',v=>fmt(v,2)],['cpu','Нагрузка CPU','%',v=>fmt(v,1)],['mem','Пиковая память','МБ',v=>fmt(v,1)],['samples','Выборки плотности/сек','млн/с',v=>fmt(v,2)]];
+function buildCharts(){const parent=$('#charts');parent.innerHTML='';for(const [key,title,unit,formatter]of specs){const block=document.createElement('div');block.className='metric';block.innerHTML='<h3>'+title+' · '+unit+'</h3>';for(const lang of ['goose','rust','cpp'])block.insertAdjacentHTML('beforeend',`<div class="barrow"><span class="barlabel">${names[lang]}</span><div class="bartrack"><div class="bar" data-bar="${key}:${lang}" style="--accent:${colors[lang]}"></div></div><span class="barnum" data-num="${key}:${lang}">—</span></div>`);parent.appendChild(block);}}
+function updateResults(){for(const [key,title,unit,formatter] of specs){let max=Math.max(0,...Object.values(results).filter(x=>x.ok&&x[key]!=null).map(x=>x[key]));for(const lang of ['goose','rust','cpp']){let v=results[lang]?.ok?results[lang][key]:null;const bar=document.querySelector(`[data-bar="${key}:${lang}"]`),num=document.querySelector(`[data-num="${key}:${lang}"]`);bar.parentElement.parentElement.style.display=v==null?'none':'';bar.style.width=v==null?'0%':Math.max(2,v/Math.max(max,.000001)*100)+'%';num.textContent=formatter(v);}}
+$('#resultBody').innerHTML=['goose','rust','cpp'].filter(lang=>results[lang]?.ok).map(lang=>{const r=results[lang];const check=r?.ok?(r.engine?.startsWith('native')?(r.validity===true?'✓':r.validity===false?'<span class="warning">≠</span>':'—'):'—'):(r?.error?'—':'·');return `<tr><td style="color:${colors[lang]}">${names[lang]}</td><td>${r?r.cloud+'%':'—'}</td><td>${fmt(r?.batch)}</td><td>${fmt(r?.ms,2)}</td><td>${fmt(r?.cpu)}%</td><td>${fmt(r?.mem)} МБ</td><td>${check}</td></tr>`;}).join('');updateVerdict();}
+buildCharts();updateResults();
+function availableMeasurements(){return ['goose','rust','cpp'].map(k=>({k,r:results[k]})).filter(x=>x.r?.ok&&Number.isFinite(x.r.batch)&&x.r.batch>0);}
+function verdictData(){
+ const ready=availableMeasurements();
+ if(ready.length!==3||ready.some(x=>x.r.validity!==true))return null;
+ const best=Math.max(...ready.map(x=>x.r.batch));
+ const ranking=ready.map(x=>({...x,score:10*x.r.batch/best})).sort((a,b)=>b.r.batch-a.r.batch);
+ return {ranking,winner:ranking[0],gap:(ranking[0].r.batch/ranking[1].r.batch-1)*100};
+}
+function reportText(){
+ const rows=availableMeasurements();if(!rows.length)return '';
+ const lines=['CloudLab — отчёт о сравнении нативных CPU-ядер',
+   'Дата: '+new Date().toLocaleString('ru-RU'),
+   'Облачность: '+(rows[0].r.cloud??cloudiness)+'%',
+   'Длительность на язык: '+duration+' сек',
+   'Одинаковая тестовая задача: 80×45 лучей, 22 шага, 2 выборки плотности/шаг',
+   'GPU-сцена не участвует в замерах CPU-ядер',''];
+ for(const {k,r} of rows){
+   const parts=[names[k], 'скорость '+fmt(r.batch,1)+' батч/с','время '+fmt(r.ms,3)+' мс/батч'];
+   if(Number.isFinite(r.cpu))parts.push('CPU '+fmt(r.cpu,1)+'%');
+   if(Number.isFinite(r.mem))parts.push('память '+fmt(r.mem,1)+' МБ');
+   if(r.validity===true)parts.push('контроль: пройден');
+   lines.push(parts.join(' · '));
+ }
+ const v=verdictData();if(v){lines.push('','Рейтинг скорости (лучшее=10/10):');
+   for(const x of v.ranking)lines.push(names[x.k]+': '+fmt(x.score,1)+'/10');
+   lines.push('Вердикт: '+names[v.winner.k]+' — самый быстрый в этом тесте, на '+fmt(v.gap,1)+'% быстрее второго места.');
+ }else lines.push('Итоговый вердикт отсутствует: не все три проверенных результата получены.');
+ lines.push('Оценки относятся только к измеренной скорости данного CPU-теста, не к графическому рендерингу.');
+ return lines.join('\n');
+}
+function updateVerdict(){
+ const ready=availableMeasurements();
+ $('#copyReport').style.display=ready.length?'':'none';$('#csv').style.display=ready.length?'':'none';
+ $('#charts').style.display=ready.length?'':'none';
+ $('.summary').style.display=ready.length?'':'none';
+ const box=$('#verdict'),v=verdictData();box.style.display=v?'':'none';
+ if(v){box.innerHTML='<h3 style="margin:0 0 10px">Итоговый рейтинг скорости</h3>'+v.ranking.map(x=>
+   '<div class="barrow" style="grid-template-columns:52px 1fr 75px"><span>'+names[x.k]+'</span><div class="bartrack"><div class="bar" style="width:'+fmt(x.score*10,1)+'%;background:'+colors[x.k]+'"></div></div><b>'+fmt(x.score,1)+'/10</b></div>').join('')+
+   '<p><b>Вердикт: '+names[v.winner.k]+'</b> — самый быстрый на данном CPU-тесте (+'+fmt(v.gap,1)+'% ко второму месту).</p><small class="quiet">Оценка относительная: 10/10 получает самый быстрый из трёх. 3D-графика отдельно не сравнивается.</small>';
+ }
+}
+$('#copyReport').onclick=async()=>{const report=reportText();if(!report)return;
+ try{if(window.CloudLabNative?.copyReport){window.CloudLabNative.copyReport(report);}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(report);}else{const e=document.createElement('textarea');e.value=report;e.style.position='fixed';e.style.opacity='0';document.body.appendChild(e);e.select();if(!document.execCommand('copy'))throw Error('clipboard');e.remove();}
+ $('#copyReport').textContent='✓ Отчёт скопирован';
+ }catch(err){$('#copyReport').textContent='Не удалось скопировать';console.warn(err);}
+};
+// Embedded C++ WebAssembly core: stand-alone content:// and file:// have no server.
+const wasmB64='AGFzbQEAAAABBgFgAXwBfAMCAQAFAwEAAgYIAX8BQYCIBAsHEgIGbWVtb3J5AgAFYmF0Y2gAAAraDgHXDg8BfwR8AX8DfAF/AnwBfgF8AX4CfAN+AXwFfgF8An9BACEBRAAAAAAAAPA/IAChmkQpXI/C9SjkP6IhAkQAAAAAAAAAACEDA0AgAUFqardEZmZmZmZmtj+iIQREAAAAAAAAAAAhBUEAIQYDQCAFRAAAAAAAwEPAoEQAAAAAAACwP6IhB0QAAAAAAAAAACEIRAAAAAAAAPA/IQlBFiEKA0ACQAJAIAhE16NwPQrX0z+iIgtEw/UoXI/CxT+iIAegIgxEAAAAAAAATkCgRArXo3A9Cuc/oiIAmUQAAAAAAADgQ2NFDQAgALAhDQwBC0KAgICAgICAgIB/IQ0LRAAAAAAAAAhAIAAgDbmhIgAgAKChIQ4gACAAoiEAIA1C/wB+IQ8CQAJAIAtEAAAAAAAA0D+iRAAAAAAAAAhAoCIQRAAAAAAAAE5AoEQK16NwPQrnP6IiEZlEAAAAAAAA4ENjRQ0AIBGwIRIMAQtCgICAgICAgICAfyESCyAAIA6iIQAgEkK3An4iEyAPfCEUAkACQCALRIXrUbgeheM/oiAEoCIVRAAAAAAAAE5AoEQK16NwPQrnP6IiDplEAAAAAAAA4ENjRQ0AIA6wIRYMAQtCgICAgICAgICAfyEWC0QAAAAAAAAAACACIBNCtwJ8IhcgD0L/AHwiGHwiGSAWQs8FfiINQs8FfCIafEL9B4G5RAAAAAAA6I9AoyAXIA98Ig8gGnxC/QeBuUQAAAAAAOiPQKMiC6EgAKIgC6AgGCATfCITIBp8Qv0HgblEAAAAAADoj0CjIBogFHxC/QeBuUQAAAAAAOiPQKMiC6EgAKIgC6AiG6EgESASuaEiCyALokQAAAAAAAAIQCALIAugoaIiC6IgG6AgGSANfEL9B4G5RAAAAAAA6I9AoyAPIA18Qv0HgblEAAAAAADoj0CjIhGhIACiIBGgIBMgDXxC/QeBuUQAAAAAAOiPQKMgFCANfCINQv0HgblEAAAAAADoj0CjIhGhIACiIBGgIgChIAuiIACgIguhIA4gFrmhIgAgAKJEAAAAAAAACEAgACAAoKGioiALoESkcD0K16PoP6IgDUKxO3xC/QeBuUQAAAAAAOiPQKNEcT0K16NwzT+ioKBE7FG4HoXr0b+gRDMzMzMzMwNAoiIAIABEAAAAAAAAAABjGyILRAAAAAAAAPA/ZCEcRAAAAAAAAPA/IBBEAAAAAAAAFsCgRGZmZmZmZgZAoyIAIACioSIRRAAAAAAAAAAAYyEdAkACQCAMRFK4HoXrUdg/oEQAAAAAAABOQKBECtejcD0K5z+iIgCZRAAAAAAAAOBDY0UNACAAsCENDAELQoCAgICAgICAgH8hDQtEAAAAAAAA8D8gCyAcGyEORAAAAAAAAAAAIBEgHRshEUQAAAAAAAAIQCAAIA25oSIAIACgoSEMIAAgAKIhACANQv8AfiEPAkACQCAQRArXo3A9Cuc/oCIbRAAAAAAAAE5AoEQK16NwPQrnP6IiC5lEAAAAAAAA4ENjRQ0AIAuwIRIMAQtCgICAgICAgICAfyESCyARIA6iIREgACAMoiEAIBJCtwJ+IhMgD3whFAJAAkAgFUR7FK5H4XrEP6BEAAAAAAAATkCgRArXo3A9Cuc/oiIQmUQAAAAAAADgQ2NFDQAgELAhFgwBC0KAgICAgICAgIB/IRYLIAlEAAAAAAAA8D8gEUQAAAAAAAAAAEQAAAAAAADwPyAbRAAAAAAAABbAoERmZmZmZmYGQKMiDiAOoqEiDiAORAAAAAAAAAAAYxtEAAAAAAAA8D9EAAAAAAAAAAAgAiATQrcCfCIXIA9C/wB8Ihh8IhkgFkLPBX4iDULPBXwiGnxC/QeBuUQAAAAAAOiPQKMgFyAPfCIPIBp8Qv0HgblEAAAAAADoj0CjIg6hIACiIA6gIBggE3wiEyAafEL9B4G5RAAAAAAA6I9AoyAaIBR8Qv0HgblEAAAAAADoj0CjIg6hIACiIA6gIg6hIAsgErmhIgsgC6JEAAAAAAAACEAgCyALoKGiIguiIA6gIBkgDXxC/QeBuUQAAAAAAOiPQKMgDyANfEL9B4G5RAAAAAAA6I9AoyIOoSAAoiAOoCATIA18Qv0HgblEAAAAAADoj0CjIBQgDXwiDUL9B4G5RAAAAAAA6I9AoyIOoSAAoiAOoCIAoSALoiAAoCILoSAQIBa5oSIAIACiRAAAAAAAAAhAIAAgAKChoqIgC6BEpHA9Ctej6D+iIA1CsTt8Qv0HgblEAAAAAADoj0CjRHE9CtejcM0/oqCgROxRuB6F69G/oEQzMzMzMzMDQKIiACAARAAAAAAAAAAAYxsiACAARAAAAAAAAPA/ZBuioESamZmZmZmZP6JEAAAAAAAA8D+go6IhCSAIRAAAAAAAAPA/oCEIIApBf2oiCg0ACyAFRAAAAAAAAPA/oCEFIANEAAAAAAAA8D8gCaGgIQMgBkEBaiIGQdAARw0ACyABQQFqIgFBLUcNAAsgAwsANARuYW1lAA8OY2xvdWRfY3BwLndhc20BCAEABWJhdGNoBxIBAA9fX3N0YWNrX3BvaW50ZXIAfwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQEFY2xhbmdfMTcuMC4wIChodHRwczovL2dpdGh1Yi5jb20vc3dpZnRsYW5nL2xsdm0tcHJvamVjdC5naXQgMTA5OTliNmQwMzRmZTMxOGYzZDU2YzgzYmRkYjY1NzI1OTNhOGJiMCkASQ90YXJnZXRfZmVhdHVyZXMEKwptdWx0aXZhbHVlKw9tdXRhYmxlLWdsb2JhbHMrD3JlZmVyZW5jZS10eXBlcysIc2lnbi1leHQ=';
+async function loadOffline(){
+  try{
+    if(!wasmBatch){const bytes=Uint8Array.from(atob(wasmB64),c=>c.charCodeAt(0));const mod=await WebAssembly.instantiate(bytes);wasmBatch=mod.instance.exports.batch; if(typeof wasmBatch!=="function" || Math.abs(wasmBatch(.55)-137.671781888909)>1e-6) throw Error('WASM: контроль не пройден');}
+    offlineMode=true;selectLang('cpp');
+    $('#start').disabled=false;
+    $('#modeLabel').textContent='C++ · локальный тест';
+    $('#connection').textContent='C++ WebAssembly';
+    $('#note').textContent='Goose и Rust: только после сборки и проверки на сервере. Здесь измеряется C++.';
+  }catch(e){console.error(e);$('#start').disabled=true;$('#connection').textContent='Только визуализация';$('#modeLabel').textContent='Тест недоступен';$('#note').textContent='Не удалось загрузить C++ WebAssembly.';}
+}
+const androidNative=!!(window.CloudLabNative&&typeof window.CloudLabNative.start==='function');
+function runAndroidBench(cover,seconds){return new Promise((resolve,reject)=>{
+ let validated=false;
+ window.CloudLabNativeEvent=(e)=>{
+  if(e.kind==='validating'){$('#progress').classList.add('show');$('#progressText').textContent='Проверка совпадения трёх ядер';}
+  if(e.kind==='validated'){validated=true;}
+  if(e.kind==='start'){progress(['goose','rust','cpp'][e.index],0,e.index);}
+  if(e.kind==='progress'){progress(['goose','rust','cpp'][e.index],e.elapsed,e.index);}
+  if(e.kind==='result'){
+   const k=['goose','rust','cpp'][e.index];
+   results[k]={ok:true,engine:'Android JNI',cloud:e.cloud, batch:e.batchesPerSec,ms:e.msPerBatch,
+     cpu:Number.isFinite(e.cpuPercent)?e.cpuPercent:null, mem:null,
+     samples:Number.isFinite(e.samplesMPerSec)?e.samplesMPerSec:null,
+     checksum:e.checksum,validity:validated};
+   updateResults();
+  }
+  if(e.kind==='done')resolve();
+  if(e.kind==='error')reject(Error(e.message||'Ошибка теста'));
+ };
+ try{window.CloudLabNative.start(cover,seconds);}catch(e){reject(e);}
+});}
+async function getStatus(){
+  if(androidNative){
+    const ok=window.CloudLabNative.available();
+    nativeReady={goose:ok,rust:ok,cpp:ok};offlineMode=false;
+    $('#start').disabled=!ok;
+    $('#connection').textContent=ok?'Android · 3 нативных ядра':'Ошибка библиотек';
+    $('#modeLabel').textContent=ok?'Goose · Rust · C++':'Бенчмарк недоступен';
+    $('#note').textContent=ok?'Реальные измерения трёх независимых нативных CPU-ядер.':'Не удалось загрузить нативные библиотеки.';
+    return;
+  }
+  const note=$('#note');
+  if(location.protocol==='file:' || location.protocol==='content:'){await loadOffline();return;}
+  try{
+    const res=await fetch('/api/status',{cache:'no-store',signal:AbortSignal.timeout(3000)});
+    if(!res.ok)throw new Error('Нет API');
+    const data=await res.json();
+    nativeReady=data.ready||{};
+    serverAvailable=true;
+    const isReady=['goose','rust','cpp'].every(k=>nativeReady[k]);
+    if(!isReady){await loadOffline();return;}
+    offlineMode=false;selectLang('goose');$('#start').disabled=false;
+    $('#modeLabel').textContent=isReady?'✓ Все 3 ядра собраны':'Не все ядра готовы';
+    $('#connection').textContent=isReady?'3 языка · проверены':'Сборка не завершена';
+    note.textContent=isReady?
+      'Нативные отдельные процессы · GPU-сцена при тесте приостановлена.' :
+      'Сравнение заблокировано: '+Object.entries(data.details||{}).filter(([k])=>!nativeReady[k]).map(([k,v])=>names[k]+': '+v).join(' · ');
+  }catch(e){
+    await loadOffline();
+  }
+}
+async function runNative(lang,cover,seconds,onTick){
+  const response=await fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,cloud:cover,duration:seconds})});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Нельзя запустить');
+  for(;;){
+    await new Promise(r=>setTimeout(r,240));
+    const s=await (await fetch('/api/job?id='+encodeURIComponent(data.id),{cache:'no-store'})).json();
+    onTick(s.elapsed||0);
+    if(s.done){
+      if(s.error)throw Error(s.error);
+      return {ok:true,...s.result,cloud:Math.round(cover*100)};
+    }
+  }
+}
+async function runWasmCpp(cover,seconds,onTick){
+  if(!wasmBatch)throw Error('C++ WebAssembly не загружен');
+  // Compute-bound loop runs on the main thread, with periodic yields for responsive UI.
+  const start=performance.now(),limit=start+seconds*1000;
+  let last= start, count=0, checksum=0;
+  while(performance.now()<limit){
+    const sliceEnd=Math.min(limit,performance.now()+90);
+    do{checksum+=wasmBatch(cover);count++;}while(performance.now()<sliceEnd);
+    let now=performance.now();onTick((now-start)*.001);
+    await new Promise(r=>setTimeout(r,0));
+    last=now;
+  }
+  const ms=performance.now()-start;
+  const batch=count*1000/ms;
+  return {ok:true,engine:'C++ WebAssembly',cloud:Math.round(cover*100),batch,ms:ms/count,samples:batch*158400/1e6,cpu:null,mem:null,checksum:checksum/count,validity:null};
+}
+function progress(lang,elapsed,index,total=3){
+  $('#progress').classList.add('show');
+  $('#progressText').textContent=names[lang]+' · '+(index+1)+'/'+total;
+  $('#countdown').textContent=Math.max(0,Math.ceil(duration-elapsed))+' сек';
+  $('#fill').style.width=Math.min(100,((index+Math.min(elapsed/duration,1))/total)*100)+'%';
+}
+$('#start').disabled=true;
+getStatus();
+$('#start').onclick=async()=>{
+  if(benchActive || (!offlineMode && !['goose','rust','cpp'].every(k=>nativeReady[k])))return;
+  benchActive=true;$('#start').disabled=true;$('#csv').disabled=true;$('#cloudRange').disabled=true;$('#toggleMotion').disabled=true;
+  const testCloud=cloudiness;
+  for(const name in results)delete results[name];
+  updateResults();
+  $('#resultTitle').textContent='Одинаковая облачность · '+testCloud+'%';
+  if(androidNative){
+    try{await runAndroidBench(testCloud,duration);
+      $('#progressText').textContent='Тест завершён';$('#countdown').textContent='3 / 3';$('#fill').style.width='100%';
+    }catch(e){$('#progressText').textContent='Ошибка: '+e.message;console.error(e);}
+    finally{benchActive=false;$('#start').disabled=false;$('#cloudRange').disabled=false;
+       $('#toggleMotion').disabled=false;updateResults();}
+    return;
+  }
+  const languages=offlineMode?['cpp']:['goose','rust','cpp'];
+  for(let i=0;i<languages.length;i++){
+    const lang=languages[i];
+    selectLang(lang);
+    progress(lang,0,i,languages.length);
+    forceDraw=true;
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    try{
+      results[lang]=offlineMode?await runWasmCpp(testCloud/100,duration,t=>progress(lang,t,i,languages.length)):await runNative(lang,testCloud/100,duration,t=>progress(lang,t,i,languages.length));
+    }catch(e){
+      results[lang]={ok:false,cloud:testCloud,error:e.message};
+      console.error(e);
+    }
+    updateResults();
+  }
+  for(const lang of ['goose','rust','cpp']){
+    const r=results[lang];
+    if(!r?.ok)continue;
+    const peers=Object.values(results).filter(p=>p!==r&&p.ok&&p.cloud===r.cloud);
+    r.validity=peers.length?peers.every(p=>Math.abs(p.checksum-r.checksum)<1e-6):null;
+  }
+  updateResults();
+  $('#fill').style.width='100%';
+  $('#progressText').textContent='Тест завершён';
+  $('#countdown').textContent=languages.length+' / '+languages.length;
+  benchActive=false;$('#csv').disabled=false;$('#cloudRange').disabled=false;$('#toggleMotion').disabled=false;frames=0;lastFps=performance.now();
+  await getStatus();
+};
+$('#csv').onclick=()=>{
+  const hdr='язык;движок;облачность %;батч/сек;мс/батч;CPU % одного ядра;RSS MiB;млн выборок/сек;контроль;совпадение;ошибка';
+  const lines=['goose','rust','cpp'].map(k=>{
+    const r=results[k]||{};
+    return [names[k],r.engine||'',r.cloud??'',r.batch??'',r.ms??'',r.cpu??'',r.mem??'',r.samples??'',r.checksum??'',r.validity??'',r.error??''].join(';');
+  });
+  const url=URL.createObjectURL(new Blob(['\ufeff'+[hdr,...lines].join('\n')],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='cloudlab_native_benchmark.csv';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+</script></body></html>
