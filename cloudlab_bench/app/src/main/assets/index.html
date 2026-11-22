@@ -299,7 +299,7 @@ function reportText(){
 }
 function updateVerdict(){
  const ready=availableMeasurements();
- $('#copyReport').style.display=ready.length?'':'none';$('#csv').style.display=ready.length?'':'none';
+ $('#copyReport').style.display=ready.length?'':'none';$('#csv').style.display=ready.length&&!androidNative?'':'none';
  $('#charts').style.display=ready.length?'':'none';
  $('.summary').style.display=ready.length?'':'none';
  const box=$('#verdict'),v=verdictData();box.style.display=v?'':'none';
