@@ -21,7 +21,7 @@ const names={goose:'Goose',rust:'Rust',cpp:'C++'}, colors={goose:'#56d7f4',rust:
 let cloudiness=55,lastTestDuration=15;const results={};
 let active='goose', duration=15, benchActive=false, forceDraw=false, nativeReady={}, serverAvailable=false, drawFPS=0;
 let motionOn=true, motionTime=0, lastCloudFrame=0, offlineMode=false, wasmBatch=null;
-const camera={yaw:0,pitch:.24,fov:.68};const pointers=new Map();let previousPinch=null;
+const camera={yaw:0,pitch:.09,fov:.68};const pointers=new Map();let previousPinch=null;
 const $=q=>document.querySelector(q);
 const glCanvas=$('#world'), gl=glCanvas.getContext('webgl2',{alpha:false,antialias:false,depth:false,powerPreference:'high-performance'});
 const vertex=`#version 300 es
@@ -39,8 +39,8 @@ uniform float uPitch;
 uniform float uFov;
 uniform sampler3D uNoise;
 out vec4 fragColor;
-const float CLOUD_BOTTOM=2.8;
-const float CLOUD_TOP=19.2;
+const float CLOUD_BOTTOM=3.8;
+const float CLOUD_TOP=17.5;
 const float PI=3.14159265359;
 const vec3 sunDir=vec3(.2694,.6184,.7384);
 
@@ -52,48 +52,48 @@ float heightBand(float h,float low,float high,float softness){
  return smoothstep(low,low+softness,h)*(1.-smoothstep(high-softness,high,h));
 }
 float density(vec3 p){
- if(p.y<CLOUD_BOTTOM||p.y>CLOUD_TOP||uCloud<=.0001)return 0.;
- float cover=clamp(uCloud,0.,1.);
- float h=(p.y-CLOUD_BOTTOM)/(CLOUD_TOP-CLOUD_BOTTOM);
- // Advection plus wind shear: upper cloud layers move differently.
- vec2 wind=vec2(uTime*(.25+.18*h),uTime*(.11+.09*h));
- vec2 pos=(p.xz-wind)/240.;
- // Weather maps use two differently scaled fields. Their changing blend
- // causes cloud banks to form, split, merge and dissipate as time advances.
- float w1=texture(uNoise,vec3(pos*.84+.19,.35)).r;
- float w2=texture(uNoise,vec3(pos*1.71+.43,.69)).g;
- float w3=texture(uNoise,vec3(pos*.51+vec2(.21,-.15)+uTime*vec2(-.0014,.0008),.53)).b;
- float life=.5+.5*sin(uTime*.042+pos.x*9.5-pos.y*7.3+w3*4.0);
- float weather=mix(mix(w1,w2,.36),w3,.22+life*.25);
- // Coverage is a map occupancy control, not just the cloud opacity.
- float mask=smoothstep(.93-cover*.91-.12,.93-cover*.91+.12,weather);
- float overcast=smoothstep(.80,1.0,cover);
- mask=mix(mask,1.,overcast);
- if(mask<=.002)return 0.;
- // Distinct local profiles: some formations are squat/flat, others tall.
- float shape=clamp(.62*w1+.38*w2,0.,1.);
- float tower=smoothstep(.30,.74,shape);
- float localTop=mix(.32,.88,tower);
- float flatTop=mix(.31,.58,w3);
- float cumulus=heightBand(h,.015,localTop,.085);
- float stratus=heightBand(h,.04,flatTop,.095);
- float mixType=smoothstep(.31,.75,w2);
- float profile=mix(stratus,cumulus,mixType);
- // Under an overcast sky a continuous cloud deck still has uneven relief.
- float deck=heightBand(h,.04,.62,.095);
- profile=mix(profile,deck,overcast);
- // Fine billows vary over time, not a frozen texture scrolling sideways.
- vec3 uv=vec3(pos*.94+.5,h*.78+.12);
- vec3 d1=vec3(uv.x,uv.z,uv.y);
- float nA=texture(uNoise,d1*vec3(3.4,3.0,1.5)+vec3(.17,.23,.07)).b;
- float nB=texture(uNoise,d1*vec3(6.2,5.1,2.7)+vec3(.41,.09,.39)+vec3(uTime*.002,-uTime*.001,0.)).g;
- float edge=.68+.48*(nA-.5)+.22*(nB-.5);
- float erosion=mix(smoothstep(.35,.78,edge),.78+.3*nA,overcast);
- // Thin high-altitude cirrus wisps form above the lower cumulus/stratus.
- float highNoise=texture(uNoise,vec3(pos*2.7+.19,h*3.7+.23)).a;
- float cirrus=heightBand(h,.80,.99,.055)*smoothstep(.55,.80,highNoise)*mask*.23*(1.-overcast);
- // Guaranteed substantial optical depth for full sky coverage.
- return max(0.,profile*mask*(.78+.60*erosion)+cirrus);
+  if(p.y<CLOUD_BOTTOM||p.y>CLOUD_TOP||uCloud<=.0001)return 0.;
+  float cover=clamp(uCloud,0.,1.);
+  float h=(p.y-CLOUD_BOTTOM)/(CLOUD_TOP-CLOUD_BOTTOM);
+  // Broad travelling weather systems, with shear and evolving humidity.
+  vec2 wind=vec2(uTime*(.23+.14*h),uTime*(.08+.055*h));
+  vec2 pos=(p.xz-wind)/92.;
+  vec2 warp=vec2(texture(uNoise,vec3(pos*.58+.25,.23)).b,
+                 texture(uNoise,vec3(pos*.65+.61,.74)).a);
+  pos+=(warp-.5)*.16;
+  float w1=texture(uNoise,vec3(pos*.76+.19,.35)).r;
+  float w2=texture(uNoise,vec3(pos*1.36+.43,.69)).g;
+  float w3=texture(uNoise,vec3(pos*.53+vec2(.21,-.15)+uTime*vec2(-.0016,.0007),.53)).b;
+  float life=.5+.5*sin(uTime*.043+pos.x*3.8-pos.y*4.9+w3*5.);
+  float humidity=mix(mix(w1,w2,.43),w3,.18+.20*life);
+  // Normalize weather texture contrast: 55% should NOT be an overcast grey wall.
+  float weather=clamp(.5+(humidity-.5)*4.1,0.,1.);
+  float threshold=1.06-.52*cover;
+  float mask=smoothstep(threshold-.07+h*.16,threshold+.07+h*.16,weather);
+  float overcast=smoothstep(.84,1.,cover);
+  mask=mix(mask,1.,overcast);
+  if(mask<.001)return 0.;
+  float tower=smoothstep(.33,.70,w1+.19*(w2-.5));
+  float localTop=mix(.18,.40,tower);
+  float cumulus=heightBand(h,.02,localTop,.08);
+  float stratus=heightBand(h,.025,mix(.18,.30,w3),.055);
+  float typeMix=smoothstep(.35,.71,w2);
+  float profile=mix(stratus,cumulus,typeMix);
+  // Multi-scale 3-D billows vary in space and morph as wind shears the layers.
+  vec3 uv=vec3(pos.x*1.63+.18,h*.97+.11,pos.y*1.53+.32);
+  float macro=texture(uNoise,uv*vec3(1.4,1.0,1.4)).r;
+  float lobe=texture(uNoise,uv*vec3(3.4,2.8,3.2)).g;
+  float detail=texture(uNoise,uv*vec3(6.7,5.1,6.3)+vec3(uTime*.002,-uTime*.0013,0.)).b;
+  float billow=.50*macro+.34*lobe+.16*detail;
+  float shape=smoothstep(.39,.58,billow+.18*(detail-.5));
+  float formed=profile*mask*shape*1.38;
+  // Every point is cloudy at full coverage, but cloud-base relief still varies.
+  float deck=heightBand(h,.025,.53,.075);
+  float blanket=deck*(.42+.83*shape)*(.87+.33*detail);
+  float base=mix(formed,blanket,overcast);
+  float highNoise=texture(uNoise,vec3(pos*3.0+.19,h*3.9+.23)).a;
+  float cirrus=heightBand(h,.79,.99,.045)*smoothstep(.52,.81,highNoise)*mask*.20*(1.-overcast);
+  return max(0.,base+cirrus);
 }
 float phaseHG(float c,float g){float g2=g*g;return (1.-g2)/pow(max(.075,1.+g2-2.*g*c),1.5);}
 vec3 sky(vec3 rd){
@@ -258,7 +258,7 @@ glCanvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return
 function pointerExit(e){pointers.delete(e.pointerId);previousPinch=pinchDistance();}
 glCanvas.addEventListener('pointerup',pointerExit);glCanvas.addEventListener('pointercancel',pointerExit);glCanvas.addEventListener('lostpointercapture',pointerExit);
 glCanvas.addEventListener('wheel',e=>{e.preventDefault();camera.fov=Math.max(.32,Math.min(1.12,camera.fov*Math.exp(e.deltaY*.001)));},{passive:false});
-$('#resetCam').onclick=()=>{camera.yaw=0;camera.pitch=.24;camera.fov=.68;};
+$('#resetCam').onclick=()=>{camera.yaw=0;camera.pitch=.09;camera.fov=.68;};
 $('#toggleMotion').onclick=()=>{if(benchActive)return;motionOn=!motionOn;$('#toggleMotion').setAttribute('aria-pressed',String(motionOn));$('#motionText').textContent=motionOn?'⏸ Динамика':'▶ Динамика';};
 document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{duration=+b.dataset.time;document.querySelectorAll('[data-time]').forEach(x=>x.classList.toggle('active',x===b));});
 function fmt(value,digits=1){return value==null||!Number.isFinite(value)?'—':Number(value).toFixed(digits);}
