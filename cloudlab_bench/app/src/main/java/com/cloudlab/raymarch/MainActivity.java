@@ -1,6 +1,9 @@
 package com.cloudlab.raymarch;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Debug;
 import android.webkit.JavascriptInterface;
@@ -112,6 +115,17 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void start(double cloudPercent,int seconds){
             if(!running.compareAndSet(false,true))return;
             executor.execute(()->runBenchmark(cloudPercent,seconds));
+        }
+        @JavascriptInterface public boolean copyReport(String report) {
+            if (report == null || report.isEmpty()) return false;
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard == null) return false;
+                clipboard.setPrimaryClip(ClipData.newPlainText("CloudLab report", report));
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
         }
         @JavascriptInterface public boolean available(){return libsOk;}
         @JavascriptInterface public String version(){return "CloudLab 3Lang JNI v1";}
