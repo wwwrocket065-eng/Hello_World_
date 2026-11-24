@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-  <path android:fillColor="#FF000000" android:pathData="M0,0H108V108H0Z"/>
-  <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M88.35,35.96L85.75,35.96 L85.75,68.29 L84.02,70.31 L83.15,70.6 L74.78,70.88 L70.45,71.75 L66.99,72.9 L62.66,74.92 L59.48,76.95 L57.46,78.68 L57.75,79.25 L62.95,76.95 L71.32,74.92 L82,74.64 L82.28,74.92 L88.35,75.5 L89.21,74.64 L89.21,36.83Z M19.37,36.25L18.5,37.4 L18.5,74.35 L19.37,75.5 L21.96,75.5 L28.02,74.64 L35.53,74.92 L42.74,76.37 L50.25,79.25 L50.54,78.68 L45.63,75.21 L40.72,72.9 L34.37,71.17 L24.85,70.88 L22.54,69.15 L22.25,68.58 L22.25,36.25 L21.96,35.96 L21.67,36.25Z M26,29.03L25.43,29.9 L25.43,66.27 L25.72,66.84 L26.58,67.42 L34.66,67.71 L41.88,69.73 L47.65,72.62 L52.27,76.08 L52.56,75.79 L52.27,75.5 L52.27,37.98 L47.65,33.94 L41.3,30.77 L32.64,28.75 L26.58,28.75Z M81.71,28.75L80.84,28.46 L74.2,28.75 L69.87,29.61 L65.54,31.05 L59.2,34.52 L55.73,37.69 L55.44,38.27 L55.44,76.08 L60.06,72.62 L67.28,69.15 L72.47,67.71 L76.51,67.13 L81.42,67.13 L82.28,66.55 L82.28,29.61Z"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+ android:width="108dp" android:height="108dp"
+ android:viewportWidth="24" android:viewportHeight="24">
+ <path android:fillColor="#FF000000" android:pathData="M0,0H24V24H0Z"/>
+ <path android:fillColor="#FFFFFFFF" android:pathData="M3.5,4.55c3.1,-0.1 6.25,0.8 8.5,2.6v11.4c-2.25,-1.8 -5.4,-2.7 -8.5,-2.6Z"/>
+ <path android:fillColor="#FFFFFFFF" android:pathData="M20.5,4.55c-3.1,-0.1 -6.25,0.8 -8.5,2.6v11.4c2.25,-1.8 5.4,-2.7 8.5,-2.6Z"/>
+ <path android:fillColor="@android:color/transparent" android:strokeColor="#FFFFFFFF"
+  android:strokeWidth="1.25" android:strokeLineCap="round" android:strokeLineJoin="round"
+  android:pathData="M1.8,7v11.15c4.05,-0.62 7.35,0.1 10.2,2.12 2.85,-2.02 6.15,-2.74 10.2,-2.12V7"/>
 </vector>
