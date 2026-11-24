@@ -183,7 +183,7 @@ root.append($el("p","foot","Закрытый ключ не покидает те
 }
 function nav(){let n=document.getElementById("nav");n.innerHTML="";[["home","Главная","home"],["articles","Разделы","book"],["favorites","Избранное","star"],["settings","Профиль","user"]].forEach(([type,name,ic])=>{let b=$el("button",route.type===type?"active":"");b.innerHTML=icon(ic)+'<span>'+name+'</span>';b.onclick=()=>{stack=[];route={type};render();};n.append(b);});}
 function render(){clear();switch(route.type){case"home":home();break;case"articles":articlesView();break;case"section":secView();break;case"chapter":chapterView();break;case"article":articleView();break;case"graphs":graphView();break;case"3d":model3d();break;case"favorites":favView();break;case"settings":settings();break;default:home();}nav();}
-function saveFavorites(){try{if(window.Journal)Journal.favorites(JSON.stringify(favorites));else localStorage.setItem("favorites",JSON.stringify(favorites));}catch(e){}}
+function saveFavorites(){try{if(window.Journal)Journal.setFavorites(JSON.stringify(favorites));else localStorage.setItem("favorites",JSON.stringify(favorites));}catch(e){}}
 window.onNativeStatus=function(s){lastStatus=s;if(route.type==="settings")render();};
 window.reloadJournal=function(){try{data=JSON.parse(Journal.data());if(data.schema!==1||!Array.isArray(data.sections))throw Error();route={type:"home"};stack=[];render();}catch(e){}};
 function init(){try{if(window.Journal){data=JSON.parse(Journal.data());favorites=JSON.parse(Journal.favorites());lastStatus=Journal.status();}else{favorites=JSON.parse(localStorage.getItem("favorites")||"[]");}}catch(e){data=def;}render();}
