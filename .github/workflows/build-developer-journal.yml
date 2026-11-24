@@ -27,8 +27,17 @@ jobs:
         run: |
           cd developer-journal
           gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Align and validate APK ZIP before private signing
+        run: |
+          SRC=developer-journal/app/build/outputs/apk/release/app-release-unsigned.apk
+          DST=developer-journal/app/build/outputs/apk/release/app-release-unsigned-aligned.apk
+          ALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          test -n "$ALIGN"
+          "$ALIGN" -f 4 "$SRC" "$DST"
+          "$ALIGN" -c -v 4 "$DST"
+          python3 developer-journal/tools/verify_apk_alignment.py "$DST"
       - uses: actions/upload-artifact@v4
         with:
           name: JournalDeveloper-UNSIGNED-APK-PRIVATE-SIGNING-REQUIRED
-          path: developer-journal/app/build/outputs/apk/release/app-release-unsigned.apk
+          path: developer-journal/app/build/outputs/apk/release/app-release-unsigned-aligned.apk
           if-no-files-found: error
