@@ -23,6 +23,8 @@ jobs:
           gradle-version: '8.10.2'
       - name: Check protected journal UI
         run: python3 developer-journal/tools/check_contract.py
+      - name: Check inline JavaScript syntax
+        run: python3 developer-journal/tools/check_inline_js.py
       - name: Build unsigned APK (NOT installable)
         run: |
           cd developer-journal
