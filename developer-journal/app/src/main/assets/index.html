@@ -82,8 +82,37 @@ const icons={
  speaker:'<circle cx="8" cy="8" r="3"/><path d="M2.5 21c0-7 11-7 11 0M15 10q4 3 0 6M18 7q7 6 0 12"/>',
  reflection:'<circle cx="10" cy="10" r="6"/><path d="m14.5 14.5 6.5 6.5M10 6.5l.7 2.8 2.8.7-2.8.7L10 13.5l-.7-2.8-2.8-.7 2.8-.7L10 6.5Z"/>',
  guide:'<path d="M5 3.5h14v17l-7-4-7 4v-17Z"/><path d="M9 8h6M9 11h6"/>'
+
+ decoding:'<path d="M4 5h16v14H4zM7 9h10M7 13h6M7 16h9"/><path d="m15 12 3 2-3 2"/>',
+ continual:'<path d="M18 6a8 8 0 1 0 2 7M18 2v4h-4M6 18a8 8 0 0 0 12 0"/><path d="m10 11 2 2 4-4"/>',
+ consolidation:'<path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z"/><path d="m8 11 4 2 4-2"/>',
+ merging:'<path d="M3 4v5a4 4 0 0 0 4 4h10a4 4 0 0 1 4 4v3M21 4v5a4 4 0 0 1-4 4H7a4 4 0 0 0-4 4v3"/><path d="m17 18 4 4 3-4" transform="translate(-2 -1)"/>',
+ hybrid:'<circle cx="7" cy="12" r="4"/><rect x="13" y="8" width="8" height="8" rx="1"/><path d="M11 12h2M7 4v3M17 4v4M7 16v4M17 16v4"/>',
+ altweights:'<path d="M3 4h18v16H3zM7 8h10M7 12h4M14 12h3M7 16h10"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>',
+ kan:'<path d="M3 20V4M3 20h18"/><path d="M5 17C8 17 8 6 12 6s4 11 9 4"/><circle cx="12" cy="6" r="1.4" fill="currentColor" stroke="none"/>',
+ math:'<path d="M4 4h15M4 20h15M17 4l-9 8 9 8M5 12h6"/><path d="m18 11 3 3m0-3-3 3"/>',
+ knowledgebook:'<path d="M3 5.5C6 4 9 4.5 12 7c3-2.5 6-3 9-1.5v13c-3-1.5-6-1-9 1-3-2-6-2.5-9-1v-13Z"/><path d="M12 7v12M5.5 9.5H9M15 9.5h3.5M6 13h3M15 13h3"/>',
+ steering:'<path d="M3 18h18M5 14l5-8 4 5 5-7"/><circle cx="10" cy="6" r="2"/><path d="m15 18 3-3 3 3"/>',
+ journal_sync:'<path d="M5 3h10l4 4v13H5zM15 3v4h4M8 11h8M8 14h6"/><path d="M7 18a6 6 0 0 0 9 3M16 21v-4h-4"/>',
 };
-function icon(name,w=24){return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[name]+'</svg>';}
+
+function customIconMarkup(name){
+  if(typeof name!=="string"||name.length>64||!data||!data.iconDefinitions)return null;
+  const entries=Object.prototype.hasOwnProperty.call(data.iconDefinitions,name)?data.iconDefinitions[name]:null;
+  if(!Array.isArray(entries)||entries.length<1||entries.length>8)return null;
+  let markup="";
+  for(const entry of entries){
+    const d=typeof entry==="string"?entry:(entry&&entry.d);
+    if(typeof d!=="string"||d.length<1||d.length>900||!/^[a-zA-Z0-9.,+\-\s]+$/.test(d))return null;
+    const solid=entry&&typeof entry==="object"&&entry.fill==="currentColor";
+    markup+='<path d="'+d+'"'+(solid?' fill="currentColor" stroke="none"':'')+'/>';
+  }
+  return markup;
+}
+function icon(name,w=24){
+  const markup=Object.prototype.hasOwnProperty.call(icons,name)?icons[name]:(customIconMarkup(name)||icons.article);
+  return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+markup+'</svg>';
+}
 const def={schema:1,sections:[{id:"ai",title:"Развитие ИИ",description:"Архитектура, оптимизация и автономность",chapters:[
 {id:"opt",title:"Оптимизация",articles:[
 {id:"quant",title:"Квантование весов",summary:"Память модели, точность и проверка ошибок",text:["Квантование уменьшает число бит для хранения весов модели. Например, переход с 16 на 4 бита сокращает объём самих весов примерно в четыре раза без учёта накладных данных.","Влияние на качество зависит от архитектуры модели, выбранного метода и задач. Универсального численного закона роста ошибок нет: его необходимо измерять на конкретной модели.","Интерактивный график показывает расчётный объём весов. Изменение качества требует проверки на реальной модели."],demo:"quant"},
@@ -105,9 +134,10 @@ function row(name,desc,ic,go){let b=$el("button","entry");b.innerHTML='<span cla
 // Unique topic icon mapping. APPROVED RULE: every distinct AI chapter and article
 // has its own semantic icon. Do not change approved icons without explicit approval.
 const chapterIcons=Object.freeze({"optimization":"optimization","opt":"optimization","learning":"learning","learn":"learning","memory":"memory","architecture":"architecture","autonomy":"autonomy","voice":"voice","selfimprove":"selfimprove","guides":"guides"});
-const articleIcons=Object.freeze({"quant":"quant","tokens":"tokens","context":"context","kv":"kv","resources":"resources","speed":"speed","lora":"lora","distillation":"distillation","distill":"distillation","mistakes":"mistakes","longmemory":"longmemory","errorlog":"errorlog","models":"models","multi":"models","mcp":"mcp","planning":"planning","speaker":"speaker","reflection":"reflection","guide":"guide"});
-function chapterIcon(c){return chapterIcons[c.id]||"book";}
-function articleIcon(a){return articleIcons[a.id]||"article";}
+const articleIcons=Object.freeze({"quant":"quant","tokens":"tokens","context":"context","kv":"kv","resources":"resources","speed":"speed","lora":"lora","distillation":"distillation","distill":"distillation","mistakes":"mistakes","longmemory":"longmemory","errorlog":"errorlog","models":"models","multi":"models","mcp":"mcp","planning":"planning","speaker":"speaker","reflection":"reflection","guide":"guide","decoding":"decoding","continual":"continual","consolidation":"consolidation","merging":"merging","hybrid":"hybrid","altweights":"altweights","kan":"kan","math":"math","knowledgebook":"knowledgebook","steering":"steering","journal_sync":"journal_sync"});
+function hasIcon(name){return !!(name&&(Object.prototype.hasOwnProperty.call(icons,name)||customIconMarkup(name)));}
+function chapterIcon(c){return hasIcon(c.icon)?c.icon:(chapterIcons[c.id]||"book");}
+function articleIcon(a){return hasIcon(a.icon)?a.icon:(articleIcons[a.id]||"article");}
 function section(){return data.sections[route.si]||data.sections[0];}
 function chapter(){return section().chapters[route.ci];}
 function article(){return chapter().articles[route.ai];}
@@ -307,10 +337,27 @@ canvas.addEventListener("pointerup",()=>drag=false);canvas.addEventListener("poi
 requestAnimationFrame(draw);
 }
 function favView(){titlebar("Избранное");let list=flat().filter(x=>favorites.includes(x.a.id));if(!list.length)root.append($el("p","empty","Здесь появятся сохранённые статьи."));else{let c=$el("div","cardlist");list.forEach(x=>c.append(row(x.a.title,x.c.title,articleIcon(x.a),()=>openArticle(x.si,x.ci,x.ai))));root.append(c);}}
+function syncInfo(){
+ try{return window.Journal&&Journal.syncInfo?JSON.parse(Journal.syncInfo()):null;}catch(e){return null;}
+}
+function showDate(value){
+ if(!value)return "нет данных";
+ const date=new Date(value);
+ if(!Number.isFinite(date.getTime()))return "нет данных";
+ return date.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
 function settings(){
 titlebar("Настройки");
 root.append($el("h3","","Синхронизация"));
 root.append($el("p","para",lastStatus));
+const info=syncInfo();
+if(info){
+ root.append($el("p","note","Версия приложения: "+info.appVersion+" · Ревизия журнала: "+info.revision));
+ root.append($el("p","note","Дата публикации обновления: "+showDate(info.publishedAt)));
+ root.append($el("p","note","Получено на телефон: "+showDate(info.appliedAt)));
+ root.append($el("p","note","Последняя проверка GitHub: "+showDate(info.checkedAt)));
+ root.append($el("p","note","Статей: "+info.articleCount+" · Источник: "+(info.source==="cache"?"сохранённый журнал":"встроенная копия")));
+}
 root.append($el("p","note","Обновление проверяется автоматически только при открытии приложения. Сохранённые материалы доступны офлайн."));
 root.append($el("hr","sep"));root.append($el("h3","","Защищённое подключение"));
 let kid="",key="";try{kid=window.Journal?Journal.keyId():"";key=window.Journal?Journal.key():"";}catch(e){}

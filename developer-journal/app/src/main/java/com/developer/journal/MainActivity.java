@@ -125,14 +125,51 @@ public class MainActivity extends Activity {
       out.write(obj.toString().getBytes(StandardCharsets.UTF_8));out.getFD().sync();
     }
   }
-  private String load() {
+  private String cachedData() {
     try(FileInputStream in=openFileInput("journal_cache.json")){
       JSONObject obj=new JSONObject(new String(readAll(in,3_000_000),StandardCharsets.UTF_8));
       Cipher c=Cipher.getInstance("AES/GCM/NoPadding");
       c.init(Cipher.DECRYPT_MODE,localKey(),
         new GCMParameterSpec(128,Base64.decode(obj.getString("iv"),Base64.DEFAULT)));
-      return new String(c.doFinal(Base64.decode(obj.getString("ct"),Base64.DEFAULT)),StandardCharsets.UTF_8);
-    }catch(Exception ignored){return asset("journal.json");}
+      String plain=new String(c.doFinal(Base64.decode(obj.getString("ct"),Base64.DEFAULT)),StandardCharsets.UTF_8);
+      JSONObject parsed=new JSONObject(plain);
+      if(parsed.optInt("schema")!=1||parsed.optJSONArray("sections")==null)return null;
+      return plain;
+    }catch(Exception ignored){return null;}
+  }
+  private String load() {
+    String cached=cachedData();
+    return cached==null?asset("journal.json"):cached;
+  }
+  private int articleCount(String json){
+    try {
+      JSONObject root=new JSONObject(json);
+      int count=0;
+      JSONArray sections=root.getJSONArray("sections");
+      for(int s=0;s<sections.length();s++){
+        JSONArray chapters=sections.getJSONObject(s).getJSONArray("chapters");
+        for(int c=0;c<chapters.length();c++) count+=chapters.getJSONObject(c).getJSONArray("articles").length();
+      }
+      return count;
+    }catch(Exception ignored){return 0;}
+  }
+  private String syncInfo(){
+    JSONObject o=new JSONObject();
+    android.content.SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);
+    String cached=cachedData();
+    try {
+      String appVersion=getPackageManager().getPackageInfo(getPackageName(),0).versionName;
+      long localRevision=p.getLong("revision",0);
+      long remoteRevision=p.getLong("remote_revision",0);
+      o.put("appVersion",appVersion);
+      o.put("revision",localRevision);
+      o.put("checkedAt",p.getLong("last_checked_at",0));
+      o.put("appliedAt",p.getLong("last_applied_at",0));
+      o.put("publishedAt",remoteRevision==localRevision?p.getString("remote_published_at",""):"");
+      o.put("articleCount",articleCount(cached!=null?cached:asset("journal.json")));
+      o.put("source",cached!=null?"cache":"bundle");
+    }catch(Exception ignored){}
+    return o.toString();
   }
   private void report(String text, boolean updated) {
     status=text;
@@ -148,8 +185,18 @@ public class MainActivity extends Activity {
       String kid=keyId();
       JSONObject envelope=new JSONObject(fetch(SYNC_URL));
       long revision=envelope.optLong("revision",0);
-      long current=getSharedPreferences(PREF,MODE_PRIVATE).getLong("revision",0);
-      if(revision<=current){report("Журнал актуален",false);return;}
+      android.content.SharedPreferences prefs=getSharedPreferences(PREF,MODE_PRIVATE);
+      long current=prefs.getLong("revision",0);
+      prefs.edit().putLong("last_checked_at",System.currentTimeMillis())
+        .putLong("remote_revision",revision)
+        .putString("remote_published_at",envelope.optString("publishedAt",""))
+        .apply();
+      int expectedCount=envelope.optInt("articleCount",0);
+      String cached=cachedData();
+      if(revision<=current && cached!=null &&
+        (expectedCount<=0||articleCount(cached)==expectedCount)){
+        report("Журнал актуален",false);return;
+      }
       if(!"AES-256-GCM".equals(envelope.optString("cipher"))) throw new IOException("Unsupported cipher");
       JSONObject recipients=envelope.getJSONObject("recipients");
       if(!recipients.has(kid)){report("Защищённая синхронизация: требуется привязка ключа",false);return;}
@@ -167,7 +214,9 @@ public class MainActivity extends Activity {
       if(payload.optInt("schema")!=1 || payload.optJSONArray("sections")==null || data.length()>2_000_000) throw new IOException("Bad data");
       synchronized(lock) {
         save(data);
-        getSharedPreferences(PREF,MODE_PRIVATE).edit().putLong("revision",revision).apply();
+        if(!prefs.edit().putLong("revision",revision)
+          .putLong("last_applied_at",System.currentTimeMillis()).commit())
+          throw new IOException("Cannot persist revision");
       }
       report("Обновлено · версия "+revision,true);
     } catch(Exception e) {report("Офлайн · сохранённая версия",false);}
@@ -175,6 +224,7 @@ public class MainActivity extends Activity {
   public class Bridge {
     @JavascriptInterface public String data(){synchronized(lock){return load();}}
     @JavascriptInterface public String status(){return status;}
+    @JavascriptInterface public String syncInfo(){return MainActivity.this.syncInfo();}
     @JavascriptInterface public String key() {
       try{return Base64.encodeToString(pub().getEncoded(),Base64.NO_WRAP);}catch(Exception e){return "";}
     }
