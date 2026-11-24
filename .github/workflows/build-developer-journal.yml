@@ -1,4 +1,4 @@
-name: Build Developer Journal Android APK
+name: Build Developer Journal Android (unsigned — private signing required)
 on:
   push:
     branches:
@@ -8,7 +8,7 @@ on:
       - .github/workflows/build-developer-journal.yml
   workflow_dispatch:
 jobs:
-  apk:
+  unsigned:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,12 +21,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build APK
+      - name: Check protected journal UI
+        run: python3 developer-journal/tools/check_contract.py
+      - name: Build unsigned APK (NOT installable)
         run: |
           cd developer-journal
-          gradle :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:assembleRelease --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: JournalDeveloper-Android-APK
-          path: developer-journal/app/build/outputs/apk/debug/app-debug.apk
+          name: JournalDeveloper-UNSIGNED-APK-PRIVATE-SIGNING-REQUIRED
+          path: developer-journal/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error

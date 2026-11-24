@@ -12,11 +12,11 @@ body{overflow-x:hidden}#app{max-width:690px;margin:auto;padding:32px 19px calc(1
 .subtitle{color:#aaa;font-size:15px;letter-spacing:.2px;margin:19px 0 26px}
 .cardlist{display:flex;flex-direction:column;gap:12px}
 .catalogItem{padding:2px 0 17px;border-bottom:1px solid #292929;margin-bottom:18px}
-.catalogLink{display:block;border:0;background:none;padding:4px 0;color:#f7f7f7;font-size:17px;font-weight:650;text-align:left}
+.catalogLink{touch-action:pan-y;display:block;border:0;background:none;padding:4px 0;color:#f7f7f7;font-size:17px;font-weight:650;text-align:left}
 .catalogMeta{font-size:13px;color:#aaa;margin:2px 0 8px;line-height:1.4}
 .catalogGroup{font-size:20px;margin:26px 0 15px;color:#f7f7f7}
 .catalogItem .demo{margin:13px 0 0}
-.entry{background:linear-gradient(165deg,#141414,#090909);border:1px solid #242424;min-height:94px;border-radius:16px;display:flex;align-items:center;gap:17px;padding:16px 19px;width:100%;text-align:left}
+.entry{touch-action:pan-y;background:linear-gradient(165deg,#141414,#090909);border:1px solid #242424;min-height:94px;border-radius:16px;display:flex;align-items:center;gap:17px;padding:16px 19px;width:100%;text-align:left}
 .entry .bigicon{width:38px;height:38px;flex:none;color:#eee}.entry .grow{flex:1;min-width:0}.entry strong{display:block;font-size:17px;font-weight:650;margin-bottom:5px}.entry small{color:#a7a7ae;font-size:13px;line-height:1.35;display:block}.arrow{font-size:27px;color:#aaa;font-weight:250;margin-left:5px}
 .nav{position:fixed;bottom:0;left:0;right:0;border-top:1px solid #252525;background:#020202f5;backdrop-filter:blur(20px);padding:8px 8px calc(7px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:10}
 .nav-inner{display:grid;grid-template-columns:repeat(4,1fr);max-width:690px;width:100%}
@@ -31,9 +31,9 @@ h2{margin:0 0 9px;font-size:26px;letter-spacing:-.35px}h3{font-size:19px;margin:
 .pageControls{display:flex;gap:12px;margin-top:24px}.outline{border:1px solid #333;background:#111;border-radius:12px;padding:12px 14px;flex:1}.outline:disabled{opacity:.35}
 .metric{display:flex;align-items:baseline;gap:12px;margin:16px 0;color:#c8c8d0}.metric b{color:white;font-size:25px}
 .demo{border:1px solid #292929;background:#0b0b0b;border-radius:16px;padding:16px;margin:18px 0}
-.demo canvas{display:block;width:100%;height:210px;margin:8px 0 5px;border-radius:9px;background:#080808;touch-action:none}
+.demo canvas{display:block;width:100%;height:210px;margin:8px 0 5px;border-radius:9px;background:#080808;touch-action:pan-y}
 .control{padding:12px 0;border-top:1px solid #222}.control label{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:10px}.control label span{color:#aaa}
-input[type=range]{width:100%;accent-color:white;height:18px}input[type=number]{width:100%;border:1px solid #444;background:#101010;color:#fff;border-radius:9px;padding:11px;font-size:16px}
+input[type=range]{touch-action:pan-y;width:100%;accent-color:white;height:18px}input[type=number]{width:100%;border:1px solid #444;background:#101010;color:#fff;border-radius:9px;padding:11px;font-size:16px}
 .segment{display:flex;gap:7px}.segment button{flex:1;border:1px solid #444;border-radius:10px;background:#151515;padding:9px 5px}.segment button.sel{background:#f0f0f0;color:#000}
 .note{font-size:12px;line-height:1.5;color:#9c9ca4;margin:11px 0}
 .sep{border:0;border-top:1px solid #292929;margin:19px 0}
@@ -42,7 +42,7 @@ input[type=range]{width:100%;accent-color:white;height:18px}input[type=number]{w
 .search{display:block;width:100%;border:1px solid #303030;background:#151515;border-radius:13px;color:#fff;padding:14px;font-size:15px;margin-bottom:17px}
 .tag{font-size:12px;color:#9f9fa8;letter-spacing:.4px}
 .foot{font-size:12px;color:#87878c;margin-top:25px;line-height:1.55}
-.quant-summary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.quant-stat{padding:12px 10px;background:#151515;border:1px solid #303030;border-radius:12px;min-width:0}.quant-stat small{display:block;color:#aaa;font-size:11px;line-height:1.4;min-height:30px}.quant-stat b{display:block;font-size:16px;color:#f5f5f5;margin-top:6px}@media(max-width:340px){.quant-summary{grid-template-columns:1fr}}</style></head><body>
+.context-timeline{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;margin:17px 0}.context-part{height:52px;border:1px solid #555;border-radius:5px;background:#eee;transition:background .12s,border-color .12s}.context-part.omitted{background:#202020;border-color:#373737}.context-legend{display:flex;justify-content:space-between;color:#aaa;font-size:12px;margin:8px 0 10px}.quant-summary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.quant-stat{padding:12px 10px;background:#151515;border:1px solid #303030;border-radius:12px;min-width:0}.quant-stat small{display:block;color:#aaa;font-size:11px;line-height:1.4;min-height:30px}.quant-stat b{display:block;font-size:16px;color:#f5f5f5;margin-top:6px}@media(max-width:340px){.quant-summary{grid-template-columns:1fr}}</style></head><body>
 <div id="app"></div><div class="nav"><div class="nav-inner" id="nav"></div></div>
 <script>
 "use strict";
@@ -61,8 +61,8 @@ const icons={
 function icon(name,w=24){return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[name]+'</svg>';}
 const def={schema:1,sections:[{id:"ai",title:"Развитие ИИ",description:"Архитектура, оптимизация и автономность",chapters:[
 {id:"opt",title:"Оптимизация",articles:[
-{id:"quant",title:"Квантование весов",summary:"Память модели, точность и проверка ошибок",text:["Квантование уменьшает число бит для хранения весов модели. Например, переход с 16 на 4 бита сокращает объём самих весов примерно в четыре раза без учёта накладных данных.","Влияние на качество зависит от архитектуры модели, выбранного метода и задач. Универсального численного закона роста ошибок нет: его необходимо измерять на конкретной модели.","Интерактивный график показывает расчётный объём весов. Для ошибок ниже можно внести реальные измерения."],demo:"quant"},
-{id:"context",title:"Контекстное окно",summary:"Токены и объём контекста",text:["Контекстное окно ограничивает число токенов, учитываемых моделью.","Уменьшение контекста снижает потенциальные затраты памяти и вычислений, но не уменьшает размер весов модели."],demo:"kv"},
+{id:"quant",title:"Квантование весов",summary:"Память модели, точность и проверка ошибок",text:["Квантование уменьшает число бит для хранения весов модели. Например, переход с 16 на 4 бита сокращает объём самих весов примерно в четыре раза без учёта накладных данных.","Влияние на качество зависит от архитектуры модели, выбранного метода и задач. Универсального численного закона роста ошибок нет: его необходимо измерять на конкретной модели.","Интерактивный график показывает расчётный объём весов. Изменение качества требует проверки на реальной модели."],demo:"quant"},
+{id:"context",title:"Контекстное окно",summary:"Токены и объём контекста",text:["Контекстное окно ограничивает число токенов, учитываемых моделью.","Уменьшение контекста снижает потенциальные затраты памяти и вычислений, но не уменьшает размер весов модели."],demo:"context"},
 {id:"kv",title:"KV-кеш",summary:"Память внимания и длина диалога",text:["KV-кеш сохраняет ключи и значения механизма внимания уже обработанных токенов, чтобы не пересчитывать их при генерации каждого следующего токена.","Его размер увеличивается примерно линейно с длиной контекста, количеством слоёв, KV-голов и размерностью каждой головы.","Квантование KV-кеша отличается от квантования весов. Ползунки ниже показывают расчётное влияние."],demo:"kv"}]},
 {id:"learn",title:"Самообучение",articles:[{id:"lora",title:"LoRA",summary:"Параметрически эффективное дообучение",text:["LoRA обучает небольшие низкоранговые матрицы адаптеров вместо всех весов модели.","Это экономит память в процессе дообучения, но требует проверки качества на реальных задачах."]},{id:"distill",title:"Дистилляция знаний",summary:"Обучение модели-ученика",text:["Дистилляция переносит часть поведения более крупной модели в меньшую через обучающие примеры.","Она не гарантирует сохранения всех возможностей исходной модели."]}]},
 {id:"architecture",title:"Архитектура",articles:[{id:"multi",title:"Специализированные модели",summary:"Маршрутизация задач между моделями",text:["Разные модели могут отвечать за программирование, речь, изображения и планирование.","Маршрутизатор выбирает нужный модуль, а общая память сохраняет результаты."]}]}
@@ -146,7 +146,9 @@ function catalogView(kind){
 function articlesView(){catalogView("articles");}
 function renderEmbeddedDemos(a,parent,only3d){
  if(!only3d){
-  if(a.demo==="kv")kvDemo(parent);
+  const demo=a.id==="context"?"context":a.demo;
+  if(demo==="kv")kvDemo(parent);
+  if(demo==="context")contextDemo(parent);
   if(a.demo==="quant")quantDemo(parent);
  }
  if(only3d!==false&&a.demo3d==="kv")kv3dDemo(parent);
@@ -184,6 +186,20 @@ parent.append(d);
 function memory(t,b){return 2*t*state.layers*state.kvheads*state.dim*(b/8)/1048576;}
 function paint(){v.textContent=memory(state.tokens,state.bits).toFixed(1);bitBtns.forEach(([bits,b])=>b.classList.toggle("sel",bits===state.bits));let maxX=32768,maxY=Math.max(memory(maxX,16)*1.08,1);let series=[16,8,4].map((b,i)=>({color:["#fafafa","#999","#555"][i],points:[[0,0],[maxX,memory(maxX,b)]]}));graph(canvas,series,maxX,maxY,state.tokens);}
 requestAnimationFrame(paint);window.addEventListener("resize",paint,{once:true});
+}
+function contextDemo(parent){
+ const d=$el("div","demo");d.append($el("h3","","Контекстное окно · история диалога"));
+ const metric=$el("div","metric"),count=$el("b"),unit=$el("span","","условных блоков истории доступно");
+ metric.append(count,unit);d.append(metric);
+ const timeline=$el("div","context-timeline"),parts=[];
+ for(let i=0;i<12;i++){const part=$el("div","context-part");part.setAttribute("aria-hidden","true");parts.push(part);timeline.append(part);}
+ d.append(timeline);
+ const legend=$el("div","context-legend");legend.append($el("span","","Старые сообщения"),$el("span","","Новые сообщения"));d.append(legend);
+ control(d,"Длина контекста · токены",8192,2048,24576,2048,n=>update(n));
+ d.append($el("p","note","Условная иллюстрация: каждый из 12 блоков представляет 2048 токенов истории. Светлые блоки помещаются в окно, тёмные — исключаются. Это не измерение реального диалога."));
+ parent.append(d);
+ function update(n){const visible=Math.round(n/2048);count.textContent=visible+" из 12";parts.forEach((part,i)=>part.classList.toggle("omitted",i<12-visible));}
+ update(8192);
 }
 function quantDemo(parent){
 const d=$el("div","demo");
@@ -238,7 +254,7 @@ function graphView(){catalogView("graphs");}
 function model3d(){catalogView("3d");}
 function kv3dDemo(parent){
 let block=$el("div","demo"),canvas=$el("canvas");
-block.append($el("h3","","KV-кеш · 3D-модель"));canvas.style.height="300px";block.append(canvas);
+block.append($el("h3","","KV-кеш · 3D-модель"));canvas.classList.add("rotate3d");canvas.style.height="300px";block.append(canvas);
 let rotX=.3,rotY=.55,depth=6;
 control(block,"Количество слоёв в модели",6,2,16,1,n=>{depth=n;draw();});
 block.append($el("p","note","Проведи пальцем по модели для вращения. Это геометрическая иллюстрация: одна ось — токены, вторая — головы внимания, третья — слои."));
@@ -253,7 +269,7 @@ ctx.strokeStyle="#65656b";ctx.lineWidth=.8;
 for(let n=1;n<depth;n++){let z=-1+2*n/depth;[[-1,-1,z],[1,-1,z],[1,1,z],[-1,1,z]].forEach((p,i,arr)=>{let a=proj(p),b=proj(arr[(i+1)%4]);ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();});}
 }
 let drag=false,sx=0,sy=0;
-canvas.addEventListener("pointerdown",e=>{drag=true;sx=e.clientX;sy=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointerdown",e=>{drag=true;sx=e.clientX;sy=e.clientY;});
 canvas.addEventListener("pointermove",e=>{if(!drag)return;rotY+=(e.clientX-sx)*.015;rotX+=(e.clientY-sy)*.015;sx=e.clientX;sy=e.clientY;draw();});
 canvas.addEventListener("pointerup",()=>drag=false);canvas.addEventListener("pointercancel",()=>drag=false);
 requestAnimationFrame(draw);
