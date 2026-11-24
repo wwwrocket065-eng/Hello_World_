@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Журнал разработчика</title>
+<style>
+:root{color-scheme:dark;font-family:Roboto,"Segoe UI",Arial,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#000;color:#f7f7f7}
+body{overflow-x:hidden}#app{max-width:690px;margin:auto;padding:32px 19px calc(102px + env(safe-area-inset-bottom));min-height:100vh}
+.top{display:flex;align-items:center;gap:13px;margin:0 0 24px}.top h1{font-size:34px;font-weight:750;line-height:1.05;letter-spacing:-1px;margin:0}
+.top .brand{width:51px;height:51px;flex-shrink:0}button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;color:inherit}
+.iconBtn{border:0;background:transparent;width:43px;height:43px;display:grid;place-items:center;border-radius:13px}
+.iconBtn:active,.entry:active{background:#242424}
+.subtitle{color:#aaa;font-size:15px;letter-spacing:.2px;margin:19px 0 26px}
+.cardlist{display:flex;flex-direction:column;gap:12px}
+.entry{background:linear-gradient(165deg,#141414,#090909);border:1px solid #242424;min-height:94px;border-radius:16px;display:flex;align-items:center;gap:17px;padding:16px 19px;width:100%;text-align:left}
+.entry .bigicon{width:38px;height:38px;flex:none;color:#eee}.entry .grow{flex:1;min-width:0}.entry strong{display:block;font-size:17px;font-weight:650;margin-bottom:5px}.entry small{color:#a7a7ae;font-size:13px;line-height:1.35;display:block}.arrow{font-size:27px;color:#aaa;font-weight:250;margin-left:5px}
+.nav{position:fixed;bottom:0;left:0;right:0;border-top:1px solid #252525;background:#020202f5;backdrop-filter:blur(20px);padding:8px 8px calc(7px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:10}
+.nav-inner{display:grid;grid-template-columns:repeat(4,1fr);max-width:690px;width:100%}
+.nav button{background:none;border:0;color:#95959b;display:flex;flex-direction:column;align-items:center;gap:5px;min-height:55px;font-size:11px}
+.nav button.active{color:white}.nav svg{width:24px;height:24px}
+h2{margin:0 0 9px;font-size:26px;letter-spacing:-.35px}h3{font-size:19px;margin:24px 0 10px}
+.kicker{font-size:12px;color:#aaa;margin-bottom:10px}
+.copy{color:#c9c9d1;font-size:15px;line-height:1.58;white-space:pre-line}
+.section-heading{display:flex;align-items:center;gap:8px;margin-bottom:22px}.section-heading .iconBtn{margin-left:-9px}
+.pill{display:inline-block;color:#bcbcc3;border:1px solid #34343a;border-radius:20px;padding:5px 10px;font-size:12px;margin:8px 0 13px}
+.para{margin:13px 0;line-height:1.65;color:#e0e0e5;font-size:15px}
+.pageControls{display:flex;gap:12px;margin-top:24px}.outline{border:1px solid #333;background:#111;border-radius:12px;padding:12px 14px;flex:1}.outline:disabled{opacity:.35}
+.metric{display:flex;align-items:baseline;gap:12px;margin:16px 0;color:#c8c8d0}.metric b{color:white;font-size:25px}
+.demo{border:1px solid #292929;background:#0b0b0b;border-radius:16px;padding:16px;margin:18px 0}
+.demo canvas{display:block;width:100%;height:210px;margin:8px 0 5px;border-radius:9px;background:#080808;touch-action:none}
+.control{padding:12px 0;border-top:1px solid #222}.control label{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:10px}.control label span{color:#aaa}
+input[type=range]{width:100%;accent-color:white;height:18px}input[type=number]{width:100%;border:1px solid #444;background:#101010;color:#fff;border-radius:9px;padding:11px;font-size:16px}
+.segment{display:flex;gap:7px}.segment button{flex:1;border:1px solid #444;border-radius:10px;background:#151515;padding:9px 5px}.segment button.sel{background:#f0f0f0;color:#000}
+.note{font-size:12px;line-height:1.5;color:#9c9ca4;margin:11px 0}
+.sep{border:0;border-top:1px solid #292929;margin:19px 0}
+.empty{color:#aaa;padding:25px 0}
+.codekey{word-break:break-all;font-size:12px;padding:13px;background:#121212;border:1px solid #333;border-radius:12px;color:#cfcfcf;max-height:110px;overflow-y:auto}
+.search{display:block;width:100%;border:1px solid #303030;background:#151515;border-radius:13px;color:#fff;padding:14px;font-size:15px;margin-bottom:17px}
+.tag{font-size:12px;color:#9f9fa8;letter-spacing:.4px}
+.foot{font-size:12px;color:#87878c;margin-top:25px;line-height:1.55}
+</style></head><body>
+<div id="app"></div><div class="nav"><div class="nav-inner" id="nav"></div></div>
+<script>
+"use strict";
+const icons={
+ book:'<path d="M3 5c4-1.5 7-1 9 1 2-2 5-2.5 9-1v14c-4-1.5-7-1-9 1-2-2-5-2.5-9-1z"/><path d="M12 6v14"/>',
+ article:'<path d="M6 3h9l5 5v13H6z"/><path d="M15 3v6h5M9 12h8M9 16h8"/>',
+ chart:'<path d="M3 21h18M5 21V11h4v10M11 21V5h4v16M17 21v-8h4v8"/>',
+ cube:'<path d="m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10"/>',
+ brain:'<path d="M10 4C4 1 2 8 5 11c-4 3 0 10 5 8V4zM14 4c6-3 8 4 5 7 4 3 0 10-5 8V4zM10 7v10M14 7v10"/>',
+ home:'<path d="m3 10 9-8 9 8v11h-7v-7h-4v7H3z"/>',
+ star:'<path d="m12 2 3.1 6.7 7.4.9-5.5 5.3 1.4 7.3L12 18.7l-6.4 3.5 1.4-7.3L1.5 9.6l7.4-.9z"/>',
+ user:'<circle cx="12" cy="7" r="4"/><path d="M4 22c0-9 16-9 16 0"/>',
+ back:'<path d="m15 5-7 7 7 7"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M9 2l-1 3-3 1-3 3 2 3-2 3 3 3 3 1 1 3h6l1-3 3-1 3-3-2-3 2-3-3-3-3-1-1-3z"/>'
+};
+function icon(name,w=24){return '<svg width="'+w+'" height="'+w+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[name]+'</svg>';}
+const def={schema:1,sections:[{id:"ai",title:"Развитие ИИ",description:"Архитектура, оптимизация и автономность",chapters:[
+{id:"opt",title:"Оптимизация",articles:[
+{id:"quant",title:"Квантование весов",summary:"Память модели, точность и проверка ошибок",text:["Квантование уменьшает число бит для хранения весов модели. Например, переход с 16 на 4 бита сокращает объём самих весов примерно в четыре раза без учёта накладных данных.","Влияние на качество зависит от архитектуры модели, выбранного метода и задач. Универсального численного закона роста ошибок нет: его необходимо измерять на конкретной модели.","Интерактивный график показывает расчётный объём весов. Для ошибок ниже можно внести реальные измерения."],demo:"quant"},
+{id:"context",title:"Контекстное окно",summary:"Токены и объём контекста",text:["Контекстное окно ограничивает число токенов, учитываемых моделью.","Уменьшение контекста снижает потенциальные затраты памяти и вычислений, но не уменьшает размер весов модели."],demo:"kv"},
+{id:"kv",title:"KV-кеш",summary:"Память внимания и длина диалога",text:["KV-кеш сохраняет ключи и значения механизма внимания уже обработанных токенов, чтобы не пересчитывать их при генерации каждого следующего токена.","Его размер увеличивается примерно линейно с длиной контекста, количеством слоёв, KV-голов и размерностью каждой головы.","Квантование KV-кеша отличается от квантования весов. Ползунки ниже показывают расчётное влияние."],demo:"kv"}]},
+{id:"learn",title:"Самообучение",articles:[{id:"lora",title:"LoRA",summary:"Параметрически эффективное дообучение",text:["LoRA обучает небольшие низкоранговые матрицы адаптеров вместо всех весов модели.","Это экономит память в процессе дообучения, но требует проверки качества на реальных задачах."]},{id:"distill",title:"Дистилляция знаний",summary:"Обучение модели-ученика",text:["Дистилляция переносит часть поведения более крупной модели в меньшую через обучающие примеры.","Она не гарантирует сохранения всех возможностей исходной модели."]}]},
+{id:"architecture",title:"Архитектура",articles:[{id:"multi",title:"Специализированные модели",summary:"Маршрутизация задач между моделями",text:["Разные модели могут отвечать за программирование, речь, изображения и планирование.","Маршрутизатор выбирает нужный модуль, а общая память сохраняет результаты."]}]}
+]}]};
+let data=def,route={type:"home"},stack=[],favorites=[],lastStatus="Локальная версия";
+const root=document.getElementById("app");
+function $el(tag,cls,text){let e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
+function clear(){root.innerHTML="";root.scrollTop=0;window.scrollTo(0,0);}
+function goto(next){stack.push({...route});route=next;render();}
+function uiBack(){if(stack.length){route=stack.pop();render()}else if(route.type!=="home"){route={type:"home"};render();}}
+window.uiBack=uiBack;
+function titlebar(label){let r=$el("div","section-heading"),b=$el("button","iconBtn");b.innerHTML=icon("back",25);b.onclick=uiBack;r.append(b,$el("h2","",label));root.append(r);}
+function row(name,desc,ic,go){let b=$el("button","entry");b.innerHTML='<span class="bigicon">'+icon(ic,38)+'</span><span class="grow"><strong></strong><small></small></span><span class="arrow">›</span>';b.querySelector("strong").textContent=name;b.querySelector("small").textContent=desc||"";b.onclick=go;return b;}
+function section(){return data.sections[route.si]||data.sections[0];}
+function chapter(){return section().chapters[route.ci];}
+function article(){return chapter().articles[route.ai];}
+function flat(){return data.sections.flatMap((s,si)=>s.chapters.flatMap((c,ci)=>c.articles.map((a,ai)=>({s,si,c,ci,a,ai}))))}
+function openArticle(si,ci,ai){goto({type:"article",si,ci,ai});}
+function sectionList(){let wrap=$el("div","cardlist");data.sections.forEach((s,si)=>wrap.append(row(s.title,s.description||s.chapters.length+" разделов","brain",()=>goto({type:"section",si}))));root.append(wrap);}
+function home(){let top=$el("div","top");top.innerHTML='<div class="brand">'+icon("book",51)+'</div><button class="iconBtn" style="margin-left:auto" id="settings">'+icon("gear",27)+'</button>';root.append(top);
+let head=$el("h1","");head.textContent="Журнал\nразработчика";head.style.whiteSpace="pre-line";root.append(head,$el("div","subtitle","Знания · Инструменты · Проекты"));
+let cards=$el("div","cardlist");
+cards.append(row("Статьи","Материалы, гайды и разборы","article",()=>goto({type:"articles"})));
+cards.append(row("Графики","Интерактивные зависимости и расчёты","chart",()=>goto({type:"graphs"})));
+cards.append(row("3D-примеры","Вращаемые модели и визуализации","cube",()=>goto({type:"3d"})));
+cards.append(row("Развитие ИИ","Оптимизация, обучение, архитектура","brain",()=>goto({type:"section",si:0})));
+root.append(cards);
+top.querySelector("#settings").onclick=()=>goto({type:"settings"});}
+function secView(){let s=section();titlebar(s.title);root.append($el("p","copy",s.description||""));let cards=$el("div","cardlist");
+s.chapters.forEach((c,ci)=>cards.append(row(c.title,c.articles.length+" материалов","book",()=>goto({type:"chapter",si:route.si,ci}))));
+root.append(cards);}
+function chapterView(){let c=chapter();titlebar(c.title);let cards=$el("div","cardlist");c.articles.forEach((a,ai)=>cards.append(row(a.title,a.summary||"Статья","article",()=>openArticle(route.si,route.ci,ai))));root.append(cards);}
+function articlesView(){titlebar("Статьи");const input=$el("input","search");input.placeholder="Поиск по журналу";root.append(input);let wrap=$el("div","cardlist");root.append(wrap);
+function fill(){wrap.innerHTML="";const q=input.value.toLowerCase();flat().filter(x=>(x.a.title+" "+x.a.summary+" "+x.c.title).toLowerCase().includes(q)).forEach(x=>wrap.append(row(x.a.title,x.c.title+" · "+x.a.summary,"article",()=>openArticle(x.si,x.ci,x.ai))));if(!wrap.children.length)wrap.append($el("p","empty","Ничего не найдено"));}
+input.oninput=fill;fill();}
+function articleView(){
+let a=article();titlebar(a.title);root.append($el("div","kicker",section().title+" / "+chapter().title));
+let toggle=$el("button","outline",favorites.includes(a.id)?"★ В избранном":"☆ В избранное");
+toggle.style.flex="none";toggle.onclick=()=>{favorites=favorites.includes(a.id)?favorites.filter(x=>x!==a.id):[...favorites,a.id];saveFavorites();toggle.textContent=favorites.includes(a.id)?"★ В избранном":"☆ В избранное";};root.append(toggle);
+(a.text||[]).forEach(t=>root.append($el("p","para",t)));
+if(a.demo==="kv")kvDemo(root);
+if(a.demo==="quant")quantDemo(root);
+let all=flat(),pos=all.findIndex(x=>x.a.id===a.id),ctr=$el("div","pageControls"),prev=$el("button","outline","‹ Назад"),next=$el("button","outline","Далее ›");
+prev.disabled=pos<=0;next.disabled=pos>=all.length-1;prev.onclick=()=>navArticle(all[pos-1]);next.onclick=()=>navArticle(all[pos+1]);ctr.append(prev,next);root.append(ctr);
+}
+function navArticle(x){if(!x)return;route={type:"article",si:x.si,ci:x.ci,ai:x.ai};render();}
+function control(box,name,value,min,max,step,cb){let r=$el("div","control"),lab=$el("label"),v=$el("span","",value),input=$el("input");
+lab.textContent=name;lab.append(v);input.type="range";input.min=min;input.max=max;input.step=step;input.value=value;
+input.oninput=()=>{v.textContent=input.value;cb(Number(input.value));};r.append(lab,input);box.append(r);return input;}
+function setupCanvas(canvas){let ratio=Math.min(devicePixelRatio||1,3),rect=canvas.getBoundingClientRect();let w=Math.max(250,rect.width),h=Math.max(180,rect.height);canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);let ctx=canvas.getContext("2d");ctx.setTransform(ratio,0,0,ratio,0,0);return {ctx,w,h};}
+function graph(canvas,series,maxX,maxY,marker){const {ctx,w,h}=setupCanvas(canvas),L=52,R=14,T=17,B=29,W=w-L-R,H=h-T-B;
+ctx.clearRect(0,0,w,h);ctx.strokeStyle="#2d2d32";ctx.lineWidth=1;ctx.fillStyle="#aaa";ctx.font="11px sans-serif";
+for(let j=0;j<=4;j++){let yy=T+H-H*j/4;ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(L+W,yy);ctx.stroke();ctx.fillText((maxY*j/4).toFixed(0),3,yy+4);}
+ctx.fillText("0",L-3,h-8);ctx.fillText(String(Math.round(maxX/1024))+"K токенов",L+W-75,h-8);
+series.forEach((s,idx)=>{ctx.strokeStyle=s.color;ctx.lineWidth=idx===0?2.5:1.7;ctx.beginPath();s.points.forEach(([x,y],i)=>{let xx=L+W*x/maxX,yy=T+H-H*y/maxY;if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);});ctx.stroke();
+let value=s.points[s.points.length-1][1]*marker/maxX;ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(L+W*marker/maxX,T+H-H*value/maxY,3.3,0,Math.PI*2);ctx.fill();});}
+function kvDemo(parent){
+let d=$el("div","demo");d.append($el("h3","","KV-кеш · расчёт памяти"));
+let stats=$el("div","metric"),v=$el("b","",""),suffix=$el("span","","МиБ при текущих параметрах");stats.append(v,suffix);d.append(stats);
+let canvas=$el("canvas");d.append(canvas);let state={tokens:4096,layers:32,kvheads:8,dim:128,bits:16};
+control(d,"Токены",4096,1024,32768,1024,n=>{state.tokens=n;paint();});
+control(d,"Слои",32,8,80,8,n=>{state.layers=n;paint();});
+control(d,"KV-головы",8,1,32,1,n=>{state.kvheads=n;paint();});
+let seg=$el("div","segment"),bitBtns=[];[16,8,4].forEach(bits=>{let b=$el("button","",bits+" бит");b.onclick=()=>{state.bits=bits;paint();};bitBtns.push([bits,b]);seg.append(b);});d.append(seg);
+d.append($el("p","note","Формула: 2 × токены × слои × KV-головы × размер головы × байт на элемент. Это расчётная оценка без накладных расходов движка; не измерение конкретной модели."));
+parent.append(d);
+function memory(t,b){return 2*t*state.layers*state.kvheads*state.dim*(b/8)/1048576;}
+function paint(){v.textContent=memory(state.tokens,state.bits).toFixed(1);bitBtns.forEach(([bits,b])=>b.classList.toggle("sel",bits===state.bits));let maxX=32768,maxY=Math.max(memory(maxX,16)*1.08,1);let series=[16,8,4].map((b,i)=>({color:["#fafafa","#999","#555"][i],points:[[0,0],[maxX,memory(maxX,b)]]}));graph(canvas,series,maxX,maxY,state.tokens);}
+requestAnimationFrame(paint);window.addEventListener("resize",paint,{once:true});
+}
+function quantDemo(parent){
+let d=$el("div","demo");d.append($el("h3","","Квантование · объём весов"));let stat=$el("div","metric"),v=$el("b"),u=$el("span","","ГиБ, только веса");stat.append(v,u);d.append(stat);
+let model=7,bits=8;control(d,"Миллиарды параметров",7,1,70,1,n=>{model=n;paint();});
+let seg=$el("div","segment"),btns=[];[16,8,6,5,4].forEach(b=>{let bb=$el("button","",b+" бит");bb.onclick=()=>{bits=b;paint();};btns.push([b,bb]);seg.append(bb);});d.append(seg);
+let canvas=$el("canvas");d.append(canvas);d.append($el("p","note","Память весов рассчитывается точно по битности без накладных данных. Изменение ошибок невозможно предсказать по одной битности."));
+let errors=$el("h3","","Ошибки: собственные измерения");d.append(errors);
+let vals={},wrap=$el("div"),inputs=[];[16,8,6,5,4].forEach(b=>{let c=$el("div","control"),label=$el("label","",b+" бит · число ошибок из 100"),input=$el("input");input.type="number";input.min=0;input.max=100;input.placeholder="Нет данных";input.oninput=paintErr;label.append(input);c.append(label);wrap.append(c);inputs.push([b,input]);});d.append(wrap);
+let errCanvas=$el("canvas");d.append(errCanvas);
+d.append($el("p","note","Здесь нет выдуманных процентов: введи результаты собственного теста модели, и график построится по твоим данным."));
+parent.append(d);
+function paint(){v.textContent=(model*1e9*bits/8/1073741824).toFixed(2);btns.forEach(([b,bb])=>bb.classList.toggle("sel",bits===b));let {ctx,w,h}=setupCanvas(canvas);ctx.clearRect(0,0,w,h);let p=26,bar=(w-p*2)/5;[16,8,6,5,4].forEach((b,i)=>{let value=model*1e9*b/8/1073741824,max=model*1e9*16/8/1073741824,height=(h-55)*value/max;ctx.fillStyle=b===bits?"#f5f5f5":"#555";ctx.fillRect(p+i*bar,h-30-height,bar*.58,height);ctx.fillStyle="#aaa";ctx.font="12px sans-serif";ctx.fillText(b+"b",p+i*bar,h-9);});}
+function paintErr(){let {ctx,w,h}=setupCanvas(errCanvas);ctx.clearRect(0,0,w,h);ctx.strokeStyle="#444";ctx.beginPath();ctx.moveTo(35,14);ctx.lineTo(35,h-30);ctx.lineTo(w-10,h-30);ctx.stroke();ctx.fillStyle="#aaa";ctx.font="12px sans-serif";ctx.fillText("100",6,20);ctx.fillText("0",18,h-27);
+let pts=[];inputs.forEach(([b,input],i)=>{let x=45+i*(w-70)/4;ctx.fillText(b+"b",x-9,h-10);if(input.value!==""&&Number(input.value)>=0&&Number(input.value)<=100)pts.push([x,h-30-(h-48)*Number(input.value)/100]);});
+ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>{if(i)ctx.lineTo(...p);else ctx.moveTo(...p)});ctx.stroke();ctx.fillStyle="#fff";pts.forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,4,0,7);ctx.fill();});}
+requestAnimationFrame(()=>{paint();paintErr();});
+}
+function graphView(){titlebar("Графики");root.append($el("p","copy","Интерактивные модели параметров нейросетей. Меняй значения — расчёты обновятся сразу."));kvDemo(root);quantDemo(root);}
+function model3d(){
+titlebar("3D-примеры");
+root.append($el("p","copy","Вращай модель пальцем. Куб показывает условную структуру тензора KV-кеша, а не физическое расположение памяти."));
+let block=$el("div","demo"),canvas=$el("canvas");canvas.style.height="300px";block.append(canvas);
+let rotX=.3,rotY=.55,depth=6;
+control(block,"Количество слоёв в модели",6,2,16,1,n=>{depth=n;draw();});
+block.append($el("p","note","Проведи пальцем по модели для вращения. Это геометрическая иллюстрация: одна ось — токены, вторая — головы внимания, третья — слои."));
+root.append(block);
+function draw(){
+const {ctx,w,h}=setupCanvas(canvas),sz=Math.min(w,h)*.34;
+ctx.clearRect(0,0,w,h);const proj=([x,y,z])=>{let x1=x*Math.cos(rotY)-z*Math.sin(rotY),z1=x*Math.sin(rotY)+z*Math.cos(rotY),y1=y*Math.cos(rotX)-z1*Math.sin(rotX),z2=y*Math.sin(rotX)+z1*Math.cos(rotX),s=2.9/(2.9+z2*.32);return [w/2+x1*sz*s,h/2+y1*sz*s];};
+let verts=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+ctx.lineWidth=1.6;ctx.strokeStyle="#e6e6e6";
+[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(([a,b])=>{let p=proj(verts[a]),q=proj(verts[b]);ctx.beginPath();ctx.moveTo(...p);ctx.lineTo(...q);ctx.stroke();});
+ctx.strokeStyle="#65656b";ctx.lineWidth=.8;
+for(let n=1;n<depth;n++){let z=-1+2*n/depth;[[-1,-1,z],[1,-1,z],[1,1,z],[-1,1,z]].forEach((p,i,arr)=>{let a=proj(p),b=proj(arr[(i+1)%4]);ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();});}
+}
+let drag=false,sx=0,sy=0;
+canvas.addEventListener("pointerdown",e=>{drag=true;sx=e.clientX;sy=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointermove",e=>{if(!drag)return;rotY+=(e.clientX-sx)*.015;rotX+=(e.clientY-sy)*.015;sx=e.clientX;sy=e.clientY;draw();});
+canvas.addEventListener("pointerup",()=>drag=false);canvas.addEventListener("pointercancel",()=>drag=false);
+requestAnimationFrame(draw);
+}
+function favView(){titlebar("Избранное");let list=flat().filter(x=>favorites.includes(x.a.id));if(!list.length)root.append($el("p","empty","Здесь появятся сохранённые статьи."));else{let c=$el("div","cardlist");list.forEach(x=>c.append(row(x.a.title,x.c.title,"star",()=>openArticle(x.si,x.ci,x.ai))));root.append(c);}}
+function settings(){
+titlebar("Настройки");
+root.append($el("h3","","Синхронизация"));
+root.append($el("p","para",lastStatus));
+root.append($el("p","note","Обновление проверяется автоматически только при открытии приложения. Сохранённые материалы доступны офлайн."));
+root.append($el("hr","sep"));root.append($el("h3","","Защищённое подключение"));
+let kid="",key="";try{kid=window.Journal?Journal.keyId():"";key=window.Journal?Journal.key():"";}catch(e){}
+root.append($el("p","para","Ключ устройства создаётся локально. Для передачи зашифрованного журнала его открытая часть один раз регистрируется у автора обновлений."));
+root.append($el("div","tag","Идентификатор ключа"));root.append($el("p","copy",kid||"Доступен в установленном приложении"));
+let t=$el("div","codekey",key||"Ключ формируется на Android-устройстве");root.append(t);
+if(key){let b=$el("button","outline","Скопировать открытый ключ");b.style.marginTop="12px";b.onclick=()=>{try{Journal.copy(key);b.textContent="Скопировано";}catch(e){}};root.append(b);}
+root.append($el("p","foot","Закрытый ключ не покидает телефон. Хранилище GitHub предназначено только для зашифрованных обновлений."));
+}
+function nav(){let n=document.getElementById("nav");n.innerHTML="";[["home","Главная","home"],["articles","Разделы","book"],["favorites","Избранное","star"],["settings","Профиль","user"]].forEach(([type,name,ic])=>{let b=$el("button",route.type===type?"active":"");b.innerHTML=icon(ic)+'<span>'+name+'</span>';b.onclick=()=>{stack=[];route={type};render();};n.append(b);});}
+function render(){clear();switch(route.type){case"home":home();break;case"articles":articlesView();break;case"section":secView();break;case"chapter":chapterView();break;case"article":articleView();break;case"graphs":graphView();break;case"3d":model3d();break;case"favorites":favView();break;case"settings":settings();break;default:home();}nav();}
+function saveFavorites(){try{if(window.Journal)Journal.favorites(JSON.stringify(favorites));else localStorage.setItem("favorites",JSON.stringify(favorites));}catch(e){}}
+window.onNativeStatus=function(s){lastStatus=s;if(route.type==="settings")render();};
+window.reloadJournal=function(){try{data=JSON.parse(Journal.data());if(data.schema!==1||!Array.isArray(data.sections))throw Error();route={type:"home"};stack=[];render();}catch(e){}};
+function init(){try{if(window.Journal){data=JSON.parse(Journal.data());favorites=JSON.parse(Journal.favorites());lastStatus=Journal.status();}else{favorites=JSON.parse(localStorage.getItem("favorites")||"[]");}}catch(e){data=def;}render();}
+init();
+</script></body></html>
