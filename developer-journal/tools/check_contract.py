@@ -31,13 +31,13 @@ assert mapping.get("context")=="context" and mapping.get("kv")=="kv", "KV demo r
 launcher=(ROOT/"app/src/main/res/drawable/ic_book.xml").read_text(encoding="utf-8")
 assert 'android:scaleX="0.77"' in launcher and 'android:scaleY="0.77"' in launcher, "Launcher icon size regressed"
 # All chapters and articles must have distinct topic-specific icons within each project.
-chapters_obj=re.search(r'const chapterIcons=Object\\.freeze\\((\\{[^;]+\\})\\);',ui)
-articles_obj=re.search(r'const articleIcons=Object\\.freeze\\((\\{[^;]+\\})\\);',ui)
+chapters_obj=re.search(r'const chapterIcons=Object\.freeze\((\{[^;]+\})\);',ui)
+articles_obj=re.search(r'const articleIcons=Object\.freeze\((\{[^;]+\})\);',ui)
 assert chapters_obj and articles_obj, "Missing topic icon maps"
 chapter_icons=json.loads(chapters_obj.group(1))
 article_icons=json.loads(articles_obj.group(1))
 icon_block=ui.split("const icons={",1)[1].split("};",1)[0]
-known_icons=set(re.findall(r"(?m)^\\s*([a-zA-Z][\\w]*):'",icon_block))
+known_icons=set(re.findall(r"(?m)^\s*([a-zA-Z][\w]*):'",icon_block))
 for section in data["sections"]:
  chapters_used=[]; articles_used=[]
  for chapter in section["chapters"]:
