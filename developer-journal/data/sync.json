@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "revision": 0,
+  "cipher": "AES-256-GCM",
+  "recipients": {}
+}
