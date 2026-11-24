@@ -11,6 +11,11 @@ body{overflow-x:hidden}#app{max-width:690px;margin:auto;padding:32px 19px calc(1
 .iconBtn:active,.entry:active{background:#242424}
 .subtitle{color:#aaa;font-size:15px;letter-spacing:.2px;margin:19px 0 26px}
 .cardlist{display:flex;flex-direction:column;gap:12px}
+.catalogItem{padding:2px 0 17px;border-bottom:1px solid #292929;margin-bottom:18px}
+.catalogLink{display:block;border:0;background:none;padding:4px 0;color:#f7f7f7;font-size:17px;font-weight:650;text-align:left}
+.catalogMeta{font-size:13px;color:#aaa;margin:2px 0 8px;line-height:1.4}
+.catalogGroup{font-size:20px;margin:26px 0 15px;color:#f7f7f7}
+.catalogItem .demo{margin:13px 0 0}
 .entry{background:linear-gradient(165deg,#141414,#090909);border:1px solid #242424;min-height:94px;border-radius:16px;display:flex;align-items:center;gap:17px;padding:16px 19px;width:100%;text-align:left}
 .entry .bigicon{width:38px;height:38px;flex:none;color:#eee}.entry .grow{flex:1;min-width:0}.entry strong{display:block;font-size:17px;font-weight:650;margin-bottom:5px}.entry small{color:#a7a7ae;font-size:13px;line-height:1.35;display:block}.arrow{font-size:27px;color:#aaa;font-weight:250;margin-left:5px}
 .nav{position:fixed;bottom:0;left:0;right:0;border-top:1px solid #252525;background:#020202f5;backdrop-filter:blur(20px);padding:8px 8px calc(7px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:10}
@@ -46,6 +51,7 @@ const icons={
  article:'<path d="M6 3h9l5 5v13H6z"/><path d="M15 3v6h5M9 12h8M9 16h8"/>',
  chart:'<path d="M3 21v-6h6v6M9 21V10h6v11M15 21V4h6v17M3 21h18"/>',
  cube:'<path d="m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10"/>',
+ folder:'<path d="M3 5h7l2 3h9v12H3z"/>',
  brain:'<path d="M10 4C4 1 2 8 5 11c-4 3 0 10 5 8V4zM14 4c6-3 8 4 5 7 4 3 0 10-5 8V4zM10 7v10M14 7v10"/>',
  home:'<path d="m3 10 9-8 9 8v11h-7v-7h-4v7H3z"/>',
  star:'<path d="m12 2 3.1 6.7 7.4.9-5.5 5.3 1.4 7.3L12 18.7l-6.4 3.5 1.4-7.3L1.5 9.6l7.4-.9z"/>',
@@ -75,30 +81,82 @@ function chapter(){return section().chapters[route.ci];}
 function article(){return chapter().articles[route.ai];}
 function flat(){return data.sections.flatMap((s,si)=>s.chapters.flatMap((c,ci)=>c.articles.map((a,ai)=>({s,si,c,ci,a,ai}))))}
 function openArticle(si,ci,ai){goto({type:"article",si,ci,ai});}
-function sectionList(){let wrap=$el("div","cardlist");data.sections.forEach((s,si)=>wrap.append(row(s.title,s.description||s.chapters.length+" разделов","brain",()=>goto({type:"section",si}))));root.append(wrap);}
-function home(){let top=$el("div","top");top.innerHTML='<div class="brand">'+icon("book",51)+'</div><button class="iconBtn" style="margin-left:auto" id="settings">'+icon("gear",27)+'</button>';root.append(top);
-let head=$el("h1","");head.textContent="Журнал\nразработчика";head.style.whiteSpace="pre-line";root.append(head,$el("div","subtitle","Знания · Инструменты · Проекты"));
-let cards=$el("div","cardlist");
-cards.append(row("Статьи","Материалы, гайды и разборы","article",()=>goto({type:"articles"})));
-cards.append(row("Графики","Интерактивные зависимости и расчёты","chart",()=>goto({type:"graphs"})));
-cards.append(row("3D-примеры","Вращаемые модели и визуализации","cube",()=>goto({type:"3d"})));
-cards.append(row("Развитие ИИ","Оптимизация, обучение, архитектура","brain",()=>goto({type:"section",si:0})));
-root.append(cards);
-top.querySelector("#settings").onclick=()=>goto({type:"settings"});}
+
+function projectSections(){return data.sections.map((s,si)=>({s,si})).filter(x=>x.s.kind!=="reference");}
+function projectList(){
+ titlebar("Проекты");
+ let cards=$el("div","cardlist");
+ projectSections().forEach(({s,si})=>cards.append(row(s.title,s.description||"Материалы проекта",s.id==="ai"?"brain":"folder",()=>goto({type:"section",si}))));
+ if(!cards.children.length)root.append($el("p","empty","Проектов пока нет"));
+ else root.append(cards);
+}
+function home(){
+ let top=$el("div","top");
+ top.innerHTML='<div class="brand">'+icon("book",51)+'</div><h1>Журнал<br>разработчика</h1><button class="iconBtn" style="margin-left:auto" id="settings" aria-label="Настройки">'+icon("gear",27)+'</button>';
+ root.append(top,$el("div","subtitle","Знания · Инструменты · Проекты"));
+ let cards=$el("div","cardlist");
+ cards.append(row("Статьи","Все материалы журнала","article",()=>goto({type:"articles"})));
+ cards.append(row("Графики","Все интерактивные графики","chart",()=>goto({type:"graphs"})));
+ cards.append(row("3D-примеры","Все интерактивные модели","cube",()=>goto({type:"3d"})));
+ cards.append(row("Проекты","Темы и материалы каждого проекта","folder",()=>goto({type:"projects"})));
+ root.append(cards);
+ top.querySelector("#settings").onclick=()=>goto({type:"settings"});
+}
 function secView(){let s=section();titlebar(s.title);root.append($el("p","copy",s.description||""));let cards=$el("div","cardlist");
 s.chapters.forEach((c,ci)=>cards.append(row(c.title,c.articles.length+" материалов","book",()=>goto({type:"chapter",si:route.si,ci}))));
 root.append(cards);}
 function chapterView(){let c=chapter();titlebar(c.title);let cards=$el("div","cardlist");c.articles.forEach((a,ai)=>cards.append(row(a.title,a.summary||"Статья","article",()=>openArticle(route.si,route.ci,ai))));root.append(cards);}
-function articlesView(){titlebar("Статьи");const input=$el("input","search");input.placeholder="Поиск по журналу";root.append(input);let wrap=$el("div","cardlist");root.append(wrap);
-function fill(){wrap.innerHTML="";const q=input.value.toLowerCase();flat().filter(x=>(x.a.title+" "+x.a.summary+" "+x.c.title).toLowerCase().includes(q)).forEach(x=>wrap.append(row(x.a.title,x.c.title+" · "+x.a.summary,"article",()=>openArticle(x.si,x.ci,x.ai))));if(!wrap.children.length)wrap.append($el("p","empty","Ничего не найдено"));}
-input.oninput=fill;fill();}
+
+function catalogView(kind){
+ const titles={articles:"Статьи",graphs:"Графики","3d":"3D-примеры"};
+ titlebar(titles[kind]);
+ const input=$el("input","search");input.placeholder="Поиск по всем проектам";root.append(input);
+ const wrap=$el("div");root.append(wrap);
+ function fill(){
+  wrap.innerHTML="";
+  const q=input.value.trim().toLowerCase();
+  const items=flat().filter(x=>{
+   if(kind==="graphs"&&!x.a.demo)return false;
+   if(kind==="3d"&&!x.a.demo3d)return false;
+   return (x.s.title+" "+x.c.title+" "+x.a.title+" "+(x.a.summary||"")).toLowerCase().includes(q);
+  });
+  for(let si=0;si<data.sections.length;si++){
+   const group=items.filter(x=>x.si===si);
+   if(!group.length)continue;
+   wrap.append($el("h3","catalogGroup",data.sections[si].title));
+   const cards=$el("div",kind==="articles"?"cardlist":"");
+   group.forEach(x=>{
+    if(kind==="articles"){
+     cards.append(row(x.a.title,x.c.title+" · "+(x.a.summary||""),"article",()=>openArticle(x.si,x.ci,x.ai)));
+    }else{
+     const item=$el("div","catalogItem");
+     const link=$el("button","catalogLink",x.a.title+" ›");link.onclick=()=>openArticle(x.si,x.ci,x.ai);
+     item.append(link,$el("p","catalogMeta",x.a.summary||x.c.title));
+     if(kind==="graphs")renderEmbeddedDemos(x.a,item,false);
+     if(kind==="3d")renderEmbeddedDemos(x.a,item,true);
+     cards.append(item);
+    }
+   });
+   wrap.append(cards);
+  }
+  if(!items.length)wrap.append($el("p","empty","Ничего не найдено"));
+ }
+ input.oninput=fill;fill();
+}
+function articlesView(){catalogView("articles");}
+function renderEmbeddedDemos(a,parent,only3d){
+ if(!only3d){
+  if(a.demo==="kv")kvDemo(parent);
+  if(a.demo==="quant")quantDemo(parent);
+ }
+ if(only3d!==false&&a.demo3d==="kv")kv3dDemo(parent);
+}
 function articleView(){
 let a=article();titlebar(a.title);root.append($el("div","kicker",section().title+" / "+chapter().title));
 let toggle=$el("button","outline",favorites.includes(a.id)?"★ В избранном":"☆ В избранное");
 toggle.style.flex="none";toggle.onclick=()=>{favorites=favorites.includes(a.id)?favorites.filter(x=>x!==a.id):[...favorites,a.id];saveFavorites();toggle.textContent=favorites.includes(a.id)?"★ В избранном":"☆ В избранное";};root.append(toggle);
 (a.text||[]).forEach(t=>root.append($el("p","para",t)));
-if(a.demo==="kv")kvDemo(root);
-if(a.demo==="quant")quantDemo(root);
+renderEmbeddedDemos(a,root);
 let all=flat(),pos=all.findIndex(x=>x.a.id===a.id),ctr=$el("div","pageControls"),prev=$el("button","outline","‹ Назад"),next=$el("button","outline","Далее ›");
 prev.disabled=pos<=0;next.disabled=pos>=all.length-1;prev.onclick=()=>navArticle(all[pos-1]);next.onclick=()=>navArticle(all[pos+1]);ctr.append(prev,next);root.append(ctr);
 }
@@ -143,15 +201,15 @@ let pts=[];inputs.forEach(([b,input],i)=>{let x=45+i*(w-70)/4;ctx.fillText(b+"b"
 ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>{if(i)ctx.lineTo(...p);else ctx.moveTo(...p)});ctx.stroke();ctx.fillStyle="#fff";pts.forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,4,0,7);ctx.fill();});}
 requestAnimationFrame(()=>{paint();paintErr();});
 }
-function graphView(){titlebar("Графики");root.append($el("p","copy","Интерактивные модели параметров нейросетей. Меняй значения — расчёты обновятся сразу."));kvDemo(root);quantDemo(root);}
-function model3d(){
-titlebar("3D-примеры");
-root.append($el("p","copy","Вращай модель пальцем. Куб показывает условную структуру тензора KV-кеша, а не физическое расположение памяти."));
-let block=$el("div","demo"),canvas=$el("canvas");canvas.style.height="300px";block.append(canvas);
+function graphView(){catalogView("graphs");}
+function model3d(){catalogView("3d");}
+function kv3dDemo(parent){
+let block=$el("div","demo"),canvas=$el("canvas");
+block.append($el("h3","","KV-кеш · 3D-модель"));canvas.style.height="300px";block.append(canvas);
 let rotX=.3,rotY=.55,depth=6;
 control(block,"Количество слоёв в модели",6,2,16,1,n=>{depth=n;draw();});
 block.append($el("p","note","Проведи пальцем по модели для вращения. Это геометрическая иллюстрация: одна ось — токены, вторая — головы внимания, третья — слои."));
-root.append(block);
+parent.append(block);
 function draw(){
 const {ctx,w,h}=setupCanvas(canvas),sz=Math.min(w,h)*.34;
 ctx.clearRect(0,0,w,h);const proj=([x,y,z])=>{let x1=x*Math.cos(rotY)-z*Math.sin(rotY),z1=x*Math.sin(rotY)+z*Math.cos(rotY),y1=y*Math.cos(rotX)-z1*Math.sin(rotX),z2=y*Math.sin(rotX)+z1*Math.cos(rotX),s=2.9/(2.9+z2*.32);return [w/2+x1*sz*s,h/2+y1*sz*s];};
@@ -181,11 +239,12 @@ let t=$el("div","codekey",key||"Ключ формируется на Android-у�
 if(key){let b=$el("button","outline","Скопировать открытый ключ");b.style.marginTop="12px";b.onclick=()=>{try{Journal.copy(key);b.textContent="Скопировано";}catch(e){}};root.append(b);}
 root.append($el("p","foot","Закрытый ключ не покидает телефон. Хранилище GitHub предназначено только для зашифрованных обновлений."));
 }
-function nav(){let n=document.getElementById("nav");n.innerHTML="";[["home","Главная","home"],["articles","Разделы","book"],["favorites","Избранное","star"],["settings","Профиль","user"]].forEach(([type,name,ic])=>{let b=$el("button",route.type===type?"active":"");b.innerHTML=icon(ic)+'<span>'+name+'</span>';b.onclick=()=>{stack=[];route={type};render();};n.append(b);});}
-function render(){clear();switch(route.type){case"home":home();break;case"articles":articlesView();break;case"section":secView();break;case"chapter":chapterView();break;case"article":articleView();break;case"graphs":graphView();break;case"3d":model3d();break;case"favorites":favView();break;case"settings":settings();break;default:home();}nav();}
+function nav(){let n=document.getElementById("nav");n.innerHTML="";[["home","Главная","home"],["projects","Проекты","folder"],["favorites","Избранное","star"],["settings","Профиль","user"]].forEach(([type,name,ic])=>{let b=$el("button",route.type===type?"active":"");b.innerHTML=icon(ic)+'<span>'+name+'</span>';b.onclick=()=>{stack=[];route={type};render();};n.append(b);});}
+function render(){clear();switch(route.type){case"home":home();break;case"articles":articlesView();break;case"projects":projectList();break;case"section":secView();break;case"chapter":chapterView();break;case"article":articleView();break;case"graphs":graphView();break;case"3d":model3d();break;case"favorites":favView();break;case"settings":settings();break;default:home();}nav();}
 function saveFavorites(){try{if(window.Journal)Journal.setFavorites(JSON.stringify(favorites));else localStorage.setItem("favorites",JSON.stringify(favorites));}catch(e){}}
 window.onNativeStatus=function(s){lastStatus=s;if(route.type==="settings")render();};
 window.reloadJournal=function(){try{data=JSON.parse(Journal.data());if(data.schema!==1||!Array.isArray(data.sections))throw Error();route={type:"home"};stack=[];render();}catch(e){}};
+def.sections[0].chapters[0].articles.find(a=>a.id==="kv").demo3d="kv";
 function init(){try{if(window.Journal){data=JSON.parse(Journal.data());favorites=JSON.parse(Journal.favorites());lastStatus=Journal.status();}else{favorites=JSON.parse(localStorage.getItem("favorites")||"[]");}}catch(e){data=def;}render();}
 init();
 </script></body></html>
