@@ -184,7 +184,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface public String favorites() {
       return getSharedPreferences(PREF,MODE_PRIVATE).getString("favorites","[]");
     }
-    @JavascriptInterface public void favorites(String json) {
+    @JavascriptInterface public void setFavorites(String json) {
       try{JSONArray a=new JSONArray(json);if(a.length()<500)
         getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("favorites",a.toString()).apply();
       }catch(Exception ignored){}
