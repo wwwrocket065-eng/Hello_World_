@@ -6,8 +6,8 @@ android {
   applicationId = "com.developer.journal"
   minSdk = 26
   targetSdk = 34
-  versionCode = 9
-  versionName = "1.0.8"
+  versionCode = 10
+  versionName = "1.0.9"
  }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
