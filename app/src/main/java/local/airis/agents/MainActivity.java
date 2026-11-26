@@ -60,7 +60,7 @@ public class MainActivity extends Activity {
     static final String[] IDS={"qwen35-4b","qwen-coder-3b"};
     static final String[] TITLES={"Qwen3.5-4B · Q4_K_M","Qwen2.5-Coder-3B · Q4_K_M"};
     static final String[] URLS={"https://huggingface.co/ggml-org/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf","https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"};
-    static final String[] NAMES={"Айрис","Пикси","Вега","Астра","Нова","Лира","Орион","Сириус","Аврора","Эхо"};
+    static final String[] NAMES={"Айрис","Селена","Вега","Астра","Нова","Лира","Орион","Сириус","Аврора","Эхо"};
     static final String[] ROLES={"Координатор: план и критерии успеха","Программист: реализуй и исправь","Тестировщик: проверь и исправь ошибки","Архитектор: продумай структуру","Ревьюер: проверь качество","Исследователь: анализируй доступные данные","Безопасность: проверь риски","Оптимизатор: улучшай производительность","Дизайнер: улучшай интерфейс","Документатор: опиши результат"};
     final class Engine {
         final SharedPreferences prefs=getSharedPreferences("konsilium",MODE_PRIVATE);
@@ -78,7 +78,7 @@ public class MainActivity extends Activity {
         Engine(){models.mkdirs();projects.mkdirs();}
         final String[] avatarColors={"#5a4b80","#426956","#825f37","#385e83","#805378","#475d70","#4c716a","#75634b","#6d4c69","#555555"};
         final String[] glyphs={"✦","⌘","✓","◇","◉","⌕","⬡","⚡","❋","≡"};
-        String agentName(int i){return prefs.getString("name"+i,NAMES[i]);}
+        String agentName(int i){String name=prefs.getString("name"+i,NAMES[i]);return i==1&&"Пикси".equals(name)?NAMES[i]:name;}
         @JavascriptInterface public void saveAgent(int i,String name,String avatar,String nameColor,String glyph,String prompt){
             if(i<0||i>=NAMES.length||name==null||name.trim().isEmpty()||name.length()>48||avatar==null||!avatar.matches("#[0-9a-fA-F]{6}")||nameColor==null||!nameColor.matches("#[0-9a-fA-F]{6}")||glyph==null||glyph.trim().isEmpty()||glyph.length()>16||prompt==null||prompt.length()>4000)return;
             prefs.edit().putString("name"+i,name.trim()).putString("avatar"+i,avatar).putString("nameColor"+i,nameColor).putString("glyph"+i,glyph.trim()).putString("a"+i,prompt.trim()).apply();

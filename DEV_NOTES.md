@@ -6,3 +6,5 @@ Per-chat participant selection replaces global slider; old count used only for d
 - Unified vector avatar icons for existing default glyphs; user colors and custom glyphs retained.
 - Individual prompt editor opens directly from participant list; draft selection retained on return. Settings agent editor is appearance-only. Reset appearance no longer clears prompt.
 - Existing model files and chat storage unchanged. CI APK uses an ephemeral signing key and must be re-signed with the original key before distribution as an in-place update.
+
+- Renamed Pixie to Selena (including existing old default name); redesigned Selena and Orion vector avatars. Agent IDs, prompts, custom colors and other custom names remain unchanged.
