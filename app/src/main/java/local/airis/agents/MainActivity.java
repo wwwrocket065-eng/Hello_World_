@@ -16,6 +16,13 @@ import org.mozilla.javascript.*;
 public class MainActivity extends Activity {
     private WebView web;
     private Engine engine;
+    private static final int EXPORT_MODEL=4100, IMPORT_MODEL=4200;
+    @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(engine==null||resultCode!=RESULT_OK||data==null||data.getData()==null)return;
+        if(requestCode>=EXPORT_MODEL&&requestCode<EXPORT_MODEL+IDS.length)engine.transfer(requestCode-EXPORT_MODEL,data.getData(),true);
+        else if(requestCode>=IMPORT_MODEL&&requestCode<IMPORT_MODEL+IDS.length)engine.transfer(requestCode-IMPORT_MODEL,data.getData(),false);
+    }
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().setStatusBarColor(Color.BLACK);
@@ -60,13 +67,22 @@ public class MainActivity extends Activity {
         final File models=new File(getFilesDir(),"models"),projects=new File(getFilesDir(),"projects");
         final ExecutorService worker=Executors.newSingleThreadExecutor(), downloader=Executors.newSingleThreadExecutor();
         final ConcurrentLinkedQueue<JSONObject> events=new ConcurrentLinkedQueue<>();
-        volatile boolean busy=false,loading=false,ready=false,downloading=false,closed=false,stop=false;
+        volatile boolean busy=false,loading=false,ready=false,downloading=false,closed=false,stop=false,transferring=false;
+        volatile long transferBytes=0,transferTotal=0;
+        volatile String transferStatus="";
         volatile int active=-1,downloadIndex=-1,port;
         volatile long got=0,total=0;
         volatile String error="",downloadError="",key="";
         volatile java.lang.Process process;
         volatile HttpURLConnection request;
         Engine(){models.mkdirs();projects.mkdirs();}
+        final String[] avatarColors={"#5a4b80","#426956","#825f37","#385e83","#805378","#475d70","#4c716a","#75634b","#6d4c69","#555555"};
+        String agentName(int i){return prefs.getString("name"+i,NAMES[i]);}
+        @JavascriptInterface public void saveAgent(int i,String name,String avatar,String nameColor,String glyph,String prompt){
+            if(i<0||i>=NAMES.length||name==null||name.trim().isEmpty()||name.length()>48||avatar==null||!avatar.matches("#[0-9a-fA-F]{6}")||nameColor==null||!nameColor.matches("#[0-9a-fA-F]{6}")||glyph==null||glyph.trim().isEmpty()||glyph.length()>16||prompt==null||prompt.length()>4000)return;
+            prefs.edit().putString("name"+i,name.trim()).putString("avatar"+i,avatar).putString("nameColor"+i,nameColor).putString("glyph"+i,glyph.trim()).putString("a"+i,prompt.trim()).apply();
+        }
+        @JavascriptInterface public void resetAgent(int i){if(i>=0&&i<NAMES.length)prefs.edit().remove("name"+i).remove("avatar"+i).remove("nameColor"+i).remove("glyph"+i).remove("a"+i).apply();}
         File file(int i){return new File(models,IDS[i]+".gguf");}
         File part(int i){return new File(models,IDS[i]+".part");}
         boolean valid(int i){return i>=0&&i<IDS.length;}
@@ -75,14 +91,58 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String drain(){JSONArray a=new JSONArray();JSONObject j;while((j=events.poll())!=null)a.put(j);return a.toString();}
         @JavascriptInterface public String state(){
             JSONArray m=new JSONArray(),p=new JSONArray();for(int i=0;i<IDS.length;i++)m.put(obj("name",TITLES[i],"installed",file(i).isFile(),"bytes",file(i).length(),"partial",part(i).length(),"prompt",prefs.getString("m"+i,"")));
-            for(int i=0;i<NAMES.length;i++)p.put(obj("name",NAMES[i],"role",ROLES[i],"prompt",prefs.getString("a"+i,"")));
-            return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false)).toString();
+            for(int i=0;i<NAMES.length;i++)p.put(obj("name",agentName(i),"role",ROLES[i],"prompt",prefs.getString("a"+i,ROLES[i]),"avatar",prefs.getString("avatar"+i,avatarColors[i]),"nameColor",prefs.getString("nameColor"+i,"#f5f5f5"),"glyph",prefs.getString("glyph"+i,"✦")));
+            return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false),"transferring",transferring,"transferBytes",transferBytes,"transferTotal",transferTotal,"transferStatus",transferStatus).toString();
         }
         @JavascriptInterface public void setCount(int n){if(n>=1&&n<=10)prefs.edit().putInt("count",n).apply();}
         @JavascriptInterface public void setAllow(boolean b){prefs.edit().putBoolean("allow",b).apply();}
         @JavascriptInterface public void savePrompt(String scope,int i,String text){if(text!=null&&text.length()<=4000&&(("m".equals(scope)&&valid(i))||("a".equals(scope)&&i>=0&&i<NAMES.length)))prefs.edit().putString(scope+i,text.trim()).apply();}
+        @JavascriptInterface public synchronized String backupModel(int i){
+            if(!valid(i)||!file(i).isFile()||transferring||downloading)return "Модель недоступна";
+            runOnUiThread(()->{
+                android.content.Intent it=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);
+                it.addCategory(android.content.Intent.CATEGORY_OPENABLE);it.setType("application/octet-stream");
+                it.putExtra(android.content.Intent.EXTRA_TITLE,IDS[i]+".gguf");
+                startActivityForResult(it,EXPORT_MODEL+i);
+            });return "";
+        }
+        @JavascriptInterface public synchronized String importModel(int i){
+            if(!valid(i)||file(i).isFile()||transferring||downloading||loading||busy)return "Операция недоступна";
+            runOnUiThread(()->{
+                android.content.Intent it=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+                it.addCategory(android.content.Intent.CATEGORY_OPENABLE);it.setType("*/*");
+                startActivityForResult(it,IMPORT_MODEL+i);
+            });return "";
+        }
+        synchronized void transfer(int i,Uri uri,boolean export){
+            if(!valid(i)||transferring||downloading||(!export&&(file(i).exists()||loading||busy))||(export&&!file(i).isFile()))return;
+            transferring=true;transferBytes=0;transferTotal=export?file(i).length():0;transferStatus=export?"Резервное копирование…":"Восстановление…";
+            downloader.execute(()->{
+                File temp=new File(models,IDS[i]+".import");try{
+                    if(!export){
+                        try(android.database.Cursor c=getContentResolver().query(uri,new String[]{android.provider.OpenableColumns.SIZE},null,null,null)){
+                            if(c!=null&&c.moveToFirst()&&!c.isNull(0))transferTotal=c.getLong(0);
+                        }catch(Exception ignored){}
+                        if(transferTotal>0&&models.getUsableSpace()<transferTotal+16*1024*1024)throw new IOException("Недостаточно места");
+                    }
+                    try(InputStream in=export?new FileInputStream(file(i)):getContentResolver().openInputStream(uri);
+                        OutputStream out=export?getContentResolver().openOutputStream(uri,"wt"):new FileOutputStream(temp)){
+                        if(in==null||out==null)throw new IOException("Не удалось открыть файл");
+                        byte[] head=new byte[4];new DataInputStream(in).readFully(head);
+                        if(!"GGUF".equals(new String(head,StandardCharsets.US_ASCII)))throw new IOException("Это не GGUF");
+                        out.write(head);transferBytes=4;
+                        byte[] buf=new byte[512*1024];int n;
+                        while((n=in.read(buf))!=-1){if(closed)throw new IOException("Остановлено");out.write(buf,0,n);transferBytes+=n;}
+                        out.flush();
+                    }
+                    if(transferTotal>0&&transferBytes!=transferTotal)throw new IOException("Размер файла не совпадает");
+                    if(!export){if(transferBytes<1024*1024)throw new IOException("Файл слишком мал");if(!temp.renameTo(file(i)))throw new IOException("Не удалось восстановить модель");part(i).delete();}
+                    transferStatus=export?"Копия сохранена вне приложения":"Модель восстановлена";
+                }catch(Exception e){transferStatus="Ошибка: "+e.getMessage();if(!export)temp.delete();}finally{transferring=false;}
+            });
+        }
         @JavascriptInterface public synchronized String download(int i){
-            if(!valid(i)||file(i).isFile()||downloading)return "Загрузка недоступна";
+            if(!valid(i)||file(i).isFile()||downloading||transferring)return "Загрузка недоступна";
             downloading=true;downloadIndex=i;got=part(i).length();total=0;downloadError="";
             downloader.execute(()->{
                 HttpURLConnection c=null;try{
@@ -103,7 +163,7 @@ public class MainActivity extends Activity {
         }
         void stopProcess(){ready=false;java.lang.Process p=process;process=null;if(p!=null){p.destroy();try{if(!p.waitFor(2,TimeUnit.SECONDS))p.destroyForcibly();}catch(Exception ignored){p.destroyForcibly();}}}
         @JavascriptInterface public synchronized String delete(int i){
-            if(!valid(i)||busy||loading||(downloading&&downloadIndex==i))return "Операция недоступна";
+            if(!valid(i)||busy||loading||transferring||(downloading&&downloadIndex==i))return "Операция недоступна";
             if(active==i){stopProcess();active=-1;prefs.edit().putInt("active",-1).apply();}
             if(file(i).exists()&&!file(i).delete())return "Не удалось удалить";
             part(i).delete();return "";
@@ -129,7 +189,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.5.0\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.6.0\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;
@@ -175,14 +235,14 @@ public class MainActivity extends Activity {
             if(text==null||text.trim().isEmpty()||text.length()>16000)return "Некорректная задача";
             busy=true;stop=false;final int count=prefs.getInt("count",5),model=active;
             final boolean allow=prefs.getBoolean("allow",false);
-            final String common=prefs.getString("m"+model,"");final String[] prompts=new String[count];for(int i=0;i<count;i++)prompts[i]=prefs.getString("a"+i,"");
+            final String common=prefs.getString("m"+model,"");final String[] prompts=new String[count],names=new String[count];for(int i=0;i<count;i++){prompts[i]=prefs.getString("a"+i,ROLES[i]);names[i]=agentName(i);}
             worker.execute(()->{try{
                 File base=project(id);String discussion=history==null?"":history;discussion=tail(discussion,6500);
                 int[] order=count>=4?new int[count+1]:new int[count+1];order[0]=0;int p=1;if(count>=4)order[p++]=3;for(int i=1;i<count;i++)if(i!=3)order[p++]=i;order[p]=0;
                 int rounds=count==1?1:order.length;
                 for(int k=0;k<rounds&&!stop;k++){
-                    int a=order[k];String role=k==rounds-1&&count>1?"Координатор: подведи итог, не утверждай непроверенное":ROLES[a];
-                    String system="Ты участник команды "+NAMES[a]+". "+role+".\n"+common+"\n"+prompts[a]+"\nОтвечай на русском. Для работы с проектом верни JSON: {\"message\":\"текст\",\"tools\":[{\"tool\":\"list\"},{\"tool\":\"read\",\"path\":\"main.js\"},{\"tool\":\"write\",\"path\":\"main.js\",\"content\":\"...\"},{\"tool\":\"run_js\",\"path\":\"main.js\"}]}. Используй только нужные инструменты, иначе tools пуст. Встроенный исполнитель поддерживает только JavaScript, не выдумывай компиляторы. Не утверждай успех без вывода.";
+                    int a=order[k];String role=(prompts[a].trim().isEmpty()?ROLES[a]:prompts[a])+(k==rounds-1&&count>1?"\nПодведи итог, не утверждай непроверенное":"");
+                    String system="Ты участник команды "+names[a]+". "+role+".\n"+common+"\nОтвечай на русском. Для работы с проектом верни JSON: {\"message\":\"текст\",\"tools\":[{\"tool\":\"list\"},{\"tool\":\"read\",\"path\":\"main.js\"},{\"tool\":\"write\",\"path\":\"main.js\",\"content\":\"...\"},{\"tool\":\"run_js\",\"path\":\"main.js\"}]}. Используй только нужные инструменты, иначе tools пуст. Встроенный исполнитель поддерживает только JavaScript, не выдумывай компиляторы. Не утверждай успех без вывода.";
                     emit("thinking","agent",a);
                     String info="";
                     for(int attempt=0;attempt<3&&!stop;attempt++){
@@ -190,7 +250,7 @@ public class MainActivity extends Activity {
                         if(stop)break;
                         JSONObject parsed=null;try{int l=answer.indexOf('{'),r=answer.lastIndexOf('}');if(l>=0&&r>l)parsed=new JSONObject(answer.substring(l,r+1));}catch(Exception ignored){}
                         String msg=parsed==null?answer:parsed.optString("message","");
-                        if(!msg.isEmpty()){emit("message","agent",a,"text",msg);discussion=tail(discussion+"\n"+NAMES[a]+": "+msg,10000);}
+                        if(!msg.isEmpty()){emit("message","agent",a,"text",msg);discussion=tail(discussion+"\n"+names[a]+": "+msg,10000);}
                         JSONArray actions=parsed==null?null:parsed.optJSONArray("tools");if(actions==null||actions.length()==0)break;
                         info="";for(int z=0;z<Math.min(8,actions.length())&&!stop;z++){JSONObject action=actions.getJSONObject(z);String result;try{result=tool(base,action,allow);}catch(Exception e){result="Ошибка: "+e.getMessage();}info+=action.optString("tool")+": "+tail(result,2500)+"\n";emit("tool","agent",a,"text",action.optString("tool")+": "+tail(result,2500));}
                         discussion=tail(discussion+"\n"+info,10000);
