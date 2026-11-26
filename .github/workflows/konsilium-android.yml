@@ -1,0 +1,30 @@
+name: Konsilium Android 0.4
+on:
+  push:
+    branches: [konsilium-android-0.4]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.ref == 'refs/heads/konsilium-android-0.4' || github.head_ref == 'konsilium-android-0.4'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - run: gradle --no-daemon :app:assembleDebug
+      - run: cp app/build/outputs/apk/debug/app-debug.apk Konsilium-0.4.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Konsilium-0.4.0-APK
+          path: Konsilium-0.4.0.apk
