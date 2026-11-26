@@ -51,7 +51,8 @@ jobs:
           (cd /tmp/native-apk && zip -q -6 -r /tmp/unsigned.apk lib)
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/zipalign" -f 4 /tmp/unsigned.apk /tmp/aligned.apk
-          "$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.5.0.apk /tmp/aligned.apk
+          keytool -genkeypair -noprompt -keystore /tmp/konsilium-debug.jks -storepass android -keypass android -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          "$BT/apksigner" sign --ks /tmp/konsilium-debug.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.5.0.apk /tmp/aligned.apk
           "$BT/apksigner" verify --verbose Konsilium-0.5.0.apk
           "$BT/aapt" dump xmltree Konsilium-0.5.0.apk AndroidManifest.xml | grep extractNativeLibs
           unzip -l Konsilium-0.5.0.apk | grep -E 'libllamaserver.so|assets/index.html'
