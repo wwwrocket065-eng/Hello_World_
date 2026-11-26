@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
             if(i<0||i>=NAMES.length||name==null||name.trim().isEmpty()||name.length()>48||avatar==null||!avatar.matches("#[0-9a-fA-F]{6}")||nameColor==null||!nameColor.matches("#[0-9a-fA-F]{6}")||glyph==null||glyph.trim().isEmpty()||glyph.length()>16||prompt==null||prompt.length()>4000)return;
             prefs.edit().putString("name"+i,name.trim()).putString("avatar"+i,avatar).putString("nameColor"+i,nameColor).putString("glyph"+i,glyph.trim()).putString("a"+i,prompt.trim()).apply();
         }
-        @JavascriptInterface public void resetAgent(int i){if(i>=0&&i<NAMES.length)prefs.edit().remove("name"+i).remove("avatar"+i).remove("nameColor"+i).remove("glyph"+i).remove("a"+i).apply();}
+        @JavascriptInterface public void resetAgent(int i){if(i>=0&&i<NAMES.length)prefs.edit().remove("name"+i).remove("avatar"+i).remove("nameColor"+i).remove("glyph"+i).apply();}
         File file(int i){return new File(models,IDS[i]+".gguf");}
         File part(int i){return new File(models,IDS[i]+".part");}
         boolean valid(int i){return i>=0&&i<IDS.length;}
@@ -190,7 +190,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.7.0\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.0\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;
