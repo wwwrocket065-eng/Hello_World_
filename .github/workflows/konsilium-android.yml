@@ -16,10 +16,9 @@ jobs:
           java-version: '17'
       - name: Android SDK
         run: |
-          SDK="$ANDROID_HOME"
-          test -f "$SDK/platforms/android-35/android.jar" || sdkmanager 'platforms;android-35'
-          test -d "$SDK/build-tools/35.0.0" || sdkmanager 'build-tools;35.0.0'
-      - name: Package official llama.cpp ARM64 release
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar" || sdkmanager 'platforms;android-35'
+          test -d "$ANDROID_HOME/build-tools/35.0.0" || sdkmanager 'build-tools;35.0.0'
+      - name: Prepare official llama.cpp ARM64 release
         run: |
           set -euxo pipefail
           curl -fL --retry 3 https://github.com/ggml-org/llama.cpp/releases/download/b12785/llama-b12785-bin-android-arm64.tar.gz -o /tmp/llama.tgz
@@ -27,25 +26,36 @@ jobs:
           tar -xzf /tmp/llama.tgz -C /tmp/llama
           server="$(find /tmp/llama -type f -name llama-server | head -1)"
           test -n "$server"
-          dest=app/src/main/jniLibs/arm64-v8a
+          dest=/tmp/native-apk/lib/arm64-v8a
           mkdir -p "$dest"
           cp "$server" "$dest/libllamaserver.so"
           find "$(dirname "$server")" -maxdepth 1 -name 'lib*.so' -exec cp -L {} "$dest/" \;
-          find "$(dirname "$server")" -maxdepth 1 -name 'lib*.so.*' -print
-          readelf -d "$dest/libllamaserver.so"
+          rm -f "$dest"/libllama-{batched-bench,bench,cli,completion,fit-params,perplexity,quantize}-impl.so
+          readelf -h "$dest/libllamaserver.so"
           for f in "$dest"/*.so; do
-            echo "checking $f"
-            readelf -d "$f" | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p'
+            while read -r needed; do
+              case "$needed" in libc.so|libm.so|libdl.so|liblog.so|libandroid.so|libz.so) ;; *) test -f "$dest/$needed" ;; esac
+            done < <(readelf -d "$f" | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p')
           done
           mkdir -p app/src/main/assets
           find /tmp/llama -name LICENSE -exec cp {} app/src/main/assets/llama-LICENSE.txt \;
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - run: gradle --no-daemon :app:assembleDebug
-      - run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Konsilium-0.5.0.apk
+      - run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Add native payload and sign APK
+        run: |
+          set -euxo pipefail
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/unsigned.apk
+          zip -d /tmp/unsigned.apk 'META-INF/*.RSA' 'META-INF/*.SF' 'META-INF/MANIFEST.MF' || true
+          (cd /tmp/native-apk && zip -q -6 -r /tmp/unsigned.apk lib)
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -f 4 /tmp/unsigned.apk /tmp/aligned.apk
+          "$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.5.0.apk /tmp/aligned.apk
+          "$BT/apksigner" verify --verbose Konsilium-0.5.0.apk
+          "$BT/aapt" dump xmltree Konsilium-0.5.0.apk AndroidManifest.xml | grep extractNativeLibs
           unzip -l Konsilium-0.5.0.apk | grep -E 'libllamaserver.so|assets/index.html'
+          ls -lh Konsilium-0.5.0.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Konsilium-0.5.0-APK
