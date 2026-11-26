@@ -77,6 +77,7 @@ public class MainActivity extends Activity {
         volatile HttpURLConnection request;
         Engine(){models.mkdirs();projects.mkdirs();}
         final String[] avatarColors={"#5a4b80","#426956","#825f37","#385e83","#805378","#475d70","#4c716a","#75634b","#6d4c69","#555555"};
+        final String[] glyphs={"✦","⌘","✓","◇","◉","⌕","⬡","⚡","❋","≡"};
         String agentName(int i){return prefs.getString("name"+i,NAMES[i]);}
         @JavascriptInterface public void saveAgent(int i,String name,String avatar,String nameColor,String glyph,String prompt){
             if(i<0||i>=NAMES.length||name==null||name.trim().isEmpty()||name.length()>48||avatar==null||!avatar.matches("#[0-9a-fA-F]{6}")||nameColor==null||!nameColor.matches("#[0-9a-fA-F]{6}")||glyph==null||glyph.trim().isEmpty()||glyph.length()>16||prompt==null||prompt.length()>4000)return;
@@ -91,7 +92,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String drain(){JSONArray a=new JSONArray();JSONObject j;while((j=events.poll())!=null)a.put(j);return a.toString();}
         @JavascriptInterface public String state(){
             JSONArray m=new JSONArray(),p=new JSONArray();for(int i=0;i<IDS.length;i++)m.put(obj("name",TITLES[i],"installed",file(i).isFile(),"bytes",file(i).length(),"partial",part(i).length(),"prompt",prefs.getString("m"+i,"")));
-            for(int i=0;i<NAMES.length;i++)p.put(obj("name",agentName(i),"role",ROLES[i],"prompt",prefs.getString("a"+i,ROLES[i]),"avatar",prefs.getString("avatar"+i,avatarColors[i]),"nameColor",prefs.getString("nameColor"+i,"#f5f5f5"),"glyph",prefs.getString("glyph"+i,"✦")));
+            for(int i=0;i<NAMES.length;i++)p.put(obj("name",agentName(i),"role",ROLES[i],"prompt",prefs.getString("a"+i,ROLES[i]),"avatar",prefs.getString("avatar"+i,avatarColors[i]),"nameColor",prefs.getString("nameColor"+i,"#f5f5f5"),"glyph",prefs.getString("glyph"+i,glyphs[i])));
             return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false),"transferring",transferring,"transferBytes",transferBytes,"transferTotal",transferTotal,"transferStatus",transferStatus).toString();
         }
         @JavascriptInterface public void setCount(int n){if(n>=1&&n<=10)prefs.edit().putInt("count",n).apply();}
@@ -189,7 +190,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.6.0\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.7.0\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;
@@ -230,15 +231,21 @@ public class MainActivity extends Activity {
             }
             return "Неизвестный инструмент";
         }
-        @JavascriptInterface public synchronized String send(String id,String text,String history){
+        @JavascriptInterface public synchronized String send(String id,String text,String history,String participants,boolean autoTitle){
             if(!ready||loading||busy)return "Сначала скачай и запусти модель";
             if(text==null||text.trim().isEmpty()||text.length()>16000)return "Некорректная задача";
-            busy=true;stop=false;final int count=prefs.getInt("count",5),model=active;
+            final ArrayList<Integer> chosen=new ArrayList<>();
+            try{JSONArray a=new JSONArray(participants);for(int n=0;n<a.length();n++){int v=a.getInt(n);if(v<0||v>=NAMES.length||chosen.contains(v))return "Неверный участник";chosen.add(v);}}catch(Exception e){return "Неверный список участников";}
+            if(chosen.isEmpty())return "Выбери хотя бы одного агента";
+            busy=true;stop=false;final int count=chosen.size(),model=active;
             final boolean allow=prefs.getBoolean("allow",false);
-            final String common=prefs.getString("m"+model,"");final String[] prompts=new String[count],names=new String[count];for(int i=0;i<count;i++){prompts[i]=prefs.getString("a"+i,ROLES[i]);names[i]=agentName(i);}
+            final String common=prefs.getString("m"+model,"");final String[] prompts=new String[NAMES.length],names=new String[NAMES.length];for(int i:chosen){prompts[i]=prefs.getString("a"+i,ROLES[i]);names[i]=agentName(i);}
             worker.execute(()->{try{
                 File base=project(id);String discussion=history==null?"":history;discussion=tail(discussion,6500);
-                int[] order=count>=4?new int[count+1]:new int[count+1];order[0]=0;int p=1;if(count>=4)order[p++]=3;for(int i=1;i<count;i++)if(i!=3)order[p++]=i;order[p]=0;
+                ArrayList<Integer> plan=new ArrayList<>(chosen);
+                if(plan.contains(0)){plan.remove(Integer.valueOf(0));plan.add(0,0);if(count>1&&plan.contains(3)){plan.remove(Integer.valueOf(3));plan.add(1,3);}}
+                if(count>1)plan.add(plan.get(0));
+                int[] order=new int[plan.size()];for(int q=0;q<plan.size();q++)order[q]=plan.get(q);
                 int rounds=count==1?1:order.length;
                 for(int k=0;k<rounds&&!stop;k++){
                     int a=order[k];String role=(prompts[a].trim().isEmpty()?ROLES[a]:prompts[a])+(k==rounds-1&&count>1?"\nПодведи итог, не утверждай непроверенное":"");
@@ -256,8 +263,20 @@ public class MainActivity extends Activity {
                         discussion=tail(discussion+"\n"+info,10000);
                     }
                 }
+                if(autoTitle&&!stop){
+                    try{
+                        String title=ask("Создай короткое название чата на русском языке: 2–6 слов, без кавычек, без пояснений. Только название.",tail(text,1200));
+                        title=title.replaceAll("[\\r\\n]+"," ").trim().replaceAll("^[\"«]+|[\"»]+$","");
+                        if(!title.isEmpty())emit("title","chat",id,"text",title.substring(0,Math.min(80,title.length())));
+                    }catch(Exception ignored){}
+                }
             }catch(Exception e){if(!stop)emit("error","text",e.toString());}finally{busy=false;emit("done");}});return "";
         }
+        @JavascriptInterface public synchronized String deleteChat(String id){
+            if(busy||loading)return "Дождись окончания работы";
+            try{if(id==null||!id.matches("[a-zA-Z0-9_-]{1,80}"))throw new IOException("Неверный чат");File f=new File(projects,id);if(f.exists())deleteTree(f);return "";}catch(Exception e){return e.toString();}
+        }
+        void deleteTree(File f)throws IOException{if(f.isDirectory()){File[] list=f.listFiles();if(list==null)throw new IOException("Не удалось прочитать папку");for(File x:list)deleteTree(x);}if(!f.delete())throw new IOException("Не удалось удалить "+f.getName());}
         String tail(String s,int n){return s.length()>n?s.substring(s.length()-n):s;}
         @JavascriptInterface public void cancel(){stop=true;HttpURLConnection c=request;if(c!=null)c.disconnect();}
         void close(){closed=true;cancel();stopProcess();worker.shutdownNow();downloader.shutdownNow();}
