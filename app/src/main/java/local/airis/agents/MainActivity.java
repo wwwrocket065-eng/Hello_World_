@@ -402,7 +402,7 @@ public class MainActivity extends Activity {
         String tool(File base,JSONObject t,boolean allow)throws Exception{
             String op=t.optString("tool"),path=t.optString("path");
             if("list".equals(op))return list(base,base,0);
-            if("read".equals(op)){String code=read(new FileInputStream(safe(base,path)),CODE_LIMIT);int off=Math.max(0,Math.min(code.length(),t.optInt("offset",0)));int end=Math.min(code.length(),off+12000);return code.substring(off,end)+(end<code.length()?"\n[Продолжение: read с offset="+end+"]":"");}
+            if("read".equals(op)){String code=read(new FileInputStream(safe(base,path)),CODE_LIMIT);int off=Math.max(0,Math.min(code.length(),t.optInt("offset",0)));int end=Math.min(code.length(),off+2000);return code.substring(off,end)+(end<code.length()?"\n[Продолжение: read с offset="+end+"]":"");}
             if("write".equals(op)){String content=t.getString("content");if(content.length()>100000)throw new IOException("Файл слишком большой");File f=safe(base,path);f.getParentFile().mkdirs();try(FileOutputStream o=new FileOutputStream(f)){o.write(content.getBytes(StandardCharsets.UTF_8));}return "Записан "+path;}
             if("run_js".equals(op)){
                 if(!allow)return "Запуск запрещён пользователем";
