@@ -5,3 +5,6 @@ Project folders are physical app-private directories keyed by stable IDs. Choose
 
 ## 1.0.1
 - Explicit APK MIME in both content provider and open intent, regardless of server MIME. Declare REQUEST_INSTALL_PACKAGES and request user-controlled unknown-source permission only when opening APK; retry installer after settings return. Direct ACTION_VIEW for opening non-APK files; clear failure message and export fallback. No silent installation. Existing package, folders and download files unchanged.
+
+## 1.0.2
+- Remove REQUEST_INSTALL_PACKAGES and all package installation / unknown-source permission flows. APKs are retained as files; opening an APK explains the limitation and offers normal MediaStore export, with Android security protections unchanged. Other file types still open via ACTION_VIEW. Existing files, folders, package ID, and signing certificate retained. Play Protect verdict requires independent verification; no guarantee of acceptance.

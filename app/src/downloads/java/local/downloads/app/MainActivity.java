@@ -3,7 +3,7 @@ import android.app.*;import android.content.*;import android.content.pm.PackageM
 
 public final class MainActivity extends Activity {
  Store store; LinearLayout list; EditText link;TextView summary; Button folderButton;String selectedFolder="",filterFolder="*"; final Handler handler=new Handler(Looper.getMainLooper());
- final ExecutorService exports=Executors.newSingleThreadExecutor();final LinkedHashMap<String,Row> rows=new LinkedHashMap<>();String shape=""; String pendingInstall=""; static final int INSTALL_PERMISSION=701;
+ final ExecutorService exports=Executors.newSingleThreadExecutor();final LinkedHashMap<String,Row> rows=new LinkedHashMap<>();String shape="";
  final Runnable refresh=new Runnable(){public void run(){render();handler.postDelayed(this,500);}};
  int dp(float x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
  static String size(long n){double v=Math.max(0,n);String[] u={"Б","КБ","МБ","ГБ","ТБ"};int i=0;while(v>=1024&&i<u.length-1){v/=1024;i++;}return String.format(Locale.forLanguageTag("ru"),i==0?"%.0f %s":"%.1f %s",v,u[i]);}
@@ -13,7 +13,7 @@ public final class MainActivity extends Activity {
  TextView text(String s,int sp,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(color);return t;}
  Button button(String label,Runnable action){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextColor(Color.WHITE);b.setTextSize(13);b.setMinHeight(dp(40));b.setMinimumHeight(dp(40));b.setMinWidth(0);b.setMinimumWidth(0);b.setPadding(dp(12),dp(6),dp(12),dp(6));b.setBackground(bg(0xff252525,22));b.setOnClickListener(v->action.run());return b;}
  void addButton(LinearLayout row,String label,Runnable action){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,dp(40));p.rightMargin=dp(6);row.addView(button(label,action),p);}
- @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);store=Store.get(this);if(b!=null)pendingInstall=b.getString("pendingInstall","");
+ @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);store=Store.get(this);
   LinearLayout root=vertical();root.setPadding(dp(16),dp(12),dp(16),dp(10));root.setBackgroundColor(Color.BLACK);
   TextView title=text("Загрузки",27,Color.WHITE);title.setTypeface(null,Typeface.BOLD);root.addView(title);
   summary=text("Файлы хранятся в приложении",13,0xffaaaaaa);summary.setPadding(0,dp(5),0,dp(15));root.addView(summary);
@@ -23,13 +23,6 @@ public final class MainActivity extends Activity {
   ScrollView sc=new ScrollView(this);list=vertical();sc.addView(list);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},1);
   accept(getIntent());render();
- }
- @Override protected void onSaveInstanceState(Bundle b){b.putString("pendingInstall",pendingInstall);super.onSaveInstanceState(b);}
- @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);
-  if(request==INSTALL_PERMISSION){Store.Task t=store.get(pendingInstall);pendingInstall="";
-   if(t!=null&&getPackageManager().canRequestPackageInstalls())open(t,false);
-   else toast("Установка не разрешена. Разрешение можно включить при следующем открытии APK.");
-  }
  }
  @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);accept(i);}
  void accept(Intent i){
@@ -66,7 +59,7 @@ public final class MainActivity extends Activity {
     if(!Store.DONE.equals(t.status)){r.progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);r.progress.setProgressTintList(ColorStateList.valueOf(Color.WHITE));r.progress.setMax(1000);card.addView(r.progress,new LinearLayout.LayoutParams(-1,dp(8)));}
     LinearLayout buttons=horizontal();buttons.setPadding(0,dp(9),0,0);card.addView(buttons);
     if((Store.RUNNING.equals(t.status)||Store.QUEUED.equals(t.status))&&!t.url.isEmpty())addButton(buttons,"Пауза",()->{store.pause(t);TransferService.interrupt(t.id);render();});
-    else if(Store.DONE.equals(t.status)){addButton(buttons,"Открыть",()->open(t,false));addButton(buttons,"Поделиться",()->open(t,true));addButton(buttons,"Экспорт",()->export(t));}
+    else if(Store.DONE.equals(t.status)){addButton(buttons,Store.APK_MIME.equals(Store.effectiveMime(t))?"APK":"Открыть",()->open(t,false));addButton(buttons,"Поделиться",()->open(t,true));addButton(buttons,"Экспорт",()->export(t));}
     else if(!t.url.isEmpty())addButton(buttons,"Продолжить",()->{store.resume(t);start(t);});
     if(!Store.RUNNING.equals(t.status)&&!Store.QUEUED.equals(t.status)){
      LinearLayout bottom=horizontal();bottom.setPadding(0,dp(6),0,0);if(Store.DONE.equals(t.status))addButton(bottom,"Переместить",()->chooseFolder("Переместить в папку",folder->{try{store.move(t,folder);render();}catch(Exception e){toast(e.getMessage());}}));addButton(bottom,"Удалить",()->new AlertDialog.Builder(this).setMessage("Удалить "+t.name+"?").setNegativeButton("Отмена",null).setPositiveButton("Удалить",(d,w)->{if(!store.remove(t))toast("Не удалось удалить");render();}).show());card.addView(bottom);}
@@ -78,13 +71,9 @@ public final class MainActivity extends Activity {
   if(t==null||!Store.DONE.equals(t.status)||!store.data(t).isFile()){toast("Файл не найден или ещё не скачан");return;}
   Uri u=store.uri(t);String mime=Store.effectiveMime(t);
   boolean apk=Store.APK_MIME.equals(mime);
-  if(apk&&!share&&!getPackageManager().canRequestPackageInstalls()){
-   new AlertDialog.Builder(this).setTitle("Установка APK").setMessage("Android требует разрешить установку приложений из источника «Загрузки». Установка каждого APK всё равно подтверждается тобой.")
-    .setNegativeButton("Отмена",null).setPositiveButton("Настройки",(d,w)->{
-     pendingInstall=t.id;
-     try{startActivityForResult(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName())),INSTALL_PERMISSION);}
-     catch(Exception e){pendingInstall="";toast("Не удалось открыть настройки установки: "+e.getMessage());}
-    }).show();return;
+  if(apk&&!share){
+   new AlertDialog.Builder(this).setTitle("Файл APK").setMessage("Загрузки сохраняют APK, но не устанавливают приложения. Экспортируй файл в общую папку Download/Downloads. Проверку безопасности выполняет Android.")
+    .setNegativeButton("Закрыть",null).setPositiveButton("Экспорт APK",(d,w)->export(t)).show();return;
   }
   Intent i=share?new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM,u):new Intent(Intent.ACTION_VIEW).setDataAndType(u,mime);
   i.setClipData(ClipData.newRawUri(t.name,u));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
