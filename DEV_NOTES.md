@@ -20,3 +20,6 @@ Per-chat participant selection replaces global slider; old count used only for d
 
 ## 0.8.3
 - Restored app label Konsilium. Stable application ID unchanged. Refined the ten default avatar glyphs for consistent visual weight and size, with simplified symbols and a clearly visible Orion belt. Palette, custom avatar settings, UI layout and model import logic unchanged. Sign distribution only with existing permanent key.
+
+## 0.8.4
+- Match approved avatar preview: sparkle, moon-star, shield-check, faceted gem, sun, music notes, original seven-star Orion, lightning, snowflake and vertical audio bars. Preserve approved colors and custom settings. App label remains Konsilium; stable package and import logic unchanged.
