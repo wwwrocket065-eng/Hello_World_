@@ -17,3 +17,6 @@ Per-chat participant selection replaces global slider; old count used only for d
 
 ## 0.8.2
 - Import opens Android document picker directly, without unsupported JS confirm. Enable WebChromeClient for remaining dialogs. Fallback ACTION_GET_CONTENT; picker errors/cancellation shown in transfer status. Avoid replacing model controls when state is unchanged. Permanent stable package and signing identity unchanged.
+
+## 0.8.3
+- Restored app label Konsilium. Stable application ID unchanged. Refined the ten default avatar glyphs for consistent visual weight and size, with simplified symbols and a clearly visible Orion belt. Palette, custom avatar settings, UI layout and model import logic unchanged. Sign distribution only with existing permanent key.
