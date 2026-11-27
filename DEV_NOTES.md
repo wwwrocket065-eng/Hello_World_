@@ -10,3 +10,7 @@ Per-chat participant selection replaces global slider; old count used only for d
 - Renamed Pixie to Selena (including existing old default name); redesigned Selena and Orion vector avatars. Agent IDs, prompts, custom colors and other custom names remain unchanged.
 
 - Distinct default agent colors: violet, lunar silver, orange, blue, red, green, teal, gold, magenta, graphite. Explicit user avatar-color settings remain untouched.
+
+## 0.8.1 — separate installation
+- New permanent application ID `local.airis.agents.stable`; old installation `local.airis.agents` remains untouched. Transfer GGUF using existing SAF model backup/import. Chats and settings are not automatically migrated.
+- CI uses temporary signing only; distribution APK must be signed locally with persistent Konsilium key. Never publish the key or CI-signed APK as stable.
