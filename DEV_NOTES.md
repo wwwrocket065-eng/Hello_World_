@@ -26,3 +26,6 @@ Per-chat participant selection replaces global slider; old count used only for d
 
 ## 0.8.5
 - Use exact upstream Lucide 0.456.0 SVG geometry for the nine preview icons plus the agreed custom Orion SVG. Preserve the current palette, stable package, label and all other behavior. Include upstream license.
+
+## 0.8.6
+- Real-time token accounting from pinned llama.cpp b12785 SSE timings and final usage. Input includes cache, output includes generated tokens; per-agent totals accumulate over tool rounds, request totals include title generation. Display generation throughput from engine; no character estimates. Existing prompt format, token budget, agent order, data and package ID unchanged. UI polls existing state every 750 ms. Real-device stream test pending.

@@ -81,6 +81,21 @@ public class MainActivity extends Activity {
         volatile String error="",downloadError="",key="";
         volatile java.lang.Process process;
         volatile HttpURLConnection request;
+        // Only the single generation worker mutates counts; UI receives an immutable snapshot.
+        final long[] agentIn=new long[NAMES.length],agentOut=new long[NAMES.length];
+        long totalIn=0,totalOut=0;
+        int metricsAgent=-1;
+        volatile JSONObject metrics=obj("active",false);
+        void resetMetrics(){
+            Arrays.fill(agentIn,0);Arrays.fill(agentOut,0);totalIn=totalOut=0;metricsAgent=-1;
+            publishMetrics(0,0,0,false,"Подготовка");
+        }
+        void publishMetrics(long in,long out,double speed,boolean measured,String phase){
+            int a=metricsAgent;
+            metrics=obj("active",true,"agent",a,"agentIn",(a>=0?agentIn[a]:0)+in,
+                "agentOut",(a>=0?agentOut[a]:0)+out,"totalIn",totalIn+in,"totalOut",totalOut+out,
+                "speed",Double.isFinite(speed)&&speed>=0?speed:0,"measured",measured,"phase",phase);
+        }
         Engine(){models.mkdirs();projects.mkdirs();}
         final String[] avatarColors={"#7651B5","#77818F","#AE602C","#3269B5","#B34451","#40834C","#23838D","#A7862B","#AC5294","#494C56"};
         final String[] glyphs={"✦","⌘","✓","◇","◉","⌕","⬡","⚡","❋","≡"};
@@ -99,7 +114,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String state(){
             JSONArray m=new JSONArray(),p=new JSONArray();for(int i=0;i<IDS.length;i++)m.put(obj("name",TITLES[i],"installed",file(i).isFile(),"bytes",file(i).length(),"partial",part(i).length(),"prompt",prefs.getString("m"+i,"")));
             for(int i=0;i<NAMES.length;i++)p.put(obj("name",agentName(i),"role",ROLES[i],"prompt",prefs.getString("a"+i,ROLES[i]),"avatar",prefs.getString("avatar"+i,avatarColors[i]),"nameColor",prefs.getString("nameColor"+i,"#f5f5f5"),"glyph",prefs.getString("glyph"+i,glyphs[i])));
-            return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false),"transferring",transferring,"picking",picking,"transferBytes",transferBytes,"transferTotal",transferTotal,"transferStatus",transferStatus).toString();
+            return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false),"transferring",transferring,"picking",picking,"transferBytes",transferBytes,"transferTotal",transferTotal,"transferStatus",transferStatus,"metrics",metrics).toString();
         }
         @JavascriptInterface public void setCount(int n){if(n>=1&&n<=10)prefs.edit().putInt("count",n).apply();}
         @JavascriptInterface public void setAllow(boolean b){prefs.edit().putBoolean("allow",b).apply();}
@@ -207,7 +222,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.5\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.6\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;
@@ -220,16 +235,69 @@ public class MainActivity extends Activity {
         String ask(String system,String user)throws Exception{
             if(stop||closed)throw new IOException("Остановлено");
             JSONArray msgs=new JSONArray().put(obj("role","system","content",system)).put(obj("role","user","content",user));
-            JSONObject result=call("/v1/chat/completions",obj("model","local","messages",msgs,"temperature",0.4,"max_tokens",1100,"stream",false,"chat_template_kwargs",obj("enable_thinking",false)),300000);
-            String content=result.getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content","");
-            if(content.trim().isEmpty())throw new IOException("Пустой ответ модели");return content;
+            JSONObject body=obj("model","local","messages",msgs,"temperature",0.4,"max_tokens",1100,
+                "stream",true,"stream_options",obj("include_usage",true),"timings_per_token",true,
+                "return_progress",true,"chat_template_kwargs",obj("enable_thinking",false));
+            HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+"/v1/chat/completions").openConnection();
+            c.setConnectTimeout(3000);c.setReadTimeout(300000);c.setRequestProperty("Authorization","Bearer "+key);
+            c.setRequestMethod("POST");c.setDoOutput(true);c.setRequestProperty("Content-Type","application/json");
+            c.setRequestProperty("Accept","text/event-stream");
+            request=c;long in=0,out=0;double speed=0;boolean measured=false,done=false,usageSeen=false;
+            StringBuilder content=new StringBuilder();
+            publishMetrics(0,0,0,false,"Обработка контекста");
+            try{
+                if(stop||closed)throw new IOException("Остановлено");
+                try(OutputStream o=c.getOutputStream()){o.write(body.toString().getBytes(StandardCharsets.UTF_8));}
+                int code=c.getResponseCode();
+                if(code!=200)throw new IOException("HTTP "+code+" "+read(c.getErrorStream()==null?new ByteArrayInputStream(new byte[0]):c.getErrorStream(),65536));
+                try(BufferedReader reader=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8))){
+                    String line;
+                    while(!stop&&!closed&&(line=reader.readLine())!=null){
+                        if(!line.startsWith("data:"))continue;
+                        String data=line.substring(5).trim();
+                        if("[DONE]".equals(data)){done=true;break;}
+                        if(data.isEmpty())continue;
+                        JSONObject chunk=new JSONObject(data);
+                        if(chunk.has("error"))throw new IOException(chunk.optString("error"));
+                        JSONObject progress=chunk.optJSONObject("prompt_progress"), timing=chunk.optJSONObject("timings"),usage=chunk.optJSONObject("usage");
+                        if(progress!=null&&!usageSeen)in=Math.max(in,progress.optLong("total",0));
+                        if(timing!=null){
+                            if(!usageSeen){
+                                in=Math.max(in,timing.optLong("prompt_n",0)+timing.optLong("cache_n",0));
+                                out=Math.max(out,timing.optLong("predicted_n",0));
+                            }
+                            double rate=timing.optDouble("predicted_per_second",-1);
+                            if(out>0&&Double.isFinite(rate)&&rate>=0){speed=rate;measured=true;}
+                        }
+                        if(usage!=null){in=usage.optLong("prompt_tokens",in);out=usage.optLong("completion_tokens",out);usageSeen=true;}
+                        JSONArray choices=chunk.optJSONArray("choices");
+                        if(choices!=null&&choices.length()>0){
+                            JSONObject choice=choices.optJSONObject(0);
+                            if(choice!=null){
+                                JSONObject delta=choice.optJSONObject("delta");
+                                if(delta!=null&&!delta.isNull("content"))content.append(delta.optString("content",""));
+                            }
+                        }
+                        publishMetrics(in,out,speed,measured,out>0?"Генерация":"Обработка контекста");
+                    }
+                }
+                if(stop||closed)throw new IOException("Остановлено");
+                if(!done)throw new IOException("Поток ответа прерван");
+                if(content.toString().trim().isEmpty())throw new IOException("Пустой ответ модели");
+                return content.toString();
+            }finally{
+                c.disconnect();if(request==c)request=null;
+                totalIn+=in;totalOut+=out;
+                if(metricsAgent>=0){agentIn[metricsAgent]+=in;agentOut[metricsAgent]+=out;}
+                publishMetrics(0,0,0,false,stop?"Остановлено":"Обработка результата");
+            }
         }
         @JavascriptInterface public synchronized String improve(String scope,int i,String text){
             if(!ready||busy||loading)return "Сначала запусти модель и дождись освобождения";
             if(text==null||text.trim().isEmpty()||text.length()>4000)return "Введи промпт";
             if("m".equals(scope)&&i!=active)return "Сначала активируй эту модель";
             if(!("m".equals(scope)&&valid(i))&&!("a".equals(scope)&&i>=0&&i<NAMES.length))return "Неизвестный редактор";
-            busy=true;stop=false;worker.execute(()->{try{String answer=ask("Улучши системный промпт на русском языке, сохрани намерение автора. Верни только готовый промпт, без пояснений.",text);emit("improved","scope",scope,"i",i,"text",answer);}catch(Exception e){emit("error","text",e.toString());}finally{busy=false;}});return "";
+            resetMetrics();busy=true;stop=false;worker.execute(()->{try{metricsAgent="a".equals(scope)?i:-1;String answer=ask("Улучши системный промпт на русском языке, сохрани намерение автора. Верни только готовый промпт, без пояснений.",text);emit("improved","scope",scope,"i",i,"text",answer);}catch(Exception e){emit("error","text",e.toString());}finally{busy=false;}});return "";
         }
         File project(String id)throws IOException{if(id==null||!id.matches("[a-zA-Z0-9_-]{1,80}"))throw new IOException("Неверный проект");File f=new File(projects,id);f.mkdirs();return f;}
         File safe(File base,String path)throws IOException{File f=new File(base,path).getCanonicalFile();if(!f.getPath().startsWith(base.getCanonicalPath()+File.separator))throw new IOException("Путь вне проекта");return f;}
@@ -254,7 +322,7 @@ public class MainActivity extends Activity {
             final ArrayList<Integer> chosen=new ArrayList<>();
             try{JSONArray a=new JSONArray(participants);for(int n=0;n<a.length();n++){int v=a.getInt(n);if(v<0||v>=NAMES.length||chosen.contains(v))return "Неверный участник";chosen.add(v);}}catch(Exception e){return "Неверный список участников";}
             if(chosen.isEmpty())return "Выбери хотя бы одного агента";
-            busy=true;stop=false;final int count=chosen.size(),model=active;
+            resetMetrics();busy=true;stop=false;final int count=chosen.size(),model=active;
             final boolean allow=prefs.getBoolean("allow",false);
             final String common=prefs.getString("m"+model,"");final String[] prompts=new String[NAMES.length],names=new String[NAMES.length];for(int i:chosen){prompts[i]=prefs.getString("a"+i,ROLES[i]);names[i]=agentName(i);}
             worker.execute(()->{try{
@@ -267,7 +335,7 @@ public class MainActivity extends Activity {
                 for(int k=0;k<rounds&&!stop;k++){
                     int a=order[k];String role=(prompts[a].trim().isEmpty()?ROLES[a]:prompts[a])+(k==rounds-1&&count>1?"\nПодведи итог, не утверждай непроверенное":"");
                     String system="Ты участник команды "+names[a]+". "+role+".\n"+common+"\nОтвечай на русском. Для работы с проектом верни JSON: {\"message\":\"текст\",\"tools\":[{\"tool\":\"list\"},{\"tool\":\"read\",\"path\":\"main.js\"},{\"tool\":\"write\",\"path\":\"main.js\",\"content\":\"...\"},{\"tool\":\"run_js\",\"path\":\"main.js\"}]}. Используй только нужные инструменты, иначе tools пуст. Встроенный исполнитель поддерживает только JavaScript, не выдумывай компиляторы. Не утверждай успех без вывода.";
-                    emit("thinking","agent",a);
+                    metricsAgent=a;publishMetrics(0,0,0,false,"Подготовка");emit("thinking","agent",a);
                     String info="";
                     for(int attempt=0;attempt<3&&!stop;attempt++){
                         String answer=ask(system,"Задача: "+tail(text,6000)+"\nОбсуждение:\n"+tail(discussion,6500)+"\nИнструменты:\n"+tail(info,3000));
@@ -281,7 +349,7 @@ public class MainActivity extends Activity {
                     }
                 }
                 if(autoTitle&&!stop){
-                    try{
+                    try{metricsAgent=-1;publishMetrics(0,0,0,false,"Название чата");
                         String title=ask("Создай короткое название чата на русском языке: 2–6 слов, без кавычек, без пояснений. Только название.",tail(text,1200));
                         title=title.replaceAll("[\\r\\n]+"," ").trim().replaceAll("^[\"«]+|[\"»]+$","");
                         if(!title.isEmpty())emit("title","chat",id,"text",title.substring(0,Math.min(80,title.length())));
