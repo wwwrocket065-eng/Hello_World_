@@ -23,3 +23,6 @@ Per-chat participant selection replaces global slider; old count used only for d
 
 ## 0.8.4
 - Match approved avatar preview: sparkle, moon-star, shield-check, faceted gem, sun, music notes, original seven-star Orion, lightning, snowflake and vertical audio bars. Preserve approved colors and custom settings. App label remains Konsilium; stable package and import logic unchanged.
+
+## 0.8.5
+- Use exact upstream Lucide 0.456.0 SVG geometry for the nine preview icons plus the agreed custom Orion SVG. Preserve the current palette, stable package, label and all other behavior. Include upstream license.

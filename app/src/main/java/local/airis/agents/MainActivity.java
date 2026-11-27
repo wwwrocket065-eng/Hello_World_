@@ -207,7 +207,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.4\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.5\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;
