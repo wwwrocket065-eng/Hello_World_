@@ -56,15 +56,15 @@ jobs:
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/zipalign" -f 4 /tmp/unsigned.apk /tmp/aligned.apk
           keytool -genkeypair -noprompt -keystore /tmp/konsilium-debug.jks -storepass android -keypass android -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
-          "$BT/apksigner" sign --ks /tmp/konsilium-debug.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.8.6-ci.apk /tmp/aligned.apk
-          "$BT/apksigner" verify --verbose Konsilium-0.8.6-ci.apk
-          "$BT/aapt" dump xmltree Konsilium-0.8.6-ci.apk AndroidManifest.xml | grep extractNativeLibs
-          unzip -l Konsilium-0.8.6-ci.apk | grep -E 'libllamaserver.so|assets/index.html'
-          ls -lh Konsilium-0.8.6-ci.apk
+          "$BT/apksigner" sign --ks /tmp/konsilium-debug.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.8.7-ci.apk /tmp/aligned.apk
+          "$BT/apksigner" verify --verbose Konsilium-0.8.7-ci.apk
+          "$BT/aapt" dump xmltree Konsilium-0.8.7-ci.apk AndroidManifest.xml | grep extractNativeLibs
+          unzip -l Konsilium-0.8.7-ci.apk | grep -E 'libllamaserver.so|assets/index.html'
+          ls -lh Konsilium-0.8.7-ci.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Konsilium-0.8.6-CI-APK
-          path: Konsilium-0.8.6-ci.apk
+          name: Konsilium-0.8.7-CI-APK
+          path: Konsilium-0.8.7-ci.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-signing-tools

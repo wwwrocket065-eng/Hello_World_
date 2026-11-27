@@ -29,3 +29,6 @@ Per-chat participant selection replaces global slider; old count used only for d
 
 ## 0.8.6
 - Real-time token accounting from pinned llama.cpp b12785 SSE timings and final usage. Input includes cache, output includes generated tokens; per-agent totals accumulate over tool rounds, request totals include title generation. Display generation throughput from engine; no character estimates. Existing prompt format, token budget, agent order, data and package ID unchanged. UI polls existing state every 750 ms. Real-device stream test pending.
+
+## 0.8.7
+- Import a single public HTTPS UTF-8 source file (including GitHub blob links) into the current chat's project, max 200 KB. No automatic execution, no archive extraction, no new permissions, no credentials. Explicit import button; preserves original file on duplicate. Generated files have clickable entries; file viewer offers native clipboard copy, SAF export and attach project path to composer. Agent read supports offsets. Existing model state, streaming statistics and stable package retained.
