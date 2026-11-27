@@ -1,1 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-permission android:name="android.permission.INTERNET"/><application android:label="Konsilium" android:icon="@drawable/ic_launcher" android:theme="@style/AppTheme" android:allowBackup="false" android:extractNativeLibs="true" android:networkSecurityConfig="@xml/network_security_config"><activity android:name="local.airis.agents.MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden" android:windowSoftInputMode="adjustResize"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<application android:label="Загрузки" android:theme="@android:style/Theme.Material.NoActionBar" android:icon="@drawable/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false">
+<activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+<intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+<intent-filter><action android:name="android.intent.action.SEND"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="text/plain"/></intent-filter>
+</activity>
+<service android:name=".TransferService" android:exported="false" android:foregroundServiceType="dataSync" android:stopWithTask="false"/>
+<provider android:name=".FileProvider" android:authorities="local.downloads.app.files" android:exported="false" android:grantUriPermissions="true"/>
+</application></manifest>
