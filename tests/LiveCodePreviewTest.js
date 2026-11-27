@@ -1,0 +1,14 @@
+const fs=require('fs'),assert=require('assert'),vm=require('vm');
+const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const source=html.split('// BEGIN LIVE CODE PARSER')[1].split('// END LIVE CODE PARSER')[0];
+const ctx={};vm.createContext(ctx);vm.runInContext(source,ctx);
+const parse=raw=>JSON.parse(JSON.stringify(ctx.liveCodeWrites(raw)));
+const code='function f(){return "Hello";}\n// Unicode: змейка 🐍\n';
+const full=JSON.stringify({message:'text',tools:[{tool:'write',path:'index.html',content:code},{tool:'write',path:'main.js',content:'x++'}]});
+assert.deepStrictEqual(parse(full),[{path:'index.html',code,complete:true},{path:'main.js',code:'x++',complete:true}]);
+assert.deepStrictEqual(parse('{"tools":[{"tool":"write","path":"a.js","content":"let x = 1;\\nconsole.log('),[{path:'a.js',code:'let x = 1;\nconsole.log(',complete:false}]);
+assert.deepStrictEqual(parse('{"message":"{\\"tool\\":\\"write\\",\\"content\\":\\"fake\\"}"}'),[]);
+assert.deepStrictEqual(parse('{"tools":[{"content":"hello\\u0021","path":"a.txt","tool":"write"}]}'),[{path:'a.txt',code:'hello!',complete:true}]);
+assert.deepStrictEqual(parse('{"tools":[{"tool":"read","path":"a.js","content":"not write"}]}'),[]);
+for(let i=0;i<full.length;i++)parse(full.slice(0,i));
+console.log('Live code parser checks passed');

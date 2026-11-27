@@ -85,6 +85,16 @@ public class MainActivity extends Activity {
         volatile String error="",downloadError="",key="";
         volatile java.lang.Process process;
         volatile HttpURLConnection request;
+        // Public response content only; no reasoning fields, no execution.
+        volatile JSONObject codePreview=obj("chat","","revision",0,"raw","","live",false,"agent",-1);
+        String previewChat="";long previewRevision=0;
+        void publishPreview(String raw,boolean live){
+            if(!previewChat.isEmpty())codePreview=obj("chat",previewChat,"revision",++previewRevision,"raw",raw,"live",live,"agent",metricsAgent);
+        }
+        @JavascriptInterface public String preview(String chat){
+            JSONObject p=codePreview;
+            return p.optString("chat").equals(chat)?p.toString():obj("chat",chat,"revision",0,"raw","","live",false,"agent",-1).toString();
+        }
         volatile boolean benchmarking=false;
         volatile String benchStatus="";
         volatile JSONArray benchResults=new JSONArray();
@@ -280,7 +290,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.8\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.9\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;
@@ -304,6 +314,8 @@ public class MainActivity extends Activity {
             c.setRequestProperty("Accept","text/event-stream");
             request=c;long in=0,out=0;double speed=0;boolean measured=false,done=false,usageSeen=false;
             StringBuilder content=new StringBuilder();
+            long previewAt=0;boolean showPreview=structured&&!previewChat.isEmpty();
+            if(showPreview)publishPreview("",true);
             publishMetrics(0,0,0,false,"Обработка контекста");
             try{
                 if(stop||closed)throw new IOException("Остановлено");
@@ -335,7 +347,11 @@ public class MainActivity extends Activity {
                             JSONObject choice=choices.optJSONObject(0);
                             if(choice!=null){
                                 JSONObject delta=choice.optJSONObject("delta");
-                                if(delta!=null&&!delta.isNull("content"))content.append(delta.optString("content",""));
+                                if(delta!=null&&!delta.isNull("content")){
+                                    content.append(delta.optString("content",""));
+                                    long now=android.os.SystemClock.elapsedRealtime();
+                                    if(showPreview&&now-previewAt>=200){publishPreview(content.toString(),true);previewAt=now;}
+                                }
                             }
                         }
                         publishMetrics(in,out,speed,measured,out>0?"Генерация":"Обработка контекста");
@@ -346,6 +362,7 @@ public class MainActivity extends Activity {
                 if(content.toString().trim().isEmpty())throw new IOException("Пустой ответ модели");
                 return content.toString();
             }finally{
+                if(showPreview)publishPreview(content.toString(),false);
                 c.disconnect();if(request==c)request=null;
                 totalIn+=in;totalOut+=out;
                 if(metricsAgent>=0){agentIn[metricsAgent]+=in;agentOut[metricsAgent]+=out;}
@@ -483,7 +500,7 @@ public class MainActivity extends Activity {
             final ArrayList<Integer> chosen=new ArrayList<>();
             try{JSONArray a=new JSONArray(participants);for(int n=0;n<a.length();n++){int v=a.getInt(n);if(v<0||v>=NAMES.length||chosen.contains(v))return "Неверный участник";chosen.add(v);}}catch(Exception e){return "Неверный список участников";}
             if(chosen.isEmpty())return "Выбери хотя бы одного агента";
-            resetMetrics();busy=true;stop=false;final int count=chosen.size(),model=active;
+            previewChat=id;publishPreview("",true);resetMetrics();busy=true;stop=false;final int count=chosen.size(),model=active;
             final boolean allow=prefs.getBoolean("allow",false);
             final String common=prefs.getString("m"+model,"");final String[] prompts=new String[NAMES.length],names=new String[NAMES.length];for(int i:chosen){prompts[i]=prefs.getString("a"+i,ROLES[i]);names[i]=agentName(i);}
             worker.execute(()->{try{
@@ -551,11 +568,11 @@ public class MainActivity extends Activity {
                     if(!finished&&!stop&&!(artifact&&k==0&&written.isEmpty()))emit("tool","agent",a,"text","Этап завершён без подтверждённого итогового ответа.");
                 }
                 if(artifact&&written.isEmpty()&&!stop)emit("error","text","Файл не создан. Команда не получила подтверждённый результат записи.");
-            }catch(Exception e){if(!stop)emit("error","text",e.toString());}finally{busy=false;emit("done");}});return "";
+            }catch(Exception e){if(!stop)emit("error","text",e.toString());}finally{JSONObject p=codePreview;publishPreview(p.optString("raw"),false);previewChat="";busy=false;emit("done");}});return "";
         }
         @JavascriptInterface public synchronized String deleteChat(String id){
             if(busy||loading||codeFetching||picking)return "Дождись окончания работы";
-            try{if(id==null||!id.matches("[a-zA-Z0-9_-]{1,80}"))throw new IOException("Неверный чат");File f=new File(projects,id);if(f.exists())deleteTree(f);return "";}catch(Exception e){return e.toString();}
+            try{if(id==null||!id.matches("[a-zA-Z0-9_-]{1,80}"))throw new IOException("Неверный чат");File f=new File(projects,id);if(f.exists())deleteTree(f);if(codePreview.optString("chat").equals(id))codePreview=obj("chat","","revision",++previewRevision,"raw","","live",false,"agent",-1);return "";}catch(Exception e){return e.toString();}
         }
         void deleteTree(File f)throws IOException{if(f.isDirectory()){File[] list=f.listFiles();if(list==null)throw new IOException("Не удалось прочитать папку");for(File x:list)deleteTree(x);}if(!f.delete())throw new IOException("Не удалось удалить "+f.getName());}
         String tail(String s,int n){return s.length()>n?s.substring(s.length()-n):s;}
