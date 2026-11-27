@@ -32,3 +32,7 @@ Per-chat participant selection replaces global slider; old count used only for d
 
 ## 0.8.7
 - Import a single public HTTPS UTF-8 source file (including GitHub blob links) into the current chat's project, max 200 KB. No automatic execution, no archive extraction, no new permissions, no credentials. Explicit import button; preserves original file on duplicate. Generated files have clickable entries; file viewer offers native clipboard copy, SAF export and attach project path to composer. Agent read supports offsets. Existing model state, streaming statistics and stable package retained.
+
+## 0.8.8
+- CPU benchmark: compare 4/6/8 (bounded by available CPU count) on the same model, with fixed prompt and 96 output tokens, uncached. Persist winning measured total inference time per model; reload winner, fallback CPU 4. Prompt batch threads separately configured. Explicit cache_prompt enabled and shared stable system prefix. GPU backend presence reported; existing Android native bundle does not contain Vulkan; no fake GPU measurements. 
+- Auto routing only uses selected agents; optional all-selected mode and explicit all-agent requests honored. Remove redundant coordinator pass and neural title generation. Structured tool JSON, verified atomic writes, real file attachment links, early finish on successful write, no success if no file. Normal generation limit remains 1100; artifact tasks use 2048. No data migration or signing change. Device benchmark results pending.

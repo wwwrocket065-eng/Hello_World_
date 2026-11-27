@@ -46,6 +46,11 @@ jobs:
         run: |
           python3 -c "import re; from pathlib import Path; Path('/tmp/ui.js').write_text(re.search(r'<script>(.*?)</script>',Path('app/src/main/assets/index.html').read_text(),re.S).group(1))"
           node --check /tmp/ui.js
+      - name: Test task routing
+        run: |
+          mkdir -p /tmp/planner-test
+          javac -d /tmp/planner-test app/src/main/java/local/airis/agents/AgentPlanner.java tests/AgentPlannerTest.java
+          java -cp /tmp/planner-test local.airis.agents.AgentPlannerTest
       - run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Add native payload and sign APK
         run: |
@@ -56,15 +61,15 @@ jobs:
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/zipalign" -f 4 /tmp/unsigned.apk /tmp/aligned.apk
           keytool -genkeypair -noprompt -keystore /tmp/konsilium-debug.jks -storepass android -keypass android -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
-          "$BT/apksigner" sign --ks /tmp/konsilium-debug.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.8.7-ci.apk /tmp/aligned.apk
-          "$BT/apksigner" verify --verbose Konsilium-0.8.7-ci.apk
-          "$BT/aapt" dump xmltree Konsilium-0.8.7-ci.apk AndroidManifest.xml | grep extractNativeLibs
-          unzip -l Konsilium-0.8.7-ci.apk | grep -E 'libllamaserver.so|assets/index.html'
-          ls -lh Konsilium-0.8.7-ci.apk
+          "$BT/apksigner" sign --ks /tmp/konsilium-debug.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out Konsilium-0.8.8-ci.apk /tmp/aligned.apk
+          "$BT/apksigner" verify --verbose Konsilium-0.8.8-ci.apk
+          "$BT/aapt" dump xmltree Konsilium-0.8.8-ci.apk AndroidManifest.xml | grep extractNativeLibs
+          unzip -l Konsilium-0.8.8-ci.apk | grep -E 'libllamaserver.so|assets/index.html'
+          ls -lh Konsilium-0.8.8-ci.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Konsilium-0.8.7-CI-APK
-          path: Konsilium-0.8.7-ci.apk
+          name: Konsilium-0.8.8-CI-APK
+          path: Konsilium-0.8.8-ci.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-signing-tools
