@@ -19,7 +19,11 @@ public class MainActivity extends Activity {
     private static final int EXPORT_MODEL=4100, IMPORT_MODEL=4200;
     @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data){
         super.onActivityResult(requestCode,resultCode,data);
-        if(engine==null||resultCode!=RESULT_OK||data==null||data.getData()==null)return;
+        if(engine==null)return;
+        if(requestCode>=EXPORT_MODEL&&requestCode<EXPORT_MODEL+IDS.length || requestCode>=IMPORT_MODEL&&requestCode<IMPORT_MODEL+IDS.length){
+            engine.picking=false;
+            if(resultCode!=RESULT_OK||data==null||data.getData()==null){engine.transferStatus="Выбор файла отменён";return;}
+        }else return;
         if(requestCode>=EXPORT_MODEL&&requestCode<EXPORT_MODEL+IDS.length)engine.transfer(requestCode-EXPORT_MODEL,data.getData(),true);
         else if(requestCode>=IMPORT_MODEL&&requestCode<IMPORT_MODEL+IDS.length)engine.transfer(requestCode-IMPORT_MODEL,data.getData(),false);
     }
@@ -42,6 +46,7 @@ public class MainActivity extends Activity {
                 return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));
             }
         });
+        web.setWebChromeClient(new android.webkit.WebChromeClient());
         web.addJavascriptInterface(engine,"Native");
         setContentView(web);web.loadUrl("https://app.konsilium.local/index.html");
         engine.restore();
@@ -68,6 +73,7 @@ public class MainActivity extends Activity {
         final ExecutorService worker=Executors.newSingleThreadExecutor(), downloader=Executors.newSingleThreadExecutor();
         final ConcurrentLinkedQueue<JSONObject> events=new ConcurrentLinkedQueue<>();
         volatile boolean busy=false,loading=false,ready=false,downloading=false,closed=false,stop=false,transferring=false;
+        volatile boolean picking=false;
         volatile long transferBytes=0,transferTotal=0;
         volatile String transferStatus="";
         volatile int active=-1,downloadIndex=-1,port;
@@ -93,26 +99,37 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String state(){
             JSONArray m=new JSONArray(),p=new JSONArray();for(int i=0;i<IDS.length;i++)m.put(obj("name",TITLES[i],"installed",file(i).isFile(),"bytes",file(i).length(),"partial",part(i).length(),"prompt",prefs.getString("m"+i,"")));
             for(int i=0;i<NAMES.length;i++)p.put(obj("name",agentName(i),"role",ROLES[i],"prompt",prefs.getString("a"+i,ROLES[i]),"avatar",prefs.getString("avatar"+i,avatarColors[i]),"nameColor",prefs.getString("nameColor"+i,"#f5f5f5"),"glyph",prefs.getString("glyph"+i,glyphs[i])));
-            return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false),"transferring",transferring,"transferBytes",transferBytes,"transferTotal",transferTotal,"transferStatus",transferStatus).toString();
+            return obj("models",m,"agents",p,"count",prefs.getInt("count",5),"active",active,"ready",ready,"loading",loading,"busy",busy,"downloading",downloading,"downloadIndex",downloadIndex,"got",got,"total",total,"error",error,"downloadError",downloadError,"allow",prefs.getBoolean("allow",false),"transferring",transferring,"picking",picking,"transferBytes",transferBytes,"transferTotal",transferTotal,"transferStatus",transferStatus).toString();
         }
         @JavascriptInterface public void setCount(int n){if(n>=1&&n<=10)prefs.edit().putInt("count",n).apply();}
         @JavascriptInterface public void setAllow(boolean b){prefs.edit().putBoolean("allow",b).apply();}
         @JavascriptInterface public void savePrompt(String scope,int i,String text){if(text!=null&&text.length()<=4000&&(("m".equals(scope)&&valid(i))||("a".equals(scope)&&i>=0&&i<NAMES.length)))prefs.edit().putString(scope+i,text.trim()).apply();}
         @JavascriptInterface public synchronized String backupModel(int i){
-            if(!valid(i)||!file(i).isFile()||transferring||downloading)return "Модель недоступна";
+            if(!valid(i)||!file(i).isFile()||picking||transferring||downloading)return "Модель недоступна";
+            picking=true;transferStatus="Выбери место сохранения";
             runOnUiThread(()->{
-                android.content.Intent it=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);
-                it.addCategory(android.content.Intent.CATEGORY_OPENABLE);it.setType("application/octet-stream");
-                it.putExtra(android.content.Intent.EXTRA_TITLE,IDS[i]+".gguf");
-                startActivityForResult(it,EXPORT_MODEL+i);
+                try{
+                    android.content.Intent it=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);
+                    it.addCategory(android.content.Intent.CATEGORY_OPENABLE);it.setType("application/octet-stream");
+                    it.putExtra(android.content.Intent.EXTRA_TITLE,IDS[i]+".gguf");
+                    startActivityForResult(it,EXPORT_MODEL+i);
+                }catch(Exception e){picking=false;transferStatus="Не удалось открыть сохранение: "+e.getMessage();}
             });return "";
         }
         @JavascriptInterface public synchronized String importModel(int i){
-            if(!valid(i)||file(i).isFile()||transferring||downloading||loading||busy)return "Операция недоступна";
+            if(!valid(i)||file(i).isFile()||picking||transferring||downloading||loading||busy)return "Операция недоступна";
+            picking=true;transferStatus="Выбери файл GGUF для "+TITLES[i];
             runOnUiThread(()->{
-                android.content.Intent it=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
-                it.addCategory(android.content.Intent.CATEGORY_OPENABLE);it.setType("*/*");
-                startActivityForResult(it,IMPORT_MODEL+i);
+                try{
+                    android.content.Intent it=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+                    it.addCategory(android.content.Intent.CATEGORY_OPENABLE);it.setType("*/*");it.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try{startActivityForResult(it,IMPORT_MODEL+i);}
+                    catch(android.content.ActivityNotFoundException ex){
+                        android.content.Intent fallback=new android.content.Intent(android.content.Intent.ACTION_GET_CONTENT);
+                        fallback.addCategory(android.content.Intent.CATEGORY_OPENABLE);fallback.setType("*/*");fallback.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        startActivityForResult(fallback,IMPORT_MODEL+i);
+                    }
+                }catch(Exception e){picking=false;transferStatus="Не удалось открыть выбор файла: "+e.getMessage();}
             });return "";
         }
         synchronized void transfer(int i,Uri uri,boolean export){
@@ -190,7 +207,7 @@ public class MainActivity extends Activity {
             });return "";
         }
         String logTail(){try(RandomAccessFile f=new RandomAccessFile(new File(getFilesDir(),"llama.log"),"r")){f.seek(Math.max(0,f.length()-2500));byte[] b=new byte[(int)(f.length()-f.getFilePointer())];f.readFully(b);return new String(b,StandardCharsets.UTF_8);}catch(Exception e){return "";}}
-        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.1\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
+        @JavascriptInterface public String diagnostics(){return "Konsilium 0.8.2\nABI: "+Arrays.toString(android.os.Build.SUPPORTED_ABIS)+"\nNative: "+getApplicationInfo().nativeLibraryDir+"\n"+state()+"\n"+logTail();}
         JSONObject call(String path,JSONObject body,int timeout)throws Exception{
             HttpURLConnection c=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();c.setConnectTimeout(3000);c.setReadTimeout(timeout);c.setRequestProperty("Authorization","Bearer "+key);
             if(body!=null)request=c;

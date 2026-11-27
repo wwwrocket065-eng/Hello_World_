@@ -14,3 +14,6 @@ Per-chat participant selection replaces global slider; old count used only for d
 ## 0.8.1 — separate installation
 - New permanent application ID `local.airis.agents.stable`; old installation `local.airis.agents` remains untouched. Transfer GGUF using existing SAF model backup/import. Chats and settings are not automatically migrated.
 - CI uses temporary signing only; distribution APK must be signed locally with persistent Konsilium key. Never publish the key or CI-signed APK as stable.
+
+## 0.8.2
+- Import opens Android document picker directly, without unsupported JS confirm. Enable WebChromeClient for remaining dialogs. Fallback ACTION_GET_CONTENT; picker errors/cancellation shown in transfer status. Avoid replacing model controls when state is unchanged. Permanent stable package and signing identity unchanged.
