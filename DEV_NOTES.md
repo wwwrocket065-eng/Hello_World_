@@ -8,3 +8,5 @@ Per-chat participant selection replaces global slider; old count used only for d
 - Existing model files and chat storage unchanged. CI APK uses an ephemeral signing key and must be re-signed with the original key before distribution as an in-place update.
 
 - Renamed Pixie to Selena (including existing old default name); redesigned Selena and Orion vector avatars. Agent IDs, prompts, custom colors and other custom names remain unchanged.
+
+- Distinct default agent colors: violet, lunar silver, orange, blue, red, green, teal, gold, magenta, graphite. Explicit user avatar-color settings remain untouched.

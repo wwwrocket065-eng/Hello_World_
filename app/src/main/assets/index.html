@@ -11,7 +11,7 @@ input[type=color]{width:52px;height:42px;padding:3px;border:1px solid #555;borde
 <section class="page" id="filepage"><div class="bar"><button onclick="back()">‹</button><h2>Файлы проекта</h2></div><div id="files"></div><pre id="fileText"></pre></section>
 <section class="page" id="diag"><div class="bar"><button onclick="openPage('prefs')">‹</button><h2>Диагностика</h2></div><pre id="diagText"></pre></section>
 <script>
-const $=id=>document.getElementById(id),N=Native;let st=JSON.parse(N.state()),page='',edit=null,current='',thinking='',history={},meta={},actionId='',draftParticipants=[];const colors=['#5a4b80','#426956','#825f37','#385e83','#805378','#475d70','#4c716a','#75634b','#6d4c69','#555'];
+const $=id=>document.getElementById(id),N=Native;let st=JSON.parse(N.state()),page='',edit=null,current='',thinking='',history={},meta={},actionId='',draftParticipants=[];const colors=["#7651B5","#77818F","#AE602C","#3269B5","#B34451","#40834C","#23838D","#A7862B","#AC5294","#494C56"];
 try{history=JSON.parse(localStorage.getItem('history')||'{}');current=localStorage.getItem('current')||'';meta=JSON.parse(localStorage.getItem('chatMeta')||'{}')}catch(e){}
 function chatMeta(id){if(!meta[id])meta[id]={title:'',manual:false,participants:Array.from({length:Math.max(1,Math.min(10,st.count||5))},(_,i)=>i)};return meta[id]}
 function titleFor(id){return chatMeta(id).title||history[id]?.find(m=>m.type==='user')?.text.slice(0,65)||'Новый чат'}

@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
         volatile java.lang.Process process;
         volatile HttpURLConnection request;
         Engine(){models.mkdirs();projects.mkdirs();}
-        final String[] avatarColors={"#5a4b80","#426956","#825f37","#385e83","#805378","#475d70","#4c716a","#75634b","#6d4c69","#555555"};
+        final String[] avatarColors={"#7651B5","#77818F","#AE602C","#3269B5","#B34451","#40834C","#23838D","#A7862B","#AC5294","#494C56"};
         final String[] glyphs={"✦","⌘","✓","◇","◉","⌕","⬡","⚡","❋","≡"};
         String agentName(int i){String name=prefs.getString("name"+i,NAMES[i]);return i==1&&"Пикси".equals(name)?NAMES[i]:name;}
         @JavascriptInterface public void saveAgent(int i,String name,String avatar,String nameColor,String glyph,String prompt){
