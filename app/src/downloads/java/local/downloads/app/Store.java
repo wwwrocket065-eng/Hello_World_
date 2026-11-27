@@ -40,5 +40,15 @@ final class Store {
  synchronized void fail(Task t,int epoch,String e){if(running(t,epoch)){t.status=FAILED;t.speed=0;t.error=e;save();}}
  synchronized void finish(Task t,int epoch)throws IOException{if(!running(t,epoch))return;if(!part(t).renameTo(data(t)))throw new IOException("Не удалось сохранить файл");t.got=data(t).length();t.total=t.got;t.speed=0;t.status=DONE;save();}
  synchronized boolean remove(Task t){if(t==null||RUNNING.equals(t.status)||QUEUED.equals(t.status))return false;if(part(t).exists()&&!part(t).delete())return false;if(data(t).exists()&&!data(t).delete())return false;tasks.remove(t.id);save();return true;}
+ static final String APK_MIME="application/vnd.android.package-archive";
+ static String effectiveMime(Task t){
+  String name=t.name.toLowerCase(Locale.ROOT);
+  if(name.endsWith(".apk"))return APK_MIME;
+  int dot=name.lastIndexOf('.');
+  String guess=dot>=0?android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substring(dot+1)):null;
+  String mime=t.mime;
+  if(mime==null||mime.isEmpty()||"application/octet-stream".equalsIgnoreCase(mime)||"binary/octet-stream".equalsIgnoreCase(mime))return guess!=null?guess:"application/octet-stream";
+  return mime;
+ }
  Uri uri(Task t){return new Uri.Builder().scheme("content").authority("local.downloads.app.files").appendPath(t.id).appendPath(t.name).build();}
 }

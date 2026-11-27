@@ -23,5 +23,5 @@ jobs:
       - run: gradle --no-daemon --stacktrace :app:assembleRelease
       - uses: actions/upload-artifact@v4
         with:
-          name: Downloads-1.0.0-unsigned
+          name: Downloads-1.0.1-unsigned
           path: app/build/outputs/apk/release/app-release-unsigned.apk

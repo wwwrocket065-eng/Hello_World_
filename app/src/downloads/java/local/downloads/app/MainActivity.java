@@ -3,7 +3,7 @@ import android.app.*;import android.content.*;import android.content.pm.PackageM
 
 public final class MainActivity extends Activity {
  Store store; LinearLayout list; EditText link;TextView summary; Button folderButton;String selectedFolder="",filterFolder="*"; final Handler handler=new Handler(Looper.getMainLooper());
- final ExecutorService exports=Executors.newSingleThreadExecutor();final LinkedHashMap<String,Row> rows=new LinkedHashMap<>();String shape="";
+ final ExecutorService exports=Executors.newSingleThreadExecutor();final LinkedHashMap<String,Row> rows=new LinkedHashMap<>();String shape=""; String pendingInstall=""; static final int INSTALL_PERMISSION=701;
  final Runnable refresh=new Runnable(){public void run(){render();handler.postDelayed(this,500);}};
  int dp(float x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
  static String size(long n){double v=Math.max(0,n);String[] u={"Б","КБ","МБ","ГБ","ТБ"};int i=0;while(v>=1024&&i<u.length-1){v/=1024;i++;}return String.format(Locale.forLanguageTag("ru"),i==0?"%.0f %s":"%.1f %s",v,u[i]);}
@@ -13,7 +13,7 @@ public final class MainActivity extends Activity {
  TextView text(String s,int sp,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(color);return t;}
  Button button(String label,Runnable action){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextColor(Color.WHITE);b.setTextSize(13);b.setMinHeight(dp(40));b.setMinimumHeight(dp(40));b.setMinWidth(0);b.setMinimumWidth(0);b.setPadding(dp(12),dp(6),dp(12),dp(6));b.setBackground(bg(0xff252525,22));b.setOnClickListener(v->action.run());return b;}
  void addButton(LinearLayout row,String label,Runnable action){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,dp(40));p.rightMargin=dp(6);row.addView(button(label,action),p);}
- @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);store=Store.get(this);
+ @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);store=Store.get(this);if(b!=null)pendingInstall=b.getString("pendingInstall","");
   LinearLayout root=vertical();root.setPadding(dp(16),dp(12),dp(16),dp(10));root.setBackgroundColor(Color.BLACK);
   TextView title=text("Загрузки",27,Color.WHITE);title.setTypeface(null,Typeface.BOLD);root.addView(title);
   summary=text("Файлы хранятся в приложении",13,0xffaaaaaa);summary.setPadding(0,dp(5),0,dp(15));root.addView(summary);
@@ -23,6 +23,13 @@ public final class MainActivity extends Activity {
   ScrollView sc=new ScrollView(this);list=vertical();sc.addView(list);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
   if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},1);
   accept(getIntent());render();
+ }
+ @Override protected void onSaveInstanceState(Bundle b){b.putString("pendingInstall",pendingInstall);super.onSaveInstanceState(b);}
+ @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);
+  if(request==INSTALL_PERMISSION){Store.Task t=store.get(pendingInstall);pendingInstall="";
+   if(t!=null&&getPackageManager().canRequestPackageInstalls())open(t,false);
+   else toast("Установка не разрешена. Разрешение можно включить при следующем открытии APK.");
+  }
  }
  @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);accept(i);}
  void accept(Intent i){
@@ -68,12 +75,24 @@ public final class MainActivity extends Activity {
   for(Store.Task t:all){Row r=rows.get(t.id);if(r==null)continue;r.title.setText(t.name);r.detail.setText(store.folderName(t.folder)+" · "+status(t)+" · "+size(t.got)+(t.total>=0&&!Store.DONE.equals(t.status)?" / "+size(t.total):"")+(Store.RUNNING.equals(t.status)?" · "+size(t.speed)+"/с":""));if(r.progress!=null){r.progress.setIndeterminate(Store.RUNNING.equals(t.status)&&t.total<=0);if(t.total>0)r.progress.setProgress((int)Math.min(1000,1000.0*t.got/t.total));}}
  }
  void open(Store.Task t,boolean share){
-  Uri u=store.uri(t);String mime=t.mime;if("application/octet-stream".equals(mime)){String ext=android.webkit.MimeTypeMap.getFileExtensionFromUrl(t.name);String guess=android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);if(guess!=null)mime=guess;}
+  if(t==null||!Store.DONE.equals(t.status)||!store.data(t).isFile()){toast("Файл не найден или ещё не скачан");return;}
+  Uri u=store.uri(t);String mime=Store.effectiveMime(t);
+  boolean apk=Store.APK_MIME.equals(mime);
+  if(apk&&!share&&!getPackageManager().canRequestPackageInstalls()){
+   new AlertDialog.Builder(this).setTitle("Установка APK").setMessage("Android требует разрешить установку приложений из источника «Загрузки». Установка каждого APK всё равно подтверждается тобой.")
+    .setNegativeButton("Отмена",null).setPositiveButton("Настройки",(d,w)->{
+     pendingInstall=t.id;
+     try{startActivityForResult(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName())),INSTALL_PERMISSION);}
+     catch(Exception e){pendingInstall="";toast("Не удалось открыть настройки установки: "+e.getMessage());}
+    }).show();return;
+  }
   Intent i=share?new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM,u):new Intent(Intent.ACTION_VIEW).setDataAndType(u,mime);
-  i.setClipData(ClipData.newRawUri(t.name,u));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivity(Intent.createChooser(i,share?"Поделиться файлом":"Открыть файл"));}catch(Exception e){toast("Нет приложения для открытия. Используй Экспорт.");}
+  i.setClipData(ClipData.newRawUri(t.name,u));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+  try{startActivity(share?Intent.createChooser(i,"Поделиться файлом"):i);}
+  catch(Exception e){new AlertDialog.Builder(this).setTitle("Не удалось открыть файл").setMessage("Тип: "+mime+"\n"+(e instanceof ActivityNotFoundException?"Нет подходящего приложения для открытия.":String.valueOf(e.getMessage()))).setNegativeButton("Закрыть",null).setPositiveButton("Экспорт",(dialog,which)->export(t)).show();}
  }
  void export(Store.Task t){toast("Копирую в общие Загрузки…");exports.execute(()->{Uri u=null;try{
-  ContentValues v=new ContentValues();v.put(MediaStore.Downloads.DISPLAY_NAME,t.name);v.put(MediaStore.Downloads.MIME_TYPE,t.mime);v.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/Downloads"+(t.folder.isEmpty()?"":"/"+store.folderName(t.folder)));v.put(MediaStore.Downloads.IS_PENDING,1);
+  ContentValues v=new ContentValues();v.put(MediaStore.Downloads.DISPLAY_NAME,t.name);v.put(MediaStore.Downloads.MIME_TYPE,Store.effectiveMime(t));v.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/Downloads"+(t.folder.isEmpty()?"":"/"+store.folderName(t.folder)));v.put(MediaStore.Downloads.IS_PENDING,1);
   u=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v);if(u==null)throw new IOException("Не удалось создать файл");
   try(InputStream in=new FileInputStream(store.data(t));OutputStream out=getContentResolver().openOutputStream(u,"w")){if(out==null)throw new IOException("Нет доступа");byte[] b=new byte[128*1024];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}
   v.clear();v.put(MediaStore.Downloads.IS_PENDING,0);getContentResolver().update(u,v,null,null);runOnUiThread(()->toast("Файл экспортирован"));
